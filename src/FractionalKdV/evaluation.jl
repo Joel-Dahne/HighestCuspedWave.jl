@@ -170,7 +170,7 @@ function (u0::FractionalKdVAnsatz)(x, evaltype::Ball)
     res = zero(u0.α)
 
     for j in 0:u0.N0
-        res += u0.a[j]*(Ci(x, 1 - u0.α + j*u0.p0) - Ci(zero(u0.α), 1 - u0.α + j*u0.p0))
+        res += u0.a[j]*(Ci(x, 1 - u0.α + j*u0.p0) - zeta(1 - u0.α + j*u0.p0))
     end
 
     for n in 1:u0.N1
@@ -236,7 +236,7 @@ function H(u0::FractionalKdVAnsatz, evaltype::Ball)
         res = zero(u0.α)
 
         for j in 0:u0.N0
-            res -= u0.a[j]*(Ci(x, 1 - 2u0.α + j*u0.p0) - Ci(zero(u0.α), 1 - 2u0.α + j*u0.p0))
+            res -= u0.a[j]*(Ci(x, 1 - 2u0.α + j*u0.p0) - zeta(1 - 2u0.α + j*u0.p0))
         end
 
         for n in 1:u0.N1

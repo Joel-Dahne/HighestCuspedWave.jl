@@ -26,7 +26,7 @@ function zeta(s::arb; d::Integer = 0)
 end
 
 function zeta(s::T; d::Integer = 0) where {T}
-    RealField(precision(BigFloat))
+    RR = RealField(precision(BigFloat))
     return convert(float(T), zeta(RR(s), d = d))
 end
 
