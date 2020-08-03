@@ -1,3 +1,5 @@
+export CB, CB_estimate
+
 """
     CB(u0::FractionalKdVAnsatz{arb}; ϵ::arb = parent(u0.α)(0.1))
 Upper bound the value of C_B from the paper. TODO: Uses an asymptotic

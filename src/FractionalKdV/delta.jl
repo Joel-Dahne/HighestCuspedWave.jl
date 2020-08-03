@@ -1,3 +1,5 @@
+export delta0, delta0_estimate
+
 """
     delta0(u0::FractionalKdVAnsatz; ϵ::arb = parent(u0.α)(0.1))
 Upper bound the value of δ₀ from the paper. Uses an asymptotic
@@ -5,20 +7,22 @@ expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
 """
 function delta0(u0::FractionalKdVAnsatz{arb};
                 ϵ::arb = parent(u0.α)(0.1),
+                rtol::arb = parent(u0.α)(1e-2),
                 )
     # Bound the value one [0, ϵ]
-    # TODO: Implement this
     res1 = enclosemaximum(F0(u0, Asymptotic()), parent(u0.α)(0), ϵ,
+                          rtol = rtol,
                           absmax = true,
-                          maxevals = 10^4,
+                          maxevals = 10^3,
                           )
 
     # Bound the value on [ϵ, π] by Ball evaluation
     # TODO: So far this naive approach only works for a very limited
     # range of parameters and needs to be improved.
     res2 = enclosemaximum(F0(u0), ϵ, parent(u0.α)(π),
+                          rtol = rtol,
                           absmax = true,
-                          maxevals = 10^4,
+                          maxevals = 10^3,
                           )
 
     return max(res1, res2)

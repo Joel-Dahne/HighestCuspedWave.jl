@@ -9,3 +9,5 @@ struct Asymptotic <: EvalType end
 struct AsymptoticExpansion <: EvalType end
 
 struct Symbolic <: EvalType end
+
+export Ball, Asymptotic, AsymptoticExpansion

@@ -1,11 +1,24 @@
 export FractionalKdVAnsatz
 
+"""
+    FractionalKdVAnsatz{T}
+α - Corresponds to α in the paper
+p0 - Corresponds to p₀ in the paper
+a - Vector corresponding to the aⱼ's in the paper, notice that the
+indexing here starts at 0 and not 1.
+b - Vector corresponding to the bⱼ's in the paper
+p - Exponent for the weight, which is |x|^p
+zeroterms - List of terms of D(u0) which guaranteed to be identically
+equal to zero. It is a set of tuples on the form (i, j, m), see
+eval_expansion for more information.
+"""
 struct FractionalKdVAnsatz{T}
     α::T
     p0::T
     a::OffsetVector{T, Vector{T}}
     b::Vector{T}
-    p::T # The exponent for the weight
+    p::T
+    zeroterms::Set{Tuple{Int, Int, Int}}
 end
 
 function FractionalKdVAnsatz(α::T, N0, N1, p = one(α)) where {T}
@@ -14,7 +27,7 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α)) where {T}
     a = OffsetVector(fill(zero(α), N0 + 1), 0:N0)
     b = fill(zero(α), N1)
 
-    u0 = FractionalKdVAnsatz(α, p0, a, b, p)
+    u0 = FractionalKdVAnsatz(α, p0, a, b, p, Set{Tuple{Int, Int, Int}}())
 
     findas!(u0)
     findbs!(u0)

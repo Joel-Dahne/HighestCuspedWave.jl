@@ -55,6 +55,7 @@ function findas!(u0::FractionalKdVAnsatz{T}) where {T}
     if u0.N0 >= 0
         u0.a[0] = 2Γ(2u0.α)*sinpi((1 - 2u0.α)/2)/(Γ(u0.α)^2*sinpi((1 - u0.α)/2)^2)
     end
+    push!(u0.zeroterms, (2, 0, 0))
 
     # The choice of p0 makes also the term a0(u0, 0)a0(u0, 1) - A0(u0,
     # 0) = 0
@@ -65,6 +66,7 @@ function findas!(u0::FractionalKdVAnsatz{T}) where {T}
             @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
         end
     end
+    push!(u0.zeroterms, (2, 1, 0))
 
     # TODO: Set the rest of the values
 

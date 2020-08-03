@@ -1,3 +1,5 @@
+export alpha0, alpha0_estimate
+
 """
     alpha0(u0::FractionalKdVAnsatz; ϵ::arb = parent(u0.α)(0.1))
 Upper bound the value of α₀ from the paper. Uses an asymptotic
@@ -5,6 +7,7 @@ expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
 """
 function alpha0(u0::FractionalKdVAnsatz{arb};
                 ϵ::arb = parent(u0.α)(0.1),
+                rtol::arb = parent(u0.α)(1e-2),
                 )
     # This is required for a finite value
     @assert u0.p + u0.α > 0
@@ -23,6 +26,7 @@ function alpha0(u0::FractionalKdVAnsatz{arb};
         u0.w(x)/(2u0(x))
     end
     m2 = enclosemaximum(f, ϵ, parent(u0.α)(π),
+                        rtol = rtol,
                         absmax = true,
                         maxevals = 10^4,
                         )

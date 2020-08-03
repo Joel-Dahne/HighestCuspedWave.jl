@@ -228,3 +228,18 @@ function hypbeta(a, b, z::T) where {T}
     end
     return convert(complex(float(T)), res)
 end
+
+"""
+    powpos(x, y)
+Compute |x|^y in a way that works if x contains negative numbers.
+"""
+function abspow(x::arb, y::arb)
+    if contains_zero(x)
+        x_upp = ArbTools.abs_ubound(x)
+        return ArbTools.setinterval(zero(x), x_upp^y)
+    end
+
+    return abs(x)^y
+end
+
+abspow(x, y) = abs(x)^y

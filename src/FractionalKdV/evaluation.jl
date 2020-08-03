@@ -1,6 +1,8 @@
 # This file contains code for evaluation of the approximate solution
 # in different ways
 
+export H, D, F0, hat, eval_expansion
+
 """
     a0(u0::FractionalKdVAnsatz, j::Integer)
 Compute a_j^0 from Lemma 3.2
@@ -402,6 +404,12 @@ function D(u0::FractionalKdVAnsatz{T}, evaltype::AsymptoticExpansion) where {T}
             expansion[key] = get(expansion, key, zero(u0.α)) + y
         end
 
+        # Terms in u0.zeroterms are supposed to be identically equal
+        # to zero
+        for key in u0.zeroterms
+            expansion[key] = zero(u0.α)
+        end
+
         return expansion
     end
 end
@@ -428,12 +436,12 @@ function F0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
 
         for ((i, j, m), y) in expansion
             if !iszero(y)
-                res += y*abs(x)^(-(i - 1)*u0.α + j*u0.p0 + 2m - u0.p)
+                res += y*abspow(x, -(i - 1)*u0.α + j*u0.p0 + 2m - u0.p)
             end
         end
 
-        ϵ = ArbTools.abs_ubound(x)
-        res *= ball(parent(u0.α)(1), c(u0, ϵ)*abs(x)^u0.p0)/a0(u0, 0)
+        ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
+        res *= ball(parent(u0.α)(1), c(u0, ϵ)*abspow(x, u0.p0))/a0(u0, 0)
 
         return res
     end
@@ -505,7 +513,7 @@ function eval_expansion(u0::FractionalKdVAnsatz{T},
     res = zero(u0.α)
 
     for ((i, j, m), y) in expansion
-        res += y*abs(x)^(-i*u0.α + j*u0.p0 + 2m)
+        res += y*abspow(x, -i*u0.α + j*u0.p0 + 2m)
     end
 
     return res
