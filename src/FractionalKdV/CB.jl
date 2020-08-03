@@ -29,10 +29,10 @@ end
     CB_estimate(u0::FractionalKdVAnsatz; n::Integer = 100)
 Estimate the value of C_B from the paper. Does this by evaluating the
 norm it on n linearly spaced points. This always gives a lower bound
-of C_B.
+of C_B. Currently it gives a very bad estimate.
 """
 function CB_estimate(u0::FractionalKdVAnsatz{T};
-                     n::Integer = 100,
+                     n::Integer = 10,
                      ) where {T}
     xs = range(0, stop = π, length = n)[2:end]
     if T == arb
