@@ -180,8 +180,10 @@ function (u0::FractionalKdVAnsatz)(x, evaltype::Ball)
     return res
 end
 
-function (u0::FractionalKdVAnsatz{T})(x, evaltype::Asymptotic) where {T}
-    M = 3
+function (u0::FractionalKdVAnsatz{T})(x,
+                                      evaltype::Asymptotic;
+                                      M::Integer = 3,
+                                      ) where {T}
     @assert M >= 1 - (u0.α + u0.N0*u0.p0)/2
 
     # Compute approximation
@@ -201,8 +203,10 @@ function (u0::FractionalKdVAnsatz{T})(x, evaltype::Asymptotic) where {T}
     return res
 end
 
-function (u0::FractionalKdVAnsatz{T})(x, evaltype::AsymptoticExpansion) where {T}
-    M = 3
+function (u0::FractionalKdVAnsatz{T})(x,
+                                      evaltype::AsymptoticExpansion;
+                                      M::Integer = 3,
+                                      ) where {T}
     @assert M >= 1 - (u0.α + u0.N0*u0.p0)/2
 
     expansion = Dict{Tuple{Int, Int, Int}, T}()
@@ -247,11 +251,12 @@ function H(u0::FractionalKdVAnsatz, evaltype::Ball)
     end
 end
 
-function H(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
+function H(u0::FractionalKdVAnsatz{T},
+           evaltype::Asymptotic,
+           M::Integer = 3,
+           ) where {T}
+    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
     return x -> begin
-        M = 3
-        @assert M >= 1 - u0.α + u0.N0*u0.p0/2
-
         res = zero(u0.α)
         for j in 0:u0.N0
             res -= A0(u0, j)*abs(x)^(-2u0.α + j*u0.p0)
@@ -269,11 +274,12 @@ function H(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
     end
 end
 
-function H(u0::FractionalKdVAnsatz{T}, evaltype::AsymptoticExpansion) where {T}
+function H(u0::FractionalKdVAnsatz{T},
+           evaltype::AsymptoticExpansion;
+           M::Integer = 3,
+           ) where {T}
+    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
     return x -> begin
-        M = 3
-        @assert M >= 1 - u0.α + u0.N0*u0.p0/2
-
         expansion = Dict{Tuple{Int, Int, Int}, T}()
 
         for j in 0:u0.N0
@@ -379,18 +385,19 @@ function D(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
     end
 end
 
-function D(u0::FractionalKdVAnsatz{T}, evaltype::AsymptoticExpansion) where {T}
+function D(u0::FractionalKdVAnsatz{T},
+           evaltype::AsymptoticExpansion;
+           M::Integer = 3,
+           ) where {T}
+    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
     return x -> begin
-        M = 3
-        @assert M >= 1 - u0.α + u0.N0*u0.p0/2
-
         # TODO: Handle terms that might be identically equal to zero
         expansion = Dict{Tuple{Int, Int, Int}, T}()
 
         # u0^2/2 term
         # TODO: We can reduce the number of computations but using
         # that multiplication is commutative
-        expansion1 = u0(x, evaltype)
+        expansion1 = u0(x, evaltype, M = M)
         for ((i1, j1, m1), y1) in expansion1
             for ((i2, j2, m2), y2) in expansion1
                 key = (i1 + i2, j1 + j2, m1 + m2)
@@ -399,7 +406,7 @@ function D(u0::FractionalKdVAnsatz{T}, evaltype::AsymptoticExpansion) where {T}
         end
 
         # H term
-        expansion2 = H(u0, evaltype)(x)
+        expansion2 = H(u0, evaltype, M = M)(x)
         for (key, y) in expansion2
             expansion[key] = get(expansion, key, zero(u0.α)) + y
         end
@@ -428,11 +435,14 @@ function F0(u0::FractionalKdVAnsatz, evaltype::Ball)
     end
 end
 
-function F0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
+function F0(u0::FractionalKdVAnsatz{T},
+            evaltype::Asymptotic;
+            M::Integer = 3,
+            ) where {T}
     return x -> begin
         res = zero(u0.α)
 
-        expansion = D(u0, AsymptoticExpansion())(x)
+        expansion = D(u0, AsymptoticExpansion(), M = M)(x)
 
         for ((i, j, m), y) in expansion
             if !iszero(y)
@@ -462,12 +472,14 @@ end
     c(u0::FractionalKdVAnsatz{T}, ϵ)
 Compute the constant c_{ϵ,û₀} from Lemma 3.3.
 """
-function c(u0::FractionalKdVAnsatz{T}, ϵ) where {T}
+function c(u0::FractionalKdVAnsatz{T},
+           ϵ;
+           M::Integer = 3,
+           ) where {T}
     if iszero(ϵ)
         return zero(u0.α)
     end
     @assert ϵ > 0
-    M = 3
     @assert M >= 1 - (u0.α + u0.N0*u0.p0)/2
 
     numerator = zero(u0.α)
