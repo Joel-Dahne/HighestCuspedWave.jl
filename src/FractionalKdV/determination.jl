@@ -57,7 +57,7 @@ balls.
 """
 function finda0(α)
     Γ = SpecialFunctions.gamma
-    2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2)
+    return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
 end
 
 function finda0(α::arb)
@@ -67,7 +67,7 @@ function finda0(α::arb)
         return ArbTools.setinterval(finda0(α_low), finda0(α_upp))
     end
     Γ = Nemo.gamma
-    return 2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2)
+    return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
 end
 
 function findas!(u0::FractionalKdVAnsatz{T}) where {T}
