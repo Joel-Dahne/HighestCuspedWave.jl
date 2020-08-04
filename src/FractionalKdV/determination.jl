@@ -35,7 +35,7 @@ function findp0(α::arb)
         cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - Γ(1 + 2α)cospi(α)/(α*Γ(α)cospi(α/2))
     end
 
-    # PROVE: That this is the smallest positive zero
+    # PROVE: That it is the smallest positive zero
     p0 = ArbTools.add_error!(parent(α)(findp0(Float64(α))), parent(α)(1e-10))
 
     # Check that it is a root
@@ -48,18 +48,37 @@ function findp0(α::arb)
     return p0
 end
 
-function findas!(u0::FractionalKdVAnsatz{T}) where {T}
-    Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
+"""
+    finda0(α)
+Compute a[0] such that a0(u0, 0)^2/2 - A0(u0, 0) is zero. That is,
+compute a[0] = 2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2).
+It makes use of the monotinicity to get good enclosures for wide
+balls.
+"""
+function finda0(α)
+    Γ = SpecialFunctions.gamma
+    2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2)
+end
 
-    # Make a0(u0, 0)^2/2 - A0(u0, 0) zero. This is done explicitly to
-    # avoid the solution a[0] = 0.
-    if u0.N0 >= 0
-        u0.a[0] = 2Γ(2u0.α)*sinpi((1 - 2u0.α)/2)/(Γ(u0.α)^2*sinpi((1 - u0.α)/2)^2)
+function finda0(α::arb)
+    if iswide(α)
+        # PROVE: That a[0] is monotone in α
+        α_low, α_upp = getinterval(α)
+        return ArbTools.setinterval(finda0(α_low), finda0(α_upp))
     end
+    Γ = Nemo.gamma
+    return 2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2)
+end
+
+function findas!(u0::FractionalKdVAnsatz{T}) where {T}
+    if u0.N0 >= 0
+        u0.a[0] = finda0(u0.α)
+    end
+    # This makes the term (2, 0, 0) equal to zero
     push!(u0.zeroterms, (2, 0, 0))
 
-    # The choice of p0 makes also the term a0(u0, 0)a0(u0, 1) - A0(u0,
-    # 0) = 0
+    # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
+    # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
     if u0.N0 >= 1
         if T == arb
             @assert contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
@@ -68,6 +87,18 @@ function findas!(u0::FractionalKdVAnsatz{T}) where {T}
         end
     end
     push!(u0.zeroterms, (2, 1, 0))
+
+    # This corresponds to the I_3 case
+    # TODO: Possibly prove and use that a[1] is monotonically
+    # increasing in this case
+    if u0.N0 == 1 && u0.N1 == 0
+        u0.a[1] = - u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
+        if T == arb
+            @assert contains_zero(L0(u0, 1))
+        else
+            @assert L0(u0, 1) ≈ 0.0
+        end
+    end
 
     # TODO: Set the rest of the values
 
