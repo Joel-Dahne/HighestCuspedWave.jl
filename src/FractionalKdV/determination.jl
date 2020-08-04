@@ -25,24 +25,25 @@ function findp0(α)
 end
 
 function findp0(α::arb)
+    if iswide(α)
+        # PROVE: That p0 is monotone in α
+        α_low, α_upp = getinterval(α)
+        return ArbTools.setinterval(findp0(α_low), findp0(α_upp))
+    end
     Γ = Nemo.gamma
     f(p) = begin
         cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - Γ(1 + 2α)cospi(α)/(α*Γ(α)cospi(α/2))
     end
 
-    # TODO: Prove that this is the smallest positive zero
-    # TODO: Refine to required precision
-    p0 = ArbTools.add_error!(parent(α)(findp0(Float64(α))), parent(α)(1e-13))
-    unique, _ = ArbTools.isuniqueroot(f, ArbTools.getinterval(p0)...)
+    # PROVE: That this is the smallest positive zero
+    p0 = ArbTools.add_error!(parent(α)(findp0(Float64(α))), parent(α)(1e-10))
 
+    # Check that it is a root
+    unique, _ = ArbTools.isuniqueroot(f, ArbTools.getinterval(p0)...)
     @assert unique
 
-    # The refine_root needs to be tuned more before this is an option.
-    # Also we still have the problem of not being able to evaluate f
-    # on the whole interval due to 0*∞
-    #zeros, flags = isolateroots(f, zero(α), 1.5(α + 1), evaltype = :taylor, refine = true)
-    #@assert flags[1]
-    #p0 = zeros[1]
+    # Refine the root
+    p0 = setinterval(ArbTools.refine_root(f, ArbTools.getinterval(p0)...)...)
 
     return p0
 end
