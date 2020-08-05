@@ -7,19 +7,22 @@ expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
 """
 function CB(u0::FractionalKdVAnsatz{arb};
             ϵ::arb = parent(u0.α)(0.1),
+            rtol::arb = parent(u0.α)(1e-2),
             )
     # Bound the value one [0, ϵ]
     # TODO: Implement this
-    n1 = enclosemaximum(norm(u0, Asymptotic()), parent(u0.α)(0), ϵ,
+    n1 = enclosemaximum(T0(u0, Asymptotic()), parent(u0.α)(0), ϵ,
+                        rtol = rtol,
                         absmax = true,
-                        maxevals = 10^4,
+                        maxevals = 10^3,
                         )
 
     # Bound the value one [ϵ, π]
     # TODO: This does not fully work yet
-    n2 = enclosemaximum(norm(u0), ϵ, parent(u0.α)(π),
+    n2 = enclosemaximum(T0(u0), ϵ, parent(u0.α)(π),
+                        rtol = rtol,
                         absmax = true,
-                        maxevals = 10^4,
+                        maxevals = 10^3,
                         )
 
     return max(n1, n2)
@@ -38,5 +41,5 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
     if T == arb
         xs = parent(u0.α).(xs)
     end
-    return maximum(norm(u0).(xs))
+    return maximum(T0(u0).(xs))
 end

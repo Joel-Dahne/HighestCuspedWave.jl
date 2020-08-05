@@ -15,7 +15,7 @@ include("FractionalKdV/determination.jl")
 include("FractionalKdV/evaluation.jl")
 include("FractionalKdV/alpha.jl")
 include("FractionalKdV/delta.jl")
-include("FractionalKdV/norm.jl")
+include("FractionalKdV/T0.jl")
 include("FractionalKdV/CB.jl")
 
 end # module
