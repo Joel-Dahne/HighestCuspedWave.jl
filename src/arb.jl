@@ -1,7 +1,7 @@
 export iswide, Li, Ci, Si
 
 """
-    iswide(x::arb)
+    iswide(x)
 Return true if x is wide in the meaning that the effective relative
 accuracy of x measured in bits is more than 10 lower than it's parents
 precision.
@@ -10,6 +10,15 @@ function iswide(x::arb)
     # TODO: This might require some tuning, 10 might not be the
     # optimal number.
     return ArbTools.rel_accuracy_bits(x) < prec(parent(x)) - 10
+end
+
+function iswide(x::acb)
+    # TODO: Arb implements this as well, slightly different, but it
+    # has to be implemented in ArbTools first
+    return min(
+        ArbTools.rel_accuracy_bits(real(x)),
+        ArbTools.rel_accuracy_bits(imag(x)),
+    ) < prec(parent(x)) - 10
 end
 
 function zeta(s::arb; d::Integer = 0)
@@ -48,11 +57,41 @@ end
 """
     Li(z, s)
 Compute the polylogarithm Liₛ(z)
+
+TODO: Optimize it for wide s values
 """
 function Li(z::acb, s::acb)
+    if iswide(s)
+        # TODO: Check that everything here is correct
+
+        # TODO: Tune this
+        n = 3 # Degree of Taylor expansion
+
+        s_mid = parent(s)(midpoint(real(s)), midpoint(imag(s)))
+        PP = AcbPolyRing(parent(s), :x)
+        w = PP()
+
+        # Compute the rest term of the Taylor expansion
+        s_poly = PP([s, one(s)])
+        ccall(("acb_poly_polylog_series", Nemo.libarb), Cvoid,
+              (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Int, Int),
+              w, s_poly, z, n + 2, prec(parent(z)))
+        restterm = (s - s_mid)^n*coeff(w, n)
+
+        # Compute the Taylor polynomial at the midpoint of x
+        s_poly = PP([s_mid, one(s)])
+        ccall(("acb_poly_polylog_series", Nemo.libarb), Cvoid,
+              (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Int, Int),
+              w, s_poly, z, n + 1, prec(parent(z)))
+
+        # Evaluate the Taylor polynomial on s - s_mid and add the rest
+        # term
+        return evaluate(w, s - s_mid) + restterm
+    end
     res = parent(z)()
     ccall(("acb_polylog", Nemo.libarb), Cvoid,
           (Ref{acb}, Ref{acb}, Ref{acb}, Clong), res, s, z, prec(parent(z)))
+
     return res
 end
 
