@@ -32,15 +32,6 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α)) where {T}
     findas!(u0)
     findbs!(u0)
 
-    # Temporary for testing
-    if T == arb
-        u0.a[1:end] = parent(α).(rand(N0))
-        u0.b .= parent(α).(rand(N1))
-    else
-        u0.a[1:end] = rand(N0)
-        u0.b .= rand(N1)
-    end
-
     return u0
 end
 

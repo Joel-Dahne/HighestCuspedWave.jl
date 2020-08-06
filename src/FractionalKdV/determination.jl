@@ -77,34 +77,107 @@ function findas!(u0::FractionalKdVAnsatz{T}) where {T}
     # This makes the term (2, 0, 0) equal to zero
     push!(u0.zeroterms, (2, 0, 0))
 
-    # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
-    # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
+    # TODO: For wide values of α we probably don't want to compute
+    # exact zeros here but instead compute the value for the midpoint.
+    # In that case we cannot add the terms to the list of zero-terms.
+    # TODO: We might not want to do it in this way, we might have to
+    # order the terms by their exponent and make them zero.
     if u0.N0 >= 1
+        # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
+        # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
         if T == arb
             @assert contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
         else
             @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
         end
-    end
-    push!(u0.zeroterms, (2, 1, 0))
+        push!(u0.zeroterms, (2, 1, 0))
 
-    # This corresponds to the I_3 case
-    # TODO: Possibly prove and use that a[1] is monotonically
-    # increasing in this case
-    if u0.N0 == 1 && u0.N1 == 0
-        u0.a[1] = - u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
-        if T == arb
-            @assert contains_zero(L0(u0, 1))
-        else
-            @assert L0(u0, 1) ≈ 0.0
+        # Compute a[1] such that L0(u0, 1) is zero.
+        # TODO: Possibly make use of the monotinicity to get good
+        # enclosures for wide balls.
+        u0.a[1] = -u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
+        # If there are no b[n]'s this makes the term (0, 0, 1) equal
+        # to zero. This corresponds to the I_3 case
+        if iszero(u0.N1)
+            push!(u0.zeroterms, (0, 0, 1))
         end
     end
 
-    # TODO: Set the rest of the values
+    # We choose the remaining a[j]'s to make terms from the first sum
+    # (the third term) in Lemma 3.4 zero.
+    Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
+    for k in 2:u0.N0
+        term = zero(u0.α)
+        for j in 1:div(k - 1, 2)
+            term += a0(u0, j)*a0(u0, k - j)
+        end
+        if iseven(k)
+            term += a0(u0, div(k, 2))^2/2
+        end
+        u0.a[k] = -term/(
+            a0(u0, 0)*Γ(u0.α - k*u0.p0)*sinpi((1 - u0.α + k*u0.p0)/2)
+            - Γ(2u0.α - k*u0.p0)*sinpi((1 - 2u0.α + k*u0.p0)/2)
+        )
+        push!(u0.zeroterms, (2, k, 0))
+    end
 
     return u0
 end
 
+"""
+    findbs!(u0)
+Find values of b[n] to minimize the defect D(u0).
+
+This is done by solving the non-linear system given by requiring that
+D(u0) evaluates to zero on N1 collocation points.
+
+It uses nlsolve to find the zero, however nlsolve doesn't support
+arb-types so this is always done in Float64.
+
+TODO: Possibly add support for optimizing some of the the a[j]'s at
+the same time,
+"""
 function findbs!(u0::FractionalKdVAnsatz)
-    # TODO: Implement this
+    if u0.N1 == 0
+        return u0
+    end
+    #xs = range(0, stop = π, length = u0.N1 + 2)[2:end-1]
+    xs = π*(1:2:2u0.N1-1)/2u0.N1
+
+    f = D(u0, xs)
+    g(b) = begin
+        f(u0.a.parent, b)
+    end
+
+    initial = fill(zero(u0.α), u0.N1)
+    sol = nlsolve(g, initial, autodiff = :forward)
+
+    if !sol.f_converged
+        @warn "Solution did not converge"
+        @warn sol
+    end
+
+    copy!(u0.b, sol.zero)
+
+    return u0
+end
+
+function findbs!(u0::FractionalKdVAnsatz{arb})
+    T = Float64
+    u0_float = FractionalKdVAnsatz(
+        T(u0.α),
+        T(u0.p0),
+        T.(u0.a),
+        T.(u0.b),
+        T(u0.p),
+        copy(u0.zeroterms),
+    )
+
+    findbs!(u0_float)
+    # TODO: Possibly perform some Newton iterations if the values are
+    # required to a higher precision.
+
+    u0.b .= parent(u0.α).(u0_float.b)
+
+    return u0
 end

@@ -429,9 +429,8 @@ The strategy for evaluation depends on type of evaltype.
 F0(u0::FractionalKdVAnsatz) = F0(u0, Ball())
 
 function F0(u0::FractionalKdVAnsatz, evaltype::Ball)
-    w(x) = abs(x)
     return x -> begin
-        return D(u0, evaltype)(x)/(w(x)*u0(x, evaltype))
+        return D(u0, evaltype)(x)/(u0.w(x)*u0(x, evaltype))
     end
 end
 
@@ -529,4 +528,36 @@ function eval_expansion(u0::FractionalKdVAnsatz{T},
     end
 
     return res
+end
+
+"""
+    D(u0::FractionalKdVAnsatz, xs::AbstractVector)
+Returns a function such that D(u0, xs)(a, b) computes D(u0)(x) on the
+points x ∈ xs with u0.a and u0.b set to the given values. Does this in
+an efficient way by precomputing as much as possible.
+"""
+function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
+    u0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
+    u0_xs_b_precomputed = zeros(length(xs), u0.N1)
+    Hu0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
+    Hu0_xs_b_precomputed = zeros(length(xs), u0.N1)
+
+    for i in eachindex(xs)
+        x = xs[i]
+        for j in 0:u0.N0
+            u0_xs_a_precomputed[i, j + 1] = Ci(x, 1 - u0.α + j*u0.p0) - zeta(1 - u0.α + j*u0.p0)
+            Hu0_xs_a_precomputed[i, j + 1] = -(Ci(x, 1 - 2u0.α + j*u0.p0) - zeta(1 - 2u0.α + j*u0.p0))
+        end
+        for n in 1:u0.N1
+            u0_xs_b_precomputed[i, n] = cos(n*x) - 1
+            Hu0_xs_b_precomputed[i, n] = -parent(u0.α)(n)^u0.α*(cos(n*x) - 1)
+        end
+    end
+
+    return (a, b) -> begin
+        return (
+            (u0_xs_a_precomputed*a .+ u0_xs_b_precomputed*b).^2 ./ 2
+            .+ (Hu0_xs_a_precomputed*a .+ Hu0_xs_b_precomputed*b)
+        )
+    end
 end
