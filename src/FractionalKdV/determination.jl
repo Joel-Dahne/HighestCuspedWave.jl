@@ -95,10 +95,11 @@ function findas!(u0::FractionalKdVAnsatz{T}) where {T}
         # Compute a[1] such that L0(u0, 1) is zero.
         # TODO: Possibly make use of the monotinicity to get good
         # enclosures for wide balls.
+        # FIXME: THIS IS WROOOOOOONG if we are not in the I_3 case!!!!
         u0.a[1] = -u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
         # If there are no b[n]'s this makes the term (0, 0, 1) equal
         # to zero. This corresponds to the I_3 case
-        if iszero(u0.N1)
+        if u0.N0 == 1 && iszero(u0.N1)
             push!(u0.zeroterms, (0, 0, 1))
         end
     end
