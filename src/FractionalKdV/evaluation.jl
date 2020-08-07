@@ -23,7 +23,7 @@ function K0(u0::FractionalKdVAnsatz, m::Integer)
         res += zeta(1 - u0.α + j*u0.p0 - 2m)*u0.a[j]
     end
 
-    res /= factorial(2m)
+    res /= factorial(fmpz(2m))
     res *= (-1)^m
 
     return res
@@ -42,10 +42,10 @@ function termK0(u0::FractionalKdVAnsatz, m::Integer)
     end
 
     for n in 1:u0.N1
-        res += n^(2m)*u0.b[n]
+        res += parent(u0.α)(n)^(2m)*u0.b[n]
     end
 
-    res /= factorial(2m)
+    res /= factorial(fmpz(2m))
     res *= (-1)^m
 
     return res
@@ -71,7 +71,7 @@ function L0(u0::FractionalKdVAnsatz, m::Integer)
         res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
     end
 
-    res /= factorial(2m)
+    res /= factorial(fmpz(2m))
     res *= (-1)^m
 
     return res
@@ -90,10 +90,10 @@ function termL0(u0::FractionalKdVAnsatz, m::Integer)
     end
 
     for n in 1:u0.N1
-        res += parent(res)(n)^(2m + u0.α)*u0.b[n]
+        res += parent(u0.α)(n)^(2m + u0.α)*u0.b[n]
     end
 
-    res /= factorial(2m)
+    res /= factorial(fmpz(2m))
     res *= (-1)^m
 
     return res
@@ -117,9 +117,9 @@ function E(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
         # Compute error bounds for the Fourier terms
         E_bound2 = zero(u0.α)
         for n in 1:u0.N1
-            E_bound2 += n^(2M)*abs(u0.b[n])
+            E_bound2 += parent(u0.α)(n)^(2M)*abs(u0.b[n])
         end
-        E_bound2 /= factorial(2M)
+        E_bound2 /= factorial(fmpz(2M))
 
         if T == arb
             return ball(zero(u0.α), E_bound1 + E_bound2)
@@ -150,7 +150,7 @@ function EH(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
         for n in 1:u0.N1
             E_bound2 += parent(u0.α)(n)^(2M + u0.α)*abs(u0.b[n])
         end
-        E_bound2 /= factorial(2M)
+        E_bound2 /= factorial(fmpz(2M))
 
         if T == arb
             return ball(zero(u0.α), E_bound1 + E_bound2)
