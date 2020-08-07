@@ -312,11 +312,13 @@ function D(u0::FractionalKdVAnsatz, evaltype::Ball = Ball())
     end
 end
 
-function D(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
+function D(u0::FractionalKdVAnsatz{T},
+           evaltype::Asymptotic;
+           M = 3,
+           ) where {T}
+    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
+    @assert M == 3 # This is the only one implemented currently
     return x -> begin
-        M = 3
-        @assert M >= 1 - u0.α + u0.N0*u0.p0/2
-
         # TODO: Handle terms that might be identically equal to zero
         res = zero(u0.α)
 
