@@ -252,7 +252,7 @@ function H(u0::FractionalKdVAnsatz, evaltype::Ball)
 end
 
 function H(u0::FractionalKdVAnsatz{T},
-           evaltype::Asymptotic,
+           evaltype::Asymptotic;
            M::Integer = 3,
            ) where {T}
     @assert M >= 1 - u0.α + u0.N0*u0.p0/2
