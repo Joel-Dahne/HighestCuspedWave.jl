@@ -56,6 +56,46 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
     return u0
 end
 
+"""
+    FractionalKdVAnsatz(α::T)
+Construct a FractionalKdVAnsatz using a heuristic choice of
+parameters.
+"""
+function FractionalKdVAnsatz(α::T) where {T}
+    ϵ1 = 0.09
+    ϵ2 = 0.09
+
+    if α < -1 + ϵ1
+        # α ∈ I_1
+
+        u0 = FractionalKdVAnsatz(α, 12, 512, (1 - α)/2, use_midpoint = true)
+    elseif α < -ϵ2
+        # α ∈ I_2
+
+        if α < -0.75
+            N0 = 6
+            N1 = 128
+        elseif α < -0.6
+            N0 = 5
+            N1 = 64
+        elseif α < -0.35
+            N0 = 4
+            N1 = 16
+        else
+            N0 = 3
+            N1 = 8
+        end
+
+        u0 = FractionalKdVAnsatz(α, N0, N1, (1 - α)/2, use_midpoint = true)
+    else
+        # α ∈ I_3
+        u0 = FractionalKdVAnsatz(α, 1, 0, 1, use_midpoint = false)
+    end
+
+    return u0
+end
+
+
 function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     if name == :N0
         return length(u0.a) - 1
