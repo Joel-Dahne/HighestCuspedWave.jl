@@ -39,13 +39,14 @@ of C_B. Currently it gives a very bad estimate.
 """
 function CB_estimate(u0::FractionalKdVAnsatz{T};
                      n::Integer = 20,
+                     show_trace = false,
                      ) where {T}
     xs = range(0, stop = π, length = n)[2:end]
     if T == arb
         xs = parent(u0.α).(xs)
     end
 
-    res = abs.(T0(u0, rtol = 1e-3).(xs))
+    res = abs.(T0(u0, rtol = 1e-3, show_trace = show_trace).(xs))
     m = zero(u0.α)
     for r in res
         m = max(m, r)

@@ -1,3 +1,5 @@
+export T0
+
 """
     T0(u0::FractionalKdVAnsatz, evaltype)
 Returns a function such that T0(u0)(x) is the function whose supremum
@@ -9,6 +11,7 @@ T0(u0::FractionalKdVAnsatz; kwargs...) = T0(u0, Ball(); kwargs...)
 function T0(u0::FractionalKdVAnsatz{arb},
             evaltype::Ball;
             rtol = -1.0,
+            show_trace = false,
             )
     δ0 = parent(u0.α)("1e-6")
     δ1 = parent(u0.α)("1e-6")
@@ -27,7 +30,7 @@ function T0(u0::FractionalKdVAnsatz{arb},
 
         T01 = (
             T011
-            + T012(u0, δ0 = δ0, δ1 = δ1, rtol = rtol)(x)
+            + T012(u0, δ0 = δ0, δ1 = δ1, rtol = rtol, show_trace = show_trace)(x)
             + T013
         )
 
@@ -39,7 +42,7 @@ function T0(u0::FractionalKdVAnsatz{arb},
 
         T02 = (
             T021
-            + T022(u0, δ2 = δ2, rtol = rtol)(x)
+            + T022(u0, δ2 = δ2, rtol = rtol, show_trace = show_trace)(x)
         )
 
         return T01 + T02
@@ -64,7 +67,8 @@ T012(u0::FractionalKdVAnsatz;
      δ1::arb = parent(u0.α)("1e-6"),
      rtol = -1.0,
      atol = -1.0,
-     ) = T012(u0, Ball(), δ0 = δ0, δ1 = δ1, rtol = rtol, atol = atol)
+     show_trace = false,
+     ) = T012(u0, Ball(), δ0 = δ0, δ1 = δ1, rtol = rtol, atol = atol, show_trace = show_trace)
 
 function T012(u0::FractionalKdVAnsatz{arb},
               evaltype::Ball;
@@ -72,6 +76,7 @@ function T012(u0::FractionalKdVAnsatz{arb},
               δ1::arb = parent(u0.α)("1e-6"),
               rtol = -1.0,
               atol = -1.0,
+              show_trace = false,
               )
     return x -> begin
         CC = ComplexField(prec(parent(u0.α)))
@@ -89,7 +94,7 @@ function T012(u0::FractionalKdVAnsatz{arb},
                                       rel_tol = rtol,
                                       abs_tol = atol,
                                       eval_limit = 3000,
-                                      verbose = 1,
+                                      verbose = Int(show_trace),
                                       ))
 
         return res*x/(parent(u0.α)(π)*u0(x))
@@ -108,13 +113,15 @@ T022(u0::FractionalKdVAnsatz;
      δ2::arb = parent(u0.α)("1e-6"),
      rtol = -1.0,
      atol = -1.0,
-     ) = T022(u0, Ball(), δ2 = δ2, rtol = rtol, atol = atol)
+     show_trace = false,
+     ) = T022(u0, Ball(), δ2 = δ2, rtol = rtol, atol = atol, show_trace = show_trace)
 
 function T022(u0::FractionalKdVAnsatz{arb},
               evaltype::Ball;
               δ2::arb = parent(u0.α)("1e-6"),
               rtol = -1.0,
               atol = -1.0,
+              show_trace = false,
               )
     return x -> begin
         if x + δ2 >= parent(u0.α)(π)
@@ -137,7 +144,7 @@ function T022(u0::FractionalKdVAnsatz{arb},
                                       rel_tol = rtol,
                                       abs_tol = atol,
                                       eval_limit = 2000,
-                                      verbose = 1,
+                                      verbose = Int(show_trace),
                                       ))
 
         return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
