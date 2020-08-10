@@ -70,37 +70,44 @@ function finda0(α::arb)
     return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
 end
 
-function findas!(u0::FractionalKdVAnsatz{T}) where {T}
+function findas!(u0::FractionalKdVAnsatz{T};
+                 use_midpoint = true,
+                 ) where {T}
     if u0.N0 >= 0
         u0.a[0] = finda0(u0.α)
     end
     # This makes the term (2, 0, 0) equal to zero
     push!(u0.zeroterms, (2, 0, 0))
 
-    # TODO: For wide values of α we probably don't want to compute
-    # exact zeros here but instead compute the value for the midpoint.
-    # In that case we cannot add the terms to the list of zero-terms.
     # TODO: We might not want to do it in this way, we might have to
     # order the terms by their exponent and make them zero.
     if u0.N0 >= 1
         # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
         # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
-        if T == arb
-            @assert contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
-        else
-            @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
+        if !use_midpoint
+            if T == arb
+                @assert contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
+            else
+                @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
+            end
+            push!(u0.zeroterms, (2, 1, 0))
         end
-        push!(u0.zeroterms, (2, 1, 0))
 
         # Compute a[1] such that L0(u0, 1) is zero.
         # TODO: Possibly make use of the monotinicity to get good
         # enclosures for wide balls.
-        # FIXME: THIS IS WROOOOOOONG if we are not in the I_3 case!!!!
+        # TODO: This only really makes sense in the I_3 case when we
+        # do not have any more a[j] terms.
         u0.a[1] = -u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
+
         # If there are no b[n]'s this makes the term (0, 0, 1) equal
         # to zero. This corresponds to the I_3 case
-        if u0.N0 == 1 && iszero(u0.N1)
+        if u0.N0 == 1 && iszero(u0.N1) && !use_midpoint
+            # TODO: Check if it would maybe still be more beneficial
+            # to use the midpoint instead
             push!(u0.zeroterms, (0, 0, 1))
+        elseif use_midpoint
+            u0.a[1] = midpoint(u0.a[1])
         end
     end
 
@@ -119,7 +126,13 @@ function findas!(u0::FractionalKdVAnsatz{T}) where {T}
             a0(u0, 0)*Γ(u0.α - k*u0.p0)*sinpi((1 - u0.α + k*u0.p0)/2)
             - Γ(2u0.α - k*u0.p0)*sinpi((1 - 2u0.α + k*u0.p0)/2)
         )
-        push!(u0.zeroterms, (2, k, 0))
+
+        if use_midpoint
+            u0.a[k] = midpoint(u0.a[k])
+        else
+            push!(u0.zeroterms, (2, k, 0))
+        end
+
     end
 
     return u0
@@ -142,8 +155,8 @@ function findbs!(u0::FractionalKdVAnsatz)
     if u0.N1 == 0
         return u0
     end
-    #xs = range(0, stop = π, length = u0.N1 + 2)[2:end-1]
-    xs = π*(1:2:2u0.N1-1)/2u0.N1
+    n = u0.N1
+    xs = π*(1:2:2n-1)/2n
 
     f = D(u0, xs)
     g(b) = begin

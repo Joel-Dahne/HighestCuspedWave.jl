@@ -21,8 +21,29 @@ struct FractionalKdVAnsatz{T}
     zeroterms::Set{Tuple{Int, Int, Int}}
 end
 
-function FractionalKdVAnsatz(α::T, N0, N1, p = one(α)) where {T}
+"""
+    FractionalKdVAnsatz(α::T, N0, N1, p = one(α); kwargs...)
+Construct a FractionalKdVAnsatz with the given `α` value and `N0` aⱼ's
+and `N1` bₙ's. It sets the weight to be used to |x|^p.
+
+If `use_midpoint` is true then and `T` is `arb` then use only the
+midpoint values of `p0`, `a`, `b` and `p` with the exception of `a[0]`
+for which the proper enclosure is used.
+"""
+function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
+                             use_midpoint = true,
+                             ) where {T}
+    # Using the midpoint only makes sense for T == arb
+    use_midpoint = use_midpoint && T == arb
+
+    if use_midpoint
+        p = midpoint(p)
+    end
+
     p0 = findp0(α)
+    if use_midpoint
+        p0 = midpoint(p0)
+    end
 
     a = OffsetVector(fill(zero(α), N0 + 1), 0:N0)
     b = fill(zero(α), N1)
