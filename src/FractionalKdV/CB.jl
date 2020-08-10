@@ -41,5 +41,12 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
     if T == arb
         xs = parent(u0.α).(xs)
     end
-    return maximum(T0(u0).(xs))
+
+    res = abs.(F0(u0).(xs))
+    m = zero(u0.α)
+    for r in res
+        m = max(m, r)
+    end
+
+    return m
 end
