@@ -8,6 +8,7 @@ expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
 function CB(u0::FractionalKdVAnsatz{arb};
             ϵ::arb = parent(u0.α)(0.1),
             rtol::arb = parent(u0.α)(1e-2),
+            show_trace = false,
             )
     # Bound the value one [0, ϵ]
     # TODO: Implement this
@@ -15,14 +16,16 @@ function CB(u0::FractionalKdVAnsatz{arb};
                         rtol = rtol,
                         absmax = true,
                         maxevals = 10^3,
+                        show_trace = show_trace,
                         )
 
     # Bound the value one [ϵ, π]
     # TODO: This does not fully work yet
-    n2 = enclosemaximum(T0(u0), ϵ, parent(u0.α)(π),
+    n2 = enclosemaximum(T0(u0, rtol = 1e-2*Float64(rtol)), ϵ, parent(u0.α)(π),
                         rtol = rtol,
                         absmax = true,
                         maxevals = 10^3,
+                        show_trace = show_trace,
                         )
 
     return max(n1, n2)
@@ -35,14 +38,14 @@ norm it on n linearly spaced points. This always gives a lower bound
 of C_B. Currently it gives a very bad estimate.
 """
 function CB_estimate(u0::FractionalKdVAnsatz{T};
-                     n::Integer = 10,
+                     n::Integer = 20,
                      ) where {T}
     xs = range(0, stop = π, length = n)[2:end]
     if T == arb
         xs = parent(u0.α).(xs)
     end
 
-    res = abs.(F0(u0).(xs))
+    res = abs.(T0(u0, rtol = 1e-3).(xs))
     m = zero(u0.α)
     for r in res
         m = max(m, r)
