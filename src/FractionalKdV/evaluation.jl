@@ -507,7 +507,10 @@ function c(u0::FractionalKdVAnsatz{T},
     denominator -= E_upper*abs(ϵ)^(u0.α)
 
     # TODO: Check that this assertion is needed
-    @assert denominator > 0
+    if denominator < 0
+        @warn "Denominator < 0"
+        return parent(u0.α)(NaN)
+    end
 
     return numerator/denominator
 end
