@@ -1,4 +1,4 @@
-export delta0, delta0_estimate
+export delta0, delta0_bounded_by, delta0_estimate
 
 """
     delta0(u0::FractionalKdVAnsatz; ϵ::arb = parent(u0.α)(0.1))
@@ -30,6 +30,37 @@ function delta0(u0::FractionalKdVAnsatz{arb};
                           )
 
     return max(res1, res2)
+end
+
+"""
+    delta0_bounded_by(u0::FractionalKdVAnsatz, C::arb; ϵ::arb = parent(u0.α)(0.1))
+Return true if `δ₀` is bounded by `C`. Uses an asymptotic expansion on
+the interval [0, ϵ] and ball arithmetic on [ϵ, π].
+"""
+function delta0_bounded_by(u0::FractionalKdVAnsatz{arb},
+                           C::arb;
+                           ϵ::arb = parent(u0.α)(0.1),
+                           M::Integer = 3,
+                           rtol::arb = parent(u0.α)(1e-2),
+                           show_trace = false,
+                           )
+    # TODO: Spawn these in separate threads?
+
+    # Prove bound on [0, ϵ]
+    res1 = bounded_by(F0(u0, Asymptotic(), M = M), parent(u0.α)(0), ϵ, C,
+                     show_trace = show_trace,
+                     )
+
+    res1 || return false
+
+    # Bound the value on [ϵ, π] by Ball evaluation
+    # TODO: So far this naive approach only works for a very limited
+    # range of parameters and needs to be improved.
+    res2 = bounded_by(F0(u0), ϵ, parent(u0.α)(π), C,
+                      show_trace = show_trace,
+                      )
+
+    return res2
 end
 
 """
