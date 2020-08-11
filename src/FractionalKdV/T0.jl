@@ -125,7 +125,6 @@ function T022(u0::FractionalKdVAnsatz{arb},
               )
     return x -> begin
         if x + δ2 >= parent(u0.α)(π)
-            @warn "Integral T022 is evaluated on an empty interval"
             return zero(u0.α)
         end
 
