@@ -34,6 +34,11 @@ function T0(u0::FractionalKdVAnsatz{arb},
             + T013
         )
 
+        if isnan(T01)
+            # Short circuit on NaN
+            return T01
+        end
+
         ## Integral on [x, π]
 
         # Integral on [x, x + δ2]
