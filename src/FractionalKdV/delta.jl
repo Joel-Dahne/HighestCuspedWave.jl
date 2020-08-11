@@ -38,11 +38,15 @@ Estimate the value of δ₀ from the paper. Does this by evaluating F0 it
 on n linearly spaced points on the interval. Uses an asymptotic
 expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π]. This
 always gives a lower bound of δ₀.
+
+If `return_values = true` then also return the points and the computed
+values.
 """
 function delta0_estimate(u0::FractionalKdVAnsatz{T};
                          ϵ = 0.1,
                          M::Integer = 3,
                          n::Integer = 100,
+                         return_values = false,
                          ) where {T}
     xs = range(0, stop = pi, length = n)[2:end]
     if T == arb
@@ -64,5 +68,8 @@ function delta0_estimate(u0::FractionalKdVAnsatz{T};
         m = max(m, r)
     end
 
+    if return_values
+        return m, xs, res
+    end
     return m
 end

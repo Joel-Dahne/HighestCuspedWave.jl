@@ -36,9 +36,13 @@ end
 Estimate the value of C_B from the paper. Does this by evaluating the
 norm it on n linearly spaced points. This always gives a lower bound
 of C_B. Currently it gives a very bad estimate.
+
+If `return_values = true` then also return the points and the computed
+values.
 """
 function CB_estimate(u0::FractionalKdVAnsatz{T};
                      n::Integer = 20,
+                     return_values = false,
                      show_trace = false,
                      ) where {T}
     xs = range(0, stop = π, length = n)[2:end]
@@ -52,5 +56,8 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
         m = max(m, r)
     end
 
+    if return_values
+        return m, xs, res
+    end
     return m
 end
