@@ -4,11 +4,13 @@ using ArbTools
 using NLsolve
 using Nemo
 using OffsetArrays
+using Printf
 
 import SpecialFunctions
 
 include("arb.jl")
 include("evaltypes.jl")
+include("bounded_by.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")
