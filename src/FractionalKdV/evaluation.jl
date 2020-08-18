@@ -71,6 +71,19 @@ function L0(u0::FractionalKdVAnsatz, m::Integer)
         res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
     end
 
+    res /= factorial(2m)
+    res *= (-1)^m
+
+    return res
+end
+
+function L0(u0::FractionalKdVAnsatz{arb}, m::Integer)
+    res = zero(u0.α)
+
+    for j in 0:u0.N0
+        res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
+    end
+
     res /= factorial(fmpz(2m))
     res *= (-1)^m
 
@@ -212,7 +225,6 @@ function (u0::FractionalKdVAnsatz{T})(x,
     expansion = Dict{Tuple{Int, Int, Int}, T}()
 
     # Compute approximation
-    res = zero(u0.α)
     for j in 0:u0.N0
         expansion[(1, j, 0)] = a0(u0, j)
     end
@@ -563,6 +575,96 @@ function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
         return (
             (u0_xs_a_precomputed*a .+ u0_xs_b_precomputed*b).^2 ./ 2
             .+ (Hu0_xs_a_precomputed*a .+ Hu0_xs_b_precomputed*b)
+        )
+    end
+end
+
+"""
+    D(u0::FractionalKdVAnsatz, evaltype::Symbolic, n::Integer)
+Returns a function such that D(u0, evaltype, N)(a) computes the
+coefficients of the first `u0.N0 + 1` terms in the asymptotic
+expansion using the values of `a`. Does this in an efficient way by
+precomputing as much as possible.
+"""
+function D(u0::FractionalKdVAnsatz{T},
+           evaltype::Symbolic;
+           M::Integer = 10
+           ) where {T}
+    Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
+
+    # Precompute for u0
+    u0_precomputed = Dict{NTuple{3, Int}, Dict{Int, T}}()
+    for j in 0:u0.N0
+        s = u0.α - j*u0.p0
+        u0_precomputed[(1, j, 0)] = Dict(j => Γ(s)*sinpi((1 - s)/2))
+    end
+
+    for m in 1:M-1
+        u0_precomputed[(0, 0, m)] = Dict(
+            j => (-1)^m*zeta(1 - u0.α + j*u0.p0 - 2m)/factorial(2m)
+            for j in 0:u0.N0
+        )
+    end
+
+    u0_precomputed[(0, 0, M)] = Dict()
+
+    # Precompute H(u0)
+    Hu0_precomputed = Dict{NTuple{3, Int}, Dict{Int, T}}()
+
+    for j in 0:u0.N0
+        s = 2u0.α - j*u0.p0
+        Hu0_precomputed[(2, j, 0)] = Dict(j => -Γ(s)*sinpi((1 - s)/2))
+    end
+
+    for m in 1:M-1
+        Hu0_precomputed[(0, 0, m)] = Dict(
+            j => -(-1)^m*zeta(1 - 2u0.α + j*u0.p0 - 2m)/factorial(2m)
+            for j in 0:u0.N0
+        )
+    end
+
+    Hu0_precomputed[(0, 0, M)] = Dict()
+
+    ## TODO: Check that we do not encounter the error terms. This
+    ## should be fine with M = 10 though.
+
+    return a -> begin
+        S = promote_type(T, typeof(a))
+
+        # Compute u0
+        u0_res = Dict{NTuple{3, Int}, S}()
+        for (key, dict) in u0_precomputed
+            for (j, v) in dict
+                u0_res[key] = get(u0_res, key, zero(u0.α)) + v*a[j]
+            end
+        end
+
+        # Compute H(u0)
+        Hu0_res = Dict{NTuple{3, Int}, S}()
+        for (key, dict) in Hu0_precomputed
+            for (j, v) in dict
+                Hu0_res[key] = get(Hu0_res, key, zero(u0.α)) + v*a[j]
+            end
+        end
+
+        # Compute u0^2/2
+        res = Dict{NTuple{3, Int}, S}()
+        for ((i1, j1, m1), y1) in u0_res
+            for ((i2, j2, m2), y2) in u0_res
+                key = (i1 + i2, j1 + j2, m1 + m2)
+                res[key] = get(res, key, zero(u0.α)) + y1*y2/2
+            end
+        end
+
+        # Compute u0^2/2 + H(u0)
+        merge!(+, res, Hu0_res)
+
+        return getindex.(
+            sort(
+                [((i, j, m), -i*u0.α + j*u0.p0 + 2m, y) for ((i, j, m), y) in res],
+                by = x -> Float64(getindex(x, 2)),
+            )[3:u0.N0 + 2],
+            3,
         )
     end
 end
