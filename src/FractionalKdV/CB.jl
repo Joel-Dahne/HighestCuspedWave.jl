@@ -50,10 +50,15 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
         xs = parent(u0.α).(xs)
     end
 
-    res = abs.(T0(u0, rtol = 1e-3, show_trace = show_trace).(xs))
+    res = similar(xs)
+    f = T0(u0, rtol = 1e-3, show_trace = show_trace)
+    Threads.@threads for i in eachindex(xs)
+        res[i] = f(xs[i])
+    end
+
     m = zero(u0.α)
     for r in res
-        m = max(m, r)
+        m = max(m, abs(r))
     end
 
     if return_values

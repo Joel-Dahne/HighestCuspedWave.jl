@@ -85,7 +85,7 @@ function delta0_estimate(u0::FractionalKdVAnsatz{T};
     end
 
     res = similar(xs)
-    for i in eachindex(xs)
+    Threads.@threads for i in eachindex(xs)
         x = xs[i]
         if x < ϵ
             res[i] = F0(u0, Asymptotic(), M = M)(x)
@@ -96,7 +96,7 @@ function delta0_estimate(u0::FractionalKdVAnsatz{T};
 
     m = zero(u0.α)
     for r in res
-        m = max(m, r)
+        m = max(m, abs(r))
     end
 
     if return_values
