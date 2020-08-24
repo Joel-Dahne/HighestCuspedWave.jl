@@ -167,6 +167,34 @@ function Ci(x::T, s::Integer) where {T <: Real}
 end
 
 """
+    Ci(x::arb_series, s, n::Integer = length(x))
+Compute `n` terms of the Taylor series of Ciₛ(x).
+
+It's computed by directly computing the Taylor coefficients by
+differentiating Ciₛ and then composing with `x`.
+"""
+function Ci(x::arb_series, s, n::Integer = length(x))
+    res = arb_series(parent(x.poly)(), n)
+    x₀ = x[0]
+
+    for i in 0:n-1
+        if i%2 == 0
+            res[i] = (-1)^(div(i, 2))*Ci(x₀, s - i)/factorial(i)
+        else
+            res[i] = -(-1)^(div(i, 2))*Si(x₀, s - i)/factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the Clausian with that of the
+    # input
+    x_tmp = arb_series(deepcopy(x.poly))
+    x_tmp[0] = base_ring(parent(x.poly))(0)
+
+    return Nemo.compose(res, x_tmp, n)
+end
+
+
+"""
     Si(x, s)
 Compute the Clausian function Siₛ(x). Assumes that x ∈ (-π, π).
 """
@@ -208,46 +236,21 @@ function Si(x::T, s::Integer) where {T <: Real}
 end
 
 """
-    hypbeta(a, b, z)
-Compute the incomplete beta function B(a, b; z)
+    beta_inc(a, b, z)
+Compute the (not regularised) incomplete beta function B(a, b; z)
 """
-function hypbeta(a::acb, b::acb, z::acb)
+function beta_inc(a::acb, b::acb, z::acb)
     res = parent(z)()
     ccall(("acb_hypgeom_beta_lower", Nemo.libarb), Cvoid,
           (Ref{acb}, Ref{acb}, Ref{acb}, Ref{acb}, Cint, Clong), res, a, b, z, 0, prec(parent(z)))
     return res
 end
 
-function hypbeta(a::arb, b::arb, z::arb)
+function beta_inc(a::arb, b::arb, z::arb)
     res = parent(z)()
     ccall(("arb_hypgeom_beta_lower", Nemo.libarb), Cvoid,
           (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong), res, a, b, z, 0, prec(parent(z)))
     return res
-end
-
-function hypbeta(a, b, z::T) where {T}
-    CC = ComplexField(precision(BigFloat))
-    res = hypbeta(CC(a), CC(b), CC(z))
-    accuracy = min(
-        ArbTools.rel_accuracy_bits(real(res)),
-        ArbTools.rel_accuracy_bits(imag(res))
-    )
-    if accuracy < 53
-        @warn "Unsufficient precision $accuracy in hypbeta for z = $z"
-        @show res
-    end
-    return convert(complex(float(T)), res)
-end
-
-function hypbeta(a, b, z::T) where {T <: Real}
-    RR = RealField(precision(BigFloat))
-    res = hypbeta(R(a), RR(b), RR(z))
-    accuracy = ArbTools.rel_accuracy_bits(res)
-    if accuracy < 53
-        @warn "Unsufficient precision $accuracy in hypbeta for z = $z"
-        @show res
-    end
-    return convert(float(T), res)
 end
 
 """

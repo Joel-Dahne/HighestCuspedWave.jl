@@ -13,25 +13,17 @@ function T0(u0::FractionalKdVAnsatz{arb},
             rtol = -1.0,
             show_trace = false,
             )
-    δ0 = parent(u0.α)("1e-6")
-    δ1 = parent(u0.α)("1e-6")
+    δ0 = parent(u0.α)("1e-3")
+    δ1 = parent(u0.α)("1e-3")
     δ2 = parent(u0.α)("1e-6")
 
     return x -> begin
         ## Integral on [0, x] - Change to t = y/x
 
-        # Integral on [0, δ0]
-        # TODO: Implement this
-        T011 = zero(u0.α)*x/(parent(u0.α)(π)*u0(x))
-
-        # Integral on [δ1, 1]
-        # TODO: Implement this
-        T013 = zero(u0.α)*x/(parent(u0.α)(π)*u0(x))
-
         T01 = (
-            T011
-            + T012(u0, δ0 = δ0, δ1 = δ1, rtol = rtol, show_trace = show_trace)(x)
-            + T013
+            T011(u0, evaltype, δ0 = δ0)(x)
+            + T012(u0, evaltype, δ0 = δ0, δ1 = δ1, rtol = rtol, show_trace = show_trace)(x)
+            + T013(u0, evaltype, δ1 = δ1)(x)
         )
 
         if isnan(T01)
@@ -59,6 +51,73 @@ function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
 
     return x -> begin
         return zero(u0.α)
+    end
+end
+
+"""
+    T011(u0::FractionalKdVAnstaz{arb}, evaltype; δ0)
+Returns a function such that T011(u0, δ0)(x) computes the integral
+T_{0,1,1} from the paper.
+
+Uses an expansion with `N` terms (of degree `N - 1`).
+"""
+T011(u0::FractionalKdVAnsatz{arb}; δ0::arb = parent(u0.α)("1e-6")) = T011(u0, Ball(), δ0 = δ0)
+
+function T011(u0::FractionalKdVAnsatz{arb},
+              evaltype::Ball;
+              δ0::arb = parent(u0.α)("1e-6"),
+              N::Integer = 9,
+              )
+    Γ = Nemo.gamma
+    α = u0.α
+
+    PP = ArbPolyRing(parent(α), :x)
+
+    return x -> begin
+        # Prove: that the expression inside the absolute value of the
+        # integrand is negative
+
+        # The first two terms are well behaved at t = 0, we compute their
+        # Taylor expansions at the point
+        t_series = arb_series(PP([0, 1]), N)
+        part1_series = Ci(x*(1 - t_series), -α) + Ci(x*(1 + t_series), -α)
+
+        t_series_restterm = arb_series(PP([setinterval(zero(α), δ0), one(α)]), N + 1)
+        part1_series_restterm = Ci(x*(1 - t_series_restterm), -α) + Ci(x*(1 + t_series_restterm), -α)
+        part1_restterm = ball(zero(α), δ0^N*part1_series_restterm[N])
+
+        # The third term has a singularity at t = 0 so we expand and
+        # handle the singular term by itself
+        singular_exponent = -α - 1
+        singular_coefficient = gamma(1 + α)*sinpi(-α/2)*abspow(x, singular_exponent)
+
+        part2_series = arb_series(PP(), N)
+        M = div(N, 2) + 1
+        part2_series[0] = zeta(-α)
+        for m = 1:M-1
+            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*abspow(x, 2m)
+        end
+        part2_restterm = ball(zero(α),
+                              2(2parent(α)(π))^(1 - α - 2M)
+                              *zeta(2M + 1 + α)*δ0^(2M)/(4parent(α)(π)^2 - abspow(x*δ0, 2))
+                              *abspow(x*δ0, 2M),
+                              )
+
+        # Compute the integral
+        res = zero(α)
+        # Integrate the singular term
+        res -= 2singular_coefficient*δ0^(singular_exponent + u0.p + 1)/(singular_exponent + u0.p + 1)
+
+        # Integrate the terms in the series termwise on the interval [0, δ0]
+        full_series = part1_series - 2part2_series
+        for i = 0:N-1
+            res += full_series[i]*δ0^(i + u0.p + 1)/(i + u0.p + 1)
+        end
+
+        # Add the error given by the restterm times the length of the interval
+        res += δ0*(part1_restterm - 2part2_restterm)
+
+        return -res*x/(parent(α)(π)*u0(x))
     end
 end
 
@@ -101,6 +160,86 @@ function T012(u0::FractionalKdVAnsatz{arb},
                                       eval_limit = 3000,
                                       verbose = Int(show_trace),
                                       ))
+
+        return res*x/(parent(u0.α)(π)*u0(x))
+    end
+end
+
+"""
+    T013(u0::FractionalKdVAnstaz{arb}, evaltype; δ1)
+Returns a function such that T013(u0, δ0)(x) computes the integral
+T_{0,1,3} from the paper.
+
+Uses an expansion with `N` terms (of degree `N - 1`).
+"""
+T013(u0::FractionalKdVAnsatz{arb}; δ1::arb = parent(u0.α)("1e-6")) = T013(u0, Ball(), δ1 = δ1)
+
+function T013(u0::FractionalKdVAnsatz{arb},
+              evaltype::Ball;
+              δ1::arb = parent(u0.α)("1e-6"),
+              N::Integer = 9,
+              )
+    Γ = Nemo.gamma
+    α = u0.α
+
+    PP = ArbPolyRing(parent(α), :x)
+
+    return x -> begin
+        # Prove: that the expression inside the absolute value of the
+        # integrand is positive
+
+        # The first two terms are well behaved at t = 1, we compute their
+        # Taylor expansions at the point
+        t_series = arb_series(PP([1, 1]), N)
+        part1_series = Ci(x*(1 + t_series), -α) - 2Ci(x*t_series, -α)
+
+        t_series_restterm = arb_series(PP([setinterval(1 - δ1, one(α)), one(α)]), N + 1)
+        part1_series_restterm = Ci(x*(1 + t_series_restterm), -α) - 2Ci(x*t_series_restterm, -α)
+        part1_restterm = ball(zero(α), δ1^N*part1_series_restterm[N])
+
+        # The first term has a singularity at t = 1 so we expand and
+        # handle the singular term by itself
+        singular_exponent = -α - 1
+        singular_coefficient = gamma(1 + α)*sinpi(-α/2)*abspow(x, singular_exponent)
+
+        part2_series = arb_series(PP(), N)
+        M = div(N, 2) + 1
+        part2_series[0] = zeta(-α)
+        for m = 1:M-1
+            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*abspow(x, 2m)
+        end
+        part2_restterm = ball(zero(α),
+                              2(2parent(α)(π))^(1 - α - 2M)
+                              *zeta(2M + 1 + α)*(x*(1 - δ1))^(2M)/(4parent(α)(π)^2 - (x*(1 - δ1))^2),
+                              )
+
+        # Compute the integral
+        res = zero(α)
+        # Integrate the singular term
+        # We are integrating ∫_(1 - δ1)^1 |t - 1|^s*t^(p) dt
+        # = ∫_(1 - δ1)^1 (1 - t)^s*t^(p) dt which is given by
+        # Γ(1 + s)*Γ(1 + p)/Γ(2 + s + p) - B(1 + p, 1 + s; 1 - δ1)
+        # Where B(a, b; z) is the incomplete Beta-function
+        res += singular_coefficient*(
+            Γ(1 + singular_exponent)*Γ(1 + u0.p)/Γ(2 + singular_exponent + u0.p)
+            - beta_inc(1 + u0.p, 1 + singular_exponent, 1 - δ1)
+        )
+
+        # Integrate the terms in the series termwise on the interval [1 - δ1, 1]
+        # We are integrating ∫_(1 - δ1)^1 (t - 1)^i*t^(p) dt which is given by
+        # (-1)^i (Γ(1 + i)*Γ(1 + p)/Γ(2 + i + p) - B(1 + p, 1 + i; 1 - δ1))
+        # Where B(a, b; z) is the incomplete Beta-function
+        full_series = part1_series + part2_series
+        for i = 0:N-1
+            res += full_series[i] * (-1)^i * (
+                Γ(parent(α)(1 + i))*Γ(1 + u0.p)/Γ(2 + i + u0.p)
+                - beta_inc(1 + u0.p, parent(α)(1 + i), 1 - δ1)
+            )
+        end
+
+        # Add the error given by the restterm times the length of the interval
+        res += δ1*(part1_restterm + part2_restterm)
+
 
         return res*x/(parent(u0.α)(π)*u0(x))
     end
