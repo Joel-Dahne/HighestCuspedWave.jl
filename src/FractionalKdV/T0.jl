@@ -13,13 +13,12 @@ function T0(u0::FractionalKdVAnsatz{arb},
             rtol = -1.0,
             show_trace = false,
             )
-    δ0 = parent(u0.α)("1e-3")
-    δ1 = parent(u0.α)("1e-3")
-    δ2 = parent(u0.α)("1e-6")
+    δ0 = parent(u0.α)(1e-4)
+    δ1 = parent(u0.α)(1e-4)
+    δ2 = parent(u0.α)(1e-4)
 
     return x -> begin
         ## Integral on [0, x] - Change to t = y/x
-
         T01 = (
             T011(u0, evaltype, δ0 = δ0)(x)
             + T012(u0, evaltype, δ0 = δ0, δ1 = δ1, rtol = rtol, show_trace = show_trace)(x)
@@ -32,22 +31,14 @@ function T0(u0::FractionalKdVAnsatz{arb},
         end
 
         ## Integral on [x, π]
+        part2 = T02(u0, δ2 = δ2, rtol = rtol, show_trace = show_trace)(x)
 
-        # Integral on [x, x + δ2]
-        # TODO: Implement this
-        T021 = zero(u0.α)/(parent(u0.α)(π)*u0.w(x)*u0(x))
-
-        T02 = (
-            T021
-            + T022(u0, δ2 = δ2, rtol = rtol, show_trace = show_trace)(x)
-        )
-
-        return T01 + T02
+        return T01 + part2
     end
 end
 
-function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
-    error("not yet implemented")
+function T0(u0::FractionalKdVAnsatz{T}, ::Asymptotic) where {T}
+    @warn "T0(u0) is not yet implemented"
 
     return x -> begin
         return zero(u0.α)
@@ -55,17 +46,17 @@ function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
 end
 
 """
-    T011(u0::FractionalKdVAnstaz{arb}, evaltype; δ0)
-Returns a function such that T011(u0, δ0)(x) computes the integral
-T_{0,1,1} from the paper.
+    T011(u0::FractionalKdVAnstaz{arb}; δ0)
+Returns a function such that T011(u0, δ0 = δ0)(x) computes the
+integral T_{0,1,1} from the paper.
 
 Uses an expansion with `N` terms (of degree `N - 1`).
 """
-T011(u0::FractionalKdVAnsatz{arb}; δ0::arb = parent(u0.α)("1e-6")) = T011(u0, Ball(), δ0 = δ0)
+T011(u0::FractionalKdVAnsatz{arb}; kwargs...) = T011(u0, Ball(); kwargs...)
 
 function T011(u0::FractionalKdVAnsatz{arb},
-              evaltype::Ball;
-              δ0::arb = parent(u0.α)("1e-6"),
+              ::Ball;
+              δ0::arb = parent(u0.α)(1e-6),
               N::Integer = 9,
               )
     Γ = Nemo.gamma
@@ -95,12 +86,12 @@ function T011(u0::FractionalKdVAnsatz{arb},
         M = div(N, 2) + 1
         part2_series[0] = zeta(-α)
         for m = 1:M-1
-            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*abspow(x, 2m)
+            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*x^(2m)
         end
         part2_restterm = ball(zero(α),
                               2(2parent(α)(π))^(1 - α - 2M)
-                              *zeta(2M + 1 + α)*δ0^(2M)/(4parent(α)(π)^2 - abspow(x*δ0, 2))
-                              *abspow(x*δ0, 2M),
+                              *zeta(2M + 1 + α)*δ0^(2M)/(4parent(α)(π)^2 - (x*δ0)^2)
+                              *(x*δ0)^(2M),
                               )
 
         # Compute the integral
@@ -122,22 +113,16 @@ function T011(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T012(u0::FractionalKdVAnsatz{arb}, δ0, δ1, evaltype)
-Returns a function such that T012(u0, δ0, δ1)(x) computes the integral
-T_{0,1,2} from the paper.
+    T012(u0::FractionalKdVAnsatz{arb}; δ0, δ1)
+Returns a function such that T012(u0, δ0 = δ0, δ1 = δ1)(x) computes
+the integral T_{0,1,2} from the paper.
 """
-T012(u0::FractionalKdVAnsatz;
-     δ0::arb = parent(u0.α)("1e-6"),
-     δ1::arb = parent(u0.α)("1e-6"),
-     rtol = -1.0,
-     atol = -1.0,
-     show_trace = false,
-     ) = T012(u0, Ball(), δ0 = δ0, δ1 = δ1, rtol = rtol, atol = atol, show_trace = show_trace)
+T012(u0::FractionalKdVAnsatz{arb}; kwargs...) = T012(u0, Ball(); kwargs...)
 
 function T012(u0::FractionalKdVAnsatz{arb},
-              evaltype::Ball;
-              δ0::arb = parent(u0.α)("1e-6"),
-              δ1::arb = parent(u0.α)("1e-6"),
+              ::Ball;
+              δ0::arb = parent(u0.α)(1e-6),
+              δ1::arb = parent(u0.α)(1e-6),
               rtol = -1.0,
               atol = -1.0,
               show_trace = false,
@@ -166,17 +151,17 @@ function T012(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T013(u0::FractionalKdVAnstaz{arb}, evaltype; δ1)
-Returns a function such that T013(u0, δ0)(x) computes the integral
+    T013(u0::FractionalKdVAnstaz{arb}; δ1)
+Returns a function such that T013(u0, δ0 = δ0)(x) computes the integral
 T_{0,1,3} from the paper.
 
 Uses an expansion with `N` terms (of degree `N - 1`).
 """
-T013(u0::FractionalKdVAnsatz{arb}; δ1::arb = parent(u0.α)("1e-6")) = T013(u0, Ball(), δ1 = δ1)
+T013(u0::FractionalKdVAnsatz{arb}; kwargs...) = T013(u0, Ball(); kwargs...)
 
 function T013(u0::FractionalKdVAnsatz{arb},
-              evaltype::Ball;
-              δ1::arb = parent(u0.α)("1e-6"),
+              ::Ball;
+              δ1::arb = parent(u0.α)(1e-6),
               N::Integer = 9,
               )
     Γ = Nemo.gamma
@@ -188,8 +173,8 @@ function T013(u0::FractionalKdVAnsatz{arb},
         # Prove: that the expression inside the absolute value of the
         # integrand is positive
 
-        # The first two terms are well behaved at t = 1, we compute their
-        # Taylor expansions at the point
+        # The last two terms are well behaved at t = 1, we compute
+        # their Taylor expansions at the point
         t_series = arb_series(PP([1, 1]), N)
         part1_series = Ci(x*(1 + t_series), -α) - 2Ci(x*t_series, -α)
 
@@ -206,7 +191,7 @@ function T013(u0::FractionalKdVAnsatz{arb},
         M = div(N, 2) + 1
         part2_series[0] = zeta(-α)
         for m = 1:M-1
-            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*abspow(x, 2m)
+            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*x^(2m)
         end
         part2_restterm = ball(zero(α),
                               2(2parent(α)(π))^(1 - α - 2M)
@@ -246,50 +231,150 @@ function T013(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T022(u0::FractionalKdVAnsatz;
-Returns a function such that T022(u0, δ0 = δ0)(x) computes the (not yet
-existing) integral T_{0,2,2} from the paper. That is, the integral
-from x + δ0 to π. If x + δ0 >= π the function returns zero, note that
-the integral T02 might be far from zero in this case.
+    T02(u0::FractionalKdVAnsatz; δ2)
+Returns a function such that T02(u0, δ2 = δ2)(x) computes the integral
+T_{0,2} from the paper.
+
+If `x + δ2 > π` the function shows a warning and returns zero.
+
+The split between T021 and T022 is not done exactly at x + δ2 but at
+an exact floating point value slightly above this.
+"""
+T02(u0; kwargs...) = T02(u0, Ball(); kwargs...)
+
+function T02(u0::FractionalKdVAnsatz{arb},
+             ::Ball;
+             δ2::arb = parent(u0.α)(1e-6),
+             rtol = -1.0,
+             atol = -1.0,
+             show_trace = false,
+             )
+    return x -> begin
+        a = ArbTools.ubound(x + δ2)
+
+        if !(a < parent(u0.α)(π))
+            @warn "Evaluating T02 to close to x = π"
+            return zero(u0.α)
+        end
+
+        part1 = T021(u0, Ball(), a, x)
+
+        part2 = T022(u0, Ball(), a, x, rtol = rtol, atol = atol, show_trace = show_trace)
+
+        return part1 + part2
+    end
+end
+
+"""
+    T021(u0::FractionalKdVAnstaz{arb}, a::arb, x::arb)
+Computes the (not yet existing) integral T_{0,2,1} from the paper.
+
+Uses an expansion with `N` terms (of degree `N - 1`).
+"""
+T021(u0::FractionalKdVAnsatz{arb}, a, x) = T021(u0, Ball(), a, x)
+
+function T021(u0::FractionalKdVAnsatz{arb},
+              ::Ball,
+              a::arb,
+              x::arb;
+              N::Integer = 9,
+              )
+    Γ = Nemo.gamma
+    α = u0.α
+    δ2 = a - x
+
+    PP = ArbPolyRing(parent(α), :x)
+
+    # The last two terms are well behaved at t = x, we compute
+    # their Taylor expansions at the point
+    y_series = arb_series(PP([x, one(α)]), N)
+    part1_series = Ci(x + y_series, -α) - 2Ci(y_series, -α)
+
+    y_series_restterm = arb_series(PP([setinterval(x, a), one(α)]), N + 1)
+    part1_series_restterm = Ci(x + y_series_restterm, -α) - 2Ci(y_series_restterm, -α)
+    part1_restterm = ball(zero(α), δ2^N*part1_series_restterm[N])
+
+    # The first term has a singularity at t = 1 so we expand and
+    # handle the singular term by itself
+    singular_exponent = -α - 1
+    singular_coefficient = gamma(1 + α)*sinpi(-α/2)
+
+    part2_series = arb_series(PP(), N)
+    M = div(N, 2) + 1
+    part2_series[0] = zeta(-α)
+    for m = 1:M-1
+        part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))
+    end
+    part2_restterm = ball(zero(α),
+                          2(2parent(α)(π))^(1 - α - 2M)
+                          *zeta(2M + 1 + α)*δ2^(2M)/(4parent(α)(π)^2 - δ2^2),
+                          )
+
+    # Compute the integral
+    res = zero(α)
+    # Integrate the singular term
+    # We are integrating ∫_x^a |x - y|^s*y^p dy
+    # = ∫_x^a (y - x)^s*y^p dy which is given by
+    # x^(s + p + 1)*(Γ(1 + s)*Γ(-1 - s - p)/Γ(-p) - B(-1 - s - p, 1 + s; x/a)
+    # Where B(a, b; z) is the incomplete Beta-function
+    res += singular_coefficient*x^(1 + singular_exponent + u0.p)*(
+        Γ(1 + singular_exponent)*Γ(-1 - singular_exponent - u0.p)/Γ(-u0.p)
+        - beta_inc(-1 -singular_exponent - u0.p, 1 + singular_exponent, x/a)
+    )
+
+    # Integrate the terms in the series termwise on the interval [x, a]
+    # We are integrating ∫_x^a (y - x)^i*y^p dy which is given by
+    # x^(i + p + 1)*(Γ(1 + i)*Γ(-1 - i - p)/Γ(-p) - B(-1 - i - p, 1 + i; x/a)
+    # Where B(a, b; z) is the incomplete Beta-function
+    full_series = part1_series + part2_series
+    for i = 0:N-1
+        res += full_series[i] * x^(1 + i + u0.p) * (
+            Γ(parent(α)(1 + i))*Γ(-1 -i - u0.p)/Γ(-u0.p)
+            - beta_inc(-1 - i - u0.p, parent(α)(1 + i), x/a)
+        )
+    end
+
+    # Add the error given by the restterm times the length of the interval
+    res += δ2*(part1_restterm + part2_restterm)
+
+    # Prove: that the expression inside the absolute value of the
+    # integrand is positive
+    return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
+end
+
+"""
+    T022(u0::FractionalKdVAnsatz{arb}, a::arb, x::arb)
+Computes the (not yet existing) integral T_{0,2,2} from the paper.
 )
 """
-T022(u0::FractionalKdVAnsatz;
-     δ2::arb = parent(u0.α)("1e-6"),
-     rtol = -1.0,
-     atol = -1.0,
-     show_trace = false,
-     ) = T022(u0, Ball(), δ2 = δ2, rtol = rtol, atol = atol, show_trace = show_trace)
+T022(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 
 function T022(u0::FractionalKdVAnsatz{arb},
-              evaltype::Ball;
-              δ2::arb = parent(u0.α)("1e-6"),
+              ::Ball,
+              a::arb,
+              x::arb;
               rtol = -1.0,
               atol = -1.0,
               show_trace = false,
               )
-    return x -> begin
-        if x + δ2 >= parent(u0.α)(π)
-            return zero(u0.α)
-        end
+    CC = ComplexField(prec(parent(u0.α)))
+    mα = CC(-u0.α)
+    a = CC(a)
+    b = CC(parent(u0.α)(π))
 
-        CC = ComplexField(prec(parent(u0.α)))
-        mα = CC(-u0.α)
-        a = CC(x + δ2)
-        b = CC(parent(u0.α)(π))
+    # PROVE: That there are no branch cuts that interact with the
+    # integral
+    F(y, analytic = false) = ArbTools.real_abs(
+        Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα),
+        analytic = analytic,
+    )*y^u0.p
+    res = real(ArbTools.integrate(CC, F, a, b,
+                                  rel_tol = rtol,
+                                  abs_tol = atol,
+                                  eval_limit = 2000,
+                                  verbose = Int(show_trace),
+                                  ))
 
-        # PROVE: That there are no branch cuts that interact with the
-        # integral
-        F(y, analytic = false) = ArbTools.real_abs(
-            Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα),
-            analytic = analytic,
-        )*y^u0.p
-        res = real(ArbTools.integrate(CC, F, a, b,
-                                      rel_tol = rtol,
-                                      abs_tol = atol,
-                                      eval_limit = 2000,
-                                      verbose = Int(show_trace),
-                                      ))
+    return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
 
-        return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
-    end
 end
