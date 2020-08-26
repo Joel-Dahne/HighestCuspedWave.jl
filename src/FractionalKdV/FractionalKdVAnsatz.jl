@@ -89,7 +89,7 @@ function FractionalKdVAnsatz(α::T) where {T}
         u0 = FractionalKdVAnsatz(α, N0, N1, (1 - α)/2, use_midpoint = true)
     else
         # α ∈ I_3
-        u0 = FractionalKdVAnsatz(α, 1, 0, 1, use_midpoint = false)
+        u0 = FractionalKdVAnsatz(α, 1, 0, one(α), use_midpoint = false)
     end
 
     return u0
