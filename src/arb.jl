@@ -370,3 +370,25 @@ function hypgeom_2f1(a::arb, b::arb, c::arb, z::arb)
           res, a, b, c, z, 0, prec(parent(z)))
     return res
 end
+
+"""
+    taylor_with_error(f, a::arb, X::arb, N::Integer)
+Compute the Taylor expansion `P` of `f` of degree `N - 1` (i.e. `N`
+terms) at the point `a` and bound the error term on `X`.
+
+Returns a tuple `(P, E)` containing the Taylor expansion `P` and the
+error term `E`. It satisfies that `f(x) ∈ P(x - a) + E*(x - a)^N` for
+all `x ∈ X`.
+
+We required that `a ∈ x`.
+"""
+function taylor_with_error(f, a::arb, X::arb, N::Integer)
+    @assert contains(X, a)
+    PP = ArbPolyRing(parent(a), :x)
+
+    P = f(arb_series(PP([a, one(a)]), N))
+
+    E = f(arb_series(PP([X, one(a)]), N + 1))[N]
+
+    return (P, E)
+end

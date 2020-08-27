@@ -110,12 +110,10 @@ function T011(u0::FractionalKdVAnsatz{arb},
 
     return x -> begin
         # Analytic terms
-        t_series = arb_series(PP([0, 1]), N)
-        part1_series = Ci(x*(1 - t_series), -α) + Ci(x*(1 + t_series), -α)
-
-        t_series_restterm = arb_series(PP([setinterval(zero(α), δ0), one(α)]), N + 1)
-        part1_series_restterm = Ci(x*(1 - t_series_restterm), -α) + Ci(x*(1 + t_series_restterm), -α)
-        part1_restterm = ball(zero(α), δ0^N*part1_series_restterm[N])
+        (P, E) = taylor_with_error(zero(α), setinterval(zero(α), δ0), N) do t
+            Ci(x*(1 - t), -α) + Ci(x*(1 + t), -α)
+        end
+        P_restterm = ball(zero(α), E*δ0^N)
 
         # Singular term
         singular_exponent = -α - 1
@@ -139,13 +137,13 @@ function T011(u0::FractionalKdVAnsatz{arb},
         res -= 2singular_coefficient*δ0^(singular_exponent + u0.p + 1)/(singular_exponent + u0.p + 1)
 
         # Integrate the analytic terms
-        full_series = part1_series - 2part2_series
+        full_series = P - 2part2_series
         for i = 0:N-1
             res += full_series[i]*δ0^(i + u0.p + 1)/(i + u0.p + 1)
         end
 
         # Add the error term
-        res += δ0*(part1_restterm - 2part2_restterm)
+        res += δ0*(P_restterm - 2part2_restterm)
 
         # Prove: that the expression inside the absolute value of the
         # integrand is negative
@@ -238,25 +236,14 @@ function T013(u0::FractionalKdVAnsatz{arb},
         use_asymptotic = π - x < ϵ
 
         # Analytic terms
-        t_series = arb_series(PP([1, 1]), N)
-
-        if !use_asymptotic
-            # The normal case, when x is not very close to π.
-            part1_series = Ci(x*(1 + t_series), -α) - 2Ci(x*t_series, -α)
-        else
-            # The case when x is very close to π
-            part1_series = -2Ci(x*t_series, -α)
+        (P, E) = taylor_with_error(one(α), setinterval(1 - δ1, one(α)), N) do t
+            if !use_asymptotic
+                return Ci(x*(1 + t), -α) - 2Ci(x*t, -α)
+            else
+                return -2Ci(x*t, -α)
+            end
         end
-
-        t_series_restterm = arb_series(PP([setinterval(1 - δ1, one(α)), one(α)]), N + 1)
-        if !use_asymptotic
-            # The normal case, when x is not very close to π.
-            part1_series_restterm = Ci(x*(1 + t_series_restterm), -α) - 2Ci(x*t_series_restterm, -α)
-        else
-            # The case when x is very close to π
-            part1_series_restterm = -2Ci(x*t_series_restterm, -α)
-        end
-        part1_restterm = ball(zero(α), δ1^N*part1_series_restterm[N])
+        P_restterm = ball(zero(α), E*δ1^N)
 
         # Singular term
         singular_exponent = -α - 1
@@ -284,7 +271,7 @@ function T013(u0::FractionalKdVAnsatz{arb},
 
         # Integrate the analytic part
         # Using ∫_(1-δ1)^1 (t-1)^i*t^(p) dt = (-1)^i ∫_(1-δ1)^1 (t-1)^i*t^(p) dt
-        full_series = part1_series + part2_series
+        full_series = P + part2_series
         for i = 0:N-1
             res += full_series[i] * (-1)^i * (
                 Γ(parent(α)(1 + i))*Γ(1 + u0.p)/Γ(2 + i + u0.p)
@@ -293,7 +280,7 @@ function T013(u0::FractionalKdVAnsatz{arb},
         end
 
         # Add the error term
-        res += δ1*(part1_restterm + part2_restterm)
+        res += δ1*(P_restterm + part2_restterm)
 
         if use_asymptotic
             # Handle asymptotic expansion of Ci(x*(t + 1), α)
@@ -399,12 +386,10 @@ function T021(u0::FractionalKdVAnsatz{arb},
     PP = ArbPolyRing(parent(α), :x)
 
     # Analytic terms
-    y_series = arb_series(PP([x, one(α)]), N)
-    part1_series = Ci(x + y_series, -α) - 2Ci(y_series, -α)
-
-    y_series_restterm = arb_series(PP([setinterval(x, a), one(α)]), N + 1)
-    part1_series_restterm = Ci(x + y_series_restterm, -α) - 2Ci(y_series_restterm, -α)
-    part1_restterm = ball(zero(α), δ2^N*part1_series_restterm[N])
+    (P, E) = taylor_with_error(x, setinterval(x, a), N) do y
+        Ci(x + y, -α) - 2Ci(y, -α)
+    end
+    P_restterm = ball(zero(α), E*δ2^N)
 
     # Singular term
     singular_exponent = -α - 1
@@ -437,7 +422,7 @@ function T021(u0::FractionalKdVAnsatz{arb},
     end
 
     # Integrate the analytic terms
-    full_series = part1_series + part2_series
+    full_series = P + part2_series
     for i = 0:N-1
         if u0.p == 1
             res += full_series[i]*δ2^(1 + i)*(
@@ -452,7 +437,7 @@ function T021(u0::FractionalKdVAnsatz{arb},
     end
 
     # Add the error term
-    res += δ2*(part1_restterm + part2_restterm)
+    res += δ2*(P_restterm + part2_restterm)
 
     # Prove: that the expression inside the absolute value of the
     # integrand is positive
