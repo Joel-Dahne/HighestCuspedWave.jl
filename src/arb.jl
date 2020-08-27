@@ -120,12 +120,65 @@ end
 #end
 
 """
+    contains_pi(x1::arb, x2::arb)
+Checks the interval `[x1, x2]` if it contains points of the form `kπ`.
+Returns two booleans, the first one is false if it doesn't contain a
+point on the form `2kπ` and the second one if it doesn't contain one
+on the form `(2k+ 1)π`. If they are true it means they might contain
+such a point. This is used to determine where the extrema of `Ci([x1,
+x2])` can occur.
+
+TODO: This is (hopefully) correct but not optimal.
+"""
+function contains_pi(x1::arb, x2::arb)
+    @assert !(x1 > x2)
+
+    # x1 or x2 equal to zero are the only cases when the division by π
+    # can be exact, in which case it has to be handled differently.
+    if iszero(x1)
+        return (true, !(x2 < parent(x2)(π)))
+    end
+    if iszero(x2)
+        return (true, !(x1 > -parent(x1)(π)))
+    end
+
+    # We have k1ₗπ ≤ xₗ < (k1ᵤ + 1)π
+    k1 = floor(x1/parent(x1)(π))
+    (unique1ₗ, k1ₗ) = unique_integer(ceil(ArbTools.lbound(k1)))
+    (unique1ᵤ, k1ᵤ) = unique_integer(floor(ArbTools.ubound(k1)))
+    @assert unique1ₗ && unique1ᵤ && k1ₗ*parent(x1)(π) ≤ x1 < (k1ᵤ + 1)*parent(x1)(π)
+    # We have k2ₗπ ≤ xₗ < (k2ᵤ + 1)π
+    k2 = floor(x2/parent(x2)(π))
+    (unique2ₗ, k2ₗ) = unique_integer(ceil(ArbTools.lbound(k2)))
+    (unique2ᵤ, k2ᵤ) = unique_integer(floor(ArbTools.ubound(k2)))
+    @assert unique2ₗ && unique2ᵤ && k2ₗ*parent(x2)(π) ≤ x2 < (k2ᵤ + 1)*parent(x2)(π)
+
+    if k1ₗ == k2ᵤ
+        # No kπ
+        return (false, false)
+    elseif k1ₗ == k2ᵤ - 1
+        # Might contain exactly one such point (or zero)
+        if iseven(k1ₗ)
+            return (false, true)
+        else
+            return (true, false)
+        end
+    else
+        # Might contain two such points
+        return (true, true)
+    end
+end
+
+
+"""
     Ci(x, s)
 Compute the Clausian function Ciₛ(x).
 
 If x is a wide (real) ball (as determined by iswide(x)) it computes a
 tighter enclosure by using that Ci 2π periodic, monotonic for x ∈ [0,
-π] and even, so that it's enough to evaluate on the endpoints.
+π] and even, so that it's enough to evaluate on the endpoints and
+possibly at zero or π if `x` contains points on the form `2kπ` or (2k
++ 1)π` respectively.
 """
 function Ci(x::acb, s)
     im = x.parent(0, 1)
@@ -134,9 +187,17 @@ end
 
 function Ci(x::arb, s::arb)
     if iswide(x)
-        x_lower = max(ArbTools.abs_lbound(x), parent(x)(0))
-        x_upper = min(ArbTools.abs_ubound(x), parent(x)(π))
-        return setunion(Ci(x_upper, s), Ci(x_lower, s))
+        xₗ = ArbTools.lbound(x)
+        xᵤ = ArbTools.ubound(x)
+        (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
+        res = setunion(Ci(xₗ, s), Ci(xᵤ, s))
+        if include_zero
+            res = setunion(res, Ci(zero(x), s))
+        end
+        if include_pi
+            res = setunion(res, Ci(parent(x)(π), s))
+        end
+        return res
     end
     CC = ComplexField(prec(parent(x)))
     return real(Li(exp(CC(zero(x), x)), CC(s)))
@@ -144,9 +205,17 @@ end
 
 function Ci(x::arb, s::Integer)
     if iswide(x)
-        x_upper = min(ArbTools.abs_ubound(x), parent(x)(π))
-        x_lower = max(ArbTools.abs_lbound(x), parent(x)(0))
-        return setunion(Ci(x_lower, s), Ci(x_upper, s))
+        xₗ = ArbTools.lbound(x)
+        xᵤ = ArbTools.ubound(x)
+        (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
+        res = setunion(Ci(xₗ, s), Ci(xᵤ, s))
+        if include_zero
+            res = setunion(res, Ci(zero(x), s))
+        end
+        if include_pi
+            res = setunion(res, Ci(parent(x)(π), s))
+        end
+        return res
     end
     CC = ComplexField(prec(parent(x)))
     return real(Li(exp(CC(zero(x), x)), s))
