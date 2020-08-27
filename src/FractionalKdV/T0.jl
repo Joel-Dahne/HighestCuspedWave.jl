@@ -20,12 +20,8 @@ function T0(u0::FractionalKdVAnsatz{arb},
 
     return x -> begin
         ## Integral on [0, x] - Change to t = y/x
-        part1 = (
-            T011(u0, evaltype, δ0 = δ0)(x)
-            + T012(u0, evaltype, δ0 = δ0, δ1 = δ1,
-                   rtol = rtol, atol = atol, show_trace = show_trace)(x)
-            + T013(u0, evaltype, δ1 = δ1)(x)
-        )
+        part1 = T01(u0, evaltype, δ0 = δ0, δ1 = δ1,
+                    rtol = rtol, atol = atol, show_trace = show_trace)(x)
 
         if isnan(part1)
             # Short circuit on NaN
@@ -33,7 +29,7 @@ function T0(u0::FractionalKdVAnsatz{arb},
         end
 
         ## Integral on [x, π]
-        part2 = T02(u0, δ2 = δ2, rtol = rtol, atol = atol, show_trace = show_trace)(x)
+        part2 = T02(u0, evaltype, δ2 = δ2, rtol = rtol, atol = atol, show_trace = show_trace)(x)
 
         return part1 + part2
     end
@@ -46,6 +42,39 @@ function T0(u0::FractionalKdVAnsatz{T}, ::Asymptotic) where {T}
         return zero(u0.α)
     end
 end
+
+"""
+    T01(u0::FractionalKdVAnsatz; δ1, δ2)
+Returns a function such that T01(u0, δ1 = δ1, δ2 = δ2)(x) computes the integral
+T_{0,1} from the paper.
+"""
+T01(u0; kwargs...) = T01(u0, Ball(); kwargs...)
+
+function T01(u0::FractionalKdVAnsatz{arb},
+             evaltype::EvalType;
+             δ0::arb = parent(u0.α)(1e-4),
+             δ1::arb = parent(u0.α)(1e-4),
+             rtol = -1.0,
+             atol = -1.0,
+             show_trace = false,
+             )
+    return x -> begin
+        return (
+            T011(u0, evaltype, δ0 = δ0)(x)
+            + T012(
+                u0,
+                evaltype,
+                δ0 = δ0,
+                δ1 = δ1,
+                rtol = rtol,
+                atol = atol,
+                show_trace = show_trace
+            )(x)
+            + T013(u0, evaltype, δ1 = δ1)(x)
+        )
+    end
+end
+
 
 """
     T011(u0::FractionalKdVAnstaz{arb}; δ0)
@@ -175,29 +204,61 @@ The integral that needs to be computed in this case is `∫_(1 - δ1)^1
 (1 - t)^s*t^p dt` which is given by `Γ(1 + s)*Γ(1 + p)/Γ(2 + s + p) -
 B(1 + p, 1 + s; 1 - δ1)` where B(a, b; z) is the incomplete
 Beta-function.
+
+If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
+expansion gives a very poor approximation for `Ci(x*(t + 1), -α)`. In
+this case we make use of the fact that it's 2π periodic and even, so
+that `Ci(x*(t + 1), -α) = Ci(x*(t + 1) - 2π, -α) = Ci(2π - x*(t + 1),
+-α)`, to be able to use the asymptotic expansion instead. That gives
+us the integral ```∫_(1 - δ1)^1 (2π - x*(t + 1))^s*t^p dt` which is
+given by `(2π - x)^(1 + p + s)*x^(-1 - p)*(B(1 + p, 1 + s, x/(2π - x))
+- B(1 + p, 1 + s, (x - δ1*x)/(2π - x)))```. The value of `x/(2π - x)`
+will always be less than or equal to 1 for `x` less than or equal to
+π, however due to overestimation the enclosing ball might contain
+values greater than one, we therefore have to use `beta_inc_zeroone`
+to be able to get finite results in that case.
 """
 T013(u0::FractionalKdVAnsatz{arb}; kwargs...) = T013(u0, Ball(); kwargs...)
 
 function T013(u0::FractionalKdVAnsatz{arb},
               ::Ball;
               δ1::arb = parent(u0.α)(1e-4),
+              ϵ::arb = parent(u0.α)(1e-2),
               N::Integer = 3,
               )
     Γ = Nemo.gamma
     α = u0.α
+    π = parent(α)(pi)
 
     PP = ArbPolyRing(parent(α), :x)
 
     return x -> begin
+        # Determine if the asymptotic expansion or the Taylor
+        # expansion should be used for the second term
+        use_asymptotic = π - x < ϵ
+
         # Analytic terms
         t_series = arb_series(PP([1, 1]), N)
-        part1_series = Ci(x*(1 + t_series), -α) - 2Ci(x*t_series, -α)
+
+        if !use_asymptotic
+            # The normal case, when x is not very close to π.
+            part1_series = Ci(x*(1 + t_series), -α) - 2Ci(x*t_series, -α)
+        else
+            # The case when x is very close to π
+            part1_series = -2Ci(x*t_series, -α)
+        end
 
         t_series_restterm = arb_series(PP([setinterval(1 - δ1, one(α)), one(α)]), N + 1)
-        part1_series_restterm = Ci(x*(1 + t_series_restterm), -α) - 2Ci(x*t_series_restterm, -α)
+        if !use_asymptotic
+            # The normal case, when x is not very close to π.
+            part1_series_restterm = Ci(x*(1 + t_series_restterm), -α) - 2Ci(x*t_series_restterm, -α)
+        else
+            # The case when x is very close to π
+            part1_series_restterm = -2Ci(x*t_series_restterm, -α)
+        end
         part1_restterm = ball(zero(α), δ1^N*part1_series_restterm[N])
 
-        # Singular terms
+        # Singular term
         singular_exponent = -α - 1
         singular_coefficient = gamma(1 + α)*sinpi(-α/2)*abspow(x, singular_exponent)
 
@@ -208,8 +269,8 @@ function T013(u0::FractionalKdVAnsatz{arb},
             part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*x^(2m)
         end
         part2_restterm = ball(zero(α),
-                              2(2parent(α)(π))^(1 - α - 2M)
-                              *zeta(2M + 1 + α)*(x*(1 - δ1))^(2M)/(4parent(α)(π)^2 - (x*(1 - δ1))^2),
+                              2(2π)^(1 - α - 2M)
+                              *zeta(2M + 1 + α)*(x*(1 - δ1))^(2M)/(4π^2 - (x*(1 - δ1))^2),
                               )
 
         # Compute the integral
@@ -233,6 +294,40 @@ function T013(u0::FractionalKdVAnsatz{arb},
 
         # Add the error term
         res += δ1*(part1_restterm + part2_restterm)
+
+        if use_asymptotic
+            # Handle asymptotic expansion of Ci(x*(t + 1), α)
+            # singular_exponent same as before
+            singular_coefficient = gamma(1 + α)*sinpi(-α/2)
+            part3_series = arb_series(PP(), N)
+            part3_series[0] = zeta(-α)
+            for m = 1:M-1
+                part3_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))
+            end
+            part3_restterm = ball(zero(α),
+                                  2(2π)^(1 - α - 2M)
+                                  *zeta(2M + 1 + α)*(2π - x*(2 - δ1))^(2M)
+                                  /(4π^2 - (2π - x*(2 - δ1))^2),
+                                  )
+
+            # TODO: Write documentation
+            # Add the singular part to the integral
+            res += singular_coefficient*(2π - x)^(1 + u0.p + singular_exponent)*x^(-1 - u0.p)*(
+                beta_inc_zeroone(1 + u0.p, 1 + singular_exponent, x/(2π - x))
+                - beta_inc_zeroone(1 + u0.p, 1 + singular_exponent, (x - δ1*x)/(2π - x))
+            )
+
+            for i = 0:2:N-1
+                # Only even terms
+                res += part3_series[i]*(2π - x)^(1 + u0.p + i)*x^(-1 - u0.p)*(
+                beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x/(2π - x))
+                - beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), (x - δ1*x)/(2π - x))
+                )
+            end
+
+            # Add error term
+            res += δ1*part3_restterm
+        end
 
         # Prove: that the expression inside the absolute value of the
         # integrand is positive

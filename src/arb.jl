@@ -306,7 +306,7 @@ end
 
 """
     beta_inc(a, b, z)
-Compute the (not regularised) incomplete beta function B(a, b; z)
+Compute the (not regularised) incomplete beta function B(a, b; z).
 """
 function beta_inc(a::acb, b::acb, z::acb)
     res = parent(z)()
@@ -323,6 +323,27 @@ function beta_inc(a::arb, b::arb, z::arb)
 end
 
 """
+    beta_inc_zeroone(a::arb, b::arb, z::arb)
+Compute the (not regularised) incomplete beta function B(a, b; z)
+assuming that `0 <= z <= 1`, discarding any other numbers in the
+interval.
+
+# PROVE: That it's monotonically increasing in `z`.
+"""
+function beta_inc_zeroone(a::arb, b::arb, z::arb)
+    if 0 <= z <= 1
+        return beta_inc(a, b, z)
+    elseif z >= 0
+        return setinterval(beta_inc(a, b, ArbTools.lbound(z)), beta_inc(a, b, one(z)))
+    elseif z <= 1
+        return setinterval(beta_inc(a, b, zero(z)), beta_inc(a, b, ArbTools.ubound(z)))
+    else
+        return setinterval(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
+    end
+end
+
+
+"""
     powpos(x, y)
 Compute |x|^y in a way that works if x contains negative numbers.
 """
@@ -336,3 +357,16 @@ function abspow(x::arb, y::arb)
 end
 
 abspow(x, y) = abs(x)^y
+
+"""
+    hypgeom_2f1(a, b, c, z)
+Compute the (not regularised) Gauss hypergeometric function
+₂F₁(a,b,c,z).
+"""
+function hypgeom_2f1(a::arb, b::arb, c::arb, z::arb)
+    res = parent(z)()
+    ccall(("arb_hypgeom_2f1", Nemo.libarb), Cvoid,
+          (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong),
+          res, a, b, c, z, 0, prec(parent(z)))
+    return res
+end
