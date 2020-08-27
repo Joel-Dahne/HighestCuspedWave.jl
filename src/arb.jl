@@ -262,6 +262,41 @@ function Ci(x::arb_series, s, n::Integer = length(x))
     return Nemo.compose(res, x_tmp, n)
 end
 
+"""
+    Ci_expansion(x, s, M::Integer)
+Compute the asymptotic expansion of `Ci` at zero up to order `2M - 2`.
+
+It returns four things, the coefficient `C` and exponent `e` for the
+non-analytic term, the analytic terms in an `arb_series` `P` and the
+error term `E`. The `M` is the same as in Lemma 2.1 in
+enciso18:convex_whith.
+
+It satisfies that `Ci(y, s) ∈ C*abs(y)^s + P(y) + E*y^(2M)` for all `|y|
+<= |x|`.
+"""
+function Ci_expansion(x::arb, s::arb, M::Integer)
+    π = parent(x)(pi)
+
+    # Non-analytic term
+    C = Nemo.gamma(1 - s)*sinpi(s/2)
+    e = s - 1
+
+    # Analytic term
+    P = arb_series(ArbPolyRing(parent(x), :x)(), 2M - 1)
+    for m = 0:M-1
+        P[2m] = (-1)^m*zeta(s - 2m)/factorial(fmpz(2m))
+    end
+
+    # Error term
+    E = ball(
+        zero(x),
+        2(2π)^(1 + s - 2M)*zeta(2M + 1 - s)/(4π^2 - x^2)
+    )
+
+    return (C, e, P, E)
+end
+
+
 
 """
     Si(x, s)

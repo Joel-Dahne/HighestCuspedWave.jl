@@ -110,40 +110,33 @@ function T011(u0::FractionalKdVAnsatz{arb},
 
     return x -> begin
         # Analytic terms
-        (P, E) = taylor_with_error(zero(α), setinterval(zero(α), δ0), N) do t
+        (P, P_E) = taylor_with_error(zero(α), setinterval(zero(α), δ0), N) do t
             Ci(x*(1 - t), -α) + Ci(x*(1 + t), -α)
         end
-        P_restterm = ball(zero(α), E*δ0^N)
+        P_restterm = ball(zero(α), P_E*δ0^N)
 
         # Singular term
-        singular_exponent = -α - 1
-        singular_coefficient = gamma(1 + α)*sinpi(-α/2)*abspow(x, singular_exponent)
-
-        part2_series = arb_series(PP(), N)
         M = div(N, 2) + 1
-        part2_series[0] = zeta(-α)
+        (C, e, P2, P2_E) = Ci_expansion(x*δ0, -α, M)
+        C *= x^e
         for m = 1:M-1
-            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*x^(2m)
+            P2[2m] *= x^(2m)
         end
-        part2_restterm = ball(zero(α),
-                              2(2parent(α)(π))^(1 - α - 2M)
-                              *zeta(2M + 1 + α)*δ0^(2M)/(4parent(α)(π)^2 - (x*δ0)^2)
-                              *(x*δ0)^(2M),
-                              )
+        P2_restterm = P2_E*(x*δ0)^(2M)
 
         # Compute the integral
         res = zero(α)
         # Integrate the singular term
-        res -= 2singular_coefficient*δ0^(singular_exponent + u0.p + 1)/(singular_exponent + u0.p + 1)
+        res -= 2C*δ0^(e + u0.p + 1)/(e + u0.p + 1)
 
         # Integrate the analytic terms
-        full_series = P - 2part2_series
+        full_series = P - 2P2
         for i = 0:N-1
             res += full_series[i]*δ0^(i + u0.p + 1)/(i + u0.p + 1)
         end
 
         # Add the error term
-        res += δ0*(P_restterm - 2part2_restterm)
+        res += δ0*(P_restterm - P2_restterm)
 
         # Prove: that the expression inside the absolute value of the
         # integrand is negative
@@ -246,32 +239,23 @@ function T013(u0::FractionalKdVAnsatz{arb},
         P_restterm = ball(zero(α), E*δ1^N)
 
         # Singular term
-        singular_exponent = -α - 1
-        singular_coefficient = gamma(1 + α)*sinpi(-α/2)*abspow(x, singular_exponent)
-
-        part2_series = arb_series(PP(), N)
         M = div(N, 2) + 1
-        part2_series[0] = zeta(-α)
+        (C, e, P2, P2_E) = Ci_expansion(x*δ1, -α, M)
+        C *= x^e
         for m = 1:M-1
-            part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))*x^(2m)
+            P2[2m] *= x^(2m)
         end
-        part2_restterm = ball(zero(α),
-                              2(2π)^(1 - α - 2M)
-                              *zeta(2M + 1 + α)*(x*(1 - δ1))^(2M)/(4π^2 - (x*(1 - δ1))^2),
-                              )
+        P2_restterm = P2_E*(x*δ1)^(2M)
 
         # Compute the integral
         res = zero(α)
         # Integrate the singular term
         # Using ∫_(1 - δ1)^1 |t - 1|^s*t^(p) dt = ∫_(1 - δ1)^1 (1 - t)^s*t^(p) dt
-        res += singular_coefficient*(
-            Γ(1 + singular_exponent)*Γ(1 + u0.p)/Γ(2 + singular_exponent + u0.p)
-            - beta_inc(1 + u0.p, 1 + singular_exponent, 1 - δ1)
-        )
+        res += C*(Γ(1 + e)*Γ(1 + u0.p)/Γ(2 + e + u0.p) - beta_inc(1 + u0.p, 1 + e, 1 - δ1))
 
         # Integrate the analytic part
         # Using ∫_(1-δ1)^1 (t-1)^i*t^(p) dt = (-1)^i ∫_(1-δ1)^1 (t-1)^i*t^(p) dt
-        full_series = P + part2_series
+        full_series = P + P2
         for i = 0:N-1
             res += full_series[i] * (-1)^i * (
                 Γ(parent(α)(1 + i))*Γ(1 + u0.p)/Γ(2 + i + u0.p)
@@ -280,40 +264,29 @@ function T013(u0::FractionalKdVAnsatz{arb},
         end
 
         # Add the error term
-        res += δ1*(P_restterm + part2_restterm)
+        res += δ1*(P_restterm + P2_restterm)
 
         if use_asymptotic
             # Handle asymptotic expansion of Ci(x*(t + 1), α)
-            # singular_exponent same as before
-            singular_coefficient = gamma(1 + α)*sinpi(-α/2)
-            part3_series = arb_series(PP(), N)
-            part3_series[0] = zeta(-α)
-            for m = 1:M-1
-                part3_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))
-            end
-            part3_restterm = ball(zero(α),
-                                  2(2π)^(1 - α - 2M)
-                                  *zeta(2M + 1 + α)*(2π - x*(2 - δ1))^(2M)
-                                  /(4π^2 - (2π - x*(2 - δ1))^2),
-                                  )
+            (C, e, P3, P3_E) = Ci_expansion(2π - x*(2 - δ1), -α, M)
+            P3_restterm = P2_E*(2π - x*(2 - δ1))^(2M)
 
-            # TODO: Write documentation
             # Add the singular part to the integral
-            res += singular_coefficient*(2π - x)^(1 + u0.p + singular_exponent)*x^(-1 - u0.p)*(
-                beta_inc_zeroone(1 + u0.p, 1 + singular_exponent, x/(2π - x))
-                - beta_inc_zeroone(1 + u0.p, 1 + singular_exponent, (x - δ1*x)/(2π - x))
+            res += C*(2π - x)^(1 + u0.p + e)*x^(-1 - u0.p)*(
+                beta_inc_zeroone(1 + u0.p, 1 + e, x/(2π - x))
+                - beta_inc_zeroone(1 + u0.p, 1 + e, (x - δ1*x)/(2π - x))
             )
 
             for i = 0:2:N-1
                 # Only even terms
-                res += part3_series[i]*(2π - x)^(1 + u0.p + i)*x^(-1 - u0.p)*(
+                res += P3[i]*(2π - x)^(1 + u0.p + i)*x^(-1 - u0.p)*(
                 beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x/(2π - x))
                 - beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), (x - δ1*x)/(2π - x))
                 )
             end
 
             # Add error term
-            res += δ1*part3_restterm
+            res += δ1*P3_restterm
         end
 
         # Prove: that the expression inside the absolute value of the
@@ -392,37 +365,25 @@ function T021(u0::FractionalKdVAnsatz{arb},
     P_restterm = ball(zero(α), E*δ2^N)
 
     # Singular term
-    singular_exponent = -α - 1
-    singular_coefficient = gamma(1 + α)*sinpi(-α/2)
-
-    part2_series = arb_series(PP(), N)
     M = div(N, 2) + 1
-    part2_series[0] = zeta(-α)
-    for m = 1:M-1
-        part2_series[2m] = (-1)^m*zeta(-α - 2m)/factorial(fmpz(2m))
-    end
-    part2_restterm = ball(zero(α),
-                          2(2parent(α)(π))^(1 - α - 2M)
-                          *zeta(2M + 1 + α)*δ2^(2M)/(4parent(α)(π)^2 - δ2^2),
-                          )
+    (C, e, P2, P2_E) = Ci_expansion(δ2, -α, M)
+    P2_restterm = P2_E*(δ2)^(2M)
 
     # Compute the integral
     res = zero(α)
     # Integrate the singular term
     # Using ∫_x^a |x - y|^s*y^p dy = ∫_x^a (y - x)^s*y^p dy
     if u0.p == 1
-        res += singular_coefficient*δ2^(1+singular_exponent)*(
-            δ2/(2+singular_exponent)+x/(1+singular_exponent)
-        )
+        res += C*δ2^(1 + e)*(δ2/(2 + e) + x/(1 + e))
     else
-        res += singular_coefficient*x^(1 + singular_exponent + u0.p)*(
-            Γ(1 + singular_exponent)*Γ(-1 - singular_exponent - u0.p)/Γ(-u0.p)
-            - beta_inc(-1 -singular_exponent - u0.p, 1 + singular_exponent, x/a)
+        res += C*x^(1 + e + u0.p)*(
+            Γ(1 + e)*Γ(-1 - e - u0.p)/Γ(-u0.p)
+            - beta_inc(-1 -e - u0.p, 1 + e, x/a)
         )
     end
 
     # Integrate the analytic terms
-    full_series = P + part2_series
+    full_series = P + P2
     for i = 0:N-1
         if u0.p == 1
             res += full_series[i]*δ2^(1 + i)*(
@@ -437,7 +398,7 @@ function T021(u0::FractionalKdVAnsatz{arb},
     end
 
     # Add the error term
-    res += δ2*(P_restterm + part2_restterm)
+    res += δ2*(P_restterm + P2_restterm)
 
     # Prove: that the expression inside the absolute value of the
     # integrand is positive
