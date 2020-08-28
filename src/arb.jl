@@ -369,11 +369,11 @@ function beta_inc_zeroone(a::arb, b::arb, z::arb)
     if 0 <= z <= 1
         return beta_inc(a, b, z)
     elseif z >= 0
-        return setinterval(beta_inc(a, b, ArbTools.lbound(z)), beta_inc(a, b, one(z)))
+        return setunion(beta_inc(a, b, ArbTools.lbound(z)), beta_inc(a, b, one(z)))
     elseif z <= 1
-        return setinterval(beta_inc(a, b, zero(z)), beta_inc(a, b, ArbTools.ubound(z)))
+        return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, ArbTools.ubound(z)))
     else
-        return setinterval(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
+        return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
     end
 end
 

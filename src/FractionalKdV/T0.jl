@@ -267,7 +267,7 @@ function T013(u0::FractionalKdVAnsatz{arb},
         res += δ1*(P_restterm + P2_restterm)
 
         if use_asymptotic
-            # Handle asymptotic expansion of Ci(x*(t + 1), α)
+            # Handle asymptotic expansion of Ci(x*(t + 1), -α)
             (C, e, P3, P3_E) = Ci_expansion(2π - x*(2 - δ1), -α, M)
             P3_restterm = P2_E*(2π - x*(2 - δ1))^(2M)
 
@@ -304,6 +304,9 @@ If `x + δ2 > π` the function shows a warning and returns zero.
 
 The split between T021 and T022 is not done exactly at x + δ2 but at
 an exact floating point value slightly above this.
+
+If `x` is close to π (`π - x < ϵ`) then use only the asymptotic
+expansion for the full integral.
 """
 T02(u0; kwargs...) = T02(u0, Ball(); kwargs...)
 
@@ -313,16 +316,17 @@ function T02(u0::FractionalKdVAnsatz{arb},
              rtol = -1.0,
              atol = -1.0,
              show_trace = false,
+             ϵ::arb = parent(u0.α)(1e-1),
              )
     return x -> begin
         a = ArbTools.ubound(x + δ2)
 
-        if !(a < parent(u0.α)(π))
-            @warn "Evaluating T02 to close to x = π - NOT rigorous"
-            return zero(u0.α)
+        if parent(u0.α)(π) - x < ϵ
+            # Use only the asymptotic expansion on the whole interval
+            return T021(u0, Ball(), parent(u0.α)(π), x, ϵ = ϵ)
         end
 
-        part1 = T021(u0, Ball(), a, x)
+        part1 = T021(u0, Ball(), a, x, ϵ = ϵ)
 
         part2 = T022(u0, Ball(), a, x, rtol = rtol, atol = atol, show_trace = show_trace)
 
@@ -343,24 +347,47 @@ x)^s*y^p dy` which is given by `x^(s + p + 1)*(Γ(1 + s)*Γ(-1 - s -
 p)/Γ(-p) - B(-1 - s - p, 1 + s; x/a)` where B(a, b; z) is the
 incomplete Beta-function. For `p = 1` we instead use the expression
 `(a - x)^(1+s)*((a - x)/(2 + s) + x/(1 + s))`.
+
+If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
+expansion gives a very poor approximation for `Ci(x + y, -α)`. In this
+case we make use of the fact that it's 2π periodic and even, so that
+`Ci(x + y, -α) = Ci(x + y - 2π, -α) = Ci(2π - (x + y), -α)`, to be
+able to use the asymptotic expansion instead. That gives us the
+integral ```∫_x^a (2π - (x + y))^s*t^p dy` which is given by `(2π -
+x)^(1 + p + s)*(B(1 + p, 1 + s, a/(2π - x)) - B(1 + p, 1 + s, x/(2π -
+x)))```. The value of `x/(2π - x)` will always be less than or equal
+to 1 for `x` less than or equal to π, however due to overestimation
+the enclosing ball might contain values greater than one, we therefore
+have to use `beta_inc_zeroone` to be able to get finite results in
+that case.
 """
-T021(u0::FractionalKdVAnsatz{arb}, a, x) = T021(u0, Ball(), a, x)
+T021(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
 function T021(u0::FractionalKdVAnsatz{arb},
               ::Ball,
               a::arb,
               x::arb;
+              ϵ::arb = parent(u0.α)(1e-1),
               N::Integer = 3,
               )
     Γ = Nemo.gamma
     α = u0.α
     δ2 = a - x
+    π = parent(α)(pi)
 
     PP = ArbPolyRing(parent(α), :x)
 
+    # Determine if the asymptotic expansion or the Taylor
+    # expansion should be used for the second term
+    use_asymptotic = π - x < ϵ
+
     # Analytic terms
     (P, E) = taylor_with_error(x, setinterval(x, a), N) do y
-        Ci(x + y, -α) - 2Ci(y, -α)
+        if !use_asymptotic
+            return Ci(x + y, -α) - 2Ci(y, -α)
+        else
+            return -2Ci(y, -α)
+        end
     end
     P_restterm = ball(zero(α), E*δ2^N)
 
@@ -374,11 +401,11 @@ function T021(u0::FractionalKdVAnsatz{arb},
     # Integrate the singular term
     # Using ∫_x^a |x - y|^s*y^p dy = ∫_x^a (y - x)^s*y^p dy
     if u0.p == 1
-        res += C*δ2^(1 + e)*(δ2/(2 + e) + x/(1 + e))
+        res += C*abspow(δ2, 1 + e)*(δ2/(2 + e) + x/(1 + e))
     else
         res += C*x^(1 + e + u0.p)*(
             Γ(1 + e)*Γ(-1 - e - u0.p)/Γ(-u0.p)
-            - beta_inc(-1 -e - u0.p, 1 + e, x/a)
+            - beta_inc_zeroone(-1 -e - u0.p, 1 + e, x/a)
         )
     end
 
@@ -399,6 +426,30 @@ function T021(u0::FractionalKdVAnsatz{arb},
 
     # Add the error term
     res += δ2*(P_restterm + P2_restterm)
+
+    if use_asymptotic
+        # Handle asymptotic expansion of Ci(x + y, -α)
+        # The furthest away from 2π we are is at y = x
+        (C, e, P3, P3_E) = Ci_expansion(2π - 2x, -α, M)
+        P3_restterm = P2_E*(2π - 2x)^(2M)
+
+        # Add the singular part to the integral
+        res += C*(2π - x)^(1 + e + u0.p)*(
+            beta_inc_zeroone(1 + u0.p, 1 + e, a/(2π - x))
+            - beta_inc_zeroone(1 + u0.p, 1 + e, x/(2π - x))
+        )
+
+        for i = 0:2:N-1
+            # Only even terms
+            res += P3[i]*(2π - x)^(1 + i + u0.p)*(
+            beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), a/(2π - x))
+            - beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x/(2π - x))
+        )
+        end
+
+        # Add error term
+        res += δ2*P3_restterm
+    end
 
     # Prove: that the expression inside the absolute value of the
     # integrand is positive
