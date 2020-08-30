@@ -110,7 +110,7 @@ function T011(u0::FractionalKdVAnsatz{arb},
 
     return x -> begin
         # Analytic terms
-        (P, P_E) = taylor_with_error(zero(α), setinterval(zero(α), δ0), N) do t
+        (P, P_E) = taylor_with_error(zero(α), setunion(zero(α), δ0), N) do t
             Ci(x*(1 - t), -α) + Ci(x*(1 + t), -α)
         end
         P_restterm = ball(zero(α), P_E*δ0^N)
@@ -229,7 +229,7 @@ function T013(u0::FractionalKdVAnsatz{arb},
         use_asymptotic = π - x < ϵ
 
         # Analytic terms
-        (P, E) = taylor_with_error(one(α), setinterval(1 - δ1, one(α)), N) do t
+        (P, E) = taylor_with_error(one(α), setunion(1 - δ1, one(α)), N) do t
             if !use_asymptotic
                 return Ci(x*(1 + t), -α) - 2Ci(x*t, -α)
             else
@@ -382,7 +382,7 @@ function T021(u0::FractionalKdVAnsatz{arb},
     use_asymptotic = π - x < ϵ
 
     # Analytic terms
-    (P, E) = taylor_with_error(x, setinterval(x, a), N) do y
+    (P, E) = taylor_with_error(x, setunion(x, a), N) do y
         if !use_asymptotic
             return Ci(x + y, -α) - 2Ci(y, -α)
         else
