@@ -43,7 +43,6 @@ function delta0_bounded_by(u0::FractionalKdVAnsatz{arb},
                            C::arb;
                            ϵ::arb = parent(u0.α)(0.1),
                            M::Integer = 3,
-                           rtol::arb = parent(u0.α)(1e-2),
                            show_trace = false,
                            )
     # TODO: Spawn these in separate threads?

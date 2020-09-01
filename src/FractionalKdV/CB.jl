@@ -51,7 +51,7 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
     end
 
     res = similar(xs)
-    f = T0(u0, rtol = 1e-3, show_trace = show_trace)
+    f = T0(u0, Ball(), rtol = 1e-3, show_trace = show_trace)
     Threads.@threads for i in eachindex(xs)
         res[i] = f(xs[i])
     end
