@@ -72,21 +72,45 @@ function FractionalKdVAnsatz(α::T) where {T}
     elseif α < -ϵ2
         # α ∈ I_2
 
-        if α < -0.75
+        if α <= -0.885
+            N0 = 11
+            N1 = 512
+            p = (1 - α)/2
+        elseif α <= -0.87
+            N0 = 10
+            N1 = 512
+            p = (1 - α)/2
+        elseif α <= -0.85
+            N0 = 9
+            N1 = 256
+            p = (1 - α)/2
+        elseif α <= -0.8
+            N0 = 7
+            N1 = 256
+            p = (1 - α)/2
+        elseif α <= -0.75
             N0 = 6
             N1 = 128
-        elseif α < -0.6
+            p = (1 - α)/2
+        elseif α <= -0.61
             N0 = 5
             N1 = 64
-        elseif α < -0.35
+            p = (1 - α)/2
+        elseif α <= -0.36
             N0 = 4
             N1 = 16
+            p = (1 - α)/2
+        elseif α <= -0.2
+            N0 = 3
+            N1 = 8
+            p = (1 - α)/2
         else
             N0 = 3
             N1 = 8
+            p = (2 - α)/3
         end
 
-        u0 = FractionalKdVAnsatz(α, N0, N1, (1 - α)/2, use_midpoint = true)
+        u0 = FractionalKdVAnsatz(α, N0, N1, p, use_midpoint = true)
     else
         # α ∈ I_3
         u0 = FractionalKdVAnsatz(α, 1, 0, one(α), use_midpoint = false)
