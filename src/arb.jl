@@ -427,3 +427,22 @@ function taylor_with_error(f, a::arb, X::arb, N::Integer)
 
     return (P, E)
 end
+
+"""
+    abs(x::arb_series, n::Integer = length(x))
+Compute the absolute value of `x`.
+
+If `x[0]` contains zero then all non-constant terms are set to `NaN`,
+otherwise either `-x` or `x` is returned depending on the sign of x.
+"""
+function Base.abs(x::arb_series, n::Integer = length(x))
+    if contains_zero(x[0])
+        return arb_series(parent(x.poly)(
+            [abs(x[0]); fill(base_ring(parent(x.poly))(NaN), n - 1)]
+        ))
+    elseif x[0] < 0
+        return -x
+    else
+        return x
+    end
+end
