@@ -6,7 +6,7 @@ Upper bound the value of δ₀ from the paper. Uses an asymptotic
 expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
 """
 function delta0(u0::FractionalKdVAnsatz{arb};
-                ϵ::arb = parent(u0.α)(0.1),
+                ϵ::arb = parent(u0.α)(1e-3),
                 M::Integer = 3,
                 rtol::arb = parent(u0.α)(1e-2),
                 show_trace = false,
@@ -23,6 +23,8 @@ function delta0(u0::FractionalKdVAnsatz{arb};
     # TODO: So far this naive approach only works for a very limited
     # range of parameters and needs to be improved.
     res2 = enclosemaximum(F0(u0), ϵ, parent(u0.α)(π),
+                          evaltype = :taylor,
+                          n = 8,
                           rtol = rtol,
                           absmax = true,
                           maxevals = 3*10^3,
