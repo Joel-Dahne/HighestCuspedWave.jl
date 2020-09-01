@@ -31,6 +31,25 @@ function CB(u0::FractionalKdVAnsatz{arb};
     return max(n1, n2)
 end
 
+function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
+                       C::arb;
+                       ϵ::arb = parent(u0.α)(0.1),
+                       M::Integer = 3,
+                       rtol = 1e-2,
+                       atol = 1e-2,
+                       show_trace = false,
+                       )
+    res1 = bounded_by(T0(u0, Asymptotic()), zero(u0.α), ϵ, C,
+                      show_trace = show_trace,
+                      )
+
+    res1 || return false
+
+    res2 = bounded_by(T0(u0, Ball(), rtol = rtol, atol = atol), ϵ, parent(u0.α)(π), C,
+                      show_trace = show_trace)
+end
+
+
 """
     CB_estimate(u0::FractionalKdVAnsatz; n::Integer = 100)
 Estimate the value of C_B from the paper. Does this by evaluating the
