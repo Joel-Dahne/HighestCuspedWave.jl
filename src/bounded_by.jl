@@ -4,6 +4,9 @@ export bounded_by
     bounded_by(f, a, b, C)
 Return true if `|f|` is bounded by `C` on the interval `[a, b]`, i.e.
 `|f(x)| <= C ∀ x ∈ [a, b].
+
+If `use_taylor` is true then compute the maximum on each subinterval
+by computing the maximum of the Taylor expansion.
 """
 function bounded_by(f,
                     a::arb,
@@ -11,6 +14,7 @@ function bounded_by(f,
                     C::arb;
                     show_trace = false,
                     show_evaluations = false,
+                    use_taylor = false,
                     )
     if a > b
         # Empty interval, always true
@@ -43,7 +47,11 @@ function bounded_by(f,
         max_value = parent(a)(-Inf)
 
         for (c, d) in intervals
-            y = abs(f(setinterval(c, d)))
+            if use_taylor
+                y = ArbTools.maximumtaylor(f, (c, d), 8, absmax = true)
+            else
+                y = abs(f(setinterval(c, d)))
+            end
             if show_evaluations
                 @show y
             end
