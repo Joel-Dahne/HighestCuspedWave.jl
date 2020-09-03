@@ -1,4 +1,4 @@
-export CB, CB_estimate
+export CB, CB_bounded_by, CB_estimate
 
 """
     CB(u0::FractionalKdVAnsatz{arb}; ϵ::arb = parent(u0.α)(0.1))
@@ -34,7 +34,6 @@ end
 function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
                        C::arb;
                        ϵ::arb = parent(u0.α)(0.1),
-                       M::Integer = 3,
                        rtol = 1e-2,
                        atol = 1e-2,
                        show_trace = false,
@@ -70,7 +69,7 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
     end
 
     res = similar(xs)
-    f = T0(u0, Ball(), rtol = 1e-3, show_trace = show_trace)
+    f = T0(u0, Ball(), rtol = 1e-5, show_trace = show_trace)
     Threads.@threads for i in eachindex(xs)
         res[i] = f(xs[i])
     end
