@@ -318,19 +318,33 @@ function T02(u0::FractionalKdVAnsatz{arb},
              show_trace = false,
              ϵ::arb = parent(u0.α)(1e-1),
              )
-    return x -> begin
-        a = ArbTools.ubound(x + δ2)
+    π = parent(u0.α)(pi)
 
-        if parent(u0.α)(π) - x < ϵ
-            # Use only the asymptotic expansion on the whole interval
-            return T021(u0, Ball(), parent(u0.α)(π), x, ϵ = ϵ)
+    if u0.p == 1
+        # Use the closed form expression
+        α = u0.α
+        p = u0.p
+        return x -> begin
+            res = Ci(x + π, 2 - α) - Ci(π, 2 - α) + Ci(x, 2 - α) -
+                (Ci(2x, 2 - α) + zeta(2 - α))/2 + x*Si(x, 1 - α) -
+                x/2*Si(2x, 1 - α)
+            return 2/(π*u0.w(x)*u0(x))*res
         end
+    else
+        return x -> begin
+            a = ArbTools.ubound(x + δ2)
 
-        part1 = T021(u0, Ball(), a, x, ϵ = ϵ)
+            if parent(u0.α)(π) - x < ϵ
+                # Use only the asymptotic expansion on the whole interval
+                return T021(u0, Ball(), π, x, ϵ = ϵ)
+            end
 
-        part2 = T022(u0, Ball(), a, x, rtol = rtol, atol = atol, show_trace = show_trace)
+            part1 = T021(u0, Ball(), a, x, ϵ = ϵ)
 
-        return part1 + part2
+            part2 = T022(u0, Ball(), a, x, rtol = rtol, atol = atol, show_trace = show_trace)
+
+            return part1 + part2
+        end
     end
 end
 
