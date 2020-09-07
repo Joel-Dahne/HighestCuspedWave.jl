@@ -51,8 +51,8 @@ function delta0_bounded_by(u0::FractionalKdVAnsatz{arb},
 
     # Prove bound on [0, ϵ]
     res1 = bounded_by(F0(u0, Asymptotic(), M = M), parent(u0.α)(0), ϵ, C,
-                     show_trace = show_trace,
-                     )
+                      show_trace = show_trace,
+                      )
 
     res1 || return false
 
@@ -61,6 +61,7 @@ function delta0_bounded_by(u0::FractionalKdVAnsatz{arb},
     # range of parameters and needs to be improved.
     res2 = bounded_by(F0(u0), ϵ, parent(u0.α)(π), C,
                       show_trace = show_trace,
+                      use_taylor = true,
                       )
 
     return res2

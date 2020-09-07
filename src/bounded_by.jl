@@ -40,21 +40,28 @@ function bounded_by(f,
         iterations += 1
 
         if show_trace
-            @printf "%6d %11d %s\n" iterations length(intervals) string(max_value)
+            @printf "%6d %11d %s\n" iterations length(intervals) string(getinterval(max_value))
+        end
+
+        res = similar(intervals, arb)
+        Threads.@threads for i in eachindex(intervals)
+            if use_taylor
+                res[i] = ArbTools.maximumtaylor(f, intervals[i], 8, absmax = true)
+            else
+                res[i] = abs(f(setinterval(intervals[i]...)))
+            end
+
+            if show_evaluations
+                @show res[i]
+            end
         end
 
         next_intervals = Vector{eltype(intervals)}()
         max_value = parent(a)(-Inf)
 
-        for (c, d) in intervals
-            if use_taylor
-                y = ArbTools.maximumtaylor(f, (c, d), 8, absmax = true)
-            else
-                y = abs(f(setinterval(c, d)))
-            end
-            if show_evaluations
-                @show y
-            end
+        for (i, (c, d)) in enumerate(intervals)
+            y = res[i]
+
             max_value = max(max_value, y)
             if y > C
                 # If f([c, d]) is greater than C then C is not a bound
