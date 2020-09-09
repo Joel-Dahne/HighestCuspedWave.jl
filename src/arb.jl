@@ -340,6 +340,40 @@ function Si(x::T, s::Integer) where {T <: Real}
 end
 
 """
+    Si_expansion(x, s, M::Integer)
+Compute the asymptotic expansion of `Si` at zero up to order `2M - 1`.
+
+It returns four things, the coefficient `C` and exponent `e` for the
+non-analytic term, the analytic terms in an `arb_series` `P` and the
+error term `E`. The `M` is the same as in Lemma 2.1 in
+enciso18:convex_whith.
+
+It satisfies that `Si(y, s) ∈ C*sign(y)*abs(y)^s + P(abs(y)) + E*y^(2M + 1)` for all `|y|
+<= |x|`.
+"""
+function Si_expansion(x::arb, s::arb, M::Integer)
+    π = parent(x)(pi)
+
+    # Non-analytic term
+    C = Nemo.gamma(1 - s)*cospi(s/2)
+    e = s - 1
+
+    # Analytic term
+    P = arb_series(ArbPolyRing(parent(x), :x)(), 2M)
+    for m = 0:M-1
+        P[2m + 1] = (-1)^m*zeta(s - 2m - 1)/factorial(fmpz(2m + 1))
+    end
+
+    # Error term
+    E = ball(
+        zero(x),
+        2(2π)^(s - 2M)*zeta(2M + 2 - s)/(4π^2 - x^2)
+    )
+
+    return (C, e, P, E)
+end
+
+"""
     beta_inc(a, b, z)
 Compute the (not regularised) incomplete beta function B(a, b; z).
 """
@@ -445,4 +479,15 @@ function Base.abs(x::arb_series, n::Integer = length(x))
     else
         return x
     end
+end
+
+"""
+    expint(s::acb, z::acb)
+Compute the generalised exponential integral Eₛ(z).
+"""
+function expint(s::acb, z::acb)
+    res = parent(s)()
+    ccall(("acb_hypgeom_expint", Nemo.libarb), Cvoid,
+          (Ref{acb}, Ref{acb}, Ref{acb}, Int), res, s, z, prec(parent(z)))
+    return res
 end
