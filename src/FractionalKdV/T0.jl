@@ -35,11 +35,20 @@ function T0(u0::FractionalKdVAnsatz{arb},
     end
 end
 
-function T0(u0::FractionalKdVAnsatz{T}, ::Asymptotic) where {T}
-    @warn "T0(u0) is not yet implemented"
-
+function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
     return x -> begin
-        return zero(u0.α)
+        ## Integral on [0, x]
+        part1 = T01(u0, evaltype)(x)
+
+        if isnan(part1)
+            # Short circuit on NaN
+            return part1
+        end
+
+        ## Integral on [x, π]
+        part2 = T02(u0, evaltype)(x)
+
+        return part1 + part2
     end
 end
 
@@ -51,7 +60,7 @@ T_{0,1} from the paper.
 T01(u0; kwargs...) = T01(u0, Ball(); kwargs...)
 
 function T01(u0::FractionalKdVAnsatz{arb},
-             evaltype::EvalType;
+             evaltype::Ball;
              δ0::arb = parent(u0.α)(1e-4),
              δ1::arb = parent(u0.α)(1e-4),
              rtol = -1.0,
@@ -75,6 +84,20 @@ function T01(u0::FractionalKdVAnsatz{arb},
     end
 end
 
+"""
+    T01(u0, Asymptotic())
+Returns a function such that `T01(u0, Asymptotic())(x)` computes the
+integral T_{0,1} from the paper using an evaluation strategy that
+works asymptotically as `x` goes to 0.
+"""
+function T01(u0::FractionalKdVAnsatz{arb},
+             ::Asymptotic,
+             )
+    @warn "T01(u0, Asymptotic()) is not yet implemented"
+    return x -> begin
+        return zero(u0.α)
+    end
+end
 
 """
     T011(u0::FractionalKdVAnstaz{arb}; δ0)
@@ -349,6 +372,68 @@ function T02(u0::FractionalKdVAnsatz{arb},
 end
 
 """
+    T02(u0, Asymptotic())
+Returns a function such that `T02(u0, Asymptotic())(x)` computes the
+integral T_{0,2} from the paper using an evaluation strategy that
+works asymptotically as `x` goes to 0.
+"""
+function T02(u0::FractionalKdVAnsatz{arb},
+             ::Asymptotic;
+             N::Integer = 10
+             )
+    Γ = Nemo.gamma
+    α = u0.α
+    p = u0.p
+    π = parent(α)(pi)
+    CC = ComplexField(prec(parent(α)))
+    im = CC(0, 1)
+
+    return x -> begin
+        if p == 1
+            (A, _, P1, E1) = Ci_expansion(x, 2 - α, 2)
+            (_, _, _, E1p) = Ci_expansion(2x, 2 - α, 2)
+            (B, _, P2, E2) = Si_expansion(x, 1 - α, 1)
+            (_, _, _, E2p) = Si_expansion(2x, 1 - α, 1)
+            # PROVE: That P3[1] == P3[3] == 0
+            (P3, E3) = taylor_with_error(π, setunion(π, π + x), 4) do y
+                return Ci(y, 2 - α)
+            end
+
+            c_B = A*(1 - parent(α)(2)^(-α)) + B*(1 - parent(α)(2)^(-α - 1))
+            K = 2/(π*a0(u0, 0))
+            # Ball containing 1 + hat(u0)(x)
+            L = ball(parent(α)(1), c(u0, x)*abspow(x, u0.p0))
+
+            res = (
+                K*c_B*L
+                + K/2*L*(zeta(-α) - Ci(π, -α))*abspow(x, 1 + α)
+                + K*L*abspow(x, 3 + α)*(
+                    E3 + E1 - 8*E1p + E2 - 8*E2p
+                )
+            )
+
+            #S = Ci(x + π, 2 - α) - Ci(π, 2 - α) +
+            #    Ci(x, 2 - α) - (Ci(2x, 2 - α) + zeta(2 - α))/2 +
+            #    x*Si(x, 1 - α) - x/2*Si(2x, 1 - α)
+            # return 2/(π*a0(u0, 0))*(1 + hat(u0)(x))*abspow(x, α - p)*S
+            return res
+        else
+            @warn "T02(u0, Asymptotic()) is not yet rigorous"
+            S = zero(u0.α)
+            for k = reverse(1:N)
+                k = parent(α)(k)
+                term = k^α*(cos(k*x) - 1)
+                term *= x^(1 + p)*real(expint(-CC(p), im*k*x)) - π^(1 + p)*real(expint(-CC(p), im*k*π))
+                S += term
+            end
+        end
+
+        return 2/(π*u0.w(x)*u0(x))*S
+    end
+end
+
+
+"""
     T021(u0::FractionalKdVAnstaz{arb}, a::arb, x::arb)
 Computes the (not yet existing) integral T_{0,2,1} from the paper.
 
@@ -505,65 +590,4 @@ function T022(u0::FractionalKdVAnsatz{arb},
 
     return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
 
-end
-
-"""
-    T02(u0, Asymptotic())
-Returns a function such that `T02(u0, Asymptotic())(x)` computes the
-integral T_{0,2} from the paper using an evaluation strategy that
-works asymptotically as `x` goes to 0.
-"""
-function T02(u0::FractionalKdVAnsatz{arb},
-             ::Asymptotic;
-             N::Integer = 10
-             )
-    Γ = Nemo.gamma
-    α = u0.α
-    p = u0.p
-    π = parent(α)(pi)
-    CC = ComplexField(prec(parent(α)))
-    im = CC(0, 1)
-
-    return x -> begin
-        if p == 1
-            (A, _, P1, E1) = Ci_expansion(x, 2 - α, 2)
-            (_, _, _, E1p) = Ci_expansion(2x, 2 - α, 2)
-            (B, _, P2, E2) = Si_expansion(x, 1 - α, 1)
-            (_, _, _, E2p) = Si_expansion(2x, 1 - α, 1)
-            # PROVE: That P3[1] == P3[3] == 0
-            (P3, E3) = taylor_with_error(π, setunion(π, π + x), 4) do y
-                return Ci(y, 2 - α)
-            end
-
-            c_B = A*(1 - parent(α)(2)^(-α)) + B*(1 - parent(α)(2)^(-α - 1))
-            K = 2/(π*a0(u0, 0))
-            # Ball containing 1 + hat(u0)(x)
-            L = ball(parent(α)(1), c(u0, x)*abspow(x, u0.p0))
-
-            res = (
-                K*c_B*L
-                + K/2*L*(zeta(-α) - Ci(π, -α))*abspow(x, 1 + α)
-                + K*L*abspow(x, 3 + α)*(
-                    E3 + E1 - 8*E1p + E2 - 8*E2p
-                )
-            )
-
-            #S = Ci(x + π, 2 - α) - Ci(π, 2 - α) +
-            #    Ci(x, 2 - α) - (Ci(2x, 2 - α) + zeta(2 - α))/2 +
-            #    x*Si(x, 1 - α) - x/2*Si(2x, 1 - α)
-            # return 2/(π*a0(u0, 0))*(1 + hat(u0)(x))*abspow(x, α - p)*S
-            return res
-        else
-            @warn "T02(u0, Asymptotic()) is not yet rigorous"
-            S = zero(u0.α)
-            for k = reverse(1:N)
-                k = parent(α)(k)
-                term = k^α*(cos(k*x) - 1)
-                term *= x^(1 + p)*real(expint(-CC(p), im*k*x)) - π^(1 + p)*real(expint(-CC(p), im*k*π))
-                S += term
-            end
-        end
-
-        return 2/(π*u0.w(x)*u0(x))*S
-    end
 end
