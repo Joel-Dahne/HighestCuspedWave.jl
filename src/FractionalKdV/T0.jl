@@ -342,13 +342,12 @@ end
 
 """
     T02(u0::FractionalKdVAnsatz; δ2)
-Returns a function such that T02(u0, δ2 = δ2)(x) computes the integral
-T_{0,2} from the paper.
+Returns a function such that T02(u0, δ2 = δ2, ϵ = ϵ)(x) computes the
+integral T_{0,2} from the paper.
 
-If `x + δ2 > π` the function shows a warning and returns zero.
-
-The split between T021 and T022 is not done exactly at x + δ2 but at
-an exact floating point value slightly above this.
+If `u0.p == 1` it uses a closed form expression for the integral.
+Otherwise it computes the integral directly for most of the interval
+and uses and asymptotic expansion for `y < x + δ2`.
 
 If `x` is close to π (`π - x < ϵ`) then use only the asymptotic
 expansion for the full integral.
@@ -358,10 +357,10 @@ T02(u0; kwargs...) = T02(u0, Ball(); kwargs...)
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Ball;
              δ2::arb = parent(u0.α)(1e-4),
+             ϵ::arb = parent(u0.α)(1e-1),
              rtol = -1.0,
              atol = -1.0,
              show_trace = false,
-             ϵ::arb = parent(u0.α)(1e-1),
              )
     π = parent(u0.α)(pi)
 
