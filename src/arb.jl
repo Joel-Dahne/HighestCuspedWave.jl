@@ -491,3 +491,21 @@ function expint(s::acb, z::acb)
           (Ref{acb}, Ref{acb}, Ref{acb}, Int), res, s, z, prec(parent(z)))
     return res
 end
+
+"""
+    cosint(a::arb, z::arb)
+Compute the generalised cosine integral Cₐ(z).
+
+TODO: Depending on the choice of precision this gives very poor error
+bounds. For example with 256 bits of precision, `a = 1.7` and `z =
+175` it gives extremely bad bounds. Both 64 bits and 512 bits works
+well.
+"""
+function cosint(a::arb, z::arb)
+    RR = parent(z)
+    CC = ComplexField(prec(RR))
+    res = CC()
+    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), z), 0, prec(RR))
+    return real(exp(CC(zero(a), -RR(π)*a/2))*res)
+end

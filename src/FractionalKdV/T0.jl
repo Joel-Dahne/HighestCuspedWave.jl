@@ -93,9 +93,31 @@ works asymptotically as `x` goes to 0.
 function T01(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic,
              )
-    @warn "T01(u0, Asymptotic()) is not yet implemented"
+    @warn "T01(u0, Asymptotic()) is not yet complete"
+    Γ = Nemo.gamma
+    α = u0.α
+    p = u0.p
+    π = parent(α)(pi)
+
     return x -> begin
-        return zero(u0.α)
+        if p == 1
+            # TODO: Compute c_ϵ from the sum
+            c_ϵ = one(α)
+            # TODO: Compute ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 2) dt
+            c_α = one(α)
+        else
+            # TODO: Compute c_ϵ from the sum
+            c_ϵ = one(α)
+            # TODO: Compute ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 1 - p) dt
+            c_α = one(α)
+        end
+
+        res = abs(Γ(1 + α)*sinpi(α/2))*c_α - c_ϵ*abspow(x, 3 + α)
+        # Ball containing 1 + hat(u0)(x)
+        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
+        res *= L/(π*a0(u0, 0))
+
+        return res
     end
 end
 
@@ -399,15 +421,15 @@ function T02(u0::FractionalKdVAnsatz{arb},
                 return Ci(y, 2 - α)
             end
 
-            c_B = A*(1 - parent(α)(2)^(-α)) + B*(1 - parent(α)(2)^(-α - 1))
+            c_α = A*(1 - parent(α)(2)^(-α)) + B*(1 - parent(α)(2)^(-α - 1))
             K = 2/(π*a0(u0, 0))
             # Ball containing 1 + hat(u0)(x)
-            L = ball(parent(α)(1), c(u0, x)*abspow(x, u0.p0))
+            L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
 
             res = (
-                K*c_B*L
+                K*c_α*L
                 + K/2*L*(zeta(-α) - Ci(π, -α))*abspow(x, 1 + α)
-                + K*L*abspow(x, 3 + α)*(
+                + K*L*abspow(x, α - 1)*x^4*(
                     E3 + E1 - 8*E1p + E2 - 8*E2p
                 )
             )
@@ -422,16 +444,14 @@ function T02(u0::FractionalKdVAnsatz{arb},
             S = zero(u0.α)
             for k = reverse(1:N)
                 k = parent(α)(k)
-                term = k^α*(cos(k*x) - 1)
-                term *= x^(1 + p)*real(expint(-CC(p), im*k*x)) - π^(1 + p)*real(expint(-CC(p), im*k*π))
-                S += term
+                S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosint(p + 1, k*π))
+                @show S cosint(p + 1, k*x) cosint(p + 1, k*π) k*π
             end
         end
-
-        return 2/(π*u0.w(x)*u0(x))*S
+        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
+        return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S
     end
 end
-
 
 """
     T021(u0::FractionalKdVAnstaz{arb}, a::arb, x::arb)
