@@ -1,6 +1,21 @@
 export iswide, Li, Ci, Si
 
 """
+    mince(xₗ::arb, xᵤ::arb, n::Integer)
+Return a vector with `n` balls covering the interval `[xₗ, xᵤ]`.
+"""
+function mince(xₗ::arb, xᵤ::arb, n::Integer)
+    intervals = Vector{arb}(undef, n)
+    dx = (xᵤ - xₗ)/n
+    for i in eachindex(intervals)
+        intervals[i] = setunion(xₗ + (i - 1)*dx, xₗ + i*dx)
+    end
+    return intervals
+end
+
+mince(x::arb, n::Integer) = mince(getinterval(x)..., n)
+
+"""
     iswide(x)
 Return true if x is wide in the meaning that the effective relative
 accuracy of x measured in bits is more than 10 lower than it's parents
