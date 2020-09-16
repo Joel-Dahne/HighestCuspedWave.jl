@@ -37,6 +37,7 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
     use_midpoint = use_midpoint && T == arb
 
     if use_midpoint
+        # TODO: We have to remember that we take the midpoint of p!!!
         p = midpoint(p)
     end
 
@@ -61,14 +62,14 @@ end
 Construct a FractionalKdVAnsatz using a heuristic choice of
 parameters.
 """
-function FractionalKdVAnsatz(α::T) where {T}
+function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
     ϵ1 = 0.09
     ϵ2 = 0.09
 
     if α < -1 + ϵ1
         # α ∈ I_1
 
-        u0 = FractionalKdVAnsatz(α, 12, 512, (1 - α)/2, use_midpoint = true)
+        u0 = FractionalKdVAnsatz(α, 12, 512, ifelse(isnothing(pp), (1 - α)/2, pp), use_midpoint = true)
     elseif α < -ϵ2
         # α ∈ I_2
 
@@ -110,10 +111,10 @@ function FractionalKdVAnsatz(α::T) where {T}
             p = (2 - α)/3
         end
 
-        u0 = FractionalKdVAnsatz(α, N0, N1, p, use_midpoint = true)
+        u0 = FractionalKdVAnsatz(α, N0, N1, ifelse(isnothing(pp), p, pp), use_midpoint = true)
     else
         # α ∈ I_3
-        u0 = FractionalKdVAnsatz(α, 1, 0, one(α), use_midpoint = false)
+        u0 = FractionalKdVAnsatz(α, 1, 0, ifelse(isnothing(pp), one(α), pp), use_midpoint = false)
     end
 
     return u0
