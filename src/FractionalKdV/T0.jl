@@ -215,10 +215,15 @@ function T012(u0::FractionalKdVAnsatz{arb},
 
         # PROVE: That there are no branch cuts that interact with the
         # integral
-        F(t, analytic = false) = ArbTools.real_abs(
-            Ci(x*(1 - t), mα) + Ci(x*(1 + t), mα) - 2Ci(x*t, mα),
-            analytic = analytic,
-        )*t^u0.p
+        F(t, analytic = false) = begin
+            if isreal(t)
+                res = CC(Ci(x*(1 - real(t)), real(mα)) + Ci(x*(1 + real(t)), real(mα)) - 2Ci(x*real(t), real(mα)))
+            else
+                res = Ci(x*(1 - t), mα) + Ci(x*(1 + t), mα) - 2Ci(x*t, mα)
+            end
+
+            ArbTools.real_abs(res, analytic = analytic)*t^u0.p
+        end
         res = real(ArbTools.integrate(CC, F, a, b,
                                       rel_tol = rtol,
                                       abs_tol = atol,
@@ -598,10 +603,14 @@ function T022(u0::FractionalKdVAnsatz{arb},
 
     # PROVE: That there are no branch cuts that interact with the
     # integral
-    F(y, analytic = false) = ArbTools.real_abs(
-        Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα),
-        analytic = analytic,
-    )*y^u0.p
+    F(y, analytic = false) = begin
+        if isreal(y)
+            res = CC(Ci(x - real(y), real(mα)) + Ci(x + real(y), real(mα)) - 2Ci(real(y), real(mα)))
+        else
+            res = Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα)
+        end
+        return ArbTools.real_abs(res, analytic = analytic)*y^u0.p
+    end
     res = real(ArbTools.integrate(CC, F, a, b,
                                   rel_tol = rtol,
                                   abs_tol = atol,
