@@ -36,7 +36,10 @@ function T0(u0::FractionalKdVAnsatz{arb},
 end
 
 function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
+    @warn "Asymptotic evaluation of T0 yet not implemented"
     return x -> begin
+        return zero(u0.α)
+
         ## Integral on [0, x]
         part1 = T01(u0, evaltype)(x)
 
@@ -444,7 +447,6 @@ function T02(u0::FractionalKdVAnsatz{arb},
             for k = reverse(1:N)
                 k = parent(α)(k)
                 S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosint(p + 1, k*π))
-                @show S cosint(p + 1, k*x) cosint(p + 1, k*π) k*π
             end
         end
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
