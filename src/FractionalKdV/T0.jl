@@ -514,6 +514,17 @@ that case.
 T021(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
 function T021(u0::FractionalKdVAnsatz{arb},
+              ::Ball;
+              δ2::arb = parent(u0.α)(1e-4),
+              ϵ::arb = parent(u0.α)(1e-1),
+              N::Integer = 3,
+              )
+    return x -> begin
+        T021(u0, Ball(), ArbTools.ubound(x + δ2), x, ϵ = ϵ, N = N)
+    end
+end
+
+function T021(u0::FractionalKdVAnsatz{arb},
               ::Ball,
               a::arb,
               x::arb;
@@ -612,6 +623,18 @@ Computes the (not yet existing) integral T_{0,2,2} from the paper.
 )
 """
 T022(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
+
+function T022(u0::FractionalKdVAnsatz{arb},
+              ::Ball;
+              δ2::arb = parent(u0.α)(1e-4),
+              rtol = -1.0,
+              atol = -1.0,
+              show_trace = false,
+              )
+    return x -> begin
+        T022(u0, Ball(), ArbTools.ubound(x + δ2), x, rtol = rtol, atol = atol, show_trace = show_trace)
+    end
+end
 
 function T022(u0::FractionalKdVAnsatz{arb},
               ::Ball,
