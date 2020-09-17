@@ -360,8 +360,16 @@ and uses and asymptotic expansion for `y < x + δ2`.
 If `x` is close to π (`π - x < ϵ`) then use only the asymptotic
 expansion for the full integral.
 
-The choice of `ϵ` is based on /figures/optimal-epsilon-choice.png. It
-can likely be tuned further.
+The choice of both `δ2` and `ϵ` can be tuned a lot. For `δ2` it
+depends on both `x` and `α`, whereas for `ϵ` it only depends on `α`.
+For `δ2` it should be larger when both `x` and `α` are larger. In
+theory we could compute with several values and take the best result,
+but that would likely be to costly. For `ϵ` it's mainly a question of
+cost, we don't want to compute the expensive integral when we believe
+the asymptotic expansion will be the best anyway, larger values of `α`
+should give a lower value of `ϵ`. The choice of `ϵ` is partially based
+on /figures/optimal-epsilon-choice.png, but can likely be tuned
+further.
 
 TODO: Look closer at computing with the asymptotic expansion and using
 the best result. Consider rewriting `T021` and `T022` to be more like
@@ -371,8 +379,8 @@ T02(u0; kwargs...) = T02(u0, Ball(); kwargs...)
 
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Ball;
-             δ2::arb = parent(u0.α)(1e-4),
-             ϵ::arb = ifelse(u0.α < -0.6, 1 + u0.α, 1 + u0.α),
+             δ2::arb = ifelse(u0.α < -0.5, parent(u0.α)(1e-2), parent(u0.α)(1e-1)),
+             ϵ::arb = 1 + u0.α,
              rtol = -1.0,
              atol = -1.0,
              show_trace = false,
@@ -396,10 +404,10 @@ function T02(u0::FractionalKdVAnsatz{arb},
         return x -> begin
             a = ArbTools.ubound(x + δ2)
 
+            # Compute with the asymptotic expansion on the whole interval
             res_asymptotic = T021(u0, Ball(), π, x, ϵ = π)
 
-            if parent(u0.α)(π) - x < ϵ
-                # Use only the asymptotic expansion on the whole interval
+            if π < a || π - x < ϵ
                 return res_asymptotic
             end
 
