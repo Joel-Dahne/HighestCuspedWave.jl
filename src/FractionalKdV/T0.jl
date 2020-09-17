@@ -384,6 +384,9 @@ function T02(u0::FractionalKdVAnsatz{arb},
         α = u0.α
         p = u0.p
         return x -> begin
+            # TODO: Handle the case when x contains π. Then Si(2x, 1 -
+            # α) evaluates to NaN. Si has issues as soon as the
+            # argument is a ball containing a multiple of 2π.
             res = Ci(x + π, 2 - α) - Ci(π, 2 - α) + Ci(x, 2 - α) -
                 (Ci(2x, 2 - α) + zeta(2 - α))/2 + x*Si(x, 1 - α) -
                 x/2*Si(2x, 1 - α)
