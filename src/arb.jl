@@ -311,11 +311,15 @@ function Ci_expansion(x::arb, s::arb, M::Integer)
     return (C, e, P, E)
 end
 
-
-
 """
     Si(x, s)
-Compute the Clausian function Siₛ(x). Assumes that x ∈ (-π, π).
+Compute the Clausian function Siₛ(x).
+
+If x is a wide (real) ball (as determined by iswide(x)) it computes a
+tighter enclosure by first checking if the derivative doesn't contains
+zero, if not it uses monotonicity to only evaluate at endpoints. If
+the derivative does contain zero it uses a zero order approximation
+instead.
 """
 function Si(x::acb, s::acb)
     im = x.parent(0, 1)
@@ -324,8 +328,16 @@ end
 
 function Si(x::arb, s::arb)
     if iswide(x)
-        # TODO: This seems to perform worse
-        return ball(Si(midpoint(x), s), (x - midpoint(x))*Ci(x, s - 1))
+        # Compute derivative
+        dSi = Ci(x, s - 1)
+        if contains_zero(dSi)
+            # Use a zero order approximation
+            ball(Si(midpoint(x), s), (x - midpoint(x))*dSi)
+        else
+            # Use that it's monotone
+            xₗ, xᵤ = getinterval(x)
+            return setunion(Si(xₗ, s), Si(xᵤ, s))
+        end
     end
     CC = ComplexField(prec(parent(x)))
     return imag(Li(exp(CC(zero(x), x)), CC(s)))
@@ -333,8 +345,16 @@ end
 
 function Si(x::arb, s::Integer)
     if iswide(x)
-        # TODO: This seems to perform worse
-        return ball(Si(midpoint(x), s), (x - midpoint(x))*Ci(x, s - 1))
+        # Compute derivative
+        dSi = Ci(x, s - 1)
+        if contains_zero(dSi)
+            # Use a zero order approximation
+            ball(Si(midpoint(x), s), (x - midpoint(x))*dSi)
+        else
+            # Use that it's monotone
+            xₗ, xᵤ = getinterval(x)
+            return setunion(Si(xₗ, s), Si(xᵤ, s))
+        end
     end
     CC = ComplexField(prec(parent(x)))
     return imag(Li(exp(CC(zero(x), x)), s))
