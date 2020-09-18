@@ -21,7 +21,8 @@ function CB(u0::FractionalKdVAnsatz{arb};
 
     # Bound the value one [ϵ, π]
     # TODO: This does not fully work yet
-    n2 = enclosemaximum(T0(u0, rtol = 1e-2*Float64(rtol)), ϵ, parent(u0.α)(π),
+    tol = 1e-4*Float64(rtol)
+    n2 = enclosemaximum(T0(u0, Ball(), rtol = tol, atol = tol), ϵ, parent(u0.α)(π),
                         rtol = rtol,
                         absmax = true,
                         maxevals = 10^3,
@@ -34,8 +35,8 @@ end
 function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
                        C::arb;
                        ϵ::arb = parent(u0.α)(0.1),
-                       rtol = 1e-2,
-                       atol = 1e-2,
+                       rtol = 1e-6,
+                       atol = 1e-6,
                        show_trace = false,
                        )
     res1 = bounded_by(T0(u0, Asymptotic()), zero(u0.α), ϵ, C,
@@ -46,6 +47,7 @@ function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
 
     res2 = bounded_by(T0(u0, Ball(), rtol = rtol, atol = atol), ϵ, parent(u0.α)(π), C,
                       show_trace = show_trace)
+    return res2
 end
 
 
@@ -57,6 +59,8 @@ of C_B. Currently it gives a very bad estimate.
 
 If `return_values = true` then also return the points and the computed
 values.
+
+TODO: Use the asymptotic version close to zero.
 """
 function CB_estimate(u0::FractionalKdVAnsatz{T};
                      n::Integer = 20,
@@ -69,7 +73,7 @@ function CB_estimate(u0::FractionalKdVAnsatz{T};
     end
 
     res = similar(xs)
-    f = T0(u0, Ball(), rtol = 1e-5, show_trace = show_trace)
+    f = T0(u0, Ball(), rtol = 1e-6, atol = 1e-6; show_trace)
     Threads.@threads for i in eachindex(xs)
         res[i] = f(xs[i])
     end
