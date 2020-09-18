@@ -5,6 +5,8 @@ export T0
 Returns a function such that T0(u0)(x) is the function whose supremum
 on [0, π] gives C_B. The strategy for evaluation depends on type of
 evaltype.
+
+TODO: There is a lot more tuning to be done!
 """
 T0(u0::FractionalKdVAnsatz; kwargs...) = T0(u0, Ball(); kwargs...)
 
@@ -15,8 +17,13 @@ function T0(u0::FractionalKdVAnsatz{arb},
             show_trace = false,
             )
     # Set up parameters for T01
-    δ0 = parent(u0.α)(1e-2)
-    δ1 = parent(u0.α)(1e-2)
+    if u0.p == 1
+        δ0 = parent(u0.α)(1e-4)
+        δ1 = parent(u0.α)(1e-4)
+    else
+        δ0 = parent(u0.α)(1e-2)
+        δ1 = parent(u0.α)(1e-2)
+    end
 
     # Set up parameters for T02
     δ2 = parent(u0.α)(1e-2)
