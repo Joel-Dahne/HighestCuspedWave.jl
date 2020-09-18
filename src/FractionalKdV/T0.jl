@@ -14,14 +14,20 @@ function T0(u0::FractionalKdVAnsatz{arb},
             atol = -1.0,
             show_trace = false,
             )
-    δ0 = parent(u0.α)(1e-4)
-    δ1 = parent(u0.α)(1e-4)
-    δ2 = parent(u0.α)(1e-4)
+    # Set up parameters for T01
+    δ0 = parent(u0.α)(1e-2)
+    δ1 = parent(u0.α)(1e-2)
+
+    # Set up parameters for T02
+    δ2 = parent(u0.α)(1e-2)
+    ϵ = 1 + u0.α
+
+    f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
+    g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
 
     return x -> begin
         ## Integral on [0, x] - Change to t = y/x
-        part1 = T01(u0, evaltype, δ0 = δ0, δ1 = δ1,
-                    rtol = rtol, atol = atol, show_trace = show_trace)(x)
+        part1 = f(x)
 
         if isnan(part1)
             # Short circuit on NaN
@@ -29,8 +35,7 @@ function T0(u0::FractionalKdVAnsatz{arb},
         end
 
         ## Integral on [x, π]
-        part2 = T02(u0, evaltype, δ2 = δ2, rtol = rtol, atol = atol, show_trace = show_trace)(x)
-
+        part2 = g(x)
         return part1 + part2
     end
 end
@@ -64,26 +69,17 @@ T01(u0; kwargs...) = T01(u0, Ball(); kwargs...)
 
 function T01(u0::FractionalKdVAnsatz{arb},
              evaltype::Ball;
-             δ0::arb = parent(u0.α)(1e-4),
-             δ1::arb = parent(u0.α)(1e-4),
+             δ0::arb = parent(u0.α)(1e-2),
+             δ1::arb = parent(u0.α)(1e-2),
              rtol = -1.0,
              atol = -1.0,
              show_trace = false,
              )
+    f = T011(u0, evaltype; δ0)
+    g = T012(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
+    h = T013(u0, evaltype; δ1)
     return x -> begin
-        return (
-            T011(u0, evaltype, δ0 = δ0)(x)
-            + T012(
-                u0,
-                evaltype,
-                δ0 = δ0,
-                δ1 = δ1,
-                rtol = rtol,
-                atol = atol,
-                show_trace = show_trace
-            )(x)
-            + T013(u0, evaltype, δ1 = δ1)(x)
-        )
+        return f(x) + g(x) + h(x)
     end
 end
 
@@ -148,13 +144,15 @@ T011(u0::FractionalKdVAnsatz{arb}; kwargs...) = T011(u0, Ball(); kwargs...)
 
 function T011(u0::FractionalKdVAnsatz{arb},
               ::Ball;
-              δ0::arb = parent(u0.α)(1e-4),
+              δ0::arb = parent(u0.α)(1e-2),
               N::Integer = 3,
               )
     Γ = Nemo.gamma
     α = u0.α
 
     PP = ArbPolyRing(parent(α), :x)
+
+    M = div(N, 2) + 1
 
     return x -> begin
         # Analytic terms
@@ -164,7 +162,6 @@ function T011(u0::FractionalKdVAnsatz{arb},
         P_restterm = ball(zero(α), P_E*δ0^N)
 
         # Singular term
-        M = div(N, 2) + 1
         (C, e, P2, P2_E) = Ci_expansion(x*δ0, -α, M)
         C *= x^e
         for m = 1:M-1
@@ -201,23 +198,24 @@ T012(u0::FractionalKdVAnsatz{arb}; kwargs...) = T012(u0, Ball(); kwargs...)
 
 function T012(u0::FractionalKdVAnsatz{arb},
               ::Ball;
-              δ0::arb = parent(u0.α)(1e-4),
-              δ1::arb = parent(u0.α)(1e-4),
+              δ0::arb = parent(u0.α)(1e-2),
+              δ1::arb = parent(u0.α)(1e-2),
               rtol = -1.0,
               atol = -1.0,
               show_trace = false,
               )
-    return x -> begin
-        CC = ComplexField(prec(parent(u0.α)))
-        mα = CC(-u0.α)
-        a = CC(δ0)
-        b = CC(1 - δ1)
+    α = u0.α
+    CC = ComplexField(prec(parent(α)))
+    mα = CC(-α)
+    a = CC(δ0)
+    b = CC(1 - δ1)
 
+    return x -> begin
         # PROVE: That there are no branch cuts that interact with the
         # integral
         F(t, analytic = false) = begin
             if isreal(t)
-                res = CC(Ci(x*(1 - real(t)), real(mα)) + Ci(x*(1 + real(t)), real(mα)) - 2Ci(x*real(t), real(mα)))
+                res = CC(Ci(x*(1 - real(t)), -α) + Ci(x*(1 + real(t)), -α) - 2Ci(x*real(t), -α))
             else
                 res = Ci(x*(1 - t), mα) + Ci(x*(1 + t), mα) - 2Ci(x*t, mα)
             end
@@ -261,12 +259,15 @@ will always be less than or equal to 1 for `x` less than or equal to
 π, however due to overestimation the enclosing ball might contain
 values greater than one, we therefore have to use `beta_inc_zeroone`
 to be able to get finite results in that case.
+
+TODO: We could precompute some of the values, in particular the
+beta_inc functions can be precomputed.
 """
 T013(u0::FractionalKdVAnsatz{arb}; kwargs...) = T013(u0, Ball(); kwargs...)
 
 function T013(u0::FractionalKdVAnsatz{arb},
               ::Ball;
-              δ1::arb = parent(u0.α)(1e-4),
+              δ1::arb = parent(u0.α)(1e-2),
               ϵ::arb = parent(u0.α)(1e-2),
               N::Integer = 3,
               )
@@ -275,6 +276,8 @@ function T013(u0::FractionalKdVAnsatz{arb},
     π = parent(α)(pi)
 
     PP = ArbPolyRing(parent(α), :x)
+
+    M = div(N, 2) + 1
 
     return x -> begin
         # Determine if the asymptotic expansion or the Taylor
@@ -292,7 +295,6 @@ function T013(u0::FractionalKdVAnsatz{arb},
         P_restterm = ball(zero(α), E*δ1^N)
 
         # Singular term
-        M = div(N, 2) + 1
         (C, e, P2, P2_E) = Ci_expansion(x*δ1, -α, M)
         C *= x^e
         for m = 1:M-1
@@ -379,7 +381,7 @@ T02(u0; kwargs...) = T02(u0, Ball(); kwargs...)
 
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Ball;
-             δ2::arb = ifelse(u0.α < -0.5, parent(u0.α)(1e-2), parent(u0.α)(1e-1)),
+             δ2::arb = parent(u0.α)(1e-2),
              ϵ::arb = 1 + u0.α,
              rtol = -1.0,
              atol = -1.0,
@@ -411,9 +413,9 @@ function T02(u0::FractionalKdVAnsatz{arb},
                 return res_asymptotic
             end
 
-            part1 = T021(u0, Ball(), a, x, ϵ = ϵ)
+            part1 = T021(u0, Ball(), a, x; ϵ)
 
-            part2 = T022(u0, Ball(), a, x, rtol = rtol, atol = atol, show_trace = show_trace)
+            part2 = T022(u0, Ball(), a, x; rtol, atol, show_trace)
 
             res = part1 + part2
             if radius(res) < radius(res_asymptotic)
