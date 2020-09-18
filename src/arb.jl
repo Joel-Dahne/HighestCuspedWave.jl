@@ -286,7 +286,7 @@ non-analytic term, the analytic terms in an `arb_series` `P` and the
 error term `E`. The `M` is the same as in Lemma 2.1 in
 enciso18:convex_whith.
 
-It satisfies that `Ci(y, s) ∈ C*abs(y)^s + P(y) + E*y^(2M)` for all `|y|
+It satisfies that `Ci(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for all `|y|
 <= |x|`.
 """
 function Ci_expansion(x::arb, s::arb, M::Integer)
@@ -383,8 +383,8 @@ non-analytic term, the analytic terms in an `arb_series` `P` and the
 error term `E`. The `M` is the same as in Lemma 2.1 in
 enciso18:convex_whith.
 
-It satisfies that `Si(y, s) ∈ C*sign(y)*abs(y)^s + P(abs(y)) + E*y^(2M + 1)` for all `|y|
-<= |x|`.
+It satisfies that `Si(y, s) ∈ C*sign(y)*abs(y)^e + P(y) + E*abs(y)^(2M + 1)`
+for all `|y| <= |x|`.
 """
 function Si_expansion(x::arb, s::arb, M::Integer)
     π = parent(x)(pi)

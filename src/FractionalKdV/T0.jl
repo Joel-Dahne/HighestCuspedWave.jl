@@ -398,8 +398,18 @@ function T02(u0::FractionalKdVAnsatz{arb},
             # α) evaluates to NaN. Si has issues as soon as the
             # argument is a ball containing a multiple of 2π.
             res = Ci(x + π, 2 - α) - Ci(π, 2 - α) + Ci(x, 2 - α) -
-                (Ci(2x, 2 - α) + zeta(2 - α))/2 + x*Si(x, 1 - α) -
-                x/2*Si(2x, 1 - α)
+                (Ci(2x, 2 - α) + zeta(2 - α))/2 + x*Si(x, 1 - α)
+            if π - x < 1e-4
+                # When 2x is close to 2π direct evaluation
+                # of Si fails. Use that Si(2x, 1 - α) = Si(2x - 2π, 1
+                # - α) and the asymptotic expansion.
+                y = 2x - 2π
+                M = 3
+                C, e, P, E = Si_expansion(y, 1 - α, M)
+                res -= x/2*(-C*abspow(y, e) + evaluate(P.poly, y) + E*abs(y)^(2M + 1))
+            else
+                res -= x/2*Si(2x, 1 - α)
+            end
             return 2/(π*u0.w(x)*u0(x))*res
         end
     else
