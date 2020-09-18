@@ -1,19 +1,27 @@
 export iswide, Li, Ci, Si
 
 """
-    mince(xₗ::arb, xᵤ::arb, n::Integer)
+    mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
 Return a vector with `n` balls covering the interval `[xₗ, xᵤ]`.
+
+If `split` is true then returns the intervals as tuples and not balls.
 """
-function mince(xₗ::arb, xᵤ::arb, n::Integer)
-    intervals = Vector{arb}(undef, n)
+function mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
+    intervals = Vector{ifelse(split, NTuple{2,arb}, arb)}(undef, n)
     dx = (xᵤ - xₗ)/n
     for i in eachindex(intervals)
-        intervals[i] = setunion(xₗ + (i - 1)*dx, xₗ + i*dx)
+        yₗ = xₗ + (i - 1)*dx
+        yᵤ = xₗ + i*dx
+        if split
+            intervals[i] = (yₗ, yᵤ)
+        else
+            intervals[i] = setunion(yₗ, yᵤ)
+        end
     end
     return intervals
 end
 
-mince(x::arb, n::Integer) = mince(getinterval(x)..., n)
+mince(x::arb, n::Integer; split = false) = mince(getinterval(x)..., n; split)
 
 """
     iswide(x)

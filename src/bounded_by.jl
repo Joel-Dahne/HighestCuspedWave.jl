@@ -7,14 +7,19 @@ Return true if `|f|` is bounded by `C` on the interval `[a, b]`, i.e.
 
 If `use_taylor` is true then compute the maximum on each subinterval
 by computing the maximum of the Taylor expansion.
+
+It begins by splitting up the interval `[a, b]` in `start_intervals`
+intervals, using the `mince` method.
 """
 function bounded_by(f,
                     a::arb,
                     b::arb,
                     C::arb;
+                    start_intervals::Integer = 1,
+                    max_iterations::Integer = typemax(Int),
+                    use_taylor = false,
                     show_trace = false,
                     show_evaluations = false,
-                    use_taylor = false,
                     )
     if a > b
         # Empty interval, always true
@@ -27,7 +32,11 @@ function bounded_by(f,
     # Only works for finite values of a and b
     @assert isfinite(a) && isfinite(b)
 
-    intervals = [(a, b)]
+    if start_intervals == 1
+        intervals = [(a, b)]
+    else
+        intervals = mince(a, b, start_intervals, split = true)
+    end
 
     iterations = 0
     max_value = parent(a)(NaN)
@@ -75,6 +84,10 @@ function bounded_by(f,
                 push!(next_intervals, (c, midpoint))
                 push!(next_intervals, (midpoint, d))
             end
+        end
+
+        if iterations == max_iterations
+            return missing
         end
 
         intervals = next_intervals

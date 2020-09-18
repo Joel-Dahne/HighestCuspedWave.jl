@@ -46,7 +46,7 @@ function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
     res1 || return false
 
     res2 = bounded_by(T0(u0, Ball(), rtol = rtol, atol = atol), ϵ, parent(u0.α)(π), C,
-                      show_trace = show_trace)
+                      show_trace = show_trace, start_intervals = 256)
     return res2
 end
 
