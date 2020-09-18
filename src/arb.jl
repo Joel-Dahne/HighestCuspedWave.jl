@@ -98,14 +98,13 @@ function Li(z::acb, s::acb)
         s_poly = PP([s, one(s)])
         ccall(("acb_poly_polylog_series", Nemo.libarb), Cvoid,
               (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Int, Int),
-              w, s_poly, z, n + 2, prec(parent(z)))
+              w, s_poly, z, n + 1, prec(parent(z)))
         restterm = (s - s_mid)^n*coeff(w, n)
-
         # Compute the Taylor polynomial at the midpoint of x
         s_poly = PP([s_mid, one(s)])
         ccall(("acb_poly_polylog_series", Nemo.libarb), Cvoid,
               (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Int, Int),
-              w, s_poly, z, n + 1, prec(parent(z)))
+              w, s_poly, z, n, prec(parent(z)))
 
         # Evaluate the Taylor polynomial on s - s_mid and add the rest
         # term
