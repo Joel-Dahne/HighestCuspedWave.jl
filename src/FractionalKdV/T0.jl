@@ -21,8 +21,8 @@ function T0(u0::FractionalKdVAnsatz{arb},
         δ0 = parent(u0.α)(1e-4)
         δ1 = parent(u0.α)(1e-4)
     else
-        δ0 = parent(u0.α)(1e-2)
-        δ1 = parent(u0.α)(1e-2)
+        δ0 = parent(u0.α)(1e-3)
+        δ1 = parent(u0.α)(1e-3)
     end
 
     # Set up parameters for T02
