@@ -39,8 +39,9 @@ function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
                        atol = 1e-6,
                        show_trace = false,
                        )
+    # This is not implemented yet!
     res1 = bounded_by(T0(u0, Asymptotic()), zero(u0.α), ϵ, C,
-                      show_trace = show_trace,
+                      show_trace = false,
                       )
 
     res1 || return false
