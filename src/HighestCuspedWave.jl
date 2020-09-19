@@ -19,5 +19,6 @@ include("FractionalKdV/alpha.jl")
 include("FractionalKdV/delta.jl")
 include("FractionalKdV/T0.jl")
 include("FractionalKdV/CB.jl")
+include("FractionalKdV/proof.jl")
 
 end # module
