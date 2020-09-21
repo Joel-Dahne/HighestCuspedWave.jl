@@ -1,0 +1,101 @@
+* Estimate parameters dependence on \(\alpha\)
+Code for estimating and storing estimates of the parameters as a
+function of \(\alpha\).
+
+#+BEGIN_SRC julia :tangle script/estimate_parameters.jl
+  using HighestCuspedWave, Nemo, ArbTools, Plots, ProgressLogging, JLD
+  using Dates: today
+  using Logging: global_logger
+  using TerminalLoggers: TerminalLogger
+  # global_logger(TerminalLogger())
+
+  # RR = RealField(64)
+  # αs = RR.(range(-0.9, stop = -0.1, length = 200))
+
+  function estimate_parameters(αs::Vector{arb})
+      α₀s = similar(αs)
+      δ₀s = similar(αs)
+      CBs = similar(αs)
+      u0s_time = similar(αs, Float64)
+      α₀s_time = similar(αs, Float64)
+      δ₀s_time = similar(αs, Float64)
+      CBs_time = similar(αs, Float64)
+
+      @progress for i in eachindex(αs)
+          u0s_time[i] = @elapsed u0 = FractionalKdVAnsatz(αs[i])
+          α₀s_time[i] = @elapsed α₀s[i] = alpha0(u0)
+          δ₀s_time[i] = @elapsed δ₀s[i] = delta0(u0)
+          CBs_time[i] = @elapsed CBs[i] = CB_estimate(u0, n = 40)
+      end
+
+      return α₀s, δ₀s, CBs, u0s_time, α₀s_time, δ₀s_time, CBs_time
+  end
+
+  function store_estimated_parameters(αs, α₀s, δ₀s, CBs, u0s_time, α₀s_time, δ₀s_time, CBs_time)
+      save(
+          "data/estimated-parameters-$(length(αs))-$(today()).jld",
+          "prec", prec(parent(first(αs))),
+          "αs", ArbTools.arb_dump.(αs),
+          "α₀s", ArbTools.arb_dump.(α₀s),
+          "δ₀s", ArbTools.arb_dump.(δ₀s),
+          "CBs", ArbTools.arb_dump.(CBs),
+          "u0s_time", u0s_time,
+          "α₀s_time", α₀s_time,
+          "δ₀s_time", δ₀s_time,
+          "CBs_time", CBs_time,
+      )
+  end
+
+  function load_estimated_parameters(filename)
+      d = load(filename)
+      RR = RealField(d["prec"])
+      return (
+          [ArbTools.arb_load_dump(s, RR) for s in d["αs"]],
+          (
+              [ArbTools.arb_load_dump(s, RR) for s in d["α₀s"]],
+              [ArbTools.arb_load_dump(s, RR) for s in d["δ₀s"]],
+              [ArbTools.arb_load_dump(s, RR) for s in d["CBs"]],
+              d["u0s_time"],
+              d["α₀s_time"],
+              d["δ₀s_time"],
+              d["CBs_time"],
+          ),
+      )
+  end
+
+  function plot_estimated_parameters(αs, α₀s, δ₀s, CBs, u0s_time, α₀s_time, δ₀s_time, CBs_time)
+      plot_time = plot(
+          Float64.(αs),
+          [u0s_time, α₀s_time, δ₀s_time, CBs_time],
+          markershape = ifelse(length(αs) > 20, :circle, :circle),
+          labels = ["u0" "α₀" "δ₀" "CB"],
+          xlims = (-1, 0),
+          xlabel = "α",
+          ylabel = "seconds",
+      )
+
+      βs = 1 ./ (1 .- CBs)
+      Cs = 1 ./ (4α₀s.*βs.^2)
+      Ds = 1 .- 2sqrt.(α₀s.*δ₀s)
+
+      plot_δ₀ = plot(
+          Float64.(αs),
+          Float64[ArbTools.ubound.(δ₀s) ArbTools.lbound.(Cs)],
+          markershape = :circle,
+          labels = ["α₀" "1/(4α₀β²)"],
+          xlims = (-1, 0),
+          xlabel = "α",
+      )
+
+      plot_CB = plot(
+          Float64.(αs),
+          Float64[ArbTools.ubound.(CBs) ArbTools.lbound.(Ds)],
+          markershape = :circle,
+          labels = ["C_B" "1 - 2√(α₀δ₀)"],
+          xlims = (-1, 0),
+          xlabel = "α",
+      )
+
+      return plot_time, plot_δ₀, plot_CB
+  end
+#+END_SRC
