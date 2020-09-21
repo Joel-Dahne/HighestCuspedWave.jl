@@ -3,7 +3,7 @@ Code for estimating and storing estimates of the parameters as a
 function of \(\alpha\).
 
 #+BEGIN_SRC julia :tangle script/estimate_parameters.jl
-  using HighestCuspedWave, Nemo, ArbTools, Plots, ProgressLogging, JLD
+  using HighestCuspedWave, Nemo, ArbTools, Plots, ProgressLogging, JLD, Interpolations
   using Dates: today
   using Logging: global_logger
   using TerminalLoggers: TerminalLogger
@@ -97,5 +97,26 @@ function of \(\alpha\).
       )
 
       return plot_time, plot_δ₀, plot_CB
+  end
+
+  """
+      interpolate_δ₀_bound(αs, α₀s, CBs)
+  Create an interpolation object for `1/(4α₀β²)`, which is the bound
+  that `δ₀` has to be below.
+  """
+  function interpolate_δ₀_bound(αs, α₀s, CBs)
+      βs = 1 ./ (1 .- CBs)
+      Cs = 1 ./ (4α₀s.*βs.^2)
+      return LinearInterpolation(Float64.(αs), Float64.(Cs))
+  end
+
+  """
+      interpolate_CB_bound(αs, α₀s, δ₀s)
+  Create an interpolation object for `1-2√(α₀δ₀)`, which is the bound
+  that `CB` has to be below.
+  """
+  function interpolate_CB_bound(αs, α₀s, δ₀s)
+      Ds = 1 .- 2sqrt.(α₀s.*δ₀s)
+      return LinearInterpolation(Float64.(αs), Float64.(Ds))
   end
 #+END_SRC
