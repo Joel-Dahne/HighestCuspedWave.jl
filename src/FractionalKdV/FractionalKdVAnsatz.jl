@@ -132,3 +132,22 @@ function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
         return getfield(u0, name)
     end
 end
+
+function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
+    p0 = u0.p0
+    a = copy(u0.a)
+    b = copy(u0.b)
+    p = u0.p
+    # We can no longer guarantee that any terms are zero
+    zeroterms = Set{Tuple{Int, Int, Int}}()
+
+    u0_new = FractionalKdVAnsatz(α, p0, a, b, p, zeroterms)
+
+    # We have to update u0.a[0] to make the term (2, 0, 0) zero
+    if u0_new.N0 >= 0
+        u0_new.a[0] = finda0(u0_new.α)
+        push!(u0_new.zeroterms, (2, 0, 0))
+    end
+
+    return u0_new
+end
