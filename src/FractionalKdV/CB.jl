@@ -40,15 +40,16 @@ function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
                        show_trace = false,
                        )
     # This is not implemented yet!
-    res1 = bounded_by(T0(u0, Asymptotic()), zero(u0.α), ϵ, C,
-                      show_trace = false,
+    res1, enclosure1 = bounded_by(T0(u0, Asymptotic()), zero(u0.α), ϵ, C,
+                              show_trace = false,
+                              return_enclosure = true,
                       )
+    res1 || return false, parent(C)(NaN)
 
-    res1 || return false
-
-    res2 = bounded_by(T0(u0, Ball(), rtol = rtol, atol = atol), ϵ, parent(u0.α)(π), C,
-                      show_trace = show_trace, start_intervals = 256)
-    return res2
+    res2, enclosure2 = bounded_by(T0(u0, Ball(), rtol = rtol, atol = atol), ϵ, parent(u0.α)(π), C,
+                              show_trace = show_trace, start_intervals = 256,
+                              return_enclosure = true)
+    return res2, max(enclosure1, enclosure2)
 end
 
 
