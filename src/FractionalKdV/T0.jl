@@ -15,19 +15,16 @@ function T0(u0::FractionalKdVAnsatz{arb},
             rtol = -1.0,
             atol = -1.0,
             show_trace = false,
+            δ0::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
+            δ1::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
+            δ2::arb = parent(u0.α)(1e-2),
+            ϵ::arb = 1 + u0.α,
             )
     # Set up parameters for T01
-    if u0.p == 1
-        δ0 = parent(u0.α)(1e-4)
-        δ1 = parent(u0.α)(1e-4)
-    else
-        δ0 = parent(u0.α)(1e-3)
-        δ1 = parent(u0.α)(1e-3)
-    end
+    # δ0 and δ1 are given as arguments
 
     # Set up parameters for T02
-    δ2 = parent(u0.α)(1e-2)
-    ϵ = 1 + u0.α
+    # δ2 and ϵ are given as arguments
 
     f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
     g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
