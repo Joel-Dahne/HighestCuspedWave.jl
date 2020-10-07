@@ -115,8 +115,303 @@ function of \(\alpha\).
   Create an interpolation object for `1-2√(α₀δ₀)`, which is the bound
   that `CB` has to be below.
   """
-  function interpolate_CB_bound(αs, α₀s, δ₀s)
-      Ds = 1 .- 2sqrt.(α₀s.*δ₀s)
+  function interpolate_CB_bound(αs, α₀s, δ₀s; headroom = 1.0)
+      Ds = 1 .- 2sqrt.(α₀s.*(headroom*δ₀s))
       return LinearInterpolation(Float64.(αs), Float64.(Ds))
+  end
+#+END_SRC
+
+* Test defects for balls of \(\alpha\)
+Test how the defect of \(u_0\) depends on \(\alpha\) when it's a ball.
+For a ball \(\alpha\) compute the defect for specific values inside
+it. *Bad explanation*.
+#+BEGIN_SRC julia  :tangle script/test_defect_dependence.jl
+  using HighestCuspedWave, Nemo, ArbTools, ProgressLogging
+  using Logging: global_logger
+  using TerminalLoggers: TerminalLogger
+  # global_logger(TerminalLogger())
+
+  function test_defect_dependence(α::arb; n = 0, show_trace = false)
+      u0 = FractionalKdVAnsatz(α)
+      u0_mid = HighestCuspedWave.update_alpha(u0, midpoint(α))
+      αs = [ArbTools.lbound(α); midpoint.(HighestCuspedWave.mince(α, n)); ArbTools.ubound(α)]
+      u0s = [HighestCuspedWave.update_alpha(u0, midpoint(α)) for α in αs]
+
+      @time δ₀ = delta0(u0; show_trace)
+
+      @time δ₀_mid = delta0(u0_mid; show_trace)
+
+      δ₀s = similar(αs)
+      max_defect = δ₀_mid
+      @progress for i in eachindex(u0s)
+          δ₀s[i] = delta0(u0s[i])
+          max_defect = max(max_defect, δ₀s[i])
+      end
+
+      return δ₀, δ₀_mid, δ₀s, max_defect
+  end
+
+#+END_SRC
+
+* Test bound of \(C_B\) on balls of \(\alpha\)
+
+#+BEGIN_SRC julia :tangle script/test_CB_bound.jl
+  using HighestCuspedWave, Nemo, ArbTools
+
+  function test_CB_bound(α::arb, interpolation_CB)
+      u0 = FractionalKdVAnsatz(α)
+
+      # TODO: Take into account that the defect will likely be higher
+      # than this point evaluation
+      CB = parent(α)(interpolation_CB(Float64(α)))
+
+      CB_bounded_by(u0, CB, show_trace = true)
+  end
+
+
+#+END_SRC
+
+We then run the following script
+
+#+BEGIN_SRC julia
+  includet("script/test_CB_bound.jl")
+  includet("script/estimate_parameters.jl")
+
+  αs2, res = load_estimated_parameters("data/estimated-parameters-200-2020-09-21.jld");
+  interpolation_CB = interpolate_CB_bound(αs2, res[1], res[2])
+
+  RR = RealField(64)
+  rad = RR(1e-5)
+  αs = reverse([ball(RR(α), rad) for α in range(-0.8, stop = -0.1, length = 50)])
+
+  res = [@elapsed test_CB_bound(α, interpolation_CB) for α in αs]
+
+  # Save result and plot
+#+END_SRC
+
+* Asymptotic plot of norm
+
+#+BEGIN_SRC julia :tangle script/asymptotic-norm.jl
+  using HighestCuspedWave, Nemo, ArbTools, Plots, ProgressLogging
+  using Logging: global_logger
+  using TerminalLoggers: TerminalLogger
+  # global_logger(TerminalLogger())
+
+  function get_u0s(RR; version = 1)
+      u0s = Vector{FractionalKdVAnsatz{arb}}()
+
+      if version == 1
+          α = RR(-0.99)
+          p = (1 - α)/2
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          p = (9 - α)/10
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          p = one(α)
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+
+          α = RR(-0.95)
+          p = (1 - α)/2
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          p = (9 - α)/10
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          p = one(α)
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+
+          α = RR(-0.6)
+          p = (1 - α)/2
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          p = (9 - α)/10
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          p = one(α)
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+
+          α = RR(-0.6)
+          p = (1 - α)/2
+          push!(u0s, FractionalKdVAnsatz(α, pp = p))
+          p = (9 - α)/10
+          push!(u0s, FractionalKdVAnsatz(α, pp = p))
+          p = one(α)
+          push!(u0s, FractionalKdVAnsatz(α, pp = p))
+      elseif version == 2
+          α = RR(-0.99)
+          p = (1 - α)/2
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          push!(u0s, FractionalKdVAnsatz(α, 3, 0, p))
+          push!(u0s, FractionalKdVAnsatz(α, 9, 0, p))
+          push!(u0s, FractionalKdVAnsatz(α, 15, 0, p))
+          #p = (9 - α)/10
+          #push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          #push!(u0s, FractionalKdVAnsatz(α, 9, 0, p))
+          p = one(α)
+          push!(u0s, FractionalKdVAnsatz(α, 0, 0, p))
+          push!(u0s, FractionalKdVAnsatz(α, 3, 0, p))
+          push!(u0s, FractionalKdVAnsatz(α, 9, 0, p))
+          push!(u0s, FractionalKdVAnsatz(α, 15, 0, p))
+      end
+
+      return u0s
+  end
+
+
+  function compute_asymptotic_norms(
+      u0s;
+      xs = parent(first(u0s).α).(1.5.^(-50:-5))
+  )
+      RR = parent(first(u0s).α)
+      res = fill(RR(0), length(xs), length(u0s))
+
+      @progress for i in eachindex(u0s)
+          f = T0(u0s[i], rtol = 1e-5, δ2 = RR(1e-14))
+          Threads.@threads for j in eachindex(xs)
+              res[j, i] = f(xs[j])
+          end
+      end
+
+      return xs, res
+  end
+
+  function plot_asymptotic_norms(u0s, xs, res; logaxis = true)
+      pl = plot(xaxis = ifelse(logaxis, :log10, :none), xlabel = "α")
+      for i in eachindex(u0s)
+          plot!(
+              pl,
+              Float64.(xs),
+              Float64[ArbTools.lbound.(res[:, i]) ArbTools.ubound.(res[:, i])],
+              label = ["α = $(Float64(u0s[i].α)), p = $(Float64(u0s[i].p)), N₀ = $(u0s[i].N0)" ""],
+              m = :dot,
+              c = i
+          )
+      end
+
+      return pl
+  end
+
+  function generate_plots_email()
+      RR = RealField(100)
+      u0s = get_u0s(RR)
+      xs, res = compute_asymptotic_norms(u0s)
+      xs2, res2 = compute_asymptotic_norms(u0s, xs = RR.(range(0, stop = π, length = 100)[2:end]))
+      pl1 = plot_asymptotic_norms(u0s, xs, res)
+      pl2 = plot_asymptotic_norms(u0s, xs2, res2, logaxis = false)
+      return pl1, pl2
+  end
+#+END_SRC
+
+* More temporary scripts
+Plot normalised norm for different weights and \(\alpha\)
+#+BEGIN_SRC julia
+  α = RR(-0.9)
+  u01 = FractionalKdVAnsatz(α, 0, 0, one(α)/2)
+  u02 = FractionalKdVAnsatz(α, 0, 0, one(α))
+
+  n = 100
+  _, xs, CB1 = CB_estimate(u01, return_values = true; n)
+  _, xs, CB2 = CB_estimate(u02, return_values = true; n)
+
+  res1 = u01.(xs)
+  res2 = u02.(xs)
+
+  pl = [CB1.*res1 CB2.*res2]
+  plot(Float64.(xs), Float64[ArbTools.lbound.(pl) ArbTools.ubound.(pl)], m = :dot, c = [:red :blue :red :blue])
+#+END_SRC
+
+
+#+BEGIN_SRC julia
+  αs = RR.(range(-1, stop = -0.9, length = 20))[2:end]
+  p = α -> (1 - α)/2
+  u0s = [FractionalKdVAnsatz(α, 0, 0, p(α)) for α in αs];
+
+  n = 20
+  CBs = fill(zero(α), n, length(u0s))
+  ress = fill(zero(α), n, length(u0s))
+  for i in eachindex(u0s)
+      _, xs, CBs[:, i] = CB_estimate(u0s[i], return_values = true; n)
+      ress[:, i] = u0s[i].(xs)
+  end
+
+  toplot = CBs.*ress
+  plot(Float64.(xs), Float64.(toplot))
+#+END_SRC
+
+Evaluation of asymptotic norms
+
+#+BEGIN_SRC julia :tangle script/asymptotic-norm.jl
+  function determine_s(α)
+      #g(t) = (1 - t)^(-1 - Float64(α)) + (1 + t)^(-1 - Float64(α)) - 2t^(-1 - Float64(α))
+      #tol = 1e-12
+      #s = nlsolve(t -> [g(t[1])], [0.5], autodiff = :forward, ftol = tol).zero[1]
+
+      f(t) = (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
+      roots, flags = isolateroots(f, parent(α)(0.1), parent(α)(0.9), evaltype = :taylor, refine = true)
+
+      @assert length(flags) == 1 && flags[1]
+      s = setunion(roots[1]...)
+
+      return s
+  end
+
+  function I11(α, p)
+      Γ = Nemo.gamma
+      beta_inc = HighestCuspedWave.beta_inc
+      s = determine_s(α)
+      CC = ComplexField(prec(parent(α)))
+
+      res = (-CC(1))^(1 - CC(p))*beta_inc(1 + CC(p), -CC(α), -CC(s)) +
+          beta_inc(1 + CC(p), -CC(α), CC(s))
+      @assert contains_zero(imag(res))
+      res = real(res) + 2s^(p - α)/(α - p)
+
+      return res
+  end
+
+  function I12(α, p)
+      Γ = Nemo.gamma
+      beta_inc = HighestCuspedWave.beta_inc
+      s = determine_s(α)
+      CC = ComplexField(prec(parent(α)))
+
+      res = (-CC(1))^(1 - CC(p))*(
+          beta_inc(1 + CC(p), -CC(α), -CC(1))
+          - beta_inc(1 + CC(p), -CC(α), -CC(s))
+      ) - beta_inc(1 + CC(p), -CC(α), CC(s))
+      @assert contains_zero(imag(res))
+      res = real(res) + (2 - 2s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
+
+      return res
+  end
+
+  function I1(α, p)
+      Γ = Nemo.gamma
+      beta_inc = HighestCuspedWave.beta_inc
+      s = determine_s(α)
+      CC = ComplexField(prec(parent(α)))
+
+      res = (-CC(1))^(1 - CC(p))*(
+          beta_inc(1 + CC(p), -CC(α), -CC(1))
+          - 2beta_inc(1 + CC(p), -CC(α), -CC(s))
+      ) - 2beta_inc(1 + CC(p), -CC(α), CC(s))
+      @assert contains_zero(imag(res))
+      res = real(res) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
+
+      return res
+  end
+
+  function I2(α, p)
+      Γ = Nemo.gamma
+      hypgeom_2f1 = HighestCuspedWave.hypgeom_2f1
+
+      # The two terms get complex values where the imaginary part
+      # cancels out. We do the computations in complex arithmetic.
+      # CC(x) returns a complex version of x.
+      CC = ComplexField(prec(parent(α)))
+      res = (
+          (-CC(1))^(-CC(p))*((-CC(1))^CC(α) + (-CC(1))^CC(p))*CC(Γ(α - p)*Γ(1 + p)/Γ(1 + α))
+          + (-CC(1))^CC(α)*CC(Γ(-α)*Γ(1 + p)/Γ(1 - α + p))
+      )
+      @assert contains_zero(imag(res))
+
+      res = 0real(res) -2/(α - p) - hypgeom_2f1(1 + α, 1 + p, 2 + p, -one(α))/(1 + p)
+
+      return res
   end
 #+END_SRC
