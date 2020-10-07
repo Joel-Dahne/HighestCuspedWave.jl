@@ -104,15 +104,15 @@ function T01(u0::FractionalKdVAnsatz{arb},
 
     return x -> begin
         if p == 1
-            # TODO: Compute c_ϵ from the sum
-            c_ϵ = one(α)
             # TODO: Compute ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 2) dt
             c_α = one(α)
-        else
             # TODO: Compute c_ϵ from the sum
             c_ϵ = one(α)
+        else
             # TODO: Compute ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 1 - p) dt
             c_α = one(α)
+            # TODO: Compute c_ϵ from the sum
+            c_ϵ = one(α)
         end
 
         res = abs(Γ(1 + α)*sinpi(α/2))*c_α - c_ϵ*abspow(x, 3 + α)
