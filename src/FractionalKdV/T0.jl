@@ -92,6 +92,10 @@ end
 Returns a function such that `T01(u0, Asymptotic())(x)` computes the
 integral T_{0,1} from the paper using an evaluation strategy that
 works asymptotically as `x` goes to 0.
+
+It uses the asymptotic expansion from the paper. The integral is
+computed by finding where the integrand is positive respectively
+negative and then integrating explicitly.
 """
 function T01(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic,
@@ -101,26 +105,43 @@ function T01(u0::FractionalKdVAnsatz{arb},
     α = u0.α
     p = u0.p
     π = parent(α)(pi)
+    CC = ComplexField(prec(parent(α)))
 
     return x -> begin
         if p == 1
-            # TODO: Compute ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 2) dt
-            c_α = one(α)
             # TODO: Compute c_ϵ from the sum
             c_ϵ = one(α)
         else
-            # TODO: Compute ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 1 - p) dt
-            c_α = one(α)
             # TODO: Compute c_ϵ from the sum
             c_ϵ = one(α)
         end
+        # Compute c_α = ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 2 - p) dt
+        # Find the unique zero of the integrand on [0, 1]
+        # PROVE: That there is at most one zero on [0, 1]
+        f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
+        roots, flags = isolateroots(
+            f,
+            parent(α)(0.1),
+            parent(α)(0.9),
+            refine = true,
+            evaltype = :taylor,
+        )
+        @assert only(flags)
+        s = setunion(only(roots)...)
+
+        # PROVE: That the imaginary parts cancel out
+        c_α = CC(-one(α))^CC(1 - p)*(
+            beta_inc(CC(1+ p), CC(-α), CC(-1))
+            - 2beta_inc(CC(1 + p), CC(-α), CC(-s))
+        ) - 2beta_inc(CC(1 + p), CC(-α), CC(s))
+        @assert contains_zero(imag(c_α))
+        c_α = real(c_α) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
 
         res = abs(Γ(1 + α)*sinpi(α/2))*c_α - c_ϵ*abspow(x, 3 + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
-        res *= L/(π*a0(u0, 0))
 
-        return res
+        return L/(π*a0(u0, 0))*res
     end
 end
 
