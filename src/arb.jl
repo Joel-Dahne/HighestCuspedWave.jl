@@ -29,19 +29,19 @@ Return true if x is wide in the meaning that the effective relative
 accuracy of x measured in bits is more than 10 lower than it's parents
 precision.
 """
-function iswide(x::arb)
+function iswide(x::arb; cutoff = 10)
     # TODO: This might require some tuning, 10 might not be the
     # optimal number.
-    return ArbTools.rel_accuracy_bits(x) < prec(parent(x)) - 10
+    return ArbTools.rel_accuracy_bits(x) < prec(parent(x)) - cutoff
 end
 
-function iswide(x::acb)
+function iswide(x::acb; cutoff = 10)
     # TODO: Arb implements this as well, slightly different, but it
     # has to be implemented in ArbTools first
     return min(
         ArbTools.rel_accuracy_bits(real(x)),
         ArbTools.rel_accuracy_bits(imag(x)),
-    ) < prec(parent(x)) - 10
+    ) < prec(parent(x)) - cutoff
 end
 
 function zeta(s::arb; d::Integer = 0)
@@ -538,10 +538,8 @@ end
     cosint(a::arb, z::arb)
 Compute the generalised cosine integral Cₐ(z).
 
-TODO: Depending on the choice of precision this gives very poor error
-bounds. For example with 256 bits of precision, `a = 1.7` and `z =
-175` it gives extremely bad bounds. Both 64 bits and 512 bits works
-well.
+It tries to give better enclosures by evaluating it at higher
+precision if required.
 """
 function cosint(a::arb, z::arb)
     RR = parent(z)
@@ -549,5 +547,48 @@ function cosint(a::arb, z::arb)
     res = CC()
     ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
           (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), z), 0, prec(RR))
+
+    if iswide(res)
+        res2 = CC()
+        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res2, CC(a), CC(zero(z), z), 0, 4prec(RR))
+        res = CC(setintersection(real(res), real(res2)),
+                 setintersection(imag(res), imag(res2)))
+        if iswide(res, cutoff = 20)
+            @warn "Wide enclosure when computing cosint res = $res"
+        end
+    end
+
+    return real(exp(CC(zero(a), -RR(π)*a/2))*res)
+end
+
+"""
+    cosintpi(a::arb, z)
+Compute the generalised cosine integral Cₐ(πz).
+
+It tries to give better enclosures by evaluating it at higher
+precision if required.
+"""
+function cosintpi(a::arb, z)
+    RR = parent(a)
+    CC = ComplexField(prec(RR))
+    res = CC()
+    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), RR(π)*z), 0, prec(RR))
+
+    if iswide(res)
+        RR2 = RealField(8prec(RR))
+        CC2 = ComplexField(prec(RR2))
+        res2 = CC2()
+        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+              res2, CC2(a), CC2(zero(a), RR2(π)*RR2(z)), 0, prec(RR2))
+        res = CC(setintersection(real(res), real(res2)),
+                 setintersection(imag(res), imag(res2)))
+        if iswide(res, cutoff = 20)
+            @warn "Wide enclosure when computing cosintpi res = $res"
+        end
+    end
+
     return real(exp(CC(zero(a), -RR(π)*a/2))*res)
 end

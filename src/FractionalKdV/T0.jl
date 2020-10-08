@@ -472,12 +472,13 @@ function T02(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic;
              N::Integer = 10
              )
+    if u0.p != 1
+        @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1"
+    end
     Γ = Nemo.gamma
     α = u0.α
     p = u0.p
     π = parent(α)(pi)
-    CC = ComplexField(prec(parent(α)))
-    im = CC(0, 1)
 
     return x -> begin
         if p == 1
@@ -503,21 +504,21 @@ function T02(u0::FractionalKdVAnsatz{arb},
                 )
             )
 
-            #S = Ci(x + π, 2 - α) - Ci(π, 2 - α) +
-            #    Ci(x, 2 - α) - (Ci(2x, 2 - α) + zeta(2 - α))/2 +
-            #    x*Si(x, 1 - α) - x/2*Si(2x, 1 - α)
-            # return 2/(π*a0(u0, 0))*(1 + hat(u0)(x))*abspow(x, α - p)*S
             return res
-        else
-            @warn "T02(u0, Asymptotic()) is not yet rigorous"
-            S = zero(u0.α)
-            for k = reverse(1:N)
-                k = parent(α)(k)
-                S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosint(p + 1, k*π))
-            end
         end
+
+        S = zero(u0.α)
+        for k = reverse(1:N)
+            k = parent(α)(k)
+            S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosintpi(p + 1, k))
+        end
+
+        # S is bounded by - later on we want to use this
+        S_bound = cosintpi(p + 1, one(p))*(Ci(x, p + 1 - α) - zeta(p + 1 - α)) -
+            abspow(x, p)*(Ci(x, 1 - α) - zeta(1 - α))
+
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
-        return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S
+        return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S, 2L/(π*a0(u0, 0))*abspow(x, α - p)*S2
     end
 end
 
