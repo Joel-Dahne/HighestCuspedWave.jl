@@ -93,9 +93,22 @@ Returns a function such that `T01(u0, Asymptotic())(x)` computes the
 integral T_{0,1} from the paper using an evaluation strategy that
 works asymptotically as `x` goes to 0.
 
-It uses the asymptotic expansion from the paper. The integral is
-computed by finding where the integrand is positive respectively
-negative and then integrating explicitly.
+It splits the Clausians into the main singular part and the analytic
+expansion. The integral of the singular part is computed by finding
+where the integrand is positive respectively negative and then
+integrating explicitly. The expansion is integrated term wise and the
+resulting sum is bounded.
+
+FIXME: There is something wrong somewhere. The result doesn't match up
+completely with the non-asymptotic version for small values of `x`. I
+don't know which one is the correct one...
+```
+u0 = FractionalKdVAnsatz(RR(-0.6), pp = RR(1))
+x = RR(1e-6)
+a = HighestCuspedWave.T01(u0, Ball())(x)
+b = HighestCuspedWave.T01(u0, Asymptotic())(x)
+overlaps(a, b)
+```
 """
 function T01(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic,
@@ -104,18 +117,26 @@ function T01(u0::FractionalKdVAnsatz{arb},
     Γ = Nemo.gamma
     α = u0.α
     p = u0.p
-    π = parent(α)(pi)
-    CC = ComplexField(prec(parent(α)))
+    RR = parent(α)
+    CC = ComplexField(prec(RR))
+    π = RR(pi)
 
     return x -> begin
         if p == 1
-            # TODO: Compute c_ϵ from the sum
-            c_ϵ = one(α)
+            # TODO: Bound the tail - the terms go to zero extremely
+            # fast so it should be negligible
+            c_ϵ = zero(α)
+            for m in 1:10
+                m = fmpz(m)
+                c_ϵ += (-one(α))^m/(factorial(fmpz(2m)))*zeta(-α - 2m)*
+                    m*(RR(4)^m - 1)/((m + 1)*(2m + 1))*abspow(x, RR(2m - 2))
+            end
+            c_ϵ *= 2
         else
             # TODO: Compute c_ϵ from the sum
             c_ϵ = one(α)
         end
-        # Compute c_α = ∫₁^∞|(t - 1)^(-1 - α) + (t + 1)^(-1 - α) - 2|t^(α - 2 - p) dt
+        # Compute c_α = ∫0^1 |(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
         # Find the unique zero of the integrand on [0, 1]
         # PROVE: That there is at most one zero on [0, 1]
         f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
@@ -130,14 +151,18 @@ function T01(u0::FractionalKdVAnsatz{arb},
         s = setunion(only(roots)...)
 
         # PROVE: That the imaginary parts cancel out
-        c_α = CC(-one(α))^CC(1 - p)*(
-            beta_inc(CC(1+ p), CC(-α), CC(-1))
-            - 2beta_inc(CC(1 + p), CC(-α), CC(-s))
-        ) - 2beta_inc(CC(1 + p), CC(-α), CC(s))
+        c_α = let p = CC(p), α = CC(α), s = CC(s), m1 = CC(-1)
+            m1^(1 - p)*(beta_inc(1 + p, -α, m1) - 2beta_inc(1 + p, -α, -s)) -
+                2beta_inc(1 + p, -α, s)
+        end
         @assert contains_zero(imag(c_α))
         c_α = real(c_α) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
 
-        res = abs(Γ(1 + α)*sinpi(α/2))*c_α - c_ϵ*abspow(x, 3 + α)
+        # Version without asymptotically expanding u0(x)
+        #res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, p - α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 4)
+        #return res/(π*abspow(x, p)*u0(x))
+
+        res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
 
