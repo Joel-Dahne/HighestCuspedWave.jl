@@ -111,7 +111,8 @@ overlaps(a, b)
 ```
 """
 function T01(u0::FractionalKdVAnsatz{arb},
-             ::Asymptotic,
+             ::Asymptotic;
+             nonasymptotic_u0 = false, # Mainly for testing
              )
     @warn "T01(u0, Asymptotic()) is not yet complete"
     Γ = Nemo.gamma
@@ -158,9 +159,11 @@ function T01(u0::FractionalKdVAnsatz{arb},
         @assert contains_zero(imag(c_α))
         c_α = real(c_α) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
 
-        # Version without asymptotically expanding u0(x)
-        #res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, p - α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 4)
-        #return res/(π*abspow(x, p)*u0(x))
+        if nonasymptotic_u0
+            # Version without asymptotically expanding u0(x)
+            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, p - α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 4)
+            return res/(π*abspow(x, p)*u0(x))
+        end
 
         res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
         # Ball containing 1 + hat(u0)(x)
@@ -270,7 +273,7 @@ function T012(u0::FractionalKdVAnsatz{arb},
                 res = Ci(x*(1 - t), mα) + Ci(x*(1 + t), mα) - 2Ci(x*t, mα)
             end
 
-            ArbTools.real_abs(res, analytic = analytic)*t^u0.p
+            return ArbTools.real_abs(res, analytic = analytic)*t^u0.p
         end
         res = real(ArbTools.integrate(CC, F, a, b,
                                       rel_tol = rtol,
@@ -495,7 +498,7 @@ works asymptotically as `x` goes to 0.
 """
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic;
-             N::Integer = 10
+             N::Integer = 100,
              )
     if u0.p != 1
         @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1"
@@ -538,12 +541,14 @@ function T02(u0::FractionalKdVAnsatz{arb},
             S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosintpi(p + 1, k))
         end
 
-        # S is bounded by - later on we want to use this
-        S_bound = cosintpi(p + 1, one(p))*(Ci(x, p + 1 - α) - zeta(p + 1 - α)) -
+        # S is bounded by this - later on we want to use this
+        # TODO: This bound seems like it's to bad to be useful even as x → 0
+        S_bound = -cosintpi(p + 1, one(p))*(Ci(x, p + 1 - α) - zeta(p + 1 - α)) -
             abspow(x, p)*(Ci(x, 1 - α) - zeta(1 - α))
+        return 2/(π*abspow(x, p)*u0(x))*S_bound
 
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
-        return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S, 2L/(π*a0(u0, 0))*abspow(x, α - p)*S2
+        return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S, 2L/(π*a0(u0, 0))*abspow(x, α - p)*S
     end
 end
 
@@ -720,6 +725,7 @@ function T022(u0::FractionalKdVAnsatz{arb},
         else
             res = Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα)
         end
+
         return ArbTools.real_abs(res, analytic = analytic)*y^u0.p
     end
     res = real(ArbTools.integrate(CC, F, a, b,
