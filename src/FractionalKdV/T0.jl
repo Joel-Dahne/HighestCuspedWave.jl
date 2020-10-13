@@ -535,17 +535,28 @@ function T02(u0::FractionalKdVAnsatz{arb},
             return res
         end
 
-        S = zero(u0.α)
+        # Original version, just the plain sum
+        #S = zero(α)
+        #for k = reverse(1:N)
+        #    k = parent(α)(k)
+        #    S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosintpi(p + 1, k))
+        #end
+
+        # Improved version, extracting important terms of the form
+        # x^b*sin(x) an x^b*cos(x) from the cosint and summing them
+        # explicitly
+        S = zero(α)
         for k = reverse(1:N)
             k = parent(α)(k)
-            S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosintpi(p + 1, k))
+            S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosintpi(p - 1, k) - cosint(p - 1, k*x))
         end
+        S *= p - 1
+        S += x^(p - 1)*(Ci(x, 2 - α) - Ci(2x, 2 - α)/2 - zeta(2 - α)/2)
+        S += π^(p - 1)*(Ci(x + π, 2 - α) - Ci(π, 2 - α))
+        S *= p
+        S += x^p*(Si(x, 1 - α) - Si(2x, 1 - α)/2)
 
-        # S is bounded by this - later on we want to use this
-        # TODO: This bound seems like it's to bad to be useful even as x → 0
-        S_bound = -cosintpi(p + 1, one(p))*(Ci(x, p + 1 - α) - zeta(p + 1 - α)) -
-            abspow(x, p)*(Ci(x, 1 - α) - zeta(1 - α))
-        return 2/(π*abspow(x, p)*u0(x))*S_bound
+        #return 2/(π*abspow(x, p)*u0(x))*S
 
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
         return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S, 2L/(π*a0(u0, 0))*abspow(x, α - p)*S
