@@ -471,6 +471,31 @@ function F0(u0::FractionalKdVAnsatz{T},
 end
 
 """
+    F0(u0, ::AsymptoticExpansion)
+The terms in the dictionary should be interpreted as
+((i, j, m), y) → y⋅x^(-iα + jp₀ + 2m - p).
+"""
+function F0(u0::FractionalKdVAnsatz{T},
+            ::AsymptoticExpansion;
+            M::Integer = 3,
+            ) where {T}
+    return x -> begin
+        expansion = D(u0, AsymptoticExpansion(), M = M)(x)
+
+        res = empty(expansion)
+
+        ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
+        C = ball(parent(u0.α)(1), c(u0, ϵ)*abspow(x, u0.p0))/a0(u0, 0)
+
+        for ((i, j, m), y) in expansion
+            res[(i - 1, j, m)] = C*y
+        end
+
+        return res
+    end
+end
+
+"""
     hat(u0::FractionalKdVAnsatz)
 Returns a function such that hat(u0)(x) computes û(x) from the paper.
 """
@@ -666,4 +691,24 @@ function D(u0::FractionalKdVAnsatz{T},
             3,
         )
     end
+end
+
+function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
+    get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + 2m
+    expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
+    for ((i, j, m), c) in expansion
+        println("$c ⋅ x^$(get_exponent(i, j, m))")
+    end
+
+    return expansion
+end
+
+function print_asymptotic_expansion_F0(u0::FractionalKdVAnsatz, expansion)
+    get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + 2m - u0.p
+    expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
+    for ((i, j, m), c) in expansion
+        println("$c ⋅ x^$(get_exponent(i, j, m))   $((i, j, m))")
+    end
+
+    return expansion
 end
