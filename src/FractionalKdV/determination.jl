@@ -9,7 +9,7 @@ We use, but don't have to prove, that p0 < 1.5(α + 1).
 function findp0(α)
     Γ = SpecialFunctions.gamma
     f(p) = begin
-        cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - Γ(1 + 2α)cospi(α)/(α*Γ(α)cospi(α/2))
+        cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - 2Γ(2α)cospi(α)/(Γ(α)cospi(α/2))
     end
 
     n = 1000
@@ -25,25 +25,37 @@ function findp0(α)
 end
 
 function findp0(α::arb)
+    # Do the computations at a higher precision
     if iswide(α)
         # PROVE: That p0 is monotone in α
         α_low, α_upp = getinterval(α)
         return ArbTools.setinterval(findp0(α_low), findp0(α_upp))
     end
+    α = RealField(2prec(parent(α)))(α)
     Γ = Nemo.gamma
+    C = 2Γ(2α)cospi(α)/(Γ(α)cospi(α/2))
     f(p) = begin
-        cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - Γ(1 + 2α)cospi(α)/(α*Γ(α)cospi(α/2))
+        cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - C
     end
 
     # PROVE: That it is the smallest positive zero
-    p0 = ArbTools.add_error!(parent(α)(findp0(Float64(α))), parent(α)(1e-10))
+    p0 = ArbTools.add_error!(parent(α)(findp0(Float64(α))), parent(α)(1e-12))
 
-    # Check that it is a root
-    unique, _ = ArbTools.isuniqueroot(f, ArbTools.getinterval(p0)...)
-    @assert unique
+    found, flags = isolateroots(
+        f,
+        getinterval(p0)...,
+        atol = 1e-15,
+        rtol = 1e-15,
+        maxevals = 10000,
+        evaltype = :taylor,
+        refine = true,
+        maxfound = 1,
+    )
 
-    # Refine the root
-    p0 = setinterval(ArbTools.refine_root(f, ArbTools.getinterval(p0)...)...)
+    @assert only(flags)
+    p0 = setunion(only(found)...)
+
+    p0 = RealField(div(prec(parent(α)), 2))(p0)
 
     return p0
 end
