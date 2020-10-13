@@ -536,7 +536,7 @@ end
 
 """
     cosint(a::arb, z::arb)
-Compute the generalised cosine integral Cₐ(z).
+Compute the generalised cosine integral Ciₐ(z).
 
 It tries to give better enclosures by evaluating it at higher
 precision if required.
@@ -564,7 +564,7 @@ end
 
 """
     cosintpi(a::arb, z)
-Compute the generalised cosine integral Cₐ(πz).
+Compute the generalised cosine integral Ciₐ(πz).
 
 It tries to give better enclosures by evaluating it at higher
 precision if required.
@@ -591,4 +591,85 @@ function cosintpi(a::arb, z)
     end
 
     return real(exp(CC(zero(a), -RR(π)*a/2))*res)
+end
+
+"""
+    cosint_javi(x::arb)
+Method that Javi used to compute cosint for some parameters that Arb
+didn't handle well. To me it doesn't seem to perform much better
+though.
+"""
+function cosint_javi(x::arb)
+    # Good for some parameters
+    res1 = -cosint(zero(x), x)
+
+    s, c = sincos(x)
+    lb = (s - (c + 1)/x)/x
+    ub = (s - (c - 1)/x)/x
+    res2 = setunion(lb, ub)
+
+    if isfinite(res1)
+        return setintersection(res1, res2)
+    else
+        return res2
+    end
+end
+
+"""
+    sinint(a::arb, z::arb)
+Compute the generalised sine integral Siₐ(z).
+
+It tries to give better enclosures by evaluating it at higher
+precision if required.
+"""
+function sinint(a::arb, z::arb)
+    RR = parent(z)
+    CC = ComplexField(prec(RR))
+    res = CC()
+    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), z), 0, prec(RR))
+
+    if iswide(res)
+        res2 = CC()
+        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res2, CC(a), CC(zero(z), z), 0, 4prec(RR))
+        res = CC(setintersection(real(res), real(res2)),
+                 setintersection(imag(res), imag(res2)))
+        if iswide(res, cutoff = 20)
+            @warn "Wide enclosure when computing sinint res = $res"
+        end
+    end
+
+    return -imag(exp(CC(zero(a), -RR(π)*a/2))*res)
+end
+
+"""
+    sinintpi(a::arb, z)
+Compute the generalised sinine integral Siₐ(πz).
+
+It tries to give better enclosures by evaluating it at higher
+precision if required.
+"""
+function sinintpi(a::arb, z)
+    RR = parent(a)
+    CC = ComplexField(prec(RR))
+    res = CC()
+    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), RR(π)*z), 0, prec(RR))
+
+    if iswide(res)
+        RR2 = RealField(8prec(RR))
+        CC2 = ComplexField(prec(RR2))
+        res2 = CC2()
+        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
+              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+              res2, CC2(a), CC2(zero(a), RR2(π)*RR2(z)), 0, prec(RR2))
+        res = CC(setintersection(real(res), real(res2)),
+                 setintersection(imag(res), imag(res2)))
+        if iswide(res, cutoff = 20)
+            @warn "Wide enclosure when computing sinintpi res = $res"
+        end
+    end
+
+    return -imag(exp(CC(zero(a), -RR(π)*a/2))*res)
 end
