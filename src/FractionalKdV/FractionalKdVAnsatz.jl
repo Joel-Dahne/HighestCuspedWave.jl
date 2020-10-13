@@ -151,3 +151,8 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
 
     return u0_new
 end
+
+function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{T}) where {T}
+    println(io, "FractionalKdVAnsatz{$T} N₀ = $(u0.N0), N₁ = $(u0.N1), prec = $(prec(parent(u0.α)))")
+    print(io, "α = $(u0.α), p = $(u0.p)")
+end
