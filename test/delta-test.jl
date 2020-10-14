@@ -1,6 +1,4 @@
 # Mainly test that it actually runs.
-# TODO: So far this only works for a very limited range of parameters,
-# this needs to be improved.
 @testset "delta0" begin
     RR = RealField(64)
     for α in range(-1, stop = 0, length = 4)[2:end-1]
