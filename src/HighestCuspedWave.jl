@@ -9,7 +9,7 @@ using Printf
 import SpecialFunctions
 
 include("arb.jl")
-include("evaltypes.jl")
+include("types.jl")
 include("bounded_by.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")

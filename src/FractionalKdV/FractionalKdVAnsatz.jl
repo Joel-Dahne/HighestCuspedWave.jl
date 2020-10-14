@@ -12,7 +12,7 @@ zeroterms - List of terms of D(u0) which guaranteed to be identically
 equal to zero. It is a set of tuples on the form (i, j, m), see
 eval_expansion for more information.
 """
-struct FractionalKdVAnsatz{T}
+struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     α::T
     p0::T
     a::OffsetVector{T, Vector{T}}
