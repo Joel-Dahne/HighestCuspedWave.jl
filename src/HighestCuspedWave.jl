@@ -11,6 +11,7 @@ import SpecialFunctions
 include("arb.jl")
 include("types.jl")
 include("bounded_by.jl")
+include("evaluation.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")

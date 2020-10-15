@@ -1,7 +1,7 @@
 # This file contains code for evaluation of the approximate solution
 # in different ways
 
-export H, D, F0, hat, eval_expansion
+export hat, eval_expansion
 
 """
     a0(u0::FractionalKdVAnsatz, j::Integer)
@@ -173,12 +173,6 @@ function EH(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
     end
 end
 
-"""
-    (u0::FractionalKdVAnsatz, evaltype)(x)
-Compute u0(x). The strategy for evaluation depends on type of evaltype.
-"""
-(u0::FractionalKdVAnsatz)(x) = u0(x, Ball())
-
 function (u0::FractionalKdVAnsatz)(x, evaltype::Ball)
     res = zero(u0.α)
 
@@ -240,13 +234,6 @@ function (u0::FractionalKdVAnsatz{T})(x,
     return expansion
 end
 
-"""
-    H(u0::FractionalKdVAnsatz, evaltype)
-Returns a function such that H(u0)(x) computes H^{-\alpha}u_0(x) from
-the paper. The strategy for evaluation depends on type of evaltype.
-"""
-H(u0::FractionalKdVAnsatz) = H(u0, Ball())
-
 function H(u0::FractionalKdVAnsatz, evaltype::Ball)
     return x -> begin
         res = zero(u0.α)
@@ -307,20 +294,6 @@ function H(u0::FractionalKdVAnsatz{T},
         end
 
         return expansion
-    end
-end
-
-"""
-    D(u0::FractionalKdVAnsatz, evaltype)
-Returns a function such that D(u0)(x) computes u_0(x)^2/2 +
-H^{-\alpha}u_0(x). The strategy for evaluation depends on type of
-evaltype.
-"""
-#D(u0::FractionalKdVAnsatz) = D(u0, Ball())
-
-function D(u0::FractionalKdVAnsatz, evaltype::Ball = Ball())
-    return x -> begin
-        u0(x, evaltype)^2/2 + H(u0, evaltype)(x)
     end
 end
 
@@ -435,19 +408,6 @@ function D(u0::FractionalKdVAnsatz{T},
     end
 end
 
-"""
-    F0(u0::FractionalKdVAnsatz, evaltype)
-Returns a function such that F0(u0)(x) computes F_0(x) from the paper.
-The strategy for evaluation depends on type of evaltype.
-"""
-F0(u0::FractionalKdVAnsatz) = F0(u0, Ball())
-
-function F0(u0::FractionalKdVAnsatz, evaltype::Ball)
-    return x -> begin
-        return D(u0, evaltype)(x)/(u0.w(x)*u0(x, evaltype))
-    end
-end
-
 function F0(u0::FractionalKdVAnsatz{T},
             evaltype::Asymptotic;
             M::Integer = 3,
@@ -504,7 +464,6 @@ function hat(u0::FractionalKdVAnsatz, evaltype::Ball = Ball())
         (a0(u0, 0)*abs(x)^(-u0.α) - u0(x))/u0(x)
     end
 end
-
 
 """
     c(u0::FractionalKdVAnsatz{T}, ϵ)
