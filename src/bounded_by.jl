@@ -72,7 +72,7 @@ function bounded_by(f,
             if use_taylor
                 res[i] = ArbTools.maximumtaylor(f, intervals[i], n, absmax = true)
             else
-                res[i] = abs(f(setinterval(intervals[i]...)))
+                res[i] = abs(f(setunion(intervals[i]...)))
             end
 
             if show_evaluations

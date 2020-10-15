@@ -29,7 +29,7 @@ function findp0(α::arb)
     if iswide(α)
         # PROVE: That p0 is monotone in α
         α_low, α_upp = getinterval(α)
-        return ArbTools.setinterval(findp0(α_low), findp0(α_upp))
+        return ArbTools.setunion(findp0(α_low), findp0(α_upp))
     end
     α = RealField(2prec(parent(α)))(α)
     Γ = Nemo.gamma
@@ -76,7 +76,7 @@ function finda0(α::arb)
     if iswide(α)
         # PROVE: That a[0] is monotone in α
         α_low, α_upp = getinterval(α)
-        return ArbTools.setinterval(finda0(α_low), finda0(α_upp))
+        return ArbTools.setunion(finda0(α_low), finda0(α_upp))
     end
     Γ = Nemo.gamma
     return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
