@@ -122,6 +122,28 @@ function T01(u0::FractionalKdVAnsatz{arb},
     CC = ComplexField(prec(RR))
     π = RR(pi)
 
+    # Compute c_α = ∫0^1 |(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
+    # Find the unique zero of the integrand on [0, 1]
+    # PROVE: That there is at most one zero on [0, 1]
+    f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
+    roots, flags = isolateroots(
+        f,
+        parent(α)(0.1),
+        parent(α)(0.9),
+        refine = true,
+        evaltype = :taylor,
+    )
+    @assert only(flags)
+    s = setunion(only(roots)...)
+
+    # PROVE: That the imaginary parts cancel out
+    c_α = let p = CC(p), α = CC(α), s = CC(s), m1 = CC(-1)
+        m1^(1 - p)*(beta_inc(1 + p, -α, m1) - 2beta_inc(1 + p, -α, -s)) -
+            2beta_inc(1 + p, -α, s)
+    end
+    @assert contains_zero(imag(c_α))
+    c_α = real(c_α) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
+
     return x -> begin
         if p == 1
             # TODO: Bound the tail - the terms go to zero extremely
@@ -129,40 +151,28 @@ function T01(u0::FractionalKdVAnsatz{arb},
             c_ϵ = zero(α)
             for m in 1:10
                 m = fmpz(m)
-                c_ϵ += (-one(α))^m/(factorial(fmpz(2m)))*zeta(-α - 2m)*
+                c_ϵ += (-one(α))^m/(factorial(2m))*zeta(-α - 2m)*
                     m*(RR(4)^m - 1)/((m + 1)*(2m + 1))*abspow(x, RR(2m - 2))
             end
             c_ϵ *= 2
         else
-            # TODO: Compute c_ϵ from the sum
-            c_ϵ = one(α)
+            # TODO: Bound the tail - the terms go to zero extremely
+            # fast so it should be negligible
+            c_ϵ = zero(α)
+            for m in 1:10
+                m = fmpz(m)
+                c_ϵ += (-one(α))^m/(factorial(2m))*zeta(-α - 2m)*(
+                    factorial(2m)*Γ(1 + p)/Γ(2 + 2m + p)
+                    + hypgeom_2f1(RR(-2m), 1 + p, 2 + p, -one(α))/(1 + p)
+                    - 2/(1 + 2m + p)
+                )*abspow(x, RR(2m - 2))
+            end
         end
-        # Compute c_α = ∫0^1 |(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
-        # Find the unique zero of the integrand on [0, 1]
-        # PROVE: That there is at most one zero on [0, 1]
-        f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
-        roots, flags = isolateroots(
-            f,
-            parent(α)(0.1),
-            parent(α)(0.9),
-            refine = true,
-            evaltype = :taylor,
-        )
-        @assert only(flags)
-        s = setunion(only(roots)...)
-
-        # PROVE: That the imaginary parts cancel out
-        c_α = let p = CC(p), α = CC(α), s = CC(s), m1 = CC(-1)
-            m1^(1 - p)*(beta_inc(1 + p, -α, m1) - 2beta_inc(1 + p, -α, -s)) -
-                2beta_inc(1 + p, -α, s)
-        end
-        @assert contains_zero(imag(c_α))
-        c_α = real(c_α) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
 
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, p - α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 4)
-            return res/(π*abspow(x, p)*u0(x))
+            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3)
+            return res/(π*u0(x))
         end
 
         res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
