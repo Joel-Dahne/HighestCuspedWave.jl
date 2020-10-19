@@ -495,17 +495,15 @@ works asymptotically as `x` goes to 0.
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic;
              N::Integer = 100,
+             nonasymptotic_u0 = false # Mainly for testing
              )
-    if u0.p != 1
-        @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1"
-    end
-    Γ = Nemo.gamma
     α = u0.α
     p = u0.p
-    π = parent(α)(pi)
+    RR = parent(α)
+    π = RR(pi)
 
-    return x -> begin
-        if p == 1
+    if p == 1
+        return x -> begin
             (A, _, P1, E1) = Ci_expansion(x, 2 - α, 2)
             (_, _, _, E1p) = Ci_expansion(2x, 2 - α, 2)
             (B, _, P2, E2) = Si_expansion(x, 1 - α, 1)
@@ -530,32 +528,61 @@ function T02(u0::FractionalKdVAnsatz{arb},
 
             return res
         end
+    end
 
-        # Original version, just the plain sum
-        #S = zero(α)
-        #for k = reverse(1:N)
-        #    k = parent(α)(k)
-        #    S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosint(p + 1, k*x) - cosintpi(p + 1, k))
-        #end
+    @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1"
+    Γ = Nemo.gamma
+    CC = ComplexField(prec(RR))
 
-        # Improved version, extracting important terms of the form
-        # x^b*sin(x) an x^b*cos(x) from the cosint and summing them
-        # explicitly
-        S = zero(α)
-        for k = reverse(1:N)
-            k = parent(α)(k)
-            S += k^(α - 1 - p)*(cos(k*x) - 1)*(cosintpi(p - 1, k) - cosint(p - 1, k*x))
+    return x -> begin
+        # TODO: Compute c_α = ∫1^(π/x) |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
+        # This is currently not a constant but depends on x
+        # PROVE: That the imaginary parts cancel out
+        c_α = let p = CC(p), α = CC(α), m1 = CC(-1), x = CC(x)
+            m1^(-p)*(beta_inc(1 + p, -α, m1) - beta_inc(1 + p, -α, -π/x))
         end
-        S *= p - 1
-        S += x^(p - 1)*(Ci(x, 2 - α) - Ci(2x, 2 - α)/2 - zeta(2 - α)/2)
-        S += π^(p - 1)*(Ci(x + π, 2 - α) - Ci(π, 2 - α))
-        S *= p
-        S += x^p*(Si(x, 1 - α) - Si(2x, 1 - α)/2)
+        @assert contains_zero(imag(c_α))
+        c_α = real(c_α) + (
+            2(π^(p - α)*abspow(x, α - p) - 1)/(α - p)'
+            - beta_inc(α - p, -α, x/π) + Γ(-α)*Γ(α - p)/Γ(-p)
+        )
 
-        #return 2/(π*abspow(x, p)*u0(x))*S
+        c_ϵ = zero(α)
+        # TODO: In its current form this sum diverges, but it's
+        # cancelled out by the x^3 factor afterwards. In the end we
+        # have to factor out any growth so that it's well defined at x
+        # = 0.
+        for m in 1:10
+            # PROVE: That the imaginary parts cancel out
+            integral = let p = CC(p), x = CC(x)
+                (CC(-1))^(-p)*(
+                    beta_inc(1 + p, CC(1 + 2m), CC(-1))
+                    - beta_inc(1 + p, CC(1 + 2m), -π/x)
+                )
+            end
 
+            @assert contains_zero(imag(integral))
+            # TODO: Replace above expression with the one below using
+            # http://fungrim.org/entry/5ec9c0/
+            tmp = ((π/x)^(1 + p)*hypgeom_2f1(1 + p, RR(-2m), 2 + p, -π/x)
+                   - hypgeom_2f1(1 + p, RR(-2m), 2 + p, -RR(1)))/(1 + p)
+
+            integral = real(integral) + 2(1 - (π/x)^(1 + 2m + p))/(1 + 2m + p) +
+                factorial(2fmpz(m))*Γ(-1 - 2m - p)/Γ(-p) - beta_inc(-1 - 2m - p, RR(1 + 2m), x/π)
+
+            c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral*abspow(x, 2m - 2)
+        end
+
+        if nonasymptotic_u0
+            # Version without asymptotically expanding u0(x)
+            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3)
+            return res/(π*u0(x))
+        end
+
+        res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
+        # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
-        return 2L/(π*a0(u0, 0))*abspow(x, α - p)*S, 2L/(π*a0(u0, 0))*abspow(x, α - p)*S
+        return L/(π*a0(u0, 0))*res
     end
 end
 
