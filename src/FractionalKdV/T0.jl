@@ -553,23 +553,10 @@ function T02(u0::FractionalKdVAnsatz{arb},
         # have to factor out any growth so that it's well defined at x
         # = 0.
         for m in 1:10
-            # PROVE: That the imaginary parts cancel out
-            integral = let p = CC(p), x = CC(x)
-                (CC(-1))^(-p)*(
-                    beta_inc(1 + p, CC(1 + 2m), CC(-1))
-                    - beta_inc(1 + p, CC(1 + 2m), -π/x)
-                )
-            end
-
-            @assert contains_zero(imag(integral))
-            # TODO: Replace above expression with the one below using
-            # http://fungrim.org/entry/5ec9c0/
-            tmp = ((π/x)^(1 + p)*hypgeom_2f1(1 + p, RR(-2m), 2 + p, -π/x)
-                   - hypgeom_2f1(1 + p, RR(-2m), 2 + p, -RR(1)))/(1 + p)
-
-            integral = real(integral) + 2(1 - (π/x)^(1 + 2m + p))/(1 + 2m + p) +
-                factorial(2fmpz(m))*Γ(-1 - 2m - p)/Γ(-p) - beta_inc(-1 - 2m - p, RR(1 + 2m), x/π)
-
+            integral = 2sum(
+                binom(RR(2m), unsigned(2k))*((π/x)^(2k + 1 + p) - 1)/(2k + 1 + p)
+                for k in 0:m-1
+            )
             c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral*abspow(x, 2m - 2)
         end
 
