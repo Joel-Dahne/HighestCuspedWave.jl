@@ -45,23 +45,9 @@ function T0(u0::FractionalKdVAnsatz{arb},
 end
 
 function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
-    @warn "Asymptotic evaluation of T0 yet not implemented"
-    return x -> begin
-        return zero(u0.α)
-
-        ## Integral on [0, x]
-        part1 = T01(u0, evaltype)(x)
-
-        if isnan(part1)
-            # Short circuit on NaN
-            return part1
-        end
-
-        ## Integral on [x, π]
-        part2 = T02(u0, evaltype)(x)
-
-        return part1 + part2
-    end
+    f = T01(u0, evaltype)
+    g = T02(u0, evaltype)
+    return x -> f(x) + g(x)
 end
 
 """
@@ -537,7 +523,7 @@ function T02(u0::FractionalKdVAnsatz{arb},
             res = (
                 K*c_α*L
                 + K/2*L*(zeta(-α) - Ci(π, -α))*abspow(x, 1 + α)
-                + K*L*abspow(x, α - 1)*x^4*(
+                + K*L*abspow(x, α + 3)*(
                     E3 + E1 - 8*E1p + E2 - 8*E2p
                 )
             )
