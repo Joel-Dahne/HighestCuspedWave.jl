@@ -148,11 +148,10 @@ function T01(u0::FractionalKdVAnsatz{arb},
             for m in 1:10
                 m = fmpz(m)
                 c_ϵ += (-one(α))^m/(factorial(2m))*zeta(-α - 2m)*(
-                    factorial(2m)*Γ(1 + p)/Γ(2 + 2m + p)
-                    + hypgeom_2f1(RR(-2m), 1 + p, 2 + p, -one(α))/(1 + p)
-                    - 2/(1 + 2m + p)
+                    sum(binom(RR(2m), unsigned(2k))/(2k + p + 1) for k in 0:Int(m)-1)
                 )*abspow(x, RR(2m - 2))
             end
+            c_ϵ *= 2
         end
 
         if nonasymptotic_u0
