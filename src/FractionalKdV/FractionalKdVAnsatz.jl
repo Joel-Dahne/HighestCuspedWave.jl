@@ -29,9 +29,19 @@ and `N1` bₙ's. It sets the weight to be used to |x|^p.
 If `use_midpoint` is true then and `T` is `arb` then use only the
 midpoint values of `p0`, `a`, `b` and `p` with the exception of `a[0]`
 for which the proper enclosure is used.
+
+If `initial_a` or `initial_b` is given then use these as initial
+values for `a` and `b` when solving the system giving the
+coefficients. For `a` you should have `initial_a = [a1, a2, …]` and
+skip the first `a0`. For `b` you give all of them. It still respects
+the values of `N0` and `N1` so it either uses only some of the
+coefficients or fills up with zeros.
+
 """
 function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
                              use_midpoint = true,
+                             initial_a::Vector{T} = T[],
+                             initial_b::Vector{T} = T[],
                              ) where {T}
     # Using the midpoint only makes sense for T == arb
     use_midpoint = use_midpoint && T == arb
@@ -46,8 +56,17 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
         p0 = midpoint(p0)
     end
 
-    a = OffsetVector(fill(zero(α), N0 + 1), 0:N0)
-    b = fill(zero(α), N1)
+    a = OffsetVector(
+        [
+            zero(α);
+            collect(Iterators.take(initial_a, N0));
+            fill(zero(α), max(N0 - length(initial_a), 0))
+        ],
+        0:N0)
+    b = [
+        collect(Iterators.take(initial_b, N1));
+        fill(zero(α), max(N1 - length(initial_b), 0))
+    ]
 
     u0 = FractionalKdVAnsatz(α, p0, a, b, p, Set{Tuple{Int, Int, Int}}())
 
