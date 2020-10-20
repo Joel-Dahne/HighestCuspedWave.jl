@@ -40,6 +40,8 @@ function CB_bounded_by(u0::FractionalKdVAnsatz{arb},
                        show_trace = false,
                        )
     # This is not implemented yet!
+    # TODO: It might be worth it to try and find maximal value of ϵ
+    # such that the bound can be shown with the asymptotic version.
     res1, enclosure1 = bounded_by(T0(u0, Asymptotic()), zero(u0.α), ϵ, C,
                               show_trace = false,
                               return_enclosure = true,
