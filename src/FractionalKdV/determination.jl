@@ -104,7 +104,7 @@ function findas(u0::FractionalKdVAnsatz)
         f(OffsetVector([u0.a[0]; a], 0:u0.N0))
     end
 
-    initial = fill(zero(u0.α), u0.N0)
+    initial = u0.a[1:end]
     sol = nlsolve(g, initial, autodiff = :forward)
 
     if !sol.f_converged
@@ -208,7 +208,7 @@ function findbs!(u0::FractionalKdVAnsatz)
         f(u0.a.parent, b)
     end
 
-    initial = fill(zero(u0.α), u0.N1)
+    initial = u0.b
     sol = nlsolve(g, initial, autodiff = :forward)
 
     if !sol.f_converged
