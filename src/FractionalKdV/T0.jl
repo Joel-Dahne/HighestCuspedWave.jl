@@ -122,13 +122,15 @@ function T01(u0::FractionalKdVAnsatz{arb},
     @assert only(flags)
     s = setunion(only(roots)...)
 
-    # PROVE: That the imaginary parts cancel out
-    c_α = let p = CC(p), α = CC(α), s = CC(s), m1 = CC(-1)
-        m1^(1 - p)*(beta_inc(1 + p, -α, m1) - 2beta_inc(1 + p, -α, -s)) -
-            2beta_inc(1 + p, -α, s)
-    end
-    @assert contains_zero(imag(c_α))
-    c_α = real(c_α) + (2 - 4s^(p - α))/(α - p) + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
+    c_α = (
+        (
+            hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α))
+            - 2s^(1 + p)*hypgeom_2f1(1 + p, 1 + α, 2 + p, -s)
+        )/(1 + p)
+        - 2beta_inc(1 + p, -α, s)
+        + (2 - 4s^(p - α))/(α - p)
+        + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
+    )
 
     return x -> begin
         if p == 1
