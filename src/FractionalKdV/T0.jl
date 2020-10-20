@@ -538,36 +538,50 @@ function T02(u0::FractionalKdVAnsatz{arb},
     return x -> begin
         # TODO: Compute c_α = ∫1^(π/x) |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
         # This is currently not a constant but depends on x
-        # PROVE: That the imaginary parts cancel out
-        c_α = let p = CC(p), α = CC(α), m1 = CC(-1), x = CC(x)
-            m1^(-p)*(beta_inc(1 + p, -α, m1) - beta_inc(1 + p, -α, -π/x))
-        end
-        @assert contains_zero(imag(c_α))
-        c_α = real(c_α) + (
-            2(π^(p - α)*abspow(x, α - p) - 1)/(α - p)'
-            - beta_inc(α - p, -α, x/π) + Γ(-α)*Γ(α - p)/Γ(-p)
+        # TODO: Rewrite the 2f1 with π/x so that it can be evaluated at x = 0
+        # TODO: The three terms depending on x are individually large
+        # but mostly cancel out. Try to factor out the large parts and
+        # cancel them directly
+        c_α = (
+            # (t - 1) term from right limit
+            - abspow(x, α - p)*π^(p - α)*hypgeom_2f1(α - p, 1 + α, 1 + α - p, x/π)/(α - p)
+            # (t + 1) term from right limit
+            + abspow(x, -1 - p)π^(1 + p)*hypgeom_2f1(1 + p, 1 + α, 2 + p, -π/x)/(1 + p)
+            # t term from right limit
+            + abspow(x, α - p)*2π^(p - α)/(α - p)
+            # (t - 1) term from left limit
+            + Γ(-α)*Γ(α - p)/Γ(-p)
+            # (t + 1) term from left limit
+            - hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α))/(1 + p)
+            # t term from left limit
+            - 2/(α - p)
         )
 
         c_ϵ = zero(α)
-        # TODO: In its current form this sum diverges, but it's
-        # cancelled out by the x^3 factor afterwards. In the end we
-        # have to factor out any growth so that it's well defined at x
-        # = 0.
-        for m in 1:10
-            integral = 2sum(
-                binom(RR(2m), unsigned(2k))*((π/x)^(2k + 1 + p) - 1)/(2k + 1 + p)
-                for k in 0:m-1
-            )
-            c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral*abspow(x, 2m - 2)
+        # TODO: Bound the tail - the terms go to zero extremely
+        # fast so it should be negligible
+        let xdivπ = x/π
+            for m in 1:30
+                integral = 2*π^(2m - 1 + p)*sum(
+                    binom(RR(2m), unsigned(2k))*(
+                        abspow(xdivπ, 2(m - 1 - k)) -
+                        abspow(xdivπ, 2m - 1 + p)
+                    )/(2k + 1 + p)
+                    for k in 0:m-1
+                )
+
+                c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral
+            end
         end
 
+        # TODO: Check that we use the right exponents for x below
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3)
+            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p)
             return res/(π*u0(x))
         end
 
-        res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
+        res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
         return L/(π*a0(u0, 0))*res
