@@ -108,7 +108,7 @@ function findas(u0::FractionalKdVAnsatz)
     sol = nlsolve(g, initial, autodiff = :forward)
 
     if !sol.f_converged
-        @warn "Solution did not converge"
+        @warn "Solution did not converge for α = $(u0.α)"
         @warn sol
     end
 
