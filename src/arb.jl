@@ -124,6 +124,26 @@ function Li(z::acb, s::Integer)
     return res
 end
 
+"""
+    Li(z, s, β)
+Compute the polylogarithm `Liₛ^(β)(z)`.
+
+That is, `Liₛ` differentiated `β` times w.r.t. `s` evaluated at `z`.
+"""
+function Li(z::acb, s::acb, β::Integer)
+    res = parent(z)()
+    PP = AcbPolyRing(parent(z), :x)
+
+    w = PP()
+    s_poly = PP([s, one(s)])
+
+    ccall(("acb_poly_polylog_series", Nemo.libarb), Cvoid,
+          (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Clong, Clong),
+          w, s_poly, z, β + 1, prec(parent(z)))
+
+    return coeff(w, β)*factorial(β)
+end
+
 # Not required
 #function Li(z::arb, s::Integer)
 #    CC = ComplexField(prec(parent(z)))
@@ -254,6 +274,35 @@ function Ci(x::T, s::Integer) where {T <: Real}
     CC = ComplexField(precision(BigFloat))
     z = exp(im*x)
     res = real(Li(CC(real(z), imag(z)), s))
+    return convert(float(T), res)
+end
+
+"""
+    Ci(x, s, β)
+Compute the Clausian function Ciₛ^(β)(x).
+
+That is, `Ciₛ` differentiated `β` times w.r.t. `s` evaluated at `x`.
+
+TODO: If x is a wide (real) ball (as determined by iswide(x)) it
+computes a tighter enclosure by using that Ci 2π periodic, monotonic
+for x ∈ [0, π] and even, so that it's enough to evaluate on the
+endpoints and possibly at zero or π if `x` contains points on the form
+`2kπ` or (2k + 1)π` respectively.
+"""
+function Ci(x::acb, s, β::Integer)
+    im = x.parent(0, 1)
+    return (Li(exp(im*x), s, β) + Li(exp(-im*x), s, β))/2
+end
+
+function Ci(x::arb, s, β::Integer)
+    CC = ComplexField(prec(parent(x)))
+    return real(Li(exp(CC(zero(x), x)), CC(s), β))
+end
+
+function Ci(x::T, s, β::Integer) where {T <: Real}
+    CC = ComplexField(precision(BigFloat))
+    z = exp(im*x)
+    res = real(Li(CC(real(z), imag(z)), CC(s), β))
     return convert(float(T), res)
 end
 

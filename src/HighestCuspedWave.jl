@@ -22,4 +22,8 @@ include("FractionalKdV/T0.jl")
 include("FractionalKdV/CB.jl")
 include("FractionalKdV/proof.jl")
 
+include("BurgersHilbert/BHAnsatz.jl")
+include("BurgersHilbert/determination.jl")
+include("BurgersHilbert/evaluation.jl")
+
 end # module
