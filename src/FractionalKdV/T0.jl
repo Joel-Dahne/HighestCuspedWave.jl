@@ -108,7 +108,8 @@ function T01(u0::FractionalKdVAnsatz{arb},
     CC = ComplexField(prec(RR))
     π = RR(pi)
 
-    # Compute c_α = ∫0^1 |(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
+    # Compute
+    # c_α = |Γ(1 + α)*sin(πα/2)|∫0^1 |(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
     # Find the unique zero of the integrand on [0, 1]
     # PROVE: That there is at most one zero on [0, 1]
     f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
@@ -122,7 +123,7 @@ function T01(u0::FractionalKdVAnsatz{arb},
     @assert only(flags)
     s = setunion(only(roots)...)
 
-    c_α = (
+    c_α = abs(Γ(1 + α)*sinpi(α/2))*(
         (
             hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α))
             - 2s^(1 + p)*hypgeom_2f1(1 + p, 1 + α, 2 + p, -s)
@@ -158,11 +159,11 @@ function T01(u0::FractionalKdVAnsatz{arb},
 
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3)
+            res = c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3)
             return res/(π*u0(x))
         end
 
-        res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
+        res = c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
 
@@ -536,13 +537,15 @@ function T02(u0::FractionalKdVAnsatz{arb},
     CC = ComplexField(prec(RR))
 
     return x -> begin
-        # TODO: Compute c_α = ∫1^(π/x) |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
-        # This is currently not a constant but depends on x
+        # Compute
+        # c_α = |Γ(1 + α)*sin(πα/2)|∫1^(π/x) |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
+        # TODO: This is currently not a constant but depends on x
         # TODO: Rewrite the 2f1 with π/x so that it can be evaluated at x = 0
         # TODO: The three terms depending on x are individually large
         # but mostly cancel out. Try to factor out the large parts and
         # cancel them directly
-        c_α = (
+        # TODO: This is bounded by its value at x = 0, use that
+        c_α = abs(Γ(1 + α)*sinpi(α/2))*(
             # (t - 1) term from right limit
             - abspow(x, α - p)*π^(p - α)*hypgeom_2f1(α - p, 1 + α, 1 + α - p, x/π)/(α - p)
             # (t + 1) term from right limit
@@ -557,9 +560,10 @@ function T02(u0::FractionalKdVAnsatz{arb},
             - 2/(α - p)
         )
 
-        c_ϵ = zero(α)
         # TODO: Bound the tail - the terms go to zero extremely
         # fast so it should be negligible
+        # TODO: This is bounded by it's value at x = 0, use that
+        c_ϵ = zero(α)
         let xdivπ = x/π
             for m in 1:30
                 integral = 2*π^(2m - 1 + p)*sum(
@@ -577,11 +581,11 @@ function T02(u0::FractionalKdVAnsatz{arb},
         # TODO: Check that we use the right exponents for x below
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = abs(Γ(1 + α)*sinpi(α/2))*c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p)
+            res = c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p)
             return res/(π*u0(x))
         end
 
-        res = abs(Γ(1 + α)*sinpi(α/2))*c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p + α)
+        res = c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
         return L/(π*a0(u0, 0))*res
