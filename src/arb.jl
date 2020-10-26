@@ -508,6 +508,9 @@ end
 Compute |x|^y in a way that works if x contains negative numbers.
 """
 function abspow(x::arb, y::arb)
+    if iszero(y)
+        return one(x)
+    end
     if contains_zero(x)
         x_upp = ArbTools.abs_ubound(x)
         return ArbTools.setunion(zero(x), x_upp^y)
