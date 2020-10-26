@@ -297,6 +297,61 @@ We then run the following script
   end
 #+END_SRC
 
+* Asymptotic defect
+Find the defect as \(\alpha \to -1\).
+#+BEGIN_SRC julia :tangle script/asymptotic-defect.jl
+  using HighestCuspedWave, Nemo, ArbTools, Plots
+
+  function get_u0s(RR)
+      u0s = Vector{FractionalKdVAnsatz{arb}}()
+
+      α = RR(-0.99)
+      push!(u0s, FractionalKdVAnsatz(α, 10, 0, (1 - α)/2))
+
+      α = RR(-0.999)
+      push!(u0s, FractionalKdVAnsatz(α, 10, 0, (1 - α)/2))
+      push!(u0s, FractionalKdVAnsatz(α, 50, 0, (1 - α)/2))
+      push!(u0s, FractionalKdVAnsatz(α, 100, 0, (1 - α)/2))
+
+      α = RR(-0.9999)
+      push!(u0s, FractionalKdVAnsatz(α, 50, 0, (1 - α)/2))
+      push!(u0s, FractionalKdVAnsatz(α, 100, 0, (1 - α)/2))
+      push!(u0s, FractionalKdVAnsatz(α, 200, 0, (1 - α)/2))
+      push!(u0s, FractionalKdVAnsatz(α, 400, 0, (1 - α)/2))
+      push!(u0s, FractionalKdVAnsatz(α, 1000, 0, (1 - α)/2))
+
+      return u0s
+  end
+
+  function asymptotic_defect(
+      u0s::Vector{FractionalKdVAnsatz{T}};
+      n = 100,
+  ) where {T}
+      xs = range(0, stop = pi, length = n)[2:end]
+      res = Matrix{T}(undef, length(xs), length(u0s))
+      for i in eachindex(u0s)
+          _, xs, r = delta0_estimate(u0s[i], n = n, return_values = true)
+          res[:, i] .= r
+      end
+
+      return xs, res
+  end
+
+  function plot_asymptotic_defect(u0s, xs, res)
+      plot(Float64.(xs), Float64.(res),
+           labels = permutedims(["$(u0.N0)" for u0 in u0s]),
+           )
+  end
+
+  function plot_as(u0s)
+      p = plot(yaxis = :log10)
+      for u0 in u0s
+          plot!(p, 2:u0.N0, Float64.(u0.a[2:end]), label = "$(u0.N0)")
+      end
+      return p
+  end
+#+END_SRC
+
 * More temporary scripts
 Plot normalised norm for different weights and \(\alpha\)
 #+BEGIN_SRC julia
