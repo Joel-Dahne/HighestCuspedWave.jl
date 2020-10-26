@@ -106,7 +106,7 @@ function T01(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic;
              nonasymptotic_u0 = false, # Mainly for testing
              )
-    @warn "T01(u0, Asymptotic()) is not yet complete"
+    @warn "T01(u0, Asymptotic()) is not yet complete - the tail of the sum is not bounded"
     Γ = Nemo.gamma
     α = u0.α
     p = u0.p
@@ -538,13 +538,13 @@ function T02(u0::FractionalKdVAnsatz{arb},
         end
     end
 
-    @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1"
+    @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1 - the tail of the sum is not bounded"
     Γ = Nemo.gamma
     CC = ComplexField(prec(RR))
 
     # Compute
     # c_α = |Γ(1 + α)*sin(πα/2)|∫₁^∞ |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
-    # TODO: Prove that this is real
+    # PROVE: That this is real
     c_α = abs(Γ(1 + α)*sinpi(α/2))*(
         real(
             CC(-1)^CC(-p)*(CC(-1)^CC(α) + CC(-1)^CC(p))*Γ(α - p)*Γ(1 + p)/Γ(1 + α)
@@ -558,7 +558,7 @@ function T02(u0::FractionalKdVAnsatz{arb},
     # coming from the interior integral then simplifies a lot.
     # TODO: Bound the tail - the terms go to zero extremely
     # fast so it should be negligible
-    # TODO: Prove that the value at x = 0 is indeed a bound of the
+    # PROVE: That the value at x = 0 is indeed a bound of the
     # sum. Could it be that this is not the case?
     c_ϵ = zero(α)
     for m in 1:30
@@ -567,7 +567,6 @@ function T02(u0::FractionalKdVAnsatz{arb},
     end
 
     return x -> begin
-        # TODO: Check that we use the right exponents for x below
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
             res = c_α*abspow(x, -α) + c_ϵ*abspow(x, 2 - p)
