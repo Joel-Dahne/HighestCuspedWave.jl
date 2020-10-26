@@ -3,9 +3,13 @@ using HighestCuspedWave
 using Nemo
 using ArbTools
 
-include("arb-test.jl")
-include("evaluation-test.jl")
+@testset "HighestCuspedWave" begin
+    include("arb-test.jl")
+    include("evaluation-test.jl")
 
-include("alpha-test.jl")
-include("delta-test.jl")
-#include("CB-test.jl")
+    include("T0-test.jl")
+
+    include("alpha-test.jl")
+    include("delta-test.jl")
+    #include("CB-test.jl")
+end
