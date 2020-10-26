@@ -44,9 +44,15 @@ function T0(u0::FractionalKdVAnsatz{arb},
     end
 end
 
-function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic) where {T}
-    f = T01(u0, evaltype)
-    g = T02(u0, evaltype)
+"""
+    T0(u0::FractionalKdVAnsatz, ::Asymptotic)
+Returns a function such that T0(u0, Asymptotic())(x) gives an
+**upper bound** of the function whose supremum on `[0, π]` gives
+`C_B`.
+"""
+function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic; nonasymptotic_u0 = false) where {T}
+    f = T01(u0, evaltype; nonasymptotic_u0)
+    g = T02(u0, evaltype; nonasymptotic_u0)
     return x -> f(x) + g(x)
 end
 
@@ -75,9 +81,9 @@ end
 
 """
     T01(u0, Asymptotic())
-Returns a function such that `T01(u0, Asymptotic())(x)` computes the
-integral T_{0,1} from the paper using an evaluation strategy that
-works asymptotically as `x` goes to 0.
+Returns a function such that `T01(u0, Asymptotic())(x)` computes an
+**upper bound** of the integral T_{0,1} from the paper using an
+evaluation strategy that works asymptotically as `x` goes to 0.
 
 It splits the Clausians into the main singular part and the analytic
 expansion. The integral of the singular part is computed by finding
@@ -159,11 +165,11 @@ function T01(u0::FractionalKdVAnsatz{arb},
 
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3)
+            res = c_α*abspow(x, -α) + c_ϵ*abspow(x, 3)
             return res/(π*u0(x))
         end
 
-        res = c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 3 + α)
+        res = c_α + c_ϵ*abspow(x, 3 + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
 
@@ -490,9 +496,9 @@ end
 
 """
     T02(u0, Asymptotic())
-Returns a function such that `T02(u0, Asymptotic())(x)` computes the
-integral T_{0,2} from the paper using an evaluation strategy that
-works asymptotically as `x` goes to 0.
+Returns a function such that `T02(u0, Asymptotic())(x)` computes an
+**upper bound** of the integral T_{0,2} from the paper using an
+evaluation strategy that works asymptotically as `x` goes to 0.
 """
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Asymptotic;
@@ -536,56 +542,39 @@ function T02(u0::FractionalKdVAnsatz{arb},
     Γ = Nemo.gamma
     CC = ComplexField(prec(RR))
 
-    return x -> begin
-        # Compute
-        # c_α = |Γ(1 + α)*sin(πα/2)|∫1^(π/x) |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
-        # TODO: This is currently not a constant but depends on x
-        # TODO: Rewrite the 2f1 with π/x so that it can be evaluated at x = 0
-        # TODO: The three terms depending on x are individually large
-        # but mostly cancel out. Try to factor out the large parts and
-        # cancel them directly
-        # TODO: This is bounded by its value at x = 0, use that
-        c_α = abs(Γ(1 + α)*sinpi(α/2))*(
-            # (t - 1) term from right limit
-            - abspow(x, α - p)*π^(p - α)*hypgeom_2f1(α - p, 1 + α, 1 + α - p, x/π)/(α - p)
-            # (t + 1) term from right limit
-            + abspow(x, -1 - p)π^(1 + p)*hypgeom_2f1(1 + p, 1 + α, 2 + p, -π/x)/(1 + p)
-            # t term from right limit
-            + abspow(x, α - p)*2π^(p - α)/(α - p)
-            # (t - 1) term from left limit
-            + Γ(-α)*Γ(α - p)/Γ(-p)
-            # (t + 1) term from left limit
-            - hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α))/(1 + p)
-            # t term from left limit
-            - 2/(α - p)
+    # Compute
+    # c_α = |Γ(1 + α)*sin(πα/2)|∫₁^∞ |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
+    # TODO: Prove that this is real
+    c_α = abs(Γ(1 + α)*sinpi(α/2))*(
+        real(
+            CC(-1)^CC(-p)*(CC(-1)^CC(α) + CC(-1)^CC(p))*Γ(α - p)*Γ(1 + p)/Γ(1 + α)
+            + CC(-1)^CC(α)*Γ(-α)*Γ(1 + p)/(Γ(1 - α + p))
         )
+        - 2/(α - p)
+        - hypgeom_2f1(1 + α, 1 + p, 2 + p, RR(-1))/(1 + p)
+    )
 
-        # TODO: Bound the tail - the terms go to zero extremely
-        # fast so it should be negligible
-        # TODO: This is bounded by it's value at x = 0, use that
-        c_ϵ = zero(α)
-        let xdivπ = x/π
-            for m in 1:30
-                integral = 2*π^(2m - 1 + p)*sum(
-                    binom(RR(2m), unsigned(2k))*(
-                        abspow(xdivπ, 2(m - 1 - k)) -
-                        abspow(xdivπ, 2m - 1 + p)
-                    )/(2k + 1 + p)
-                    for k in 0:m-1
-                )
+    # We evaluate the sum in the paper at x = 0, the expression
+    # coming from the interior integral then simplifies a lot.
+    # TODO: Bound the tail - the terms go to zero extremely
+    # fast so it should be negligible
+    # TODO: Prove that the value at x = 0 is indeed a bound of the
+    # sum. Could it be that this is not the case?
+    c_ϵ = zero(α)
+    for m in 1:30
+        integral = 2*π^(2m - 1 + p)*binom(RR(2m), unsigned(2m - 2))/(2m - 1 + p)
+        c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral
+    end
 
-                c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral
-            end
-        end
-
+    return x -> begin
         # TODO: Check that we use the right exponents for x below
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = c_α*abspow(x, -α) + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p)
+            res = c_α*abspow(x, -α) + c_ϵ*abspow(x, 2 - p)
             return res/(π*u0(x))
         end
 
-        res = c_α + ball(zero(c_ϵ), c_ϵ)*abspow(x, 2 - p + α)
+        res = c_α + c_ϵ*abspow(x, 2 - p + α)
         # Ball containing 1 + hat(u0)(x)
         L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
         return L/(π*a0(u0, 0))*res
