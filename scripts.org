@@ -470,3 +470,29 @@ Evaluation of asymptotic norms
       return res
   end
 #+END_SRC
+
+* Convenience method which are mostly temporary
+
+#+BEGIN_SRC julia :tangle script/convenience.jl
+  """
+      splittail(u0)
+  Returns a tuple `(u0₁, u0₂)` where the first on has only the first two
+  terms of `u0.a` and the second one the rest.
+
+  This is useful when studying the behaviour of the first two terms
+  versus the tail when `α` is very close to `-1`.
+  """
+  function splittail(u0::FractionalKdVAnsatz)
+      if !iszero(u0.N1)
+          @warn "This method is only intended for when u0.N1 = 0"
+      end
+      u0₁ = deepcopy(u0)
+      u0₂ = deepcopy(u0)
+
+      resize!(u0₁.a, 2)
+      u0₂.a[2:end] .= zero(u0.α)
+
+      return u0₁, u0₂
+  end
+
+#+END_SRC
