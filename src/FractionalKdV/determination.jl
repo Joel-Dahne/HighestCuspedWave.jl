@@ -116,17 +116,7 @@ function findas(u0::FractionalKdVAnsatz)
 end
 
 function findas(u0::FractionalKdVAnsatz{arb})
-    T = Float64
-    u0_float = FractionalKdVAnsatz(
-        T(u0.α),
-        T(u0.p0),
-        T.(u0.a),
-        T.(u0.b),
-        T(u0.p),
-        copy(u0.zeroterms),
-    )
-
-    return parent(u0.α).(findas(u0_float))
+    return parent(u0.α).(findas(convert(FractionalKdVAnsatz{Float64}, u0)))
 end
 
 
@@ -222,15 +212,7 @@ function findbs!(u0::FractionalKdVAnsatz)
 end
 
 function findbs!(u0::FractionalKdVAnsatz{arb})
-    T = Float64
-    u0_float = FractionalKdVAnsatz(
-        T(u0.α),
-        T(u0.p0),
-        T.(u0.a),
-        T.(u0.b),
-        T(u0.p),
-        copy(u0.zeroterms),
-    )
+    u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
     findbs!(u0_float)
     # TODO: Possibly perform some Newton iterations if the values are
