@@ -15,6 +15,8 @@ include("evaluation.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")
+include("FractionalKdV/coefficients.jl")
+include("FractionalKdV/errorterms.jl")
 include("FractionalKdV/evaluation.jl")
 include("FractionalKdV/alpha.jl")
 include("FractionalKdV/delta.jl")
