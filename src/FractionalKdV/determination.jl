@@ -82,23 +82,7 @@ function finda0(α::arb)
     return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
 end
 
-"""
-    findas(u0)
-Find the ones of a[j] for j > 0 that makes the coefficients of the
-leading terms in the asymptotic expansion zero.
-
-This is done by solving the corresponding non-linear system.
-
-It uses nlsolve to find the zero, however nlsolve doesn't support
-arb-types so this is always done in Float64.
-
-TODO: Possibly add support for optimizing these together with the
-b[n]'s.
-"""
-function findas(u0::FractionalKdVAnsatz)
-    # TODO: Convert to Float64 and do this
-    # Numerically find a[j]'s for j ∈ 1:u0.N0 to make the leading
-    # coefficients in the expansion of D(u0) zero.
+function _findas(u0::FractionalKdVAnsatz)
     f = D(u0, Symbolic())
     g(a) = begin
         f(OffsetVector([u0.a[0]; a], 0:u0.N0))
@@ -108,17 +92,52 @@ function findas(u0::FractionalKdVAnsatz)
     sol = nlsolve(g, initial, autodiff = :forward, iterations = 50)
 
     if !sol.f_converged
-        @warn "Solution did not converge for α = $(u0.α)"
+        @warn "Solution did not converge for α = $(u0.α), N0 = $(u0.N0)"
         @warn sol
     end
 
     return sol.zero
 end
 
+"""
+    findas(u0)
+Find the ones of a[j] for j > 0 that makes the coefficients of the
+leading terms in the asymptotic expansion zero.
+
+This is done by solving the corresponding non-linear system.
+
+It uses nlsolve to find the zero, however nlsolve doesn't support
+arb-types so this is always done in Float64. To speed it up we start
+by computing the first `n` coefficients, then `2n` and so on until we
+reach `u0.N0`.
+"""
+function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
+    if iszero(u0.N0)
+        return T[]
+    end
+    if u0.N0 <= minstart
+        return _findas(u0)
+    end
+
+    u0 = deepcopy(u0)
+
+    start = min(max(findlast(!iszero, u0.a), 16), minstart)
+    stop = u0.N0
+    N0s = [start; [start*2^i for i in 1:floor(Int, log2(stop/start) - 1)]; stop]
+
+    for i in eachindex(N0s)[2:end]
+        resize!(u0.a, N0s[i] + 1)
+        u0.a[N0s[i - 1]:end] .= zero(T)
+
+        u0.a[1:end] .= _findas(u0)
+    end
+
+    return u0.a[1:end]
+end
+
 function findas(u0::FractionalKdVAnsatz{arb})
     return parent(u0.α).(findas(convert(FractionalKdVAnsatz{Float64}, u0)))
 end
-
 
 function findas!(u0::FractionalKdVAnsatz{T};
                  use_midpoint = true,
@@ -202,7 +221,7 @@ function findbs!(u0::FractionalKdVAnsatz)
     sol = nlsolve(g, initial, autodiff = :forward)
 
     if !sol.f_converged
-        @warn "Solution did not converge"
+        @warn "Solution did not converge for α = $(u0.α), N1 = $(u0.N1)"
         @warn sol
     end
 
