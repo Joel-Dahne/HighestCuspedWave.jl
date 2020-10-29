@@ -38,27 +38,8 @@ function (u0::FractionalKdVAnsatz)(x, evaltype::Ball)
     return res
 end
 
-function (u0::FractionalKdVAnsatz{T})(x,
-                                      evaltype::Asymptotic;
-                                      M::Integer = 3,
-                                      ) where {T}
-    @assert M >= 1 - (u0.α + u0.N0*u0.p0)/2
-
-    # Compute approximation
-    res = zero(u0.α)
-    for j in 0:u0.N0
-        res += a0(u0, j)*abs(x)^(-u0.α + j*u0.p0)
-    end
-
-    for m in 1:M-1
-        res += termK0(u0, m)*x^(2m)
-    end
-
-    if T == arb
-        res += E(u0, M)(x)*x^(2M)
-    end
-
-    return res
+function (u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 3)
+    return eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 end
 
 function (u0::FractionalKdVAnsatz{T})(x,
@@ -101,27 +82,9 @@ function H(u0::FractionalKdVAnsatz, evaltype::Ball)
     end
 end
 
-function H(u0::FractionalKdVAnsatz{T},
-           evaltype::Asymptotic;
-           M::Integer = 3,
-           ) where {T}
-    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
-    return x -> begin
-        res = zero(u0.α)
-        for j in 0:u0.N0
-            res -= A0(u0, j)*abs(x)^(-2u0.α + j*u0.p0)
-        end
-
-        for m in 1:M-1
-            res -= termL0(u0, m)*x^(2m)
-        end
-
-        if T == arb
-            res += EH(u0, M)(x)*x^(2M)
-        end
-
-        return res
-    end
+function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 3)
+    f = H(u0, AsymptoticExpansion(); M)
+    return x -> eval_expansion(u0, f(x), x)
 end
 
 function H(u0::FractionalKdVAnsatz{T},
@@ -148,79 +111,9 @@ function H(u0::FractionalKdVAnsatz{T},
     end
 end
 
-function D(u0::FractionalKdVAnsatz{T},
-           evaltype::Asymptotic;
-           M = 3,
-           ) where {T}
-    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
-    @assert M == 3 # This is the only one implemented currently
-    return x -> begin
-        # TODO: Handle terms that might be identically equal to zero
-        res = zero(u0.α)
-
-        # TODO: In particular these two might be identically equal to zero
-        if u0.N0 >= 0
-            res += (a0(u0, 0)^2/2 - A0(u0, 0))*abs(x)^(-2*u0.α)
-        end
-        if u0.N0 >= 1
-            res += (a0(u0, 0)a0(u0, 1) - A0(u0, 1))*abs(x)^(-2*u0.α + u0.p0)
-        end
-
-        for k in 2:u0.N0
-            term =  -A0(u0, k)
-            for j in 0:div(k - 1, 2)
-                term += a0(u0, j)*a0(u0, k - j)
-            end
-            if iseven(k)
-                term += a0(u0, div(k, 2))^2/2
-            end
-            res += term*abs(x)^(-2*u0.α + k*u0.p0)
-        end
-
-        for k in (u0.N0 + 1):2u0.N0
-            term = zero(u0.α)
-            for j in max(k - u0.N0, 0):div(k - 1, 2)
-                term += a0(u0, j)*a0(u0, k - j)
-            end
-            if iseven(k)
-                term += a0(u0, div(k, 2))^2/2
-            end
-            res += term*abs(x)^(-2*u0.α + k*u0.p0)
-        end
-
-        termK01 = termK0(u0, 1)
-        termK02 = termK0(u0, 2)
-        termL01 = termL0(u0, 1)
-        termL02 = termL0(u0, 2)
-
-        res -= termL01*x^2
-        res += (termK01^2/2 - termL02)*x^4
-        res += termK01*termK02*x^6
-        res += termK02^2/2*x^8
-
-        for j in 0:u0.N0
-            res += a0(u0, j)*termK01*abs(x)^(2 - u0.α + j*u0.p0)
-        end
-
-        for j in 0:u0.N0
-            res += a0(u0, j)*termK02*abs(x)^(4 - u0.α + j*u0.p0)
-        end
-
-        if T == arb
-            res += EH(u0, M)(x)*x^(2M)
-
-            error = E(u0, M)(x)*x^(2M)
-
-            term = zero(u0.α)
-            for j in 0:u0.N0
-                term += a0(u0, j)*abs(x)^(-u0.α + j*u0.p0)
-            end
-
-            res += (term + termK01*x^2 + termK02*x^4 + error/2)*error
-        end
-
-        return res
-    end
+function D(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 3)
+    f = D(u0, AsymptoticExpansion(); M)
+    return x -> eval_expansion(u0, f(x), x)
 end
 
 function D(u0::FractionalKdVAnsatz{T},
@@ -259,14 +152,12 @@ function D(u0::FractionalKdVAnsatz{T},
     end
 end
 
-function F0(u0::FractionalKdVAnsatz{T},
-            evaltype::Asymptotic;
-            M::Integer = 3,
-            ) where {T}
+function F0(u0::FractionalKdVAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T}
+    f = D(u0, AsymptoticExpansion(); M)
     return x -> begin
         res = zero(u0.α)
 
-        expansion = D(u0, AsymptoticExpansion(), M = M)(x)
+        expansion = f(x)
 
         for ((i, j, m), y) in expansion
             if !iszero(y)
