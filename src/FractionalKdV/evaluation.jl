@@ -3,6 +3,27 @@
 
 export hat, eval_expansion
 
+"""
+        eval_expansion(u0::FractionalKdVAnsatz, expansion, x)
+    Evaluate the given expansion. The term ((i, j, m), y) is evaluated to
+    y*abs(x)^(-i*u0.α + j*u0.p0 + 2m) and then they are all summed.
+
+    In general x needs to be given both when computing the expansion and
+    when evaluating it.
+    """
+function eval_expansion(u0::FractionalKdVAnsatz{T},
+                        expansion::AbstractDict{NTuple{3, Int}, T},
+                        x,
+                        ) where {T}
+    res = zero(u0.α)
+
+    for ((i, j, m), y) in expansion
+        res += y*abspow(x, -i*u0.α + j*u0.p0 + 2m)
+    end
+
+    return res
+end
+
 function (u0::FractionalKdVAnsatz)(x, evaltype::Ball)
     res = zero(u0.α)
 
@@ -338,26 +359,6 @@ function c(u0::FractionalKdVAnsatz{T},
     end
 
     return numerator/denominator
-end
-
-"""
-    eval_expansion(u0, expansion, x)
-Evaluate the given expansion. The term ((i, j, m), y) is evaluated to
-y*abs(x)^(-i*u0.α + j*u0.p0 + 2m) and then they are all summed.
-
-In general x needs to be given both when computing the expansion and
-when evaluating it.
-"""
-function eval_expansion(u0::FractionalKdVAnsatz{T},
-                        expansion::Dict{Tuple{Int, Int, Int}, T},
-                        x) where {T}
-    res = zero(u0.α)
-
-    for ((i, j, m), y) in expansion
-        res += y*abspow(x, -i*u0.α + j*u0.p0 + 2m)
-    end
-
-    return res
 end
 
 """
