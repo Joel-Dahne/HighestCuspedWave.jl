@@ -7,6 +7,7 @@ p0 - Corresponds to p₀ in the paper
 a - Vector corresponding to the aⱼ's in the paper, notice that the
 indexing here starts at 0 and not 1.
 b - Vector corresponding to the bⱼ's in the paper
+c - Coefficient in front of C₂, doesn't exist in the paper yet
 p - Exponent for the weight, which is |x|^p
 zeroterms - List of terms of D(u0) which guaranteed to be identically
 equal to zero. It is a set of tuples on the form (i, j, m), see
@@ -17,6 +18,7 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     p0::T
     a::OffsetVector{T, Vector{T}}
     b::Vector{T}
+    c::T
     p::T
     zeroterms::Set{Tuple{Int, Int, Int}}
 end
@@ -42,6 +44,7 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
                              use_midpoint = true,
                              initial_a::Vector{T} = T[],
                              initial_b::Vector{T} = T[],
+                             c::T = zero(α),
                              ) where {T}
     # Using the midpoint only makes sense for T == arb
     use_midpoint = use_midpoint && T == arb
@@ -68,7 +71,7 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
         fill(zero(α), max(N1 - length(initial_b), 0))
     ]
 
-    u0 = FractionalKdVAnsatz(α, p0, a, b, p, Set{Tuple{Int, Int, Int}}())
+    u0 = FractionalKdVAnsatz(α, p0, a, b, c, p, Set{Tuple{Int, Int, Int}}())
 
     findas!(u0)
     findbs!(u0)
@@ -156,11 +159,12 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
     p0 = u0.p0
     a = copy(u0.a)
     b = copy(u0.b)
+    c = u0.c
     p = u0.p
     # We can no longer guarantee that any terms are zero
     zeroterms = Set{Tuple{Int, Int, Int}}()
 
-    u0_new = FractionalKdVAnsatz(α, p0, a, b, p, zeroterms)
+    u0_new = FractionalKdVAnsatz(α, p0, a, b, c, p, zeroterms)
 
     # We have to update u0.a[0] to make the term (2, 0, 0) zero
     if u0_new.N0 >= 0
@@ -187,6 +191,7 @@ function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) w
         convert(T, u0.p0),
         convert.(T, u0.a),
         convert(Vector{T}, u0.b),
+        convert(T, u0.c),
         convert(T, u0.p),
         copy(u0.zeroterms),
     )
