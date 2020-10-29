@@ -131,9 +131,7 @@ function D(u0::FractionalKdVAnsatz{T},
         end
 
         # H term
-        for (key, y) in expansion2
-            expansion[key] = get(expansion, key, zero(u0.α)) + y
-        end
+        merge!(+, expansion, expansion2)
 
         # Terms in u0.zeroterms are supposed to be identically equal
         # to zero
