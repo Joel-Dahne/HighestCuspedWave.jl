@@ -490,7 +490,7 @@ Evaluation of asymptotic norms
       u0₂ = deepcopy(u0)
 
       resize!(u0₁.a, 2)
-      u0₂.a[2:end] .= zero(u0.α)
+      u0₂.a[0:1] .= zero(u0.α)
 
       return u0₁, u0₂
   end
