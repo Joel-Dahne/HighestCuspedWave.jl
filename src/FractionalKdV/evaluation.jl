@@ -6,7 +6,7 @@ export hat, eval_expansion
 """
         eval_expansion(u0::FractionalKdVAnsatz, expansion, x)
     Evaluate the given expansion. The term ((i, j, m), y) is evaluated to
-    y*abs(x)^(-i*u0.α + j*u0.p0 + 2m) and then they are all summed.
+    y*abs(x)^(-i*u0.α + j*u0.p0 + m) and then they are all summed.
 
     In general x needs to be given both when computing the expansion and
     when evaluating it.
@@ -18,7 +18,7 @@ function eval_expansion(u0::FractionalKdVAnsatz{T},
     res = zero(u0.α)
 
     for ((i, j, m), y) in expansion
-        res += y*abspow(x, -i*u0.α + j*u0.p0 + 2m)
+        res += y*abspow(x, -i*u0.α + j*u0.p0 + m)
     end
 
     return res
@@ -52,11 +52,11 @@ function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) 
     end
 
     for m in 1:M-1
-        expansion[(0, 0, m)] = termK0(u0, m)
+        expansion[(0, 0, 2m)] = termK0(u0, m)
     end
 
     if T == arb
-        expansion[(0, 0, M)] = E(u0, M)(x)
+        expansion[(0, 0, 2M)] = E(u0, M)(x)
     end
 
     return expansion
@@ -93,11 +93,11 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
         end
 
         for m in 1:M-1
-            expansion[(0, 0, m)] = -termL0(u0, m)
+            expansion[(0, 0, 2m)] = -termL0(u0, m)
         end
 
         if T == arb
-            expansion[(0, 0, M)] = EH(u0, M)(x)
+            expansion[(0, 0, 2M)] = EH(u0, M)(x)
         end
 
         return expansion
@@ -154,7 +154,7 @@ function F0(u0::FractionalKdVAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T}
 
         for ((i, j, m), y) in expansion
             if !iszero(y)
-                res += y*abspow(x, -(i - 1)*u0.α + j*u0.p0 + 2m - u0.p)
+                res += y*abspow(x, -(i - 1)*u0.α + j*u0.p0 + m - u0.p)
             end
         end
 
@@ -170,7 +170,7 @@ end
 
 # NOTE
 The terms in the dictionary should be interpreted as `((i, j, m), y) →
-y⋅x^(-iα + jp₀ + 2m - p)`, which is different from most other methods.
+y⋅x^(-iα + jp₀ + m - p)`, which is different from most other methods.
 """
 function F0(u0::FractionalKdVAnsatz{T},
             ::AsymptoticExpansion;
@@ -293,13 +293,13 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
     end
 
     for m in 1:M-1
-        u0_precomputed[(0, 0, m)] = OrderedDict(
+        u0_precomputed[(0, 0, 2m)] = OrderedDict(
             j => (-1)^m*zeta(1 - u0.α + j*u0.p0 - 2m)/factorial(2m)
             for j in 0:u0.N0
         )
     end
 
-    u0_precomputed[(0, 0, M)] = OrderedDict()
+    u0_precomputed[(0, 0, 2M)] = OrderedDict()
 
     # Precompute H(u0)
     Hu0_precomputed = OrderedDict{NTuple{3, Int}, OrderedDict{Int, T}}()
@@ -310,13 +310,13 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
     end
 
     for m in 1:M-1
-        Hu0_precomputed[(0, 0, m)] = OrderedDict(
+        Hu0_precomputed[(0, 0, 2m)] = OrderedDict(
             j => -(-1)^m*zeta(1 - 2u0.α + j*u0.p0 - 2m)/factorial(2m)
             for j in 0:u0.N0
         )
     end
 
-    Hu0_precomputed[(0, 0, M)] = OrderedDict()
+    Hu0_precomputed[(0, 0, 2M)] = OrderedDict()
 
     ## TODO: Check that we do not encounter the error terms. This
     ## should be fine with M = 10 though.
@@ -354,7 +354,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
 
         return getindex.(
             sort(
-                [((i, j, m), -i*u0.α + j*u0.p0 + 2m, y) for ((i, j, m), y) in res],
+                [((i, j, m), -i*u0.α + j*u0.p0 + m, y) for ((i, j, m), y) in res],
                 by = x -> Float64(getindex(x, 2)),
             )[3:u0.N0 + 2],
             3,
@@ -363,7 +363,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
 end
 
 function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
-    get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + 2m
+    get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + m
     expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
     for ((i, j, m), c) in expansion
         println("$c ⋅ x^$(get_exponent(i, j, m))")
@@ -373,7 +373,7 @@ function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
 end
 
 function print_asymptotic_expansion_F0(u0::FractionalKdVAnsatz, expansion)
-    get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + 2m - u0.p
+    get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + m - u0.p
     expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
     for ((i, j, m), c) in expansion
         println("$c ⋅ x^$(get_exponent(i, j, m))   $((i, j, m))")
