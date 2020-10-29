@@ -5,6 +5,7 @@ using NLsolve
 using Nemo
 using OffsetArrays
 using Printf
+using OrderedCollections
 
 import SpecialFunctions
 

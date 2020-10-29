@@ -45,7 +45,7 @@ end
 function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - (u0.α + u0.N0*u0.p0)/2
 
-    expansion = Dict{NTuple{3, Int}, T}()
+    expansion = OrderedDict{NTuple{3, Int}, T}()
 
     for j in 0:u0.N0
         expansion[(1, j, 0)] = a0(u0, j)
@@ -86,7 +86,7 @@ end
 function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - u0.α + u0.N0*u0.p0/2
     return x -> begin
-        expansion = Dict{NTuple{3, Int}, T}()
+        expansion = OrderedDict{NTuple{3, Int}, T}()
 
         for j in 0:u0.N0
             expansion[(2, j, 0)] = -A0(u0, j)
@@ -286,37 +286,37 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
     Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
 
     # Precompute for u0
-    u0_precomputed = Dict{NTuple{3, Int}, Dict{Int, T}}()
+    u0_precomputed = OrderedDict{NTuple{3, Int}, OrderedDict{Int, T}}()
     for j in 0:u0.N0
         s = u0.α - j*u0.p0
-        u0_precomputed[(1, j, 0)] = Dict(j => Γ(s)*sinpi((1 - s)/2))
+        u0_precomputed[(1, j, 0)] = OrderedDict(j => Γ(s)*sinpi((1 - s)/2))
     end
 
     for m in 1:M-1
-        u0_precomputed[(0, 0, m)] = Dict(
+        u0_precomputed[(0, 0, m)] = OrderedDict(
             j => (-1)^m*zeta(1 - u0.α + j*u0.p0 - 2m)/factorial(2m)
             for j in 0:u0.N0
         )
     end
 
-    u0_precomputed[(0, 0, M)] = Dict()
+    u0_precomputed[(0, 0, M)] = OrderedDict()
 
     # Precompute H(u0)
-    Hu0_precomputed = Dict{NTuple{3, Int}, Dict{Int, T}}()
+    Hu0_precomputed = OrderedDict{NTuple{3, Int}, OrderedDict{Int, T}}()
 
     for j in 0:u0.N0
         s = 2u0.α - j*u0.p0
-        Hu0_precomputed[(2, j, 0)] = Dict(j => -Γ(s)*sinpi((1 - s)/2))
+        Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -Γ(s)*sinpi((1 - s)/2))
     end
 
     for m in 1:M-1
-        Hu0_precomputed[(0, 0, m)] = Dict(
+        Hu0_precomputed[(0, 0, m)] = OrderedDict(
             j => -(-1)^m*zeta(1 - 2u0.α + j*u0.p0 - 2m)/factorial(2m)
             for j in 0:u0.N0
         )
     end
 
-    Hu0_precomputed[(0, 0, M)] = Dict()
+    Hu0_precomputed[(0, 0, M)] = OrderedDict()
 
     ## TODO: Check that we do not encounter the error terms. This
     ## should be fine with M = 10 though.
@@ -325,7 +325,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
         S = promote_type(T, typeof(a))
 
         # Compute u0
-        u0_res = Dict{NTuple{3, Int}, S}()
+        u0_res = OrderedDict{NTuple{3, Int}, S}()
         for (key, dict) in u0_precomputed
             for (j, v) in dict
                 u0_res[key] = get(u0_res, key, zero(u0.α)) + v*a[j]
@@ -333,7 +333,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
         end
 
         # Compute H(u0)
-        Hu0_res = Dict{NTuple{3, Int}, S}()
+        Hu0_res = OrderedDict{NTuple{3, Int}, S}()
         for (key, dict) in Hu0_precomputed
             for (j, v) in dict
                 Hu0_res[key] = get(Hu0_res, key, zero(u0.α)) + v*a[j]
@@ -341,7 +341,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
         end
 
         # Compute u0^2/2
-        res = Dict{NTuple{3, Int}, S}()
+        res = OrderedDict{NTuple{3, Int}, S}()
         for ((i1, j1, m1), y1) in u0_res
             for ((i2, j2, m2), y2) in u0_res
                 key = (i1 + i2, j1 + j2, m1 + m2)
