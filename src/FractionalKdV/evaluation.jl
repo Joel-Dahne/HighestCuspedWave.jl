@@ -24,7 +24,7 @@ function eval_expansion(u0::FractionalKdVAnsatz{T},
     return res
 end
 
-function (u0::FractionalKdVAnsatz)(x, evaltype::Ball)
+function (u0::FractionalKdVAnsatz)(x, ::Ball)
     res = zero(u0.α)
 
     for j in 0:u0.N0
@@ -42,15 +42,11 @@ function (u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 3)
     return eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 end
 
-function (u0::FractionalKdVAnsatz{T})(x,
-                                      evaltype::AsymptoticExpansion;
-                                      M::Integer = 3,
-                                      ) where {T}
+function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - (u0.α + u0.N0*u0.p0)/2
 
-    expansion = Dict{Tuple{Int, Int, Int}, T}()
+    expansion = Dict{NTuple{3, Int}, T}()
 
-    # Compute approximation
     for j in 0:u0.N0
         expansion[(1, j, 0)] = a0(u0, j)
     end
@@ -66,7 +62,7 @@ function (u0::FractionalKdVAnsatz{T})(x,
     return expansion
 end
 
-function H(u0::FractionalKdVAnsatz, evaltype::Ball)
+function H(u0::FractionalKdVAnsatz, ::Ball)
     return x -> begin
         res = zero(u0.α)
 
@@ -75,7 +71,7 @@ function H(u0::FractionalKdVAnsatz, evaltype::Ball)
         end
 
         for n in 1:u0.N1
-            res -= u0.b[n]*parent(u0.α)(n)^u0.α*(cos(n*x) - 1)
+            res -= u0.b[n]*(n*one(u0.α))^u0.α*(cos(n*x) - 1)
         end
 
         return res
@@ -87,13 +83,10 @@ function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 3)
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function H(u0::FractionalKdVAnsatz{T},
-           evaltype::AsymptoticExpansion;
-           M::Integer = 3,
-           ) where {T}
+function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - u0.α + u0.N0*u0.p0/2
     return x -> begin
-        expansion = Dict{Tuple{Int, Int, Int}, T}()
+        expansion = Dict{NTuple{3, Int}, T}()
 
         for j in 0:u0.N0
             expansion[(2, j, 0)] = -A0(u0, j)
@@ -120,15 +113,16 @@ function D(u0::FractionalKdVAnsatz{T},
            evaltype::AsymptoticExpansion;
            M::Integer = 3,
            ) where {T}
-    @assert M >= 1 - u0.α + u0.N0*u0.p0/2
+    f = H(u0, evaltype; M)
     return x -> begin
-        # TODO: Handle terms that might be identically equal to zero
-        expansion = Dict{Tuple{Int, Int, Int}, T}()
+        expansion1 = u0(x, evaltype; M)
+        expansion2 = f(x)
+
+        expansion = empty(expansion1)
 
         # u0^2/2 term
         # TODO: We can reduce the number of computations but using
         # that multiplication is commutative
-        expansion1 = u0(x, evaltype, M = M)
         for ((i1, j1, m1), y1) in expansion1
             for ((i2, j2, m2), y2) in expansion1
                 key = (i1 + i2, j1 + j2, m1 + m2)
@@ -137,7 +131,6 @@ function D(u0::FractionalKdVAnsatz{T},
         end
 
         # H term
-        expansion2 = H(u0, evaltype, M = M)(x)
         for (key, y) in expansion2
             expansion[key] = get(expansion, key, zero(u0.α)) + y
         end
@@ -174,20 +167,21 @@ end
 
 """
     F0(u0, ::AsymptoticExpansion)
-The terms in the dictionary should be interpreted as
-((i, j, m), y) → y⋅x^(-iα + jp₀ + 2m - p).
+
+# NOTE
+The terms in the dictionary should be interpreted as `((i, j, m), y) →
+y⋅x^(-iα + jp₀ + 2m - p)`, which is different from most other methods.
 """
 function F0(u0::FractionalKdVAnsatz{T},
             ::AsymptoticExpansion;
             M::Integer = 3,
             ) where {T}
     return x -> begin
-        expansion = D(u0, AsymptoticExpansion(), M = M)(x)
-
+        expansion = D(u0, AsymptoticExpansion(); M)(x)
         res = empty(expansion)
 
         ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
-        C = ball(parent(u0.α)(1), c(u0, ϵ)*abspow(x, u0.p0))/a0(u0, 0)
+        C = ball(one(u0.α), c(u0, ϵ)*abspow(x, u0.p0))/a0(u0, 0)
 
         for ((i, j, m), y) in expansion
             res[(i - 1, j, m)] = C*y
@@ -201,7 +195,7 @@ end
     hat(u0::FractionalKdVAnsatz)
 Returns a function such that hat(u0)(x) computes û(x) from the paper.
 """
-function hat(u0::FractionalKdVAnsatz, evaltype::Ball = Ball())
+function hat(u0::FractionalKdVAnsatz, ::Ball = Ball())
     return x -> begin
         (a0(u0, 0)*abs(x)^(-u0.α) - u0(x))/u0(x)
     end
@@ -211,10 +205,7 @@ end
     c(u0::FractionalKdVAnsatz{T}, ϵ)
 Compute the constant c_{ϵ,û₀} from Lemma 3.3.
 """
-function c(u0::FractionalKdVAnsatz{T},
-           ϵ;
-           M::Integer = 3,
-           ) where {T}
+function c(u0::FractionalKdVAnsatz, ϵ; M::Integer = 3)
     if iszero(ϵ)
         return zero(u0.α)
     end
@@ -291,10 +282,7 @@ coefficients of the first `u0.N0 + 1` terms in the asymptotic
 expansion using the values of `a`. Does this in an efficient way by
 precomputing as much as possible.
 """
-function D(u0::FractionalKdVAnsatz{T},
-           evaltype::Symbolic;
-           M::Integer = 10
-           ) where {T}
+function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
     Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
 
     # Precompute for u0
