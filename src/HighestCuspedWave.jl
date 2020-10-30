@@ -15,6 +15,7 @@ include("bounded_by.jl")
 include("evaluation.jl")
 
 include("alpha.jl")
+include("delta.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")

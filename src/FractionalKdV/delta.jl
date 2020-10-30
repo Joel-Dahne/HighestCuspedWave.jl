@@ -1,4 +1,4 @@
-export delta0, delta0_bounded_by, delta0_estimate
+
 
 """
     delta0(u0::FractionalKdVAnsatz; ϵ::arb = 0, M::Integer = 3, n::Integer = 6)
