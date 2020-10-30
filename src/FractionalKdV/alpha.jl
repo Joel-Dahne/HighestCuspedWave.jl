@@ -1,5 +1,3 @@
-export alpha0, alpha0_estimate
-
 """
     alpha0(u0::FractionalKdVAnsatz; M::Integer = 3, rtol::arb = 1e-5)
 Upper bound the value of `α₀` from the paper.
@@ -57,15 +55,4 @@ function alpha0(u0::FractionalKdVAnsatz{arb};
                         )
 
     return max(m1, m2, m3)
-end
-
-"""
-    alpha0_estimate(u0::FractionalKdVAnsatz)
-Estimate the value of `α₀` from the paper. Uses the observation that
-the maximum is obtained at `x = π`. This always gives a lower bound of
-`α₀`.
-"""
-function alpha0_estimate(u0::FractionalKdVAnsatz{T}) where {T}
-    π = ifelse(T == arb, parent(u0.α)(pi), pi)
-    return u0.w(π)/(2u0(π))
 end

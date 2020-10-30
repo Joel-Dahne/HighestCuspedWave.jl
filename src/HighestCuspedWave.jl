@@ -14,6 +14,8 @@ include("types.jl")
 include("bounded_by.jl")
 include("evaluation.jl")
 
+include("alpha.jl")
+
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")
 include("FractionalKdV/coefficients.jl")
