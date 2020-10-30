@@ -150,6 +150,8 @@ function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
         return length(u0.b)
     elseif name == :w
         return x -> abs(x)^u0.p
+    elseif name == :parent
+        return parent(u0.α)
     else
         return getfield(u0, name)
     end

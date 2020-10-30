@@ -39,6 +39,8 @@ function Base.getproperty(u0::BHAnsatz, name::Symbol)
         return length(u0.b)
     elseif name == :w
         return x -> abs(x)*sqrt(log((abs(x) + 1)/abs(x)))
+    elseif name == :parent
+        return parent(u0.a0)
     else
         return getfield(u0, name)
     end
