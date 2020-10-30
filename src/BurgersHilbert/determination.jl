@@ -44,11 +44,7 @@ function findbs!(u0::BHAnsatz{T}) where {T}
 end
 
 function findbs!(u0::BHAnsatz{arb})
-    T = Float64
-    u0_float = BHAnsatz(
-        T(u0.a0),
-        T.(u0.b),
-    )
+    u0_float = convert(BHAnsatz{Float64}, u0)
 
     findbs!(u0_float)
     # TODO: Possibly perform some Newton iterations if the values are
