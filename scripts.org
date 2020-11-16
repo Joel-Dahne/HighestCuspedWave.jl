@@ -495,4 +495,23 @@ Evaluation of asymptotic norms
       return u0₁, u0₂
   end
 
+  """
+      lease_square_interpolation(xs, ys, return_function = false)
+
+  Perform a linear least square approximation of `xs` and `ys`. By
+  default it returns `a, b` such that `a*x + b` interpolates the data.
+  If `return_function` is true it instead returns a function `f(x) = a*x
+  + b`.
+  """
+  function least_square_interpolation(xs, ys, return_function = false)
+      N = length(xs)
+      @assert N == length(ys)
+      a = (N*sum(xs.*ys) - sum(xs)*sum(ys))/(N*sum(xs.^2) - sum(xs).^2)
+      b = (sum(ys) - a*sum(xs))/N
+      if return_function
+          return x -> a*x + b
+      else
+          return a, b
+      end
+  end
 #+END_SRC
