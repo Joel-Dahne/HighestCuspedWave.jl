@@ -401,7 +401,7 @@ function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
     get_exponent(i, j, m) = -i*u0.α + j*u0.p0 + m
     expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
     for ((i, j, m), c) in expansion
-        println("$c ⋅ x^$(get_exponent(i, j, m))")
+        println("$c ⋅ x^$(get_exponent(i, j, m))   $((i, j, m))")
     end
 
     return expansion
