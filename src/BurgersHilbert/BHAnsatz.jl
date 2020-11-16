@@ -57,7 +57,7 @@ end
 function Base.convert(::Type{BHAnsatz{T}}, u0::BHAnsatz) where {T}
     return BHAnsatz{T}(
         convert(T, u0.a0),
-        convert(T, u0.a0),
+        convert(T, u0.a1),
         convert(Vector{T}, u0.b),
     )
 end
