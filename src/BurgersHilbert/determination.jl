@@ -54,3 +54,15 @@ function findbs!(u0::BHAnsatz{arb})
 
     return u0
 end
+
+function findbs!(u0::BHAnsatz{Arb})
+    u0_float = convert(BHAnsatz{Float64}, u0)
+
+    findbs!(u0_float)
+    # TODO: Possibly perform some Newton iterations if the values are
+    # required to a higher precision.
+
+    u0.b .= u0_float.b
+
+    return u0
+end

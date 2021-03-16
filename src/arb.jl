@@ -1,5 +1,11 @@
 export iswide, Li, Ci, Si
 
+# For conversion from arb to Arb
+function Arblib.set!(res::Arb, x::arb)
+    ccall(Arblib.@libarb("arb_set"), Cvoid, (Ref{Arblib.arb_struct}, Ref{Nemo.arb}), res, x)
+    return res
+end
+
 """
     mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
 Return a vector with `n` balls covering the interval `[xₗ, xᵤ]`.
@@ -57,6 +63,11 @@ function zeta(s::arb; d::Integer = 0)
     return coeff(res, d)
 end
 
+function zeta(s::Arb; d::Integer = 0)
+    s_series = ArbSeries([s, one(s)], degree = d)
+    return Arblib.zeta_series!(zero(s_series), s_series, one(s), 0, d + 1)[d]
+end
+
 function zeta(s::T; d::Integer = 0) where {T}
     RR = RealField(precision(BigFloat))
     return convert(float(T), zeta(RR(s), d = d))
@@ -72,6 +83,16 @@ function stieltjes(type, n::Integer)
           res, fmpz(n), a, CC.prec)
 
     convert(type, real(res))
+end
+function stieltjes(::Type{Arb}, n::Integer)
+    res = zero(Acb)
+    a = one(Acb)
+
+    ccall((:acb_dirichlet_stieltjes, Arblib.libarb), Cvoid,
+          (Ref{Arblib.acb_struct}, Ref{fmpz}, Ref{Arblib.acb_struct}, Clong),
+          res, fmpz(n), a, precision(res))
+
+    return real(res)
 end
 function stieltjes(n::Integer)
     stieltjes(Float64, n)
@@ -124,6 +145,8 @@ function Li(z::acb, s::Integer)
     return res
 end
 
+Li(z::Acb, s::Union{Acb,Integer}) = Arblib.polylog!(zero(z), s, z)
+
 """
     Li(z, s, β)
 Compute the polylogarithm `Liₛ^(β)(z)`.
@@ -142,6 +165,13 @@ function Li(z::acb, s::acb, β::Integer)
           w, s_poly, z, β + 1, prec(parent(z)))
 
     return coeff(w, β)*factorial(β)
+end
+
+function Li(z::Acb, s::Acb, β::Integer)
+    s_poly = AcbSeries([s, 1])
+    w = Arblib.polylog_series!(AcbSeries(degree = β, prec = precision(z)), s_poly, z, β + 1)
+
+    return w[β]*factorial(β)
 end
 
 # Not required
@@ -263,6 +293,18 @@ function Ci(x::arb, s::Integer)
     return real(Li(exp(CC(zero(x), x)), s))
 end
 
+# TODO: Optimize for wide x
+function Ci(x::Arb, s::Arb)
+    real(Li(exp(Acb(0, x)), Acb(s)))
+end
+
+# TODO: Optimize for wide x
+function Ci(x::Arb, s::Integer)
+    real(Li(exp(Acb(0, x)), s))
+end
+
+Ci(x::Real, s::Arb) = Ci(Arb(x), s)
+
 function Ci(x::T, s) where {T <: Real}
     CC = ComplexField(precision(BigFloat))
     z = exp(im*x)
@@ -297,6 +339,17 @@ end
 function Ci(x::arb, s, β::Integer)
     CC = ComplexField(prec(parent(x)))
     return real(Li(exp(CC(zero(x), x)), CC(s), β))
+end
+
+# TODO: Optimize for wide x
+function Ci(x::Acb, s, β::Integer)
+    s = convert(Acb, s)
+    return (Li(exp(im*x), s, β) + Li(exp(-im*x), s, β))/2
+end
+
+# TODO: Optimize for wide x
+function Ci(x::Arb, s, β::Integer)
+    return real(Li(exp(Acb(0, x)), convert(Acb, s), β))
 end
 
 function Ci(x::T, s, β::Integer) where {T <: Real}
@@ -512,8 +565,23 @@ function abspow(x::arb, y::arb)
         return one(x)
     end
     if contains_zero(x)
+        contains_negative(y) && return parent(x)(NaN)
         x_upp = ArbTools.abs_ubound(x)
         return ArbTools.setunion(zero(x), x_upp^y)
+    end
+
+    return abs(x)^y
+end
+
+function abspow(x::Arb, y::Arb)
+    if iszero(y)
+        return one(x)
+    end
+    if Arblib.contains_zero(x)
+        Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
+        # TODO: Replace with abs_ubound when implemented in Arblib
+        x_upp = Arb(Arblib.get_abs_ubound!(Arf(prec = precision(x)), x))
+        return Arb((zero(x), x_upp^y))
     end
 
     return abs(x)^y

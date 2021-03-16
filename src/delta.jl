@@ -34,13 +34,17 @@ function delta0_estimate(u0::AbstractAnsatz{T};
                          n::Integer = 100,
                          return_values = false,
                          ) where {T}
-    xs = range(0, stop = pi, length = n + 1)[2:end]
+    xs = range(0, stop = π, length = n + 1)[2:end]
     if T == arb
         xs = u0.parent.(xs)
+    else
+        xs = convert.(T, xs)
     end
 
     res = similar(xs)
-    f1 = F0(u0, Asymptotic(); M)
+
+    # Asymptotic version might not be defined
+    f1 = !iszero(ϵ) ? F0(u0, Asymptotic(); M) : missing
     f2 = F0(u0, Ball())
     Threads.@threads for i in eachindex(xs)
         x = xs[i]

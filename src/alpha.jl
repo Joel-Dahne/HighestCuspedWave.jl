@@ -16,13 +16,9 @@ the maximum is obtained at `x = π`. This always gives a lower bound of
 """
 function alpha0_estimate(u0::AbstractAnsatz{T}) where {T}
     if T == arb
-        if typeof(u0) <: FractionalKdVAnsatz
-            π = parent(u0.α)(pi)
-        elseif typeof(u0) <: BHAnsatz
-            π = parent(u0.a0)(pi)
-        end
+        π = u0.parent(pi)
     else
-        π = pi
+        π = convert(T, pi)
     end
     return u0.w(π)/(2u0(π))
 end
