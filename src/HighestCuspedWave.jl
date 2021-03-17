@@ -17,6 +17,8 @@ include("evaluation.jl")
 
 include("alpha.jl")
 include("delta.jl")
+include("T0.jl")
+include("CB.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")

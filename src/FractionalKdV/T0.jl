@@ -1,31 +1,18 @@
-export T0
+##
+## T0
+##
 
-"""
-    T0(u0::FractionalKdVAnsatz, evaltype)
-Returns a function such that T0(u0)(x) is the function whose supremum
-on [0, π] gives C_B. The strategy for evaluation depends on type of
-evaltype.
-
-TODO: There is a lot more tuning to be done!
-"""
-T0(u0::FractionalKdVAnsatz; kwargs...) = T0(u0, Ball(); kwargs...)
-
+# TODO: There is a lot more tuning to be done!
 function T0(u0::FractionalKdVAnsatz{arb},
             evaltype::Ball;
-            rtol = -1.0,
-            atol = -1.0,
-            show_trace = false,
             δ0::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
             δ1::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
             δ2::arb = parent(u0.α)(1e-2),
             ϵ::arb = 1 + u0.α,
+            rtol = -1.0,
+            atol = -1.0,
+            show_trace = false,
             )
-    # Set up parameters for T01
-    # δ0 and δ1 are given as arguments
-
-    # Set up parameters for T02
-    # δ2 and ϵ are given as arguments
-
     f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
     g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
 
@@ -33,10 +20,8 @@ function T0(u0::FractionalKdVAnsatz{arb},
         ## Integral on [0, x] - Change to t = y/x
         part1 = f(x)
 
-        if isnan(part1)
-            # Short circuit on NaN
-            return part1
-        end
+        # Short circuit on a non-finite result
+        isfinite(part1) || return part1
 
         ## Integral on [x, π]
         part2 = g(x)
@@ -44,25 +29,18 @@ function T0(u0::FractionalKdVAnsatz{arb},
     end
 end
 
-"""
-    T0(u0::FractionalKdVAnsatz, ::Asymptotic)
-Returns a function such that T0(u0, Asymptotic())(x) gives an
-**upper bound** of the function whose supremum on `[0, π]` gives
-`C_B`.
-"""
-function T0(u0::FractionalKdVAnsatz{T}, evaltype::Asymptotic; nonasymptotic_u0 = false) where {T}
-    f = T01(u0, evaltype; nonasymptotic_u0)
-    g = T02(u0, evaltype; nonasymptotic_u0)
-    return x -> f(x) + g(x)
-end
+##
+## T01
+##
 
 """
-    T01(u0::FractionalKdVAnsatz; δ1, δ2)
-Returns a function such that T01(u0, δ1 = δ1, δ2 = δ2)(x) computes the integral
-T_{0,1} from the paper.
-"""
-T01(u0; kwargs...) = T01(u0, Ball(); kwargs...)
+    T01(u0::FractionalKdVAnsatz, ::Ball; δ1, δ2)
+Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
+integral T_{0,1} from the paper.
 
+The integral is split into three parts depending on `δ1` and `δ2`.
+These are given by `T011`, `T012` and `T013`.
+"""
 function T01(u0::FractionalKdVAnsatz{arb},
              evaltype::Ball;
              δ0::arb = parent(u0.α)(1e-2),
@@ -80,7 +58,7 @@ function T01(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T01(u0, Asymptotic())
+    T01(u0::FractionalKdVAnsatz, ::Asymptotic)
 Returns a function such that `T01(u0, Asymptotic())(x)` computes an
 **upper bound** of the integral T_{0,1} from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
@@ -179,23 +157,23 @@ end
 
 """
     T011(u0::FractionalKdVAnstaz{arb}; δ0)
-Returns a function such that T011(u0, δ0 = δ0)(x) computes the
-integral T_{0,1,1} from the paper.
+Returns a function such that T011(u0; δ0)(x) computes the integral
+T_{0,1,1} from the paper.
 
 The strategy for evaluation is to compute an expansion for the
 integrand which is then integrated termwise on the interval. The first
 two terms inside the absolute value are analytic and their Taylor
 expansions of degree `N - 1` are computed at `t = 0` and the error
-term is enclose. The last term inside the absolute value is not
+term is enclosed. The last term inside the absolute value is not
 analytic and instead we use the expansion for Clausians from the paper
 and also here enclose the error term.
 
 The value inside the absolute value has constant sign so we can remove
 it. Switching integration and summation gives us terms of the form
 `∫_0^δ0 t^s*t^p dt` where `s` depends on the term and `p = u0.p`. This
-is easily calculated to be `δ0^(s + p + 1*/(s + p + 1)`. The error
-handled as constant values which are just multiplied by the length of
-the interval.
+is easily calculated to be `δ0^(s + p + 1*/(s + p + 1)`. The errors
+are handled as constant values which are just multiplied by the length
+of the interval.
 """
 T011(u0::FractionalKdVAnsatz{arb}; kwargs...) = T011(u0, Ball(); kwargs...)
 
@@ -248,8 +226,8 @@ end
 
 """
     T012(u0::FractionalKdVAnsatz{arb}; δ0, δ1)
-Returns a function such that T012(u0, δ0 = δ0, δ1 = δ1)(x) computes
-the integral T_{0,1,2} from the paper.
+Returns a function such that T012(u0; δ0, δ1)(x) computes the integral
+T_{0,1,2} from the paper.
 """
 T012(u0::FractionalKdVAnsatz{arb}; kwargs...) = T012(u0, Ball(); kwargs...)
 
@@ -292,12 +270,12 @@ end
 
 """
     T013(u0::FractionalKdVAnstaz{arb}; δ1)
-Returns a function such that T013(u0, δ0 = δ0)(x) computes the integral
+Returns a function such that T013(u0; δ1)(x) computes the integral
 T_{0,1,3} from the paper.
 
-The strategy for evaluation is the same as for T011 except that the
-first term is singular and the last two are analytic and their Taylor
-expansion is computed at `t = 1`.
+The strategy for evaluation is the same as for [`T011`](@ref) except
+that the first term is singular and the last two are analytic and
+their Taylor expansion is computed at `t = 1`.
 
 The integral that needs to be computed in this case is `∫_(1 - δ1)^1
 (1 - t)^s*t^p dt` which is given by `Γ(1 + s)*Γ(1 + p)/Γ(2 + s + p) -
@@ -407,9 +385,13 @@ function T013(u0::FractionalKdVAnsatz{arb},
     end
 end
 
+##
+## T02
+##
+
 """
     T02(u0::FractionalKdVAnsatz; δ2)
-Returns a function such that T02(u0, δ2 = δ2, ϵ = ϵ)(x) computes the
+Returns a function such that T02(u0; δ2, ϵ)(x) computes the
 integral T_{0,2} from the paper.
 
 If `u0.p == 1` it uses a closed form expression for the integral.
@@ -434,8 +416,6 @@ TODO: Look closer at computing with the asymptotic expansion and using
 the best result. Consider rewriting `T021` and `T022` to be more like
 the other methods here.
 """
-T02(u0; kwargs...) = T02(u0, Ball(); kwargs...)
-
 function T02(u0::FractionalKdVAnsatz{arb},
              ::Ball;
              δ2::arb = parent(u0.α)(1e-2),
@@ -495,7 +475,7 @@ function T02(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T02(u0, Asymptotic())
+    T02(u0::FractionalKdVAnsatz, ::Asymptotic)
 Returns a function such that `T02(u0, Asymptotic())(x)` computes an
 **upper bound** of the integral T_{0,2} from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
@@ -716,7 +696,8 @@ end
 """
     T022(u0::FractionalKdVAnsatz{arb}, a::arb, x::arb)
 Computes the (not yet existing) integral T_{0,2,2} from the paper.
-)
+
+TODO: Write about how this is done.
 """
 T022(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 
