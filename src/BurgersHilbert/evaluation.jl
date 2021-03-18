@@ -247,8 +247,13 @@ function D(u0::BHAnsatz, xs::AbstractVector)
     for i in eachindex(xs)
         x = xs[i]
 
-        u0_xs_a0_precomputed[i] = u0.a0*(Ci(x, 2, 1) - zeta(2, d = 1)) + u0.a1*(Ci(x, 2) - zeta(2))
-        Hu0_xs_a0_precomputed[i] = -u0.a0*(Ci(x, 3, 1) - zeta(3, d = 1)) - u0.a1*(Ci(x, 3) - zeta(3))
+        u0_xs_a0_precomputed[i] = u0.a0*(Ci(x, 2, 1) - zeta(2, d = 1))
+        Hu0_xs_a0_precomputed[i] = -u0.a0*(Ci(x, 3, 1) - zeta(3, d = 1))
+
+        if !iszero(u0.a1)
+            u0_xs_a0_precomputed[i] += u0.a1*(Ci(x, 2) - zeta(2))
+            Hu0_xs_a0_precomputed[i] -= u0.a1*(Ci(x, 3) - zeta(3))
+        end
 
         for n in 1:u0.N
             u0_xs_b_precomputed[i, n] = cos(n*x) - 1
