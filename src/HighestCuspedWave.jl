@@ -34,5 +34,6 @@ include("FractionalKdV/proof.jl")
 include("BurgersHilbert/BHAnsatz.jl")
 include("BurgersHilbert/determination.jl")
 include("BurgersHilbert/evaluation.jl")
+include("BurgersHilbert/T0.jl")
 
 end # module
