@@ -156,7 +156,7 @@ function T01(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T011(u0::FractionalKdVAnstaz{arb}; δ0)
+    T011(u0::FractionalKdVAnstaz{arb}, evaltype = Ball(); δ0)
 Returns a function such that T011(u0; δ0)(x) computes the integral
 T_{0,1,1} from the paper.
 
@@ -175,10 +175,8 @@ is easily calculated to be `δ0^(s + p + 1*/(s + p + 1)`. The errors
 are handled as constant values which are just multiplied by the length
 of the interval.
 """
-T011(u0::FractionalKdVAnsatz{arb}; kwargs...) = T011(u0, Ball(); kwargs...)
-
 function T011(u0::FractionalKdVAnsatz{arb},
-              ::Ball;
+              ::Ball = Ball();
               δ0::arb = parent(u0.α)(1e-2),
               N::Integer = 3,
               )
@@ -225,14 +223,12 @@ function T011(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T012(u0::FractionalKdVAnsatz{arb}; δ0, δ1)
+    T012(u0::FractionalKdVAnsatz{arb}, evaltype = Ball(); δ0, δ1)
 Returns a function such that T012(u0; δ0, δ1)(x) computes the integral
 T_{0,1,2} from the paper.
 """
-T012(u0::FractionalKdVAnsatz{arb}; kwargs...) = T012(u0, Ball(); kwargs...)
-
 function T012(u0::FractionalKdVAnsatz{arb},
-              ::Ball;
+              ::Ball = Ball();
               δ0::arb = parent(u0.α)(1e-2),
               δ1::arb = parent(u0.α)(1e-2),
               rtol = -1.0,
@@ -269,7 +265,7 @@ function T012(u0::FractionalKdVAnsatz{arb},
 end
 
 """
-    T013(u0::FractionalKdVAnstaz{arb}; δ1)
+    T013(u0::FractionalKdVAnstaz{arb}, evaltype = Ball(); δ1)
 Returns a function such that T013(u0; δ1)(x) computes the integral
 T_{0,1,3} from the paper.
 
@@ -298,10 +294,8 @@ to be able to get finite results in that case.
 TODO: We could precompute some of the values, in particular the
 beta_inc functions can be precomputed.
 """
-T013(u0::FractionalKdVAnsatz{arb}; kwargs...) = T013(u0, Ball(); kwargs...)
-
 function T013(u0::FractionalKdVAnsatz{arb},
-              ::Ball;
+              ::Ball = Ball();
               δ1::arb = parent(u0.α)(1e-2),
               ϵ::arb = parent(u0.α)(1e-2),
               N::Integer = 3,
