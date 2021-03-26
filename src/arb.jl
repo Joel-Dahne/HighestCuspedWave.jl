@@ -6,6 +6,14 @@ function Arblib.set!(res::Arb, x::arb)
     return res
 end
 
+# For conversion from Arb to arb
+function (r::ArbField)(x::Arb)
+    z = arb(fmpz(0), r.prec)
+    ccall(Arblib.@libarb("arb_set"), Cvoid, (Ref{Nemo.arb}, Ref{Arblib.arb_struct}), z, x)
+    z.parent = r
+    return z
+end
+
 """
     mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
 Return a vector with `n` balls covering the interval `[xₗ, xᵤ]`.
