@@ -5,6 +5,7 @@ using ArbTools
 
 @testset "HighestCuspedWave" begin
     include("arb-test.jl")
+    include("clausian-test.jl")
     include("evaluation-test.jl")
 
     include("T0-test.jl")
