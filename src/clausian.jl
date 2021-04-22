@@ -1,6 +1,10 @@
 # Contains methods related to Ci and Si
 export Li, Ci, Si
 
+###
+### Li
+###
+
 """
     Li(z, s)
 Compute the polylogarithm ``Li_s(z)``
@@ -47,7 +51,7 @@ function Li(z::acb, s::Integer)
 end
 
 function Li(z::Acb, s::Union{Acb,Integer})
-    if iswide(s)
+    if iswide(s) # If this is true then s is always an Acb
         # TODO: Check that everything here is correct
 
         # TODO: Tune this
@@ -124,6 +128,10 @@ end
 #    res = real(Li(CC(z), CC(s)))
 #    return convert(float(T), res)
 #end
+
+###
+### Ci
+###
 
 """
     Ci(x, s)
@@ -317,6 +325,10 @@ function Ci_expansion(x::arb, s::arb, M::Integer)
 
     return (C, e, P, E)
 end
+
+###
+### Si
+###
 
 """
     Si(x, s)

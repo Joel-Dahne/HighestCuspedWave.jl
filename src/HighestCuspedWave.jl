@@ -12,6 +12,7 @@ using ArbExtras
 import SpecialFunctions
 
 include("arb.jl")
+include("clausian.jl")
 include("types.jl")
 include("bounded_by.jl")
 include("evaluation.jl")
