@@ -14,6 +14,21 @@ function (r::ArbField)(x::Arb)
     return z
 end
 
+# Arb / fmpz
+function Base.:/(x::Arblib.ArbOrRef, y::fmpz)
+    res = zero(x)
+    ccall(
+        Arblib.@libarb("arb_div_fmpz"),
+        Cvoid,
+        (Ref{Arblib.arb_struct}, Ref{Arblib.arb_struct}, Ref{fmpz}, Int),
+        res,
+        x,
+        y,
+        precision(res),
+    )
+    return res
+end
+
 """
     mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
 Return a vector with `n` balls covering the interval `[xₗ, xᵤ]`.
