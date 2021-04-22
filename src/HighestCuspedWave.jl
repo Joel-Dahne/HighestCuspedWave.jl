@@ -11,6 +11,9 @@ using ArbExtras
 
 import SpecialFunctions
 
+import ArbTools: getinterval
+import Nemo: midpoint
+
 include("arb.jl")
 include("clausian.jl")
 include("types.jl")
