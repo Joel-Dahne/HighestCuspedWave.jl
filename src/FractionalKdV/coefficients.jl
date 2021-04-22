@@ -68,19 +68,6 @@ function L0(u0::FractionalKdVAnsatz, m::Integer)
         res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
     end
 
-    res /= factorial(2m)
-    res *= (-1)^m
-
-    return res
-end
-
-function L0(u0::FractionalKdVAnsatz{arb}, m::Integer)
-    res = zero(u0.α)
-
-    for j in 0:u0.N0
-        res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
-    end
-
     res /= factorial(fmpz(2m))
     res *= (-1)^m
 
