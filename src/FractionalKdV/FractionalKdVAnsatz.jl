@@ -198,3 +198,16 @@ function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) w
         copy(u0.zeroterms),
     )
 end
+
+function Base.convert(::Type{FractionalKdVAnsatz{arb}}, u0::FractionalKdVAnsatz)
+    RR = RealField(precision(BigFloat))
+    return FractionalKdVAnsatz{arb}(
+        RR(u0.α),
+        RR(u0.p0),
+        RR.(u0.a),
+        RR.(u0.b),
+        RR(u0.c),
+        RR(u0.p),
+        copy(u0.zeroterms),
+    )
+end
