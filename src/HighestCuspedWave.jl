@@ -12,7 +12,7 @@ using ArbExtras
 import SpecialFunctions
 
 import ArbTools: getinterval
-import Nemo: midpoint
+import Nemo: midpoint, radius
 
 include("arb.jl")
 include("clausian.jl")
