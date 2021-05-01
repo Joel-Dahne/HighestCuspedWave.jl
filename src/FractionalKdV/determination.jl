@@ -60,21 +60,82 @@ function findp0(α::arb)
     return p0
 end
 
+function findp0(α::Arb)
+    if iswide(α)
+        # PROVE: That p0 is monotone in α
+        α_low, α_upp = Arblib.getinterval(Arb, α)
+        return union(findp0(α_low), findp0(α_upp))
+    end
+
+    α = setprecision(α, 2precision(α))
+
+    Γ = SpecialFunctions.gamma
+    C = 2Γ(2α) * cospi(α) / (Γ(α) * cospi(α / 2))
+    f(p) = begin
+        cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) - C
+    end
+
+    # Find an approximation in Float64
+    p0_approx = Arb(findp0(Float64(α)), prec = precision(α))
+    # Perform some iterations at higher precision
+    # FIXME: This seems to not fully use the precision of α but the
+    # global precision for some things
+    p0_approx = Arblib.midpoint(
+        Arb,
+        first(nlsolve(p -> [f(p[1])], [p0_approx], ftol = 1e-20).zero),
+    )
+
+    # We want to widen the approximation p0_approx slightly so that it
+    # definitely contains a root. We do this in a heuristic way, using
+    # the fact that we know it's increasing on the interval we are
+    # interested in.
+    fp0 = f(ArbSeries([p0_approx, 1]))
+    step = -1.1(fp0[0]) / fp0[1]
+    if Arblib.isnegative(fp0[0])
+        l = p0_approx
+        u = p0_approx + step
+        for _ in 1:5
+            Arblib.ispositive(f(u)) && break
+            u += step
+        end
+    else
+        l = p0_approx + step
+        for _ in 1:5
+            Arblib.isnegative(f(l)) && break
+            l += step
+        end
+        u = p0_approx
+    end
+
+    found, flags = ArbExtras.isolate_roots(f, ubound(l), lbound(u))
+
+    @assert only(flags)
+    p0 = ArbExtras.refine_root(f, Arb(only(found)), strict = true)
+
+    return setprecision(p0, precision(α) ÷ 2)
+end
+
 """
     finda0(α)
 Compute a[0] such that a0(u0, 0)^2/2 - A0(u0, 0) is zero. That is,
 compute a[0] = 2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2).
 It makes use of the monotinicity to get good enclosures for wide
 balls.
+
+PROVE: That a[0] is monotone in α
 """
 function finda0(α)
+    if iswide(α)
+        # In this case α must be an Arb
+        α_low, α_upp = Arblib.getinterval(Arb, α)
+        return Arb((finda0(α_low), finda0(α_upp)))
+    end
     Γ = SpecialFunctions.gamma
     return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
 end
 
 function finda0(α::arb)
     if iswide(α)
-        # PROVE: That a[0] is monotone in α
         α_low, α_upp = getinterval(α)
         return ArbTools.setunion(finda0(α_low), finda0(α_upp))
     end
@@ -139,6 +200,10 @@ function findas(u0::FractionalKdVAnsatz{arb})
     return parent(u0.α).(findas(convert(FractionalKdVAnsatz{Float64}, u0)))
 end
 
+function findas(u0::FractionalKdVAnsatz{Arb})
+    return convert.(Arb, findas(convert(FractionalKdVAnsatz{Float64}, u0)))
+end
+
 function findas!(u0::FractionalKdVAnsatz{T};
                  use_midpoint = true,
                  ) where {T}
@@ -149,31 +214,45 @@ function findas!(u0::FractionalKdVAnsatz{T};
     push!(u0.zeroterms, (2, 0, 0))
 
     if u0.N0 == 1 && u0.N1 == 0
-        # This corresponds to the I_3 case
+        # When we only have one extra Clausian and no Fourier terms we
+        # can do some special things.
 
-        # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
-        # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
-        if !use_midpoint
-            if T == arb
-                @assert contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
-            else
-                @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
+        if u0.α < -0.9
+            # If we are close to α = -1 we take a[1] so that the sum
+            # of the first and second term converge towards the
+            # leading Clausian for α = -1.
+            u0.a[1] = -u0.a[0]
+        else
+            # This corresponds to the I_3 case
+
+            # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
+            # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
+            if !use_midpoint
+                if T == arb
+                    @assert contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
+                elseif T == Arb
+                    @assert Arblib.contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
+                else
+                    @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
+                end
+                push!(u0.zeroterms, (2, 1, 0))
             end
-            push!(u0.zeroterms, (2, 1, 0))
-        end
 
-        # Compute a[1] such that L0(u0, 1) is zero.
-        # TODO: Possibly make use of the monotinicity to get good
-        # enclosures for wide balls.
-        u0.a[1] = -u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
+            # Compute a[1] such that L0(u0, 1) is zero.
+            # TODO: Possibly make use of the monotinicity to get good
+            # enclosures for wide balls.
+            u0.a[1] = -u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
 
-        # This makes the term (0, 0, 1) equal to zero.
-        if !use_midpoint
-            # TODO: Check if it would maybe still be more beneficial
-            # to use the midpoint instead
-            push!(u0.zeroterms, (0, 0, 1))
-        elseif use_midpoint && T == arb
-            u0.a[1] = midpoint(u0.a[1])
+            # This makes the term (0, 0, 1) equal to zero.
+            if !use_midpoint
+                # TODO: Check if it would maybe still be more beneficial
+                # to use the midpoint instead
+                push!(u0.zeroterms, (0, 0, 1))
+            elseif use_midpoint && T == arb
+                u0.a[1] = midpoint(u0.a[1])
+            elseif use_midpoint && T == Arb
+                u0.a[1] = Arblib.midpoint(Arb, u0.a[1])
+            end
         end
     else
         a = findas(u0)
@@ -238,6 +317,18 @@ function findbs!(u0::FractionalKdVAnsatz{arb})
     # required to a higher precision.
 
     u0.b .= parent(u0.α).(u0_float.b)
+
+    return u0
+end
+
+function findbs!(u0::FractionalKdVAnsatz{Arb})
+    u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
+
+    findbs!(u0_float)
+    # TODO: Possibly perform some Newton iterations if the values are
+    # required to a higher precision.
+
+    u0.b .= convert.(Arb, u0_float.b)
 
     return u0
 end
