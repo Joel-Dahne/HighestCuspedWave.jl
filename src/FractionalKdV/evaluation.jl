@@ -13,12 +13,14 @@ export hat, eval_expansion
     """
 function eval_expansion(u0::FractionalKdVAnsatz{T},
                         expansion::AbstractDict{NTuple{3, Int}, T},
-                        x,
+                        x;
+                        offset_i::Integer = 0,
+                        offset = 0,
                         ) where {T}
     res = zero(u0.α)
 
     for ((i, j, m), y) in expansion
-        res += y*abspow(x, -i*u0.α + j*u0.p0 + m)
+        res += y*abspow(x, -(i + offset_i)*u0.α + j*u0.p0 + m + offset)
     end
 
     return res
@@ -59,7 +61,7 @@ function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) 
         expansion[(0, 0, 2m)] = termK0(u0, m)
     end
 
-    if T == arb
+    if T == arb || T == Arb
         expansion[(0, 0, 2M)] = E(u0, M)(x)
     end
 
@@ -116,7 +118,7 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
             expansion[(0, 0, 2m)] = -termL0(u0, m)
         end
 
-        if T == arb
+        if T == arb || T == Arb
             expansion[(0, 0, 2M)] = EH(u0, M)(x)
         end
 
@@ -179,21 +181,26 @@ function D(u0::FractionalKdVAnsatz{T},
     end
 end
 
-function F0(u0::FractionalKdVAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T}
+function F0(u0::FractionalKdVAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T<:Union{arb,Arb}}
     f = D(u0, AsymptoticExpansion(); M)
     return x -> begin
-        res = zero(u0.α)
-
         expansion = f(x)
 
-        for ((i, j, m), y) in expansion
-            if !iszero(y)
-                res += y*abspow(x, -(i - 1)*u0.α + j*u0.p0 + m - u0.p)
-            end
+        res = eval_expansion(u0, expansion, x, offset = -u0.p, offset_i = -1)
+
+        if x isa arb
+            ϵ = ArbTools.abs_ubound(x)
+        elseif x isa Arb
+            ϵ = abs_ubound(Arb, x)
+        else
+            ϵ = x
         end
 
-        ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
-        res *= ball(parent(u0.α)(1), c(u0, ϵ)*abspow(x, u0.p0))/a0(u0, 0)
+        if T == arb
+            res *= ball(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
+        else
+            res *= Arblib.add_error!(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
+        end
 
         return res
     end
@@ -239,7 +246,7 @@ end
     c(u0::FractionalKdVAnsatz{T}, ϵ)
 Compute the constant c_{ϵ,û₀} from Lemma 3.3.
 """
-function c(u0::FractionalKdVAnsatz, ϵ; M::Integer = 3)
+function c(u0::FractionalKdVAnsatz{T}, ϵ; M::Integer = 3) where {T<:Union{arb,Arb}}
     if iszero(ϵ)
         return zero(u0.α)
     end
@@ -256,7 +263,12 @@ function c(u0::FractionalKdVAnsatz, ϵ; M::Integer = 3)
         numerator += abs(termK0(u0, m))*abs(ϵ)^(2m + u0.α - u0.p0)
     end
 
-    E_lower, E_upper = ArbTools.getinterval(abs(E(u0, M)(ϵ)*ϵ^(2M)))
+    if T == arb
+        E_lower, E_upper = ArbTools.getinterval(abs(E(u0, M)(ϵ)*ϵ^(2M)))
+    else
+        E_lower, E_upper = Arblib.getinterval(Arb, abs(E(u0, M)(ϵ)*ϵ^(2M)))
+    end
+
     numerator += E_upper*abs(ϵ)^(u0.α - u0.p0)
 
     denominator = abs(a0(u0, 0))
