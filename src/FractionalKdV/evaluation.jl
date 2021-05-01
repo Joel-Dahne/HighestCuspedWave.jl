@@ -328,8 +328,13 @@ Returns a function such that D(u0, evaltype, N)(a) computes the
 coefficients of the first `u0.N0 + 1` terms in the asymptotic
 expansion using the values of `a`. Does this in an efficient way by
 precomputing as much as possible.
+
+TODO: Optimize the choice of M
+
+TODO: Check that we do not encounter the error terms. This should
+hopefully be fine with M = 5 though.
 """
-function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
+function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
     Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
 
     # Precompute for u0
@@ -365,9 +370,6 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
 
     Hu0_precomputed[(0, 0, 2M)] = OrderedDict()
 
-    ## TODO: Check that we do not encounter the error terms. This
-    ## should be fine with M = 10 though.
-
     return a -> begin
         S = promote_type(T, typeof(a))
 
@@ -389,10 +391,14 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 10) where {T}
 
         # Compute u0^2/2
         res = OrderedDict{NTuple{3, Int}, S}()
-        for ((i1, j1, m1), y1) in u0_res
-            for ((i2, j2, m2), y2) in u0_res
-                key = (i1 + i2, j1 + j2, m1 + m2)
-                res[key] = get(res, key, zero(u0.α)) + y1*y2/2
+
+        u0_res = collect(u0_res)
+        for (i, (key1, y1)) in enumerate(u0_res)
+            res[2 .* key1] = get(res, 2 .* key1, zero(u0.α)) + y1^2 / 2
+            for j in i + 1:length(u0_res)
+                (key2, y2) = u0_res[j]
+                key = key1 .+ key2
+                res[key] = get(res, key, zero(u0.α)) + y1 * y2
             end
         end
 
