@@ -60,3 +60,49 @@ function alpha0(
 
     return max(m1, m2, m3)
 end
+
+function alpha0(u0::FractionalKdVAnsatz{Arb}; M::Integer = 3, rtol = 1e-5)
+    # This is required for a finite value
+    @assert u0.p + u0.α > 0
+
+    # This is the function we want to find the maximum of
+    f(x) = begin
+        u0.w(x) / (2u0(x))
+    end
+
+    # The maximum is in practice attained at x = π, so evaluate at this point
+    m1 = f(Arb(π))
+
+    ϵ = Arb(π) / 2
+    # Make sure the asymptotic values is well defined
+    while isnan(c(u0, ϵ; M))
+        ϵ /= 2
+    end
+    # Continue halving ϵ until the asymptotic value is smaller
+    # than m1, but don't go to far. We have
+    # abs(x)^p/u0(x) = (1 + hat(u0)(x))/a0(u0, 0)*abs(x)^(u0.p + u0.α)
+    # <= (1 + c(u0, ϵ)*abs(x)^u0.p0/a0(u0, 0)*abs(x)^(u0.p + u0.α)
+    # Which attains its maximum value at x = ϵ
+    m2 = (1 + c(u0, ϵ) * abs(ϵ)^u0.p0) / a0(u0, 0) * abs(ϵ)^(u0.p + u0.α)
+    while !(m2 < m1) && ϵ > 1e-10
+        ϵ /= 2
+        m2 = (1 + c(u0, ϵ) * abs(ϵ)^u0.p0) / a0(u0, 0) * abs(ϵ)^(u0.p + u0.α)
+    end
+
+    if m2 > m1
+        @warn "We have m1 > m2 which should not happen in practice"
+    end
+
+    # Bound the value on [ϵ, π] by Ball evaluation
+    m3 = ArbExtras.maximum_enclosure(
+        f,
+        Arblib.lbound(ϵ),
+        Arblib.ubound(Arb(π)),
+        abs_value = true;
+        point_value_max = m1, # m1 is a lower bound of the maximum
+        atol = 2Arblib.radius(m1), # We cannot expect to do better than m1
+        rtol,
+    )
+
+    return max(m1, m2, m3)
+end
