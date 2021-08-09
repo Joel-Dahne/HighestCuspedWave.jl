@@ -414,58 +414,33 @@ zero, if not it uses monotonicity to only evaluate at endpoints. If
 the derivative does contain zero it uses a zero order approximation
 instead.
 """
-function Si(x::acb, s::acb)
-    im = x.parent(0, 1)
-    return (Li(exp(im * x), s) - Li(exp(-im * x), s)) / 2
-end
+Si(x::Acb, s) = (Li(exp(im * x), s) - Li(exp(-im * x), s)) / 2
+Si(x::acb, s::acb) = parent(x)(Ci(Acb(x), Acb(s)))
+Si(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
-function Si(x::arb, s::arb)
-    if iswide(x)
+function Si(x::Arb, s::Union{Arb,Integer})
+    if iswide(x) # If this is true then s is always an Arb
         # Compute derivative
         dSi = Ci(x, s - 1)
         if contains_zero(dSi)
             # Use a zero order approximation
-            ball(Si(midpoint(x), s), (x - midpoint(x)) * dSi)
+            return Arblib.add_error!(Si(Arblib.midpoint(Arb, x), s), (x - Arblib.midpoint(Arb, x)) * dSi)
         else
             # Use that it's monotone
-            xₗ, xᵤ = getinterval(x)
-            return setunion(Si(xₗ, s), Si(xᵤ, s))
+            xₗ, xᵤ = Arblib.getinterval(Arb, x)
+            return union(Si(xₗ, s), Si(xᵤ, s))
         end
     end
-    CC = ComplexField(precision(parent(x)))
-    return imag(Li(exp(CC(zero(x), x)), CC(s)))
+    s = s isa Integer ? s : Acb(s)
+    return imag(Li(exp(Acb(0, x)), s))
 end
 
-function Si(x::arb, s::Integer)
-    if iswide(x)
-        # Compute derivative
-        dSi = Ci(x, s - 1)
-        if contains_zero(dSi)
-            # Use a zero order approximation
-            ball(Si(midpoint(x), s), (x - midpoint(x)) * dSi)
-        else
-            # Use that it's monotone
-            xₗ, xᵤ = getinterval(x)
-            return setunion(Si(xₗ, s), Si(xᵤ, s))
-        end
-    end
-    CC = ComplexField(precision(parent(x)))
-    return imag(Li(exp(CC(zero(x), x)), s))
-end
-
-function Si(x::T, s) where {T<:Real}
-    CC = ComplexField(precision(BigFloat))
-    z = exp(im * x)
-    res = imag(Li(CC(real(z), imag(z)), CC(s)))
-    return convert(float(T), res)
-end
-
-function Si(x::T, s::Integer) where {T<:Real}
-    CC = ComplexField(precision(BigFloat))
-    z = exp(im * x)
-    res = imag(Li(CC(real(z), imag(z)), s))
-    return convert(float(T), res)
-end
+Si(x::arb, s::arb) = parent(x)(Si(Arb(x), Arb(s)))
+Si(x::arb, s::Integer) = parent(x)(Si(Arb(x), s))
+Si(x::S, s::T) where {S<:Real,T<:Real} = convert(
+    float(promote_type(S, T)),
+    Si(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
+)
 
 """
     Si_expansion(x, s, M::Integer)
