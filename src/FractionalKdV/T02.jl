@@ -112,6 +112,7 @@ function T02(
                 # - α) and the asymptotic expansion.
                 y = 2x - 2Arb(π)
                 M = 3
+                # TODO: This is still not implemented for Arb
                 C, e, P, E = Si_expansion(y, 1 - α, M)
                 res -= x / 2 * (-C * abspow(y, e) + P(y) + E * abs(y)^(2M + 1))
             else
@@ -124,19 +125,18 @@ function T02(
             a = Arblib.ubound(Arb, x + δ2)
 
             # Compute with the asymptotic expansion on the whole interval
-            #res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π))
+            res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π))
 
-            #if π < a || π - x < ϵ
-            #    return res_asymptotic
-            #end
+            if π < a || π - x < ϵ
+                return res_asymptotic
+            end
 
-            part1 = zero(x) # T021(u0, Ball(), a, x; ϵ)
+            part1 = T021(u0, Ball(), a, x; ϵ)
 
             part2 = T022(u0, Ball(), a, x; rtol, atol, show_trace)
 
             res = part1 + part2
-            #return intersect(res, res_asymptotic)
-            return res
+            return intersect(res, res_asymptotic)
         end
     end
 end
@@ -252,7 +252,7 @@ the enclosing ball might contain values greater than one, we therefore
 have to use `beta_inc_zeroone` to be able to get finite results in
 that case.
 """
-T021(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
+T021(u0::FractionalKdVAnsatz, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
 function T021(
     u0::FractionalKdVAnsatz{arb},
@@ -382,13 +382,114 @@ function T021(
     return res / (parent(u0.α)(π) * u0.w(x) * u0(x))
 end
 
+function T021(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Ball,
+    a::Arb,
+    x::Arb;
+    ϵ::Arb = Arb(1e-1),
+    N::Integer = 3,
+)
+    Γ = SpecialFunctions.gamma
+    α = u0.α
+    δ2 = a - x
+
+    # Determine if the asymptotic expansion or the Taylor
+    # expansion should be used for the second term
+    use_asymptotic = π - x < ϵ
+
+    # Analytic terms
+    (P, E) = taylor_with_error(x, union(x, a), N) do y
+        if !use_asymptotic
+            return Ci(x + y, -α) - 2Ci(y, -α)
+        else
+            return -2Ci(y, -α)
+        end
+    end
+    P_restterm = Arblib.add_error!(zero(α), E * δ2^N)
+
+    # Singular term
+    M = N ÷ 2 + 1
+    (C, e, P2, P2_E) = Ci_expansion(δ2, -α, M)
+    P2_restterm = P2_E * δ2^(2M)
+
+    # Compute the integral
+    res = zero(α)
+    # Integrate the singular term
+    # Using ∫_x^a |x - y|^s*y^p dy = ∫_x^a (y - x)^s*y^p dy
+    if u0.p == 1
+        res += C * abspow(δ2, 1 + e) * (δ2 / (2 + e) + x / (1 + e))
+    else
+        res +=
+            C *
+            x^(1 + e + u0.p) *
+            (
+                Γ(1 + e) * Γ(-1 - e - u0.p) / Γ(-u0.p) -
+                beta_inc_zeroone(-1 - e - u0.p, 1 + e, x / a)
+            )
+    end
+
+    # Integrate the analytic terms
+    full_series = P + P2
+    for i = 0:N-1
+        if u0.p == 1
+            res += full_series[i] * δ2^(1 + i) * (δ2 / (2 + i) + x / (1 + i))
+        else
+            res +=
+                full_series[i] *
+                x^(1 + i + u0.p) *
+                (
+                    Γ(Arb(1 + i)) * Γ(-1 - i - u0.p) / Γ(-u0.p) -
+                    beta_inc(-1 - i - u0.p, Arb(1 + i), x / a)[1]
+                )
+        end
+    end
+
+    # Add the error term
+    res += δ2 * (P_restterm + P2_restterm)
+
+    if use_asymptotic
+        # Handle asymptotic expansion of Ci(x + y, -α)
+        # The furthest away from 2π we are is at y = x
+        (C, e, P3, P3_E) = Ci_expansion(2Arb(π) - 2x, -α, M)
+        P3_restterm = P2_E * (2Arb(π) - 2x)^(2M)
+
+        # Add the singular part to the integral
+        res +=
+            C *
+            (2Arb(π) - x)^(1 + e + u0.p) *
+            (
+                beta_inc_zeroone(1 + u0.p, 1 + e, a / (2Arb(π) - x)) -
+                beta_inc_zeroone(1 + u0.p, 1 + e, x / (2Arb(π) - x))
+            )
+
+        for i = 0:2:N-1
+            # Only even terms
+            res +=
+                P3[i] *
+                (2Arb(π) - x)^(1 + i + u0.p) *
+                (
+                    beta_inc_zeroone(1 + u0.p, Arb(1 + i), a / (2Arb(π) - x)) -
+                    beta_inc_zeroone(1 + u0.p, Arb(1 + i), x / (2Arb(π) - x))
+                )
+        end
+
+        # Add error term
+        res += δ2 * P3_restterm
+    end
+
+    # Prove: that the expression inside the absolute value of the
+    # integrand is positive
+    return res / (Arb(π) * u0.w(x) * u0(x))
+end
+
 """
     T022(u0::FractionalKdVAnsatz{arb}, a::arb, x::arb)
 Computes the (not yet existing) integral T_{0,2,2} from the paper.
 
 TODO: Write about how this is done.
 """
-T022(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
+T022(u0::FractionalKdVAnsatz, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 
 function T022(
     u0::FractionalKdVAnsatz{arb},
