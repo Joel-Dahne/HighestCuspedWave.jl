@@ -302,7 +302,7 @@ function Ci(x::arb_series, s)
     res = arb_series(parent(x.poly)())
     x₀ = x[0]
 
-    for i = 0:length(p) - 1
+    for i = 0:length(x) - 1
         if i % 2 == 0
             res[i] = (-1)^(div(i, 2)) * Ci(x₀, s - i) / factorial(i)
         else
