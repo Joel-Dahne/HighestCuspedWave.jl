@@ -111,39 +111,19 @@ Compute the Clausian function Ciₛ^(β)(x).
 
 That is, `Ciₛ` differentiated `β` times w.r.t. `s` evaluated at `x`.
 
-TODO: If x is a wide (real) ball (as determined by iswide(x)) it
-computes a tighter enclosure by using that Ci 2π periodic, monotonic
-for x ∈ [0, π] and even, so that it's enough to evaluate on the
-endpoints and possibly at zero or π if `x` contains points on the form
-`2kπ` or (2k + 1)π` respectively.
+TODO: If x is a wide (real) ball (as determined by iswide(x)) compute
+a tighter enclosure by using that Ci 2π periodic, monotonic for x ∈
+[0, π] and even, so that it's enough to evaluate on the endpoints and
+possibly at zero or π if `x` contains points on the form `2kπ` or (2k
++ 1)π` respectively.
 """
-function Ci(x::acb, s, β::Integer)
-    im = x.parent(0, 1)
-    return (Li(exp(im * x), s, β) + Li(exp(-im * x), s, β)) / 2
-end
+Ci(x::Acb, s::Acb, β::Integer) = (Li(exp(im * x), s, β) + Li(exp(-im * x), s, β)) / 2
+Ci(x::acb, s::acb, β::Integer) = parent(x)(Ci(Acb(x), Acb(s), β))
 
-function Ci(x::arb, s, β::Integer)
-    CC = ComplexField(precision(parent(x)))
-    return real(Li(exp(CC(zero(x), x)), CC(s), β))
-end
-
-# TODO: Optimize for wide x
-function Ci(x::Acb, s, β::Integer)
-    s = convert(Acb, s)
-    return (Li(exp(im * x), s, β) + Li(exp(-im * x), s, β)) / 2
-end
-
-# TODO: Optimize for wide x
-function Ci(x::Arb, s, β::Integer)
-    return real(Li(exp(Acb(0, x)), convert(Acb, s), β))
-end
-
-function Ci(x::T, s, β::Integer) where {T<:Real}
-    CC = ComplexField(precision(BigFloat))
-    z = exp(im * x)
-    res = real(Li(CC(real(z), imag(z)), CC(s), β))
-    return convert(float(T), res)
-end
+Ci(x::Arb, s::Arb, β::Integer) = real(Li(exp(Acb(0, x)), convert(Acb, s), β))
+Ci(x::arb, s::arb, β::Integer) = parent(x)(Ci(Arb(x), Arb(s), β))
+Ci(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
+    convert(float(promote_type(S, T)), Ci(convert(Arb, x), convert(Arb, s), β))
 
 # For non-integer values of β we don't have an Arb-implementation and
 # fall back to a finite sum. This is extremely inefficient and
