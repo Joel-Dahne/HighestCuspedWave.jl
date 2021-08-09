@@ -30,6 +30,33 @@ function T0(
     end
 end
 
+function T0(
+    u0::FractionalKdVAnsatz{Arb},
+    evaltype::Ball;
+    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ2::Arf = Arf(1e-2),
+    ϵ::Arb = 1 + u0.α,
+    rtol = 0,
+    atol = 0,
+    show_trace = false,
+)
+    f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
+    g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
+
+    return x -> begin
+        ## Integral on [0, x] - Change to t = y/x
+        part1 = f(x)
+
+        # Short circuit on a non-finite result
+        isfinite(part1) || return part1
+
+        ## Integral on [x, π]
+        part2 = g(x)
+        return part1 + part2
+    end
+end
+
 ##
 ## T01
 ##
@@ -54,6 +81,23 @@ function T01(
     f = T011(u0, evaltype; δ0)
     g = T012(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
     h = T013(u0, evaltype; δ1)
+    return x -> begin
+        return f(x) + g(x) + h(x)
+    end
+end
+
+function T01(
+    u0::FractionalKdVAnsatz{Arb},
+    evaltype::Ball;
+    δ0::Arf = Arf(1e-2),
+    δ1::Arf = Arf(1e-2),
+    rtol = 0,
+    atol = 0,
+    show_trace = false,
+)
+    f = x -> zero(x) # T011(u0, evaltype; δ0)
+    g = T012(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
+    h = x -> zero(x) # T013(u0, evaltype; δ1)
     return x -> begin
         return f(x) + g(x) + h(x)
     end
@@ -273,6 +317,44 @@ function T012(
         )
 
         return res * x / (parent(u0.α)(π) * u0(x))
+    end
+end
+
+function T012(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Ball = Ball();
+    δ0::Arf = Arf(1e-2),
+    δ1::Arf = Arf(1e-2),
+    rtol = 0,
+    atol = 0,
+    show_trace = false,
+)
+    α = u0.α
+    mα = Acb(-α)
+    a = Acb(δ0)
+    b = 1 - Acb(δ1)
+
+    return x -> begin
+        # PROVE: That there are no branch cuts that interact with the
+        # integral
+        f(t; analytic = false) = begin
+            t = Acb(t)
+            if isreal(t)
+                res = Acb(
+                    Ci(x * (1 - real(t)), -α) + Ci(x * (1 + real(t)), -α) -
+                    2Ci(x * real(t), -α),
+                )
+            else
+                res = Ci(x * (1 - t), mα) + Ci(x * (1 + t), mα) - 2Ci(x * t, mα)
+            end
+
+            return Arblib.real_abs!(res, res, analytic) * t^u0.p
+        end
+
+        # TODO: Increase maximum number of evaluations
+        res = real(Arblib.integrate(f, a, b, check_analytic = true; rtol, atol))
+
+        return res * x / (Arb(π) * u0(x))
     end
 end
 
@@ -503,6 +585,61 @@ function T02(
     end
 end
 
+function T02(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Ball;
+    δ2::Arf = Arf(1e-2),
+    ϵ::Arb = 1 + u0.α,
+    rtol = 0,
+    atol = 0,
+    show_trace = false,
+)
+    if u0.p == 1
+        # Use the closed form expression
+        α = u0.α
+        p = u0.p
+        return x -> begin
+            # TODO: Handle the case when x contains π. Then Si(2x, 1 -
+            # α) evaluates to NaN. Si has issues as soon as the
+            # argument is a ball containing a multiple of 2π.
+            res =
+                Ci(x + π, 2 - α) - Ci(Arb(π), 2 - α) + Ci(x, 2 - α) -
+                (Ci(2x, 2 - α) + zeta(2 - α)) / 2 + x * Si(x, 1 - α)
+            if π - x < 1e-4
+                # When 2x is close to 2π direct evaluation
+                # of Si fails. Use that Si(2x, 1 - α) = Si(2x - 2π, 1
+                # - α) and the asymptotic expansion.
+                y = 2x - 2Arb(π)
+                M = 3
+                C, e, P, E = Si_expansion(y, 1 - α, M)
+                res -= x / 2 * (-C * abspow(y, e) + P(y) + E * abs(y)^(2M + 1))
+            else
+                res -= x / 2 * Si(2x, 1 - α)
+            end
+            return 2 / (π * u0.w(x) * u0(x)) * res
+        end
+    else
+        return x -> begin
+            a = Arblib.ubound(Arb, x + δ2)
+
+            # Compute with the asymptotic expansion on the whole interval
+            #res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π))
+
+            #if π < a || π - x < ϵ
+            #    return res_asymptotic
+            #end
+
+            part1 = zero(x) # T021(u0, Ball(), a, x; ϵ)
+
+            part2 = T022(u0, Ball(), a, x; rtol, atol, show_trace)
+
+            res = part1 + part2
+            #return intersect(res, res_asymptotic)
+            return res
+        end
+    end
+end
+
 """
     T02(u0::FractionalKdVAnsatz, ::Asymptotic)
 Returns a function such that `T02(u0, Asymptotic())(x)` computes an
@@ -625,6 +762,18 @@ function T021(
 )
     return x -> begin
         T021(u0, Ball(), ArbTools.ubound(x + δ2), x, ϵ = ϵ, N = N)
+    end
+end
+
+function T021(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Ball;
+    δ2::Arf = Arf(1e-4),
+    ϵ::Arb = Arb(1e-1),
+    N::Integer = 3,
+)
+    return x -> begin
+        T021(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; ϵ, N)
     end
 end
 
@@ -762,6 +911,19 @@ function T022(
 end
 
 function T022(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Ball;
+    δ2::Arf = Arf(1e-4),
+    rtol = 0,
+    atol = 0,
+    show_trace = false,
+)
+    return x -> begin
+        T022(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; rtol, atol, show_trace)
+    end
+end
+
+function T022(
     u0::FractionalKdVAnsatz{arb},
     ::Ball,
     a::arb,
@@ -804,4 +966,39 @@ function T022(
 
     return res / (parent(u0.α)(π) * u0.w(x) * u0(x))
 
+end
+
+function T022(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Ball,
+    a::Arb,
+    x::Arb;
+    rtol = 0,
+    atol = 0,
+    show_trace = false,
+)
+    mα = Acb(-u0.α)
+    a = Acb(a)
+    b = Acb(π)
+
+    # PROVE: That there are no branch cuts that interact with the
+    # integral
+    f(y; analytic = false) = begin
+        y = Acb(y)
+        if isreal(y)
+            res = Acb(
+                Ci(x - real(y), -u0.α) + Ci(x + real(y), -u0.α) -
+                2Ci(real(y), -u0.α),
+            )
+        else
+            res = Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα)
+        end
+
+        return Arblib.real_abs!(res, res, analytic) * y^u0.p
+    end
+
+    # TODO: Increase maximum number of evaluations
+    res = real(Arblib.integrate(f, a, b, check_analytic = true; rtol, atol))
+
+    return res / (Arb(π) * u0.w(x) * u0(x))
 end
