@@ -7,7 +7,7 @@ function Arblib.set!(res::Arb, x::arb)
 end
 
 # For conversion from acb to Acb
-Acb(x::acb; prec::Integer = precision(parent(x))) = Arblib.set!(Acb(prec = prec), x)
+Arblib.Acb(x::acb; prec::Integer = precision(parent(x))) = Arblib.set!(Acb(prec = prec), x)
 function Arblib.set!(res::Acb, x::acb)
     ccall(Arblib.@libarb("acb_set"), Cvoid, (Ref{Arblib.acb_struct}, Ref{Nemo.acb}), res, x)
     return res
