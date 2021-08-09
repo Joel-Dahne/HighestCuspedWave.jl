@@ -112,7 +112,6 @@ function T02(
                 # - α) and the asymptotic expansion.
                 y = 2x - 2Arb(π)
                 M = 3
-                # TODO: This is still not implemented for Arb
                 C, e, P, E = Si_expansion(y, 1 - α, M)
                 res -= x / 2 * (-C * abspow(y, e) + P(y) + E * abs(y)^(2M + 1))
             else

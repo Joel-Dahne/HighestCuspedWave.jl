@@ -476,6 +476,25 @@ function Si_expansion(x::arb, s::arb, M::Integer)
     return (C, e, P, E)
 end
 
+function Si_expansion(x::Arb, s::Arb, M::Integer)
+    π = Arb(pi)
+
+    # Non-analytic term
+    C = SpecialFunctions.gamma(1 - s) * cospi(s / 2)
+    e = s - 1
+
+    # Analytic term
+    P = ArbSeries(degree = 2M - 1)
+    for m = 0:M-1
+        P[2m+1] = (-1)^m * zeta(s - 2m - 1) / factorial(2m + 1)
+    end
+
+    # Error term
+    E = Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
+
+    return (C, e, P, E)
+end
+
 # For non-integer values of β we don't have an Arb-implementation and
 # fall back to a finite sum. This is extremely inefficient and
 # NON-RIGOROUS.
