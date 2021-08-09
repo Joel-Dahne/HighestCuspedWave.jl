@@ -1,5 +1,3 @@
-
-
 """
     delta0(u0::FractionalKdVAnsatz; ϵ::arb = 0, M::Integer = 3, n::Integer = 6)
 Upper bound the value of `δ₀` from the paper.
@@ -71,6 +69,59 @@ function delta0(
         absmax = true,
         maxevals = 10^4,
         show_trace = show_trace,
+    )
+
+    return max(res1, res2)
+end
+
+function delta0(
+    u0::FractionalKdVAnsatz{Arb};
+    ϵ::Arf = zero(Arf),
+    M::Integer = 3,
+    n::Integer = 6,
+    rtol = 1e-3,
+    show_trace = false,
+)
+    f = F0(u0, Asymptotic(); M)
+
+    g = F0(u0)
+    if iszero(ϵ)
+        # Find a value of ϵ such that the asymptotic error is smaller
+        # than the direct one
+        ϵ = one(ϵ)
+        while !(Arblib.radius(f(Arb(ϵ))) < Arblib.radius(g(Arb(ϵ)))) && ϵ > 1e-3
+            ϵ /= 2
+        end
+    end
+
+    # Bound the value one [0, ϵ]
+    # Estimate the value by evaluating it at ϵ
+    estimate = abs(f(Arb(ϵ)))
+    res1 = ArbExtras.maximum_enclosure(
+        f,
+        zero(ϵ),
+        ϵ,
+        degree = -1,
+        abs_value = true,
+        point_value_max = estimate,
+        atol = 2Arblib.radius(estimate),
+        maxevals = 10000,
+        depth = 60,
+        verbose = show_trace;
+        rtol,
+    )
+
+    # Bound the value on [ϵ, π] by Ball evaluation
+    estimate = maximum(abs.(g.(range(Arb(ϵ), Arblib.ubound(Arb, Arb(π)), length = 10))))
+    res2 = ArbExtras.maximum_enclosure(
+        g,
+        ϵ,
+        Arblib.ubound(Arb(π)),
+        abs_value = true,
+        point_value_max = estimate,
+        atol = 4Arblib.radius(Arb, estimate),
+        verbose = show_trace;
+        rtol,
     )
 
     return max(res1, res2)
