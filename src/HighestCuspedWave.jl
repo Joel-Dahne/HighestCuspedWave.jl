@@ -33,6 +33,8 @@ include("FractionalKdV/evaluation.jl")
 include("FractionalKdV/alpha.jl")
 include("FractionalKdV/delta.jl")
 include("FractionalKdV/T0.jl")
+include("FractionalKdV/T01.jl")
+include("FractionalKdV/T02.jl")
 include("FractionalKdV/CB.jl")
 include("FractionalKdV/proof.jl")
 
