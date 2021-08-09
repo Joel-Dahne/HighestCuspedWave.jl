@@ -21,7 +21,9 @@ function eval_expansion(
     res = zero(u0.α)
 
     for ((i, j, m), y) in expansion
-        res += y * abspow(x, -(i + offset_i) * u0.α + j * u0.p0 + m + offset)
+        if !iszero(y)
+            res += y * abspow(x, -(i + offset_i) * u0.α + j * u0.p0 + m + offset)
+        end
     end
 
     return res
