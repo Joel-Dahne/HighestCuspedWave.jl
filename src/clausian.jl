@@ -299,7 +299,7 @@ function Ci(x::ArbSeries, s)
 end
 
 function Ci(x::arb_series, s)
-    res = arb_series(parent(x.poly)())
+    res = arb_series(parent(x.poly)(), length(x))
     x₀ = x[0]
 
     for i = 0:length(x) - 1
