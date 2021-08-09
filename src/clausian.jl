@@ -77,72 +77,33 @@ tighter enclosure by using that `Ci` is 2π periodic, monotonic for `x ∈
 possibly at zero or π if `x` contains points on the form `2kπ` or (2k
 + 1)π` respectively.
 """
-function Ci(x::acb, s)
-    im = x.parent(0, 1)
-    return (Li(exp(im * x), s) + Li(exp(-im * x), s)) / 2
-end
+Ci(x::Acb, s) = (Li(exp(im * x), s) + Li(exp(-im * x), s)) / 2
+Ci(x::acb, s::acb) = parent(x)(Ci(Acb(x), Acb(s)))
+Ci(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
-function Ci(x::arb, s::arb)
-    if iswide(x)
-        xₗ = ArbTools.lbound(x)
-        xᵤ = ArbTools.ubound(x)
+function Ci(x::Arb, s::Union{Arb,Integer})
+    if iswide(x) # If this is true then s is always an Arb
+        xₗ, xᵤ = Arblib.getinterval(Arb, x)
         (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
-        res = setunion(Ci(xₗ, s), Ci(xᵤ, s))
+        res = union(Ci(xₗ, s), Ci(xᵤ, s))
         if include_zero
-            res = setunion(res, Ci(zero(x), s))
+            res = union(res, Ci(zero(x), s))
         end
         if include_pi
-            res = setunion(res, Ci(parent(x)(π), s))
+            res = union(res, Ci(Arb(π), s))
         end
         return res
     end
-    CC = ComplexField(precision(parent(x)))
-    return real(Li(exp(CC(zero(x), x)), CC(s)))
+    s = s isa Integer ? s : Acb(s)
+    return real(Li(exp(Acb(0, x)), s))
 end
 
-function Ci(x::arb, s::Integer)
-    if iswide(x)
-        xₗ = ArbTools.lbound(x)
-        xᵤ = ArbTools.ubound(x)
-        (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
-        res = setunion(Ci(xₗ, s), Ci(xᵤ, s))
-        if include_zero
-            res = setunion(res, Ci(zero(x), s))
-        end
-        if include_pi
-            res = setunion(res, Ci(parent(x)(π), s))
-        end
-        return res
-    end
-    CC = ComplexField(precision(parent(x)))
-    return real(Li(exp(CC(zero(x), x)), s))
-end
-
-# TODO: Optimize for wide x
-function Ci(x::Arb, s::Arb)
-    real(Li(exp(Acb(0, x)), Acb(s)))
-end
-
-# TODO: Optimize for wide x
-function Ci(x::Arb, s::Integer)
-    real(Li(exp(Acb(0, x)), s))
-end
-
-Ci(x::Real, s::Arb) = Ci(Arb(x), s)
-
-function Ci(x::T, s) where {T<:Real}
-    CC = ComplexField(precision(BigFloat))
-    z = exp(im * x)
-    res = real(Li(CC(real(z), imag(z)), CC(s)))
-    return convert(float(T), res)
-end
-
-function Ci(x::T, s::Integer) where {T<:Real}
-    CC = ComplexField(precision(BigFloat))
-    z = exp(im * x)
-    res = real(Li(CC(real(z), imag(z)), s))
-    return convert(float(T), res)
-end
+Ci(x::arb, s::arb) = parent(x)(Ci(Arb(x), Arb(s)))
+Ci(x::arb, s::Integer) = parent(x)(Ci(Arb(x), s))
+Ci(x::S, s::T) where {S<:Real,T<:Real} = convert(
+    float(promote_type(S, T)),
+    Ci(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
+)
 
 """
     Ci(x, s, β)
