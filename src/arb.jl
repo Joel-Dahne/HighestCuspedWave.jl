@@ -157,7 +157,8 @@ function stieltjes(n::Integer)
 end
 
 """
-    contains_pi(x1::arb, x2::arb)
+    contains_pi(x1, x2)
+
 Checks the interval `[x1, x2]` if it contains points of the form `kπ`.
 Returns two booleans, the first one is false if it doesn't contain a
 point on the form `2kπ` and the second one if it doesn't contain one
@@ -167,28 +168,35 @@ x2])` can occur.
 
 TODO: This is (hopefully) correct but not optimal.
 """
-function contains_pi(x1::arb, x2::arb)
+function contains_pi(x1::Arb, x2::Arb)
     @assert !(x1 > x2)
 
     # x1 or x2 equal to zero are the only cases when the division by π
     # can be exact, in which case it has to be handled differently.
-    if iszero(x1)
-        return (true, !(x2 < parent(x2)(π)))
-    end
-    if iszero(x2)
-        return (true, !(x1 > -parent(x1)(π)))
-    end
+    iszero(x1) && return (true, !(x2 < π))
+    iszero(x2) && return (true, !(x1 > -Arb(π)))
 
     # We have k1ₗπ ≤ xₗ < (k1ᵤ + 1)π
-    k1 = floor(x1 / parent(x1)(π))
-    (unique1ₗ, k1ₗ) = unique_integer(ceil(ArbTools.lbound(k1)))
-    (unique1ᵤ, k1ᵤ) = unique_integer(floor(ArbTools.ubound(k1)))
-    @assert unique1ₗ && unique1ᵤ && k1ₗ * parent(x1)(π) ≤ x1 < (k1ᵤ + 1) * parent(x1)(π)
+    k1 = Arblib.floor!(zero(x1), x1 / π)
+    # TODO: Implement unique_integer for Arb
+    unique1ₗ, k1ₗ = unique_integer(
+        ArbField(precision(k1))(Arblib.ceil!(zero(k1), Arblib.lbound(Arb, k1))),
+    )
+    unique1ᵤ, k1ᵤ = unique_integer(
+        ArbField(precision(k1))(Arblib.floor!(zero(k1), Arblib.ubound(Arb, k1))),
+    )
+    k1ₗ, k1ᵤ = Int(k1ₗ), Int(k1ᵤ)
+    @assert unique1ₗ && unique1ᵤ && k1ₗ * Arb(π) ≤ x1 < (k1ᵤ + 1) * Arb(π)
     # We have k2ₗπ ≤ xₗ < (k2ᵤ + 1)π
-    k2 = floor(x2 / parent(x2)(π))
-    (unique2ₗ, k2ₗ) = unique_integer(ceil(ArbTools.lbound(k2)))
-    (unique2ᵤ, k2ᵤ) = unique_integer(floor(ArbTools.ubound(k2)))
-    @assert unique2ₗ && unique2ᵤ && k2ₗ * parent(x2)(π) ≤ x2 < (k2ᵤ + 1) * parent(x2)(π)
+    k2 = Arblib.floor!(zero(x2), x2 / π)
+    (unique2ₗ, k2ₗ) = unique_integer(
+        ArbField(precision(k2))(Arblib.ceil!(zero(k2), Arblib.lbound(Arb, k2))),
+    )
+    (unique2ᵤ, k2ᵤ) = unique_integer(
+        ArbField(precision(k2))(Arblib.floor!(zero(k2), Arblib.ubound(Arb, k2))),
+    )
+    k2ₗ, k2ᵤ = Int(k2ₗ), Int(k2ᵤ)
+    @assert unique2ₗ && unique2ᵤ && k2ₗ * Arb(π) ≤ x2 < (k2ᵤ + 1) * Arb(π)
 
     if k1ₗ == k2ᵤ
         # No kπ
@@ -205,6 +213,8 @@ function contains_pi(x1::arb, x2::arb)
         return (true, true)
     end
 end
+
+contains_pi(x1::arb, x2::arb) = contains_pi(Arb(x1), Arb(x2))
 
 """
     beta_inc(a, b, z)
