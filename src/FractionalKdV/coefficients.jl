@@ -6,7 +6,7 @@ Compute a_j^0 from Lemma 3.2
 """
 function a0(u0::FractionalKdVAnsatz{T}, j::Integer) where {T}
     Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
-    return Γ(u0.α - j*u0.p0)*sinpi((1 - u0.α + j*u0.p0)/2)*u0.a[j]
+    return Γ(u0.α - j * u0.p0) * sinpi((1 - u0.α + j * u0.p0) / 2) * u0.a[j]
 end
 
 """
@@ -16,8 +16,8 @@ Compute K_m^0 from Lemma 3.2
 function K0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
-    for j in 0:u0.N0
-        res += zeta(1 - u0.α + j*u0.p0 - 2m)*u0.a[j]
+    for j = 0:u0.N0
+        res += zeta(1 - u0.α + j * u0.p0 - 2m) * u0.a[j]
     end
 
     res /= factorial(fmpz(2m))
@@ -34,12 +34,12 @@ occurring in Lemma 3.2
 function termK0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
-    for j in 0:u0.N0
-        res += zeta(1 - u0.α + j*u0.p0 - 2m)*u0.a[j]
+    for j = 0:u0.N0
+        res += zeta(1 - u0.α + j * u0.p0 - 2m) * u0.a[j]
     end
 
-    for n in 1:u0.N1
-        res += parent(u0.α)(n)^(2m)*u0.b[n]
+    for n = 1:u0.N1
+        res += parent(u0.α)(n)^(2m) * u0.b[n]
     end
 
     res /= factorial(fmpz(2m))
@@ -54,7 +54,7 @@ Compute A_j^0 from Lemma 3.2
 """
 function A0(u0::FractionalKdVAnsatz{T}, j::Integer) where {T}
     Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
-    return Γ(2*u0.α - j*u0.p0)*sinpi((1 - 2*u0.α + j*u0.p0)/2)*u0.a[j]
+    return Γ(2 * u0.α - j * u0.p0) * sinpi((1 - 2 * u0.α + j * u0.p0) / 2) * u0.a[j]
 end
 
 """
@@ -64,8 +64,8 @@ Compute L_m^0 from Lemma 3.2
 function L0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
-    for j in 0:u0.N0
-        res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
+    for j = 0:u0.N0
+        res += zeta(1 - 2 * u0.α + j * u0.p0 - 2m) * u0.a[j]
     end
 
     res /= factorial(fmpz(2m))
@@ -82,12 +82,12 @@ occurring in Lemma 3.2
 function termL0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
-    for j in 0:u0.N0
-        res += zeta(1 - 2*u0.α + j*u0.p0 - 2m)*u0.a[j]
+    for j = 0:u0.N0
+        res += zeta(1 - 2 * u0.α + j * u0.p0 - 2m) * u0.a[j]
     end
 
-    for n in 1:u0.N1
-        res += parent(u0.α)(n)^(2m + u0.α)*u0.b[n]
+    for n = 1:u0.N1
+        res += parent(u0.α)(n)^(2m + u0.α) * u0.b[n]
     end
 
     res /= factorial(fmpz(2m))

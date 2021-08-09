@@ -28,12 +28,13 @@ ball arithmetic on `[ϵ, π]`. This always gives a lower bound of `δ₀`.
 If `return_values = true` then also return the points and the computed
 values.
 """
-function delta0_estimate(u0::AbstractAnsatz{T};
-                         ϵ = 0,
-                         M::Integer = 3,
-                         n::Integer = 100,
-                         return_values = false,
-                         ) where {T}
+function delta0_estimate(
+    u0::AbstractAnsatz{T};
+    ϵ = 0,
+    M::Integer = 3,
+    n::Integer = 100,
+    return_values = false,
+) where {T}
     xs = range(0, stop = π, length = n + 1)[2:end]
     if T == arb
         xs = u0.parent.(xs)

@@ -30,11 +30,12 @@ values.
 
 TODO: Use the asymptotic version close to zero.
 """
-function CB_estimate(u0::AbstractAnsatz{T};
-                     n::Integer = 20,
-                     return_values = false,
-                     show_trace = false,
-                     ) where {T}
+function CB_estimate(
+    u0::AbstractAnsatz{T};
+    n::Integer = 20,
+    return_values = false,
+    show_trace = false,
+) where {T}
     xs = range(0, stop = π, length = n)[2:end]
     if T == arb
         xs = u0.parent.(xs)

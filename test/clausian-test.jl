@@ -21,7 +21,7 @@
                 # Error term
                 poly_ball = arb_series(PP([setunion(x, a), one(x)]), N + 1)
                 poly2 = f(poly_ball)
-                restterm = abs(x - a)^N*coeff(poly2.poly, N)
+                restterm = abs(x - a)^N * coeff(poly2.poly, N)
 
                 @test overlaps(y_approx + restterm, y)
             end
@@ -31,12 +31,18 @@ end
 
 @testset "Ci_expansion" begin
     RR = RealField(64)
-    s = RR(0.5)
+    s = 0.5
     for M in [3, 7]
         for x in range(-π, stop = π, length = 100)
-            x = RR(x)
-            (C, e, P, E) = HighestCuspedWave.Ci_expansion(x, s, M)
-            @test overlaps(C*abs(x)^e + evaluate(P.poly, x) + E*x^(2M), Ci(x, s))
+            let x = RR(x), s = RR(s)
+                (C, e, P, E) = HighestCuspedWave.Ci_expansion(x, s, M)
+                @test overlaps(C * abs(x)^e + evaluate(P.poly, x) + E * x^(2M), Ci(x, s))
+            end
+
+            let x = Arb(x), s = Arb(s)
+                (C, e, P, E) = HighestCuspedWave.Ci_expansion(x, s, M)
+                @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^(2M), Ci(x, s))
+            end
         end
     end
 end
@@ -48,7 +54,10 @@ end
         for x in range(-π, stop = π, length = 100)
             x = RR(x)
             (C, e, P, E) = HighestCuspedWave.Si_expansion(x, s, M)
-            @test overlaps(C*ifelse(x < 0, -1, 1)*abs(x)^e + evaluate(P.poly, x) + E*x^(2M + 1), Si(x, s))
+            @test overlaps(
+                C * ifelse(x < 0, -1, 1) * abs(x)^e + evaluate(P.poly, x) + E * x^(2M + 1),
+                Si(x, s),
+            )
         end
     end
 end

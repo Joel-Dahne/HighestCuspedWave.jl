@@ -26,7 +26,7 @@ function T0(
 
         ## Integral on [x, π]
         part2 = g(x)
-        return part1 + part2
+        return 2(part1 + part2)
     end
 end
 
@@ -85,10 +85,17 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
         integrand(t; analytic::Bool) = begin
             res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2)
             Arblib.real_abs!(res, res, analytic)
-            return res * u0.w(t * x)
+            return res * t * x * sqrt(log((t * x + 1) / (t * x))) # TODO: Avoid hard-coding weight
         end
 
-        res = Arblib.integrate(integrand, a, b, check_analytic = true)
+        res = Arblib.integrate(
+            integrand,
+            a,
+            b,
+            check_analytic = true,
+            rtol = 1e-10,
+            atol = 1e-10,
+        )
         @assert isreal(res)
         res = real(res)
 
@@ -171,10 +178,17 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
         integrand(y; analytic::Bool) = begin
             res = log(-sin((x - y) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
             Arblib.real_abs!(res, res, analytic)
-            return res * u0.w(y)
+            return res * y * sqrt(log((y + 1) / y)) # TODO: Avoid hard-coding weight
         end
 
-        res = Arblib.integrate(integrand, a, b, check_analytic = true)
+        res = Arblib.integrate(
+            integrand,
+            a,
+            b,
+            check_analytic = true,
+            rtol = 1e-10,
+            atol = 1e-10,
+        )
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 

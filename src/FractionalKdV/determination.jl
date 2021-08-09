@@ -9,7 +9,8 @@ We use, but don't have to prove, that p0 < 1.5(α + 1).
 function findp0(α)
     Γ = SpecialFunctions.gamma
     f(p) = begin
-        cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - 2Γ(2α)cospi(α)/(Γ(α)cospi(α/2))
+        cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) -
+        2Γ(2α)cospi(α) / (Γ(α)cospi(α / 2))
     end
 
     n = 1000
@@ -17,7 +18,7 @@ function findp0(α)
     res = f.(ps)
 
     # Find first sign change
-    i = findfirst(i -> res[i]*res[i + 1] <= 0, 1:n-1)
+    i = findfirst(i -> res[i] * res[i+1] <= 0, 1:n-1)
 
     p0 = first(nlsolve(p -> [f(p[1])], [ps[i]], autodiff = :forward, ftol = 1e-15).zero)
 
@@ -31,11 +32,11 @@ function findp0(α::arb)
         α_low, α_upp = getinterval(α)
         return ArbTools.setunion(findp0(α_low), findp0(α_upp))
     end
-    α = RealField(2prec(parent(α)))(α)
+    α = RealField(2precision(parent(α)))(α)
     Γ = Nemo.gamma
-    C = 2Γ(2α)cospi(α)/(Γ(α)cospi(α/2))
+    C = 2Γ(2α)cospi(α) / (Γ(α)cospi(α / 2))
     f(p) = begin
-        cospi((2α - p)/2)*Γ(2α - p)/(cospi((α - p)/2)*Γ(α - p)) - C
+        cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) - C
     end
 
     # PROVE: That it is the smallest positive zero
@@ -55,7 +56,7 @@ function findp0(α::arb)
     @assert only(flags)
     p0 = setunion(only(found)...)
 
-    p0 = RealField(div(prec(parent(α)), 2))(p0)
+    p0 = RealField(div(precision(parent(α)), 2))(p0)
 
     return p0
 end
@@ -80,10 +81,8 @@ function findp0(α::Arb)
     # Perform some iterations at higher precision
     # FIXME: This seems to not fully use the precision of α but the
     # global precision for some things
-    p0_approx = Arblib.midpoint(
-        Arb,
-        first(nlsolve(p -> [f(p[1])], [p0_approx], ftol = 1e-20).zero),
-    )
+    p0_approx =
+        Arblib.midpoint(Arb, first(nlsolve(p -> [f(p[1])], [p0_approx], ftol = 1e-20).zero))
 
     # We want to widen the approximation p0_approx slightly so that it
     # definitely contains a root. We do this in a heuristic way, using
@@ -94,13 +93,13 @@ function findp0(α::Arb)
     if Arblib.isnegative(fp0[0])
         l = p0_approx
         u = p0_approx + step
-        for _ in 1:5
+        for _ = 1:5
             Arblib.ispositive(f(u)) && break
             u += step
         end
     else
         l = p0_approx + step
-        for _ in 1:5
+        for _ = 1:5
             Arblib.isnegative(f(l)) && break
             l += step
         end
@@ -131,7 +130,7 @@ function finda0(α)
         return Arb((finda0(α_low), finda0(α_upp)))
     end
     Γ = SpecialFunctions.gamma
-    return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
+    return 2Γ(2α) * cospi(α) / (Γ(α)^2 * cospi(α / 2)^2)
 end
 
 function finda0(α::arb)
@@ -140,7 +139,7 @@ function finda0(α::arb)
         return ArbTools.setunion(finda0(α_low), finda0(α_upp))
     end
     Γ = Nemo.gamma
-    return 2Γ(2α)*cospi(α)/(Γ(α)^2*cospi(α/2)^2)
+    return 2Γ(2α) * cospi(α) / (Γ(α)^2 * cospi(α / 2)^2)
 end
 
 function _findas(u0::FractionalKdVAnsatz)
@@ -184,11 +183,11 @@ function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
 
     start = min(max(findlast(!iszero, u0.a), 16), minstart)
     stop = u0.N0
-    N0s = [start; [start*2^i for i in 1:floor(Int, log2(stop/start) - 1)]; stop]
+    N0s = [start; [start * 2^i for i = 1:floor(Int, log2(stop / start) - 1)]; stop]
 
     for i in eachindex(N0s)[2:end]
         resize!(u0.a, N0s[i] + 1)
-        u0.a[N0s[i - 1]:end] .= zero(T)
+        u0.a[N0s[i-1]:end] .= zero(T)
 
         u0.a[1:end] .= _findas(u0)
     end
@@ -204,9 +203,7 @@ function findas(u0::FractionalKdVAnsatz{Arb})
     return convert.(Arb, findas(convert(FractionalKdVAnsatz{Float64}, u0)))
 end
 
-function findas!(u0::FractionalKdVAnsatz{T};
-                 use_midpoint = true,
-                 ) where {T}
+function findas!(u0::FractionalKdVAnsatz{T}; use_midpoint = true) where {T}
     if u0.N0 >= 0
         u0.a[0] = finda0(u0.α)
     end
@@ -241,7 +238,7 @@ function findas!(u0::FractionalKdVAnsatz{T};
             # Compute a[1] such that L0(u0, 1) is zero.
             # TODO: Possibly make use of the monotinicity to get good
             # enclosures for wide balls.
-            u0.a[1] = -u0.a[0]*zeta(-1 - 2u0.α)/zeta(-1 - 2u0.α + u0.p0)
+            u0.a[1] = -u0.a[0] * zeta(-1 - 2u0.α) / zeta(-1 - 2u0.α + u0.p0)
 
             # This makes the term (0, 0, 1) equal to zero.
             if !use_midpoint
@@ -283,7 +280,7 @@ function findbs!(u0::FractionalKdVAnsatz)
     end
     #n = u0.N1 - 1
     n = u0.N1
-    xs = π*(1:2:2n-1)/2n
+    xs = π * (1:2:2n-1) / 2n
 
     f = D(u0, xs)
     g(b) = begin

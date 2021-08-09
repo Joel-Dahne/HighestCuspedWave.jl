@@ -496,6 +496,58 @@ Evaluation of asymptotic norms
   end
 
   """
+      splitsingulartail(u0)
+  Returns a tuple `(u0₁, u0₂)` where the first has only the first two
+  terms set, both given by `-u0.a[0]`. The other has `a[1] = u0.a[0] +
+  u0.a[1]` and the rest of the coefficients.
+
+  This is useful when studying the behaviour of the singular part versus
+  the rest when `α` is very close to `-1`.
+  """
+  function splitsingulartail(u0::FractionalKdVAnsatz)
+      if !iszero(u0.N1)
+          @warn "This method is only intended for when u0.N1 = 0"
+      end
+      u0₁ = deepcopy(u0)
+      u0₂ = deepcopy(u0)
+
+      resize!(u0₁.a, 2)
+      u0₁.a[1] = -u0.a[0]
+
+      u0₂.a[0] = zero(u0.α)
+      u0₂.a[1] = u0.a[0] + u0.a[1]
+
+      return u0₁, u0₂
+  end
+
+  """
+      splitthree(u0)
+  Returns a tripple `(u0₁, u0₂, u0₃)` where the first is as `u0₁` in
+  `splitsingulartail, `u0₂ has only `a[1] = u0.a[0] + u0.a[1]` and `u0₂` is as in `splittail`.
+
+  This is useful when studying the behaviour of the singular part versus
+  the rest when `α` is very close to `-1`.
+  """
+  function splitthree(u0::FractionalKdVAnsatz)
+      if !iszero(u0.N1)
+          @warn "This method is only intended for when u0.N1 = 0"
+      end
+      u0₁ = deepcopy(u0)
+      u0₂ = deepcopy(u0)
+      u0₃ = deepcopy(u0)
+
+      resize!(u0₁.a, 2)
+      resize!(u0₂.a, 2)
+      u0₃.a[0:1] .= zero(u0.α)
+
+      u0₁.a[1] = -u0.a[0]
+      u0₂.a[0] = zero(u0.α)
+      u0₂.a[1] = u0.a[0] + u0.a[1]
+
+      return u0₁, u0₂, u0₃
+  end
+
+  """
       lease_square_interpolation(xs, ys, return_function = false)
 
   Perform a linear least square approximation of `xs` and `ys`. By
@@ -513,5 +565,83 @@ Evaluation of asymptotic norms
       else
           return a, b
       end
+  end
+
+#+END_SRC
+
+* Quick check defect for BH
+
+#+BEGIN_SRC julia
+  function quick_check_BH(
+      u0,
+      xs = range(Arb(0), Arb(π), length = 200)[2:end-1],
+      xs_asym = exp.(range(log(Arb("1e-60")), log(Arb(0.1)), length = 200)),
+  )
+      α₀s = u0.w.(xs) ./ 2u0.(xs);
+      α₀s_asym = u0.w.(xs_asym) ./ 2u0.(xs_asym);
+      α₀ = max(maximum(abs.(α₀s)), maximum(abs.(α₀s_asym)))
+
+      plα₀s = plot(xs, α₀s, label = "")
+      plα₀s_asym = plot(xs_asym, α₀s_asym, xaxis = :log10, label = "")
+
+      @show α₀
+
+      f = F0(u0)
+      δ₀s = f.(xs);
+      δ₀s_asym = f.(xs_asym);
+      δ₀ = max(maximum(abs.(δ₀s)), maximum(abs.(δ₀s_asym)))
+
+      plδ₀s = plot(xs, δ₀s, label = "")
+      plδ₀s_asym = plot(xs_asym, δ₀s_asym, xaxis = :log10, label = "")
+
+      @show δ₀
+
+      # CB only supported for arb type for FractionalKdVAnsatz
+      if u0 isa FractionalKdVAnsatz{Arb}
+          CB, xs_CB, CBs = CB_estimate(convert(FractionalKdVAnsatz{arb}, u0), n = 10, return_values = true)
+          CB = Arb(CB)
+          xs_CB = Arb.(xs_CB)
+          CBs = Arb.(CBs)
+      else
+          CB, xs_CB, CBs = CB_estimate(u0, n = 10, return_values = true)
+      end
+
+      plCB = plot(xs_CB, CBs, label = "")
+
+      @show CB
+      CB < 1 || @error "CB is greater than 1!"
+
+      β = 1/(1 - CB)
+      C = 1/(4α₀*β^2)
+      D = 1 - 2sqrt(α₀*δ₀)
+
+      @show C
+
+      @show δ₀ < C
+
+      @show δ₀ / C
+
+      #println("Must have CB ≤ 1 - 2√(α₀δ₀) = $D")
+
+      return plot(plα₀s, plα₀s_asym, plδ₀s, plδ₀s_asym, plCB)
+  end
+
+  # If we choose a₁ in this way we know that the
+  # TODO: Use this
+  a₁ = let zeta = HighestCuspedWave.zeta
+      C2 = Ci(π, 2) - zeta(2)
+      C3 = Ci(π, 3) - zeta(3)
+      C21 = Ci(π, 2, 1) - zeta(2, d = 1)
+      C31 = Ci(π, 3, 1) - zeta(3, d = 1)
+
+      l = 0.5(2/π^2*C21 + u1.a1*C2)^2
+      r = -2/π^2*C31 - u1.a1*C3
+      @show l r
+
+      p = (2/π^2*C21*C2 - C3)/(0.5C2^2)
+      q = (2/π^4*C21^2 - 2/π^2*C31)/(0.5C2^2)
+
+      @show p^2/4 - q
+      -p/2 + sqrt(p^2/4 - q)
   end
 #+END_SRC

@@ -3,16 +3,17 @@
 ##
 
 # TODO: There is a lot more tuning to be done!
-function T0(u0::FractionalKdVAnsatz{arb},
-            evaltype::Ball;
-            δ0::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
-            δ1::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
-            δ2::arb = parent(u0.α)(1e-2),
-            ϵ::arb = 1 + u0.α,
-            rtol = -1.0,
-            atol = -1.0,
-            show_trace = false,
-            )
+function T0(
+    u0::FractionalKdVAnsatz{arb},
+    evaltype::Ball;
+    δ0::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
+    δ1::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
+    δ2::arb = parent(u0.α)(1e-2),
+    ϵ::arb = 1 + u0.α,
+    rtol = -1.0,
+    atol = -1.0,
+    show_trace = false,
+)
     f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
     g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
 
@@ -41,14 +42,15 @@ integral T_{0,1} from the paper.
 The integral is split into three parts depending on `δ1` and `δ2`.
 These are given by `T011`, `T012` and `T013`.
 """
-function T01(u0::FractionalKdVAnsatz{arb},
-             evaltype::Ball;
-             δ0::arb = parent(u0.α)(1e-2),
-             δ1::arb = parent(u0.α)(1e-2),
-             rtol = -1.0,
-             atol = -1.0,
-             show_trace = false,
-             )
+function T01(
+    u0::FractionalKdVAnsatz{arb},
+    evaltype::Ball;
+    δ0::arb = parent(u0.α)(1e-2),
+    δ1::arb = parent(u0.α)(1e-2),
+    rtol = -1.0,
+    atol = -1.0,
+    show_trace = false,
+)
     f = T011(u0, evaltype; δ0)
     g = T012(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
     h = T013(u0, evaltype; δ1)
@@ -80,16 +82,17 @@ b = HighestCuspedWave.T01(u0, Asymptotic())(x)
 overlaps(a, b)
 ```
 """
-function T01(u0::FractionalKdVAnsatz{arb},
-             ::Asymptotic;
-             nonasymptotic_u0 = false, # Mainly for testing
-             )
+function T01(
+    u0::FractionalKdVAnsatz{arb},
+    ::Asymptotic;
+    nonasymptotic_u0 = false, # Mainly for testing
+)
     @warn "T01(u0, Asymptotic()) is not yet complete - the tail of the sum is not bounded"
     Γ = Nemo.gamma
     α = u0.α
     p = u0.p
     RR = parent(α)
-    CC = ComplexField(prec(RR))
+    CC = ComplexField(precision(RR))
     π = RR(pi)
 
     # Compute
@@ -97,61 +100,59 @@ function T01(u0::FractionalKdVAnsatz{arb},
     # Find the unique zero of the integrand on [0, 1]
     # PROVE: That there is at most one zero on [0, 1]
     f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
-    roots, flags = isolateroots(
-        f,
-        parent(α)(0.1),
-        parent(α)(0.9),
-        refine = true,
-        evaltype = :taylor,
-    )
+    roots, flags =
+        isolateroots(f, parent(α)(0.1), parent(α)(0.9), refine = true, evaltype = :taylor)
     @assert only(flags)
     s = setunion(only(roots)...)
 
-    c_α = abs(Γ(1 + α)*sinpi(α/2))*(
-        (
-            hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α))
-            - 2s^(1 + p)*hypgeom_2f1(1 + p, 1 + α, 2 + p, -s)
-        )/(1 + p)
-        - 2beta_inc(1 + p, -α, s)
-        + (2 - 4s^(p - α))/(α - p)
-        + Γ(-α)*Γ(1 + p)/Γ(1 - α + p)
-    )
+    c_α =
+        abs(Γ(1 + α) * sinpi(α / 2)) * (
+            (
+                hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α)) -
+                2s^(1 + p) * hypgeom_2f1(1 + p, 1 + α, 2 + p, -s)
+            ) / (1 + p) - 2beta_inc(1 + p, -α, s) +
+            (2 - 4s^(p - α)) / (α - p) +
+            Γ(-α) * Γ(1 + p) / Γ(1 - α + p)
+        )
 
     return x -> begin
         if p == 1
             # TODO: Bound the tail - the terms go to zero extremely
             # fast so it should be negligible
             c_ϵ = zero(α)
-            for m in 1:10
+            for m = 1:10
                 m = fmpz(m)
-                c_ϵ += (-one(α))^m/(factorial(2m))*zeta(-α - 2m)*
-                    m*(RR(4)^m - 1)/((m + 1)*(2m + 1))*abspow(x, RR(2m - 2))
+                c_ϵ +=
+                    (-one(α))^m / (factorial(2m)) * zeta(-α - 2m) * m * (RR(4)^m - 1) /
+                    ((m + 1) * (2m + 1)) * abspow(x, RR(2m - 2))
             end
             c_ϵ *= 2
         else
             # TODO: Bound the tail - the terms go to zero extremely
             # fast so it should be negligible
             c_ϵ = zero(α)
-            for m in 1:10
+            for m = 1:10
                 m = fmpz(m)
-                c_ϵ += (-one(α))^m/(factorial(2m))*zeta(-α - 2m)*(
-                    sum(binom(RR(2m), unsigned(2k))/(2k + p + 1) for k in 0:Int(m)-1)
-                )*abspow(x, RR(2m - 2))
+                c_ϵ +=
+                    (-one(α))^m / (factorial(2m)) *
+                    zeta(-α - 2m) *
+                    (sum(binom(RR(2m), unsigned(2k)) / (2k + p + 1) for k = 0:Int(m)-1)) *
+                    abspow(x, RR(2m - 2))
             end
             c_ϵ *= 2
         end
 
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = c_α*abspow(x, -α) + c_ϵ*abspow(x, 3)
-            return res/(π*u0(x))
+            res = c_α * abspow(x, -α) + c_ϵ * abspow(x, 3)
+            return res / (π * u0(x))
         end
 
-        res = c_α + c_ϵ*abspow(x, 3 + α)
+        res = c_α + c_ϵ * abspow(x, 3 + α)
         # Ball containing 1 + hat(u0)(x)
-        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
+        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x)) * abspow(x, u0.p0))
 
-        return L/(π*a0(u0, 0))*res
+        return L / (π * a0(u0, 0)) * res
     end
 end
 
@@ -175,11 +176,12 @@ is easily calculated to be `δ0^(s + p + 1*/(s + p + 1)`. The errors
 are handled as constant values which are just multiplied by the length
 of the interval.
 """
-function T011(u0::FractionalKdVAnsatz{arb},
-              ::Ball = Ball();
-              δ0::arb = parent(u0.α)(1e-2),
-              N::Integer = 3,
-              )
+function T011(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball = Ball();
+    δ0::arb = parent(u0.α)(1e-2),
+    N::Integer = 3,
+)
     Γ = Nemo.gamma
     α = u0.α
 
@@ -190,35 +192,35 @@ function T011(u0::FractionalKdVAnsatz{arb},
     return x -> begin
         # Analytic terms
         (P, P_E) = taylor_with_error(zero(α), setunion(zero(α), δ0), N) do t
-            Ci(x*(1 - t), -α) + Ci(x*(1 + t), -α)
+            Ci(x * (1 - t), -α) + Ci(x * (1 + t), -α)
         end
-        P_restterm = ball(zero(α), P_E*δ0^N)
+        P_restterm = ball(zero(α), P_E * δ0^N)
 
         # Singular term
-        (C, e, P2, P2_E) = Ci_expansion(x*δ0, -α, M)
+        (C, e, P2, P2_E) = Ci_expansion(x * δ0, -α, M)
         C *= x^e
         for m = 1:M-1
             P2[2m] *= x^(2m)
         end
-        P2_restterm = P2_E*(x*δ0)^(2M)
+        P2_restterm = P2_E * (x * δ0)^(2M)
 
         # Compute the integral
         res = zero(α)
         # Integrate the singular term
-        res -= 2C*δ0^(e + u0.p + 1)/(e + u0.p + 1)
+        res -= 2C * δ0^(e + u0.p + 1) / (e + u0.p + 1)
 
         # Integrate the analytic terms
         full_series = P - 2P2
         for i = 0:N-1
-            res += full_series[i]*δ0^(i + u0.p + 1)/(i + u0.p + 1)
+            res += full_series[i] * δ0^(i + u0.p + 1) / (i + u0.p + 1)
         end
 
         # Add the error term
-        res += δ0*(P_restterm - P2_restterm)
+        res += δ0 * (P_restterm - P2_restterm)
 
         # Prove: that the expression inside the absolute value of the
         # integrand is negative
-        return -res*x/(parent(α)(π)*u0(x))
+        return -res * x / (parent(α)(π) * u0(x))
     end
 end
 
@@ -227,16 +229,17 @@ end
 Returns a function such that T012(u0; δ0, δ1)(x) computes the integral
 T_{0,1,2} from the paper.
 """
-function T012(u0::FractionalKdVAnsatz{arb},
-              ::Ball = Ball();
-              δ0::arb = parent(u0.α)(1e-2),
-              δ1::arb = parent(u0.α)(1e-2),
-              rtol = -1.0,
-              atol = -1.0,
-              show_trace = false,
-              )
+function T012(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball = Ball();
+    δ0::arb = parent(u0.α)(1e-2),
+    δ1::arb = parent(u0.α)(1e-2),
+    rtol = -1.0,
+    atol = -1.0,
+    show_trace = false,
+)
     α = u0.α
-    CC = ComplexField(prec(parent(α)))
+    CC = ComplexField(precision(parent(α)))
     mα = CC(-α)
     a = CC(δ0)
     b = CC(1 - δ1)
@@ -246,21 +249,30 @@ function T012(u0::FractionalKdVAnsatz{arb},
         # integral
         F(t, analytic = false) = begin
             if isreal(t)
-                res = CC(Ci(x*(1 - real(t)), -α) + Ci(x*(1 + real(t)), -α) - 2Ci(x*real(t), -α))
+                res = CC(
+                    Ci(x * (1 - real(t)), -α) + Ci(x * (1 + real(t)), -α) -
+                    2Ci(x * real(t), -α),
+                )
             else
-                res = Ci(x*(1 - t), mα) + Ci(x*(1 + t), mα) - 2Ci(x*t, mα)
+                res = Ci(x * (1 - t), mα) + Ci(x * (1 + t), mα) - 2Ci(x * t, mα)
             end
 
-            return ArbTools.real_abs(res, analytic = analytic)*t^u0.p
+            return ArbTools.real_abs(res, analytic = analytic) * t^u0.p
         end
-        res = real(ArbTools.integrate(CC, F, a, b,
-                                      rel_tol = rtol,
-                                      abs_tol = atol,
-                                      eval_limit = 3000,
-                                      verbose = Int(show_trace),
-                                      ))
+        res = real(
+            ArbTools.integrate(
+                CC,
+                F,
+                a,
+                b,
+                rel_tol = rtol,
+                abs_tol = atol,
+                eval_limit = 3000,
+                verbose = Int(show_trace),
+            ),
+        )
 
-        return res*x/(parent(u0.α)(π)*u0(x))
+        return res * x / (parent(u0.α)(π) * u0(x))
     end
 end
 
@@ -294,12 +306,13 @@ to be able to get finite results in that case.
 TODO: We could precompute some of the values, in particular the
 beta_inc functions can be precomputed.
 """
-function T013(u0::FractionalKdVAnsatz{arb},
-              ::Ball = Ball();
-              δ1::arb = parent(u0.α)(1e-2),
-              ϵ::arb = parent(u0.α)(1e-2),
-              N::Integer = 3,
-              )
+function T013(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball = Ball();
+    δ1::arb = parent(u0.α)(1e-2),
+    ϵ::arb = parent(u0.α)(1e-2),
+    N::Integer = 3,
+)
     Γ = Nemo.gamma
     α = u0.α
     π = parent(α)(pi)
@@ -316,66 +329,85 @@ function T013(u0::FractionalKdVAnsatz{arb},
         # Analytic terms
         (P, E) = taylor_with_error(one(α), setunion(1 - δ1, one(α)), N) do t
             if !use_asymptotic
-                return Ci(x*(1 + t), -α) - 2Ci(x*t, -α)
+                return Ci(x * (1 + t), -α) - 2Ci(x * t, -α)
             else
-                return -2Ci(x*t, -α)
+                return -2Ci(x * t, -α)
             end
         end
-        P_restterm = ball(zero(α), E*δ1^N)
+        P_restterm = ball(zero(α), E * δ1^N)
 
         # Singular term
-        (C, e, P2, P2_E) = Ci_expansion(x*δ1, -α, M)
+        (C, e, P2, P2_E) = Ci_expansion(x * δ1, -α, M)
         C *= x^e
         for m = 1:M-1
             P2[2m] *= x^(2m)
         end
-        P2_restterm = P2_E*(x*δ1)^(2M)
+        P2_restterm = P2_E * (x * δ1)^(2M)
 
         # Compute the integral
         res = zero(α)
         # Integrate the singular term
         # Using ∫_(1 - δ1)^1 |t - 1|^s*t^(p) dt = ∫_(1 - δ1)^1 (1 - t)^s*t^(p) dt
-        res += C*(Γ(1 + e)*Γ(1 + u0.p)/Γ(2 + e + u0.p) - beta_inc(1 + u0.p, 1 + e, 1 - δ1))
+        res +=
+            C * (
+                Γ(1 + e) * Γ(1 + u0.p) / Γ(2 + e + u0.p) -
+                beta_inc(1 + u0.p, 1 + e, 1 - δ1)
+            )
 
         # Integrate the analytic part
         # Using ∫_(1-δ1)^1 (t-1)^i*t^(p) dt = (-1)^i ∫_(1-δ1)^1 (t-1)^i*t^(p) dt
         full_series = P + P2
         for i = 0:N-1
-            res += full_series[i] * (-1)^i * (
-                Γ(parent(α)(1 + i))*Γ(1 + u0.p)/Γ(2 + i + u0.p)
-                - beta_inc(1 + u0.p, parent(α)(1 + i), 1 - δ1)
-            )
+            res +=
+                full_series[i] *
+                (-1)^i *
+                (
+                    Γ(parent(α)(1 + i)) * Γ(1 + u0.p) / Γ(2 + i + u0.p) -
+                    beta_inc(1 + u0.p, parent(α)(1 + i), 1 - δ1)
+                )
         end
 
         # Add the error term
-        res += δ1*(P_restterm + P2_restterm)
+        res += δ1 * (P_restterm + P2_restterm)
 
         if use_asymptotic
             # Handle asymptotic expansion of Ci(x*(t + 1), -α)
-            (C, e, P3, P3_E) = Ci_expansion(2π - x*(2 - δ1), -α, M)
-            P3_restterm = P2_E*(2π - x*(2 - δ1))^(2M)
+            (C, e, P3, P3_E) = Ci_expansion(2π - x * (2 - δ1), -α, M)
+            P3_restterm = P2_E * (2π - x * (2 - δ1))^(2M)
 
             # Add the singular part to the integral
-            res += C*(2π - x)^(1 + u0.p + e)*x^(-1 - u0.p)*(
-                beta_inc_zeroone(1 + u0.p, 1 + e, x/(2π - x))
-                - beta_inc_zeroone(1 + u0.p, 1 + e, (x - δ1*x)/(2π - x))
-            )
+            res +=
+                C *
+                (2π - x)^(1 + u0.p + e) *
+                x^(-1 - u0.p) *
+                (
+                    beta_inc_zeroone(1 + u0.p, 1 + e, x / (2π - x)) -
+                    beta_inc_zeroone(1 + u0.p, 1 + e, (x - δ1 * x) / (2π - x))
+                )
 
             for i = 0:2:N-1
                 # Only even terms
-                res += P3[i]*(2π - x)^(1 + u0.p + i)*x^(-1 - u0.p)*(
-                beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x/(2π - x))
-                - beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), (x - δ1*x)/(2π - x))
-                )
+                res +=
+                    P3[i] *
+                    (2π - x)^(1 + u0.p + i) *
+                    x^(-1 - u0.p) *
+                    (
+                        beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x / (2π - x)) -
+                        beta_inc_zeroone(
+                            1 + u0.p,
+                            parent(α)(1 + i),
+                            (x - δ1 * x) / (2π - x),
+                        )
+                    )
             end
 
             # Add error term
-            res += δ1*P3_restterm
+            res += δ1 * P3_restterm
         end
 
         # Prove: that the expression inside the absolute value of the
         # integrand is positive
-        return res*x/(parent(u0.α)(π)*u0(x))
+        return res * x / (parent(u0.α)(π) * u0(x))
     end
 end
 
@@ -410,14 +442,15 @@ TODO: Look closer at computing with the asymptotic expansion and using
 the best result. Consider rewriting `T021` and `T022` to be more like
 the other methods here.
 """
-function T02(u0::FractionalKdVAnsatz{arb},
-             ::Ball;
-             δ2::arb = parent(u0.α)(1e-2),
-             ϵ::arb = 1 + u0.α,
-             rtol = -1.0,
-             atol = -1.0,
-             show_trace = false,
-             )
+function T02(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball;
+    δ2::arb = parent(u0.α)(1e-2),
+    ϵ::arb = 1 + u0.α,
+    rtol = -1.0,
+    atol = -1.0,
+    show_trace = false,
+)
     π = parent(u0.α)(pi)
 
     if u0.p == 1
@@ -428,8 +461,9 @@ function T02(u0::FractionalKdVAnsatz{arb},
             # TODO: Handle the case when x contains π. Then Si(2x, 1 -
             # α) evaluates to NaN. Si has issues as soon as the
             # argument is a ball containing a multiple of 2π.
-            res = Ci(x + π, 2 - α) - Ci(π, 2 - α) + Ci(x, 2 - α) -
-                (Ci(2x, 2 - α) + zeta(2 - α))/2 + x*Si(x, 1 - α)
+            res =
+                Ci(x + π, 2 - α) - Ci(π, 2 - α) + Ci(x, 2 - α) -
+                (Ci(2x, 2 - α) + zeta(2 - α)) / 2 + x * Si(x, 1 - α)
             if π - x < 1e-4
                 # When 2x is close to 2π direct evaluation
                 # of Si fails. Use that Si(2x, 1 - α) = Si(2x - 2π, 1
@@ -437,11 +471,12 @@ function T02(u0::FractionalKdVAnsatz{arb},
                 y = 2x - 2π
                 M = 3
                 C, e, P, E = Si_expansion(y, 1 - α, M)
-                res -= x/2*(-C*abspow(y, e) + evaluate(P.poly, y) + E*abs(y)^(2M + 1))
+                res -=
+                    x / 2 * (-C * abspow(y, e) + evaluate(P.poly, y) + E * abs(y)^(2M + 1))
             else
-                res -= x/2*Si(2x, 1 - α)
+                res -= x / 2 * Si(2x, 1 - α)
             end
-            return 2/(π*u0.w(x)*u0(x))*res
+            return 2 / (π * u0.w(x) * u0(x)) * res
         end
     else
         return x -> begin
@@ -474,11 +509,12 @@ Returns a function such that `T02(u0, Asymptotic())(x)` computes an
 **upper bound** of the integral T_{0,2} from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
 """
-function T02(u0::FractionalKdVAnsatz{arb},
-             ::Asymptotic;
-             N::Integer = 100,
-             nonasymptotic_u0 = false # Mainly for testing
-             )
+function T02(
+    u0::FractionalKdVAnsatz{arb},
+    ::Asymptotic;
+    N::Integer = 100,
+    nonasymptotic_u0 = false, # Mainly for testing
+)
     α = u0.α
     p = u0.p
     RR = parent(α)
@@ -495,17 +531,15 @@ function T02(u0::FractionalKdVAnsatz{arb},
                 return Ci(y, 2 - α)
             end
 
-            c_α = A*(1 - parent(α)(2)^(-α)) + B*(1 - parent(α)(2)^(-α - 1))
-            K = 2/(π*a0(u0, 0))
+            c_α = A * (1 - parent(α)(2)^(-α)) + B * (1 - parent(α)(2)^(-α - 1))
+            K = 2 / (π * a0(u0, 0))
             # Ball containing 1 + hat(u0)(x)
-            L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
+            L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x)) * abspow(x, u0.p0))
 
             res = (
-                K*c_α*L
-                + K/2*L*(zeta(-α) - Ci(π, -α))*abspow(x, 1 + α)
-                + K*L*abspow(x, α + 3)*(
-                    E3 + E1 - 8*E1p + E2 - 8*E2p
-                )
+                K * c_α * L +
+                K / 2 * L * (zeta(-α) - Ci(π, -α)) * abspow(x, 1 + α) +
+                K * L * abspow(x, α + 3) * (E3 + E1 - 8 * E1p + E2 - 8 * E2p)
             )
 
             return res
@@ -514,19 +548,18 @@ function T02(u0::FractionalKdVAnsatz{arb},
 
     @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1 - the tail of the sum is not bounded"
     Γ = Nemo.gamma
-    CC = ComplexField(prec(RR))
+    CC = ComplexField(precision(RR))
 
     # Compute
     # c_α = |Γ(1 + α)*sin(πα/2)|∫₁^∞ |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
     # PROVE: That this is real
-    c_α = abs(Γ(1 + α)*sinpi(α/2))*(
-        real(
-            CC(-1)^CC(-p)*(CC(-1)^CC(α) + CC(-1)^CC(p))*Γ(α - p)*Γ(1 + p)/Γ(1 + α)
-            + CC(-1)^CC(α)*Γ(-α)*Γ(1 + p)/(Γ(1 - α + p))
+    c_α =
+        abs(Γ(1 + α) * sinpi(α / 2)) * (
+            real(
+                CC(-1)^CC(-p) * (CC(-1)^CC(α) + CC(-1)^CC(p)) * Γ(α - p) * Γ(1 + p) /
+                Γ(1 + α) + CC(-1)^CC(α) * Γ(-α) * Γ(1 + p) / (Γ(1 - α + p)),
+            ) - 2 / (α - p) - hypgeom_2f1(1 + α, 1 + p, 2 + p, RR(-1)) / (1 + p)
         )
-        - 2/(α - p)
-        - hypgeom_2f1(1 + α, 1 + p, 2 + p, RR(-1))/(1 + p)
-    )
 
     # We evaluate the sum in the paper at x = 0, the expression
     # coming from the interior integral then simplifies a lot.
@@ -535,22 +568,22 @@ function T02(u0::FractionalKdVAnsatz{arb},
     # PROVE: That the value at x = 0 is indeed a bound of the
     # sum. Could it be that this is not the case?
     c_ϵ = zero(α)
-    for m in 1:30
-        integral = 2*π^(2m - 1 + p)*binom(RR(2m), unsigned(2m - 2))/(2m - 1 + p)
-        c_ϵ += (-one(α))^m/factorial(2fmpz(m))*zeta(-α - 2m)*integral
+    for m = 1:30
+        integral = 2 * π^(2m - 1 + p) * binom(RR(2m), unsigned(2m - 2)) / (2m - 1 + p)
+        c_ϵ += (-one(α))^m / factorial(2fmpz(m)) * zeta(-α - 2m) * integral
     end
 
     return x -> begin
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
-            res = c_α*abspow(x, -α) + c_ϵ*abspow(x, 2 - p)
-            return res/(π*u0(x))
+            res = c_α * abspow(x, -α) + c_ϵ * abspow(x, 2 - p)
+            return res / (π * u0(x))
         end
 
-        res = c_α + c_ϵ*abspow(x, 2 - p + α)
+        res = c_α + c_ϵ * abspow(x, 2 - p + α)
         # Ball containing 1 + hat(u0)(x)
-        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x))*abspow(x, u0.p0))
-        return L/(π*a0(u0, 0))*res
+        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x)) * abspow(x, u0.p0))
+        return L / (π * a0(u0, 0)) * res
     end
 end
 
@@ -583,24 +616,26 @@ that case.
 """
 T021(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
-function T021(u0::FractionalKdVAnsatz{arb},
-              ::Ball;
-              δ2::arb = parent(u0.α)(1e-4),
-              ϵ::arb = parent(u0.α)(1e-1),
-              N::Integer = 3,
-              )
+function T021(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball;
+    δ2::arb = parent(u0.α)(1e-4),
+    ϵ::arb = parent(u0.α)(1e-1),
+    N::Integer = 3,
+)
     return x -> begin
         T021(u0, Ball(), ArbTools.ubound(x + δ2), x, ϵ = ϵ, N = N)
     end
 end
 
-function T021(u0::FractionalKdVAnsatz{arb},
-              ::Ball,
-              a::arb,
-              x::arb;
-              ϵ::arb = parent(u0.α)(1e-1),
-              N::Integer = 3,
-              )
+function T021(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball,
+    a::arb,
+    x::arb;
+    ϵ::arb = parent(u0.α)(1e-1),
+    N::Integer = 3,
+)
     Γ = Nemo.gamma
     α = u0.α
     δ2 = a - x
@@ -620,71 +655,81 @@ function T021(u0::FractionalKdVAnsatz{arb},
             return -2Ci(y, -α)
         end
     end
-    P_restterm = ball(zero(α), E*δ2^N)
+    P_restterm = ball(zero(α), E * δ2^N)
 
     # Singular term
     M = div(N, 2) + 1
     (C, e, P2, P2_E) = Ci_expansion(δ2, -α, M)
-    P2_restterm = P2_E*(δ2)^(2M)
+    P2_restterm = P2_E * (δ2)^(2M)
 
     # Compute the integral
     res = zero(α)
     # Integrate the singular term
     # Using ∫_x^a |x - y|^s*y^p dy = ∫_x^a (y - x)^s*y^p dy
     if u0.p == 1
-        res += C*abspow(δ2, 1 + e)*(δ2/(2 + e) + x/(1 + e))
+        res += C * abspow(δ2, 1 + e) * (δ2 / (2 + e) + x / (1 + e))
     else
-        res += C*x^(1 + e + u0.p)*(
-            Γ(1 + e)*Γ(-1 - e - u0.p)/Γ(-u0.p)
-            - beta_inc_zeroone(-1 -e - u0.p, 1 + e, x/a)
-        )
+        res +=
+            C *
+            x^(1 + e + u0.p) *
+            (
+                Γ(1 + e) * Γ(-1 - e - u0.p) / Γ(-u0.p) -
+                beta_inc_zeroone(-1 - e - u0.p, 1 + e, x / a)
+            )
     end
 
     # Integrate the analytic terms
     full_series = P + P2
     for i = 0:N-1
         if u0.p == 1
-            res += full_series[i]*δ2^(1 + i)*(
-                δ2/(2 + i) + x/(1 + i)
-            )
+            res += full_series[i] * δ2^(1 + i) * (δ2 / (2 + i) + x / (1 + i))
         else
-            res += full_series[i] * x^(1 + i + u0.p) * (
-                Γ(parent(α)(1 + i))*Γ(-1 -i - u0.p)/Γ(-u0.p)
-                - beta_inc(-1 - i - u0.p, parent(α)(1 + i), x/a)
-            )
+            res +=
+                full_series[i] *
+                x^(1 + i + u0.p) *
+                (
+                    Γ(parent(α)(1 + i)) * Γ(-1 - i - u0.p) / Γ(-u0.p) -
+                    beta_inc(-1 - i - u0.p, parent(α)(1 + i), x / a)
+                )
         end
     end
 
     # Add the error term
-    res += δ2*(P_restterm + P2_restterm)
+    res += δ2 * (P_restterm + P2_restterm)
 
     if use_asymptotic
         # Handle asymptotic expansion of Ci(x + y, -α)
         # The furthest away from 2π we are is at y = x
         (C, e, P3, P3_E) = Ci_expansion(2π - 2x, -α, M)
-        P3_restterm = P2_E*(2π - 2x)^(2M)
+        P3_restterm = P2_E * (2π - 2x)^(2M)
 
         # Add the singular part to the integral
-        res += C*(2π - x)^(1 + e + u0.p)*(
-            beta_inc_zeroone(1 + u0.p, 1 + e, a/(2π - x))
-            - beta_inc_zeroone(1 + u0.p, 1 + e, x/(2π - x))
-        )
+        res +=
+            C *
+            (2π - x)^(1 + e + u0.p) *
+            (
+                beta_inc_zeroone(1 + u0.p, 1 + e, a / (2π - x)) -
+                beta_inc_zeroone(1 + u0.p, 1 + e, x / (2π - x))
+            )
 
         for i = 0:2:N-1
             # Only even terms
-            res += P3[i]*(2π - x)^(1 + i + u0.p)*(
-            beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), a/(2π - x))
-            - beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x/(2π - x))
-        )
+            res +=
+                P3[i] *
+                (2π - x)^(1 + i + u0.p) *
+                (
+                    beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), a / (2π - x)) -
+                    beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x / (2π - x))
+                )
         end
 
         # Add error term
-        res += δ2*P3_restterm
+        res += δ2 * P3_restterm
     end
 
     # Prove: that the expression inside the absolute value of the
     # integrand is positive
-    return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
+    return res / (parent(u0.α)(π) * u0.w(x) * u0(x))
 end
 
 """
@@ -695,27 +740,37 @@ TODO: Write about how this is done.
 """
 T022(u0::FractionalKdVAnsatz{arb}, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 
-function T022(u0::FractionalKdVAnsatz{arb},
-              ::Ball;
-              δ2::arb = parent(u0.α)(1e-4),
-              rtol = -1.0,
-              atol = -1.0,
-              show_trace = false,
-              )
+function T022(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball;
+    δ2::arb = parent(u0.α)(1e-4),
+    rtol = -1.0,
+    atol = -1.0,
+    show_trace = false,
+)
     return x -> begin
-        T022(u0, Ball(), ArbTools.ubound(x + δ2), x, rtol = rtol, atol = atol, show_trace = show_trace)
+        T022(
+            u0,
+            Ball(),
+            ArbTools.ubound(x + δ2),
+            x,
+            rtol = rtol,
+            atol = atol,
+            show_trace = show_trace,
+        )
     end
 end
 
-function T022(u0::FractionalKdVAnsatz{arb},
-              ::Ball,
-              a::arb,
-              x::arb;
-              rtol = -1.0,
-              atol = -1.0,
-              show_trace = false,
-              )
-    CC = ComplexField(prec(parent(u0.α)))
+function T022(
+    u0::FractionalKdVAnsatz{arb},
+    ::Ball,
+    a::arb,
+    x::arb;
+    rtol = -1.0,
+    atol = -1.0,
+    show_trace = false,
+)
+    CC = ComplexField(precision(parent(u0.α)))
     mα = CC(-u0.α)
     a = CC(a)
     b = CC(parent(u0.α)(π))
@@ -724,20 +779,29 @@ function T022(u0::FractionalKdVAnsatz{arb},
     # integral
     F(y, analytic = false) = begin
         if isreal(y)
-            res = CC(Ci(x - real(y), real(mα)) + Ci(x + real(y), real(mα)) - 2Ci(real(y), real(mα)))
+            res = CC(
+                Ci(x - real(y), real(mα)) + Ci(x + real(y), real(mα)) -
+                2Ci(real(y), real(mα)),
+            )
         else
             res = Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα)
         end
 
-        return ArbTools.real_abs(res, analytic = analytic)*y^u0.p
+        return ArbTools.real_abs(res, analytic = analytic) * y^u0.p
     end
-    res = real(ArbTools.integrate(CC, F, a, b,
-                                  rel_tol = rtol,
-                                  abs_tol = atol,
-                                  eval_limit = 2000,
-                                  verbose = Int(show_trace),
-                                  ))
+    res = real(
+        ArbTools.integrate(
+            CC,
+            F,
+            a,
+            b,
+            rel_tol = rtol,
+            abs_tol = atol,
+            eval_limit = 2000,
+            verbose = Int(show_trace),
+        ),
+    )
 
-    return res/(parent(u0.α)(π)*u0.w(x)*u0(x))
+    return res / (parent(u0.α)(π) * u0.w(x) * u0(x))
 
 end

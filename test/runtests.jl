@@ -2,6 +2,7 @@ using Test
 using HighestCuspedWave
 using Nemo
 using ArbTools
+using Arblib
 
 @testset "HighestCuspedWave" begin
     include("arb-test.jl")

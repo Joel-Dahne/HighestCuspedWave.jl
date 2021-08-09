@@ -1,24 +1,63 @@
 """
         eval_expansion(u0::BHAnsatz, expansion, x)
-    Evaluate the given expansion. The term `((i, m), y)` is evaluated
-    to `y*log(abs(x))^i*abs(x)^m` and then they are all summed.
+    Evaluate the given expansion. The term `((i, m, k, l), y)` is
+    evaluated to `y * log(abs(x))^i * abs(x)^(-k*u0.v0.α + l*u0.v0.p0
+    + m)` and then they are all summed.
 
     In general x needs to be given both when computing the expansion and
     when evaluating it.
 """
-function eval_expansion(u0::BHAnsatz{T},
-                        expansion::AbstractDict{NTuple{2, Int}, T},
-                        x,
-                        ) where {T}
+function eval_expansion(
+    u0::BHAnsatz{T},
+    expansion::AbstractDict{NTuple{2,S},T},
+    x,
+) where {T,S}
     res = zero(u0.a0)
 
     for ((i, m), y) in expansion
-        if i > 0
-            # TODO: Handle the case when 0 ∈ x, i > 0, m > 0. Then this
-            # should be finite but will not work as given now.
-            res += y*log(abs(x))^i*abspow(x, m)
+        if iszero(i)
+            res += y * abspow(x, m)
         else
-            res += y*abspow(x, m)
+            # TODO: Handle the case when 0 ∈ x, i > 0, exponent > 0.
+            # Then this should be finite but will not work as given
+            # now.
+            res += y * abspow(log(abs(x)), i) * abspow(x, m)
+        end
+    end
+
+    return res
+end
+
+"""
+        eval_expansion(u0::BHAnsatz, expansion, x)
+    Evaluate the given expansion. The term `((i, m, k, l), y)` is
+    evaluated to `y * log(abs(x))^i * abs(x)^(-k*u0.v0.α + l*u0.v0.p0
+    + m)` and then they are all summed.
+
+    In general x needs to be given both when computing the expansion and
+    when evaluating it.
+"""
+function eval_expansion(
+    u0::BHAnsatz{T},
+    expansion::AbstractDict{NTuple{4,S},T},
+    x,
+) where {T,S}
+    res = zero(u0.a0)
+
+    for ((i, m, k, l), y) in expansion
+        if iszero(k) && iszero(l)
+            exponent = m
+        else
+            exponent = -k * u0.v0.α + l * u0.v0.p0 + m
+        end
+
+        if iszero(i)
+            res += y * abspow(x, exponent)
+        else
+            # TODO: Handle the case when 0 ∈ x, i > 0, exponent > 0.
+            # Then this should be finite but will not work as given
+            # now.
+            res += y * abspow(log(abs(x)), i) * abspow(x, exponent)
         end
     end
 
@@ -28,11 +67,15 @@ end
 function (u0::BHAnsatz{T})(x, ::Ball) where {T}
     conv = T == arb ? parent(u0.a0) : a -> convert(T, a)
     x = conv(x)
-    res = u0.a0*(Ci(x, 2, 1) - zeta(conv(2), d = 1))
-    res += u0.a1*(Ci(x, 2) - zeta(conv(2)))
+    res = u0.a0 * (Ci(x, 2, 1) - zeta(conv(2), d = 1))
+    res += u0.a1 * (Ci(x, 2) - zeta(conv(2)))
 
-    for n in 1:u0.N
-        res += u0.b[n]*(cos(n*x) - 1)
+    for n = 1:u0.N
+        res += u0.b[n] * (cos(n * x) - 1)
+    end
+
+    if !isnothing(u0.v0)
+        res += u0.v0(x)
     end
 
     return res
@@ -49,6 +92,9 @@ of `u0`. The element `((i, m), a)` in the dictionary corresponds to
 the term `a*log(abs(x))^i*abs(x)^m`. The highest term is an error term
 which makes sure that evaluation of the expansion gives an enclosure
 of the result.
+
+TODO: This doesn't take into account the asymptotic expansion of
+`u0.v0`.
 """
 function (u0::BHAnsatz{arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # TODO: Check this
@@ -58,17 +104,17 @@ function (u0::BHAnsatz{arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     π = RR(pi)
     γ = RR(stieltjes(arb, 0))
 
-    res = OrderedDict{NTuple{2, Int}, arb}()
+    res = OrderedDict{NTuple{4,Int},arb}()
 
-    res[(1, 1)] = -u0.a0*π/2
-    res[(0, 1)] = -u0.a0*(γ - 1)*π/2 - u0.a1*π/2
+    res[(1, 1, 0, 0)] = u0.a0 * π / 2
+    res[(0, 1, 0, 0)] = -u0.a0 * (γ - 1) * π / 2 - u0.a1 * π / 2
 
-    for m in 1:M-1
-        term = u0.a0*zeta(RR(2 - 2m), d = 1) + u0.a1*zeta(RR(2 - 2m))
-        for n in 1:u0.N
-            term += fmpz(n)^(2m)*u0.b[n]
+    for m = 1:M-1
+        term = u0.a0 * zeta(RR(2 - 2m), d = 1) + u0.a1 * zeta(RR(2 - 2m))
+        for n = 1:u0.N
+            term += fmpz(n)^(2m) * u0.b[n]
         end
-        res[(0, 2m)] = (-1)^m*term/factorial(fmpz(2m))
+        res[(0, 2m, 0, 0)] = (-1)^m * term / factorial(fmpz(2m))
     end
 
     #TODO: Add error term
@@ -79,21 +125,35 @@ end
 function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # TODO: Check this
     #@assert M >= 3
-
     π = Arb(Irrational{:π}())
     γ = Arb(Irrational{:γ}())
 
-    res = OrderedDict{NTuple{2, Int}, Arb}()
+    x = convert(Arb, x)
 
-    res[(1, 1)] = -u0.a0*π/2
-    res[(0, 1)] = -u0.a0*(γ - 1)*π/2 - u0.a1*π/2
+    res = OrderedDict{NTuple{4,Int},Arb}()
 
-    for m in 1:M-1
-        term = u0.a0*zeta(Arb(2 - 2m), d = 1) + u0.a1*zeta(Arb(2 - 2m))
-        for n in 1:u0.N
-            term += Arb(n)^(2m)*u0.b[n]
+    res[(1, 1, 0, 0)] = u0.a0 * π / 2
+    res[(0, 1, 0, 0)] = -u0.a0 * (γ - 1) * π / 2 - u0.a1 * π / 2
+
+    for m = 1:M-1
+        term = u0.a0 * zeta(Arb(2 - 2m), d = 1) + u0.a1 * zeta(Arb(2 - 2m))
+        for n = 1:u0.N
+            term += Arb(n)^(2m) * u0.b[n]
         end
-        res[(0, 2m)] = (-1)^m*term/factorial(Arb(2m))
+        res[(0, 2m, 0, 0)] = (-1)^m * term / factorial(Arb(2m))
+    end
+
+    # Add Clausians coming from u0.v0
+    if !isnothing(u0.v0)
+        let α = u0.v0.α, p0 = u0.v0.p0
+            for j = 1:u0.v0.N0
+                C, _, p, _ = Ci_expansion(x, 1 - α + j * p0, M)
+                res[(0, 0, 1, j)] = u0.v0.a[j] * C
+                for m = 1:M-1
+                    res[(0, 2m, 0, 0)] += u0.v0.a[j] * p[2m]
+                end
+            end
+        end
     end
 
     #TODO: Add error term
@@ -103,14 +163,24 @@ end
 
 function H(u0::BHAnsatz{T}, ::Ball) where {T}
     conv = T == arb ? parent(u0.a0) : a -> convert(T, a)
+    f = isnothing(u0.v0) ? x -> zero(x) : H(u0.v0)
 
     return x -> begin
         x = conv(x)
-        res = -u0.a0*(Ci(x, 3, 1) - zeta(conv(3), d = 1))
-        res += -u0.a1*(Ci(x, 3) - zeta(conv(3)))
+        res = -u0.a0 * (Ci(x, 3, 1) - zeta(conv(3), d = 1))
+        res += -u0.a1 * (Ci(x, 3) - zeta(conv(3)))
 
-        for n in 1:u0.N
-            res -= u0.b[n]/n*(cos(n*x) - 1)
+        for n = 1:u0.N
+            res -= u0.b[n] / n * (cos(n * x) - 1)
+        end
+
+        # Add Clausians coming from u0.v0
+        if !isnothing(u0.v0)
+            let α = u0.v0.α, p0 = u0.v0.p0
+                for j = 1:u0.v0.N0
+                    res -= u0.v0.a[j] * (Ci(x, 2 - α + j * p0) - zeta(2 - α + j * p0))
+                end
+            end
         end
 
         return res
@@ -142,21 +212,21 @@ function H(u0::BHAnsatz{arb}, ::AsymptoticExpansion; M::Integer = 3)
     γ₁ = RR(stieltjes(arb, 1))
 
     return x -> begin
-        res = OrderedDict{NTuple{2, Int}, arb}()
+        res = OrderedDict{NTuple{2,Int},arb}()
 
-        res[(2, 2)] = -u0.a0/4
-        res[(1, 2)] = u0.a0*(3//4 - γ/2) - u0.a1/2
+        res[(2, 2)] = -u0.a0 / 4
+        res[(1, 2)] = -u0.a0 * (3 // 4 - γ / 2) + u0.a1 / 2
 
-        for m in 1:M - 1
+        for m = 1:M-1
             if m == 1
-                term = -u0.a0*(3γ - γ^2 - 2γ₁ - 7//2 + (π^2)/12)/2 - u0.a1*3//2
+                term = -u0.a0 * (3γ - γ^2 - 2γ₁ - 7 // 2 + (π^2) / 12) / 2 - u0.a1 * 3 // 2
             else
-                term = -u0.a0*zeta(RR(3 - 2m), d = 1) - u0.a1*zeta(RR(3 - 2m))
+                term = -u0.a0 * zeta(RR(3 - 2m), d = 1) - u0.a1 * zeta(RR(3 - 2m))
             end
-            for n in 1:u0.N
-                term -= fmpz(n)^(2m - 1)*u0.b[n]
+            for n = 1:u0.N
+                term -= fmpz(n)^(2m - 1) * u0.b[n]
             end
-            res[(0, 2m)] = (-1)^m*term/factorial(fmpz(2m))
+            res[(0, 2m)] = (-1)^m * term / factorial(fmpz(2m))
         end
 
         # TODO: Add error term
@@ -174,21 +244,35 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     γ₁ = stieltjes(Arb, 1)
 
     return x -> begin
-        res = OrderedDict{NTuple{2, Int}, Arb}()
+        x = convert(Arb, x)
+        res = OrderedDict{NTuple{4,Int},Arb}()
 
-        res[(2, 2)] = -u0.a0/4
-        res[(1, 2)] = u0.a0*(3//4 - γ/2) - u0.a1/2
+        res[(2, 2, 0, 0)] = -u0.a0 / 4
+        res[(1, 2, 0, 0)] = -u0.a0 * (3 // 4 - γ / 2) + u0.a1 / 2
 
-        for m in 1:M - 1
+        for m = 1:M-1
             if m == 1
-                term = -u0.a0*(3γ - γ^2 - 2γ₁ - 7//2 + (π^2)/12)/2 - u0.a1*3//2
+                term = -u0.a0 * (3γ - γ^2 - 2γ₁ - 7 // 2 + (π^2) / 12) / 2 - u0.a1 * 3 // 2
             else
-                term = -u0.a0*zeta(Arb(3 - 2m), d = 1) - u0.a1*zeta(Arb(3 - 2m))
+                term = -u0.a0 * zeta(Arb(3 - 2m), d = 1) - u0.a1 * zeta(Arb(3 - 2m))
             end
-            for n in 1:u0.N
-                term -= Arb(n)^(2m - 1)*u0.b[n]
+            for n = 1:u0.N
+                term -= Arb(n)^(2m - 1) * u0.b[n]
             end
-            res[(0, 2m)] = (-1)^m*term/factorial(Arb(2m))
+            res[(0, 2m, 0, 0)] = (-1)^m * term / factorial(Arb(2m))
+        end
+
+        # Add Clausians coming from u0.v0
+        if !isnothing(u0.v0)
+            let α = u0.v0.α, p0 = u0.v0.p0
+                for j = 1:u0.v0.N0
+                    C, _, p, _ = Ci_expansion(x, 2 - α + j * p0, M)
+                    res[(0, 1, 1, j)] = -u0.v0.a[j] * C
+                    for m = 1:M-1
+                        res[(0, 2m, 0, 0)] -= u0.v0.a[j] * p[2m]
+                    end
+                end
+            end
         end
 
         # TODO: Add error term
@@ -201,6 +285,17 @@ function D(u0::BHAnsatz, ::Asymptotic; M::Integer = 3)
     f = D(u0, AsymptoticExpansion(); M)
 
     return x -> eval_expansion(u0, f(x), x)
+
+    if isnothing(u0.v0) && false
+        5
+    else
+        # This is more or less a temporary solution
+        f = x -> u0(x, Asymptotic(), M = M)
+        g = H(u0, Asymptotic(), M = M)
+        return x -> begin
+            f(x)^2 / 2 + g(x)
+        end
+    end
 end
 
 function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
@@ -213,10 +308,14 @@ function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
         expansion = empty(expansion1)
 
         # u0^2/2 term
-        for ((i1, m1), a1) in expansion1
-            for ((i2, m2), a2) in expansion1
-                key = (i1 + i2, m1 + m2)
-                expansion[key] = get(expansion, key, zero(x)) + a1*a2/2
+        let expansion1 = collect(expansion1)
+            for (i, (key1, a1)) in enumerate(expansion1)
+                expansion[2 .* key1] = get(expansion, 2 .* key1, zero(x)) + a1^2 / 2
+                for j = i+1:length(expansion1)
+                    (key2, a2) = expansion1[j]
+                    key = key1 .+ key2
+                    expansion[key] = get(expansion, key, zero(x)) + a1 * a2
+                end
             end
         end
 
@@ -227,6 +326,14 @@ function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
         # identically equal to zero.
 
         return expansion
+    end
+end
+
+# TODO: Properly implement this method so that we can evaluate it at 0
+function F0(u0::BHAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T}
+    f = D(u0, Asymptotic(); M)
+    return x -> begin
+        return f(x) / (u0.w(x) * u0(x, Asymptotic()))
     end
 end
 
@@ -247,24 +354,24 @@ function D(u0::BHAnsatz, xs::AbstractVector)
     for i in eachindex(xs)
         x = xs[i]
 
-        u0_xs_a0_precomputed[i] = u0.a0*(Ci(x, 2, 1) - zeta(2, d = 1))
-        Hu0_xs_a0_precomputed[i] = -u0.a0*(Ci(x, 3, 1) - zeta(3, d = 1))
+        u0_xs_a0_precomputed[i] = u0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
+        Hu0_xs_a0_precomputed[i] = -u0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
 
         if !iszero(u0.a1)
-            u0_xs_a0_precomputed[i] += u0.a1*(Ci(x, 2) - zeta(2))
-            Hu0_xs_a0_precomputed[i] -= u0.a1*(Ci(x, 3) - zeta(3))
+            u0_xs_a0_precomputed[i] += u0.a1 * (Ci(x, 2) - zeta(2))
+            Hu0_xs_a0_precomputed[i] -= u0.a1 * (Ci(x, 3) - zeta(3))
         end
 
-        for n in 1:u0.N
-            u0_xs_b_precomputed[i, n] = cos(n*x) - 1
-            Hu0_xs_b_precomputed[i, n] = -(cos(n*x) - 1)/n
+        for n = 1:u0.N
+            u0_xs_b_precomputed[i, n] = cos(n * x) - 1
+            Hu0_xs_b_precomputed[i, n] = -(cos(n * x) - 1) / n
         end
     end
 
     return b -> begin
         return (
-            (u0_xs_a0_precomputed .+ u0_xs_b_precomputed*b).^2 ./ 2
-            .+ (Hu0_xs_a0_precomputed .+ Hu0_xs_b_precomputed*b)
+            (u0_xs_a0_precomputed .+ u0_xs_b_precomputed * b) .^ 2 ./ 2 .+
+            (Hu0_xs_a0_precomputed .+ Hu0_xs_b_precomputed * b)
         )
     end
 end

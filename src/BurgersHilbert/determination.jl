@@ -14,7 +14,7 @@ function findbs!(u0::BHAnsatz{T}) where {T}
     end
 
     n = u0.N
-    xs = π*(1:2:2n-1)/2n
+    xs = π * (1:2:2n-1) / 2n
 
     f = D(u0, xs)
 

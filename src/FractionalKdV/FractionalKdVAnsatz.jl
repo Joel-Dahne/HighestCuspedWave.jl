@@ -16,11 +16,11 @@ eval_expansion for more information.
 struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     α::T
     p0::T
-    a::OffsetVector{T, Vector{T}}
+    a::OffsetVector{T,Vector{T}}
     b::Vector{T}
     c::T
     p::T
-    zeroterms::Set{Tuple{Int, Int, Int}}
+    zeroterms::Set{Tuple{Int,Int,Int}}
 end
 
 """
@@ -40,12 +40,16 @@ the values of `N0` and `N1` so it either uses only some of the
 coefficients or fills up with zeros.
 
 """
-function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
-                             use_midpoint = true,
-                             initial_a::Vector{T} = T[],
-                             initial_b::Vector{T} = T[],
-                             c::T = zero(α),
-                             ) where {T}
+function FractionalKdVAnsatz(
+    α::T,
+    N0,
+    N1,
+    p = one(α);
+    use_midpoint = true,
+    initial_a::Vector{T} = T[],
+    initial_b::Vector{T} = T[],
+    c::T = zero(α),
+) where {T}
     # Using the midpoint only makes sense for T == arb
     use_midpoint = use_midpoint && T == arb
 
@@ -61,17 +65,18 @@ function FractionalKdVAnsatz(α::T, N0, N1, p = one(α);
 
     a = OffsetVector(
         [
-            zero(α);
-            collect(Iterators.take(initial_a, N0));
+            zero(α)
+            collect(Iterators.take(initial_a, N0))
             fill(zero(α), max(N0 - length(initial_a), 0))
         ],
-        0:N0)
+        0:N0,
+    )
     b = [
-        collect(Iterators.take(initial_b, N1));
+        collect(Iterators.take(initial_b, N1))
         fill(zero(α), max(N1 - length(initial_b), 0))
     ]
 
-    u0 = FractionalKdVAnsatz(α, p0, a, b, c, p, Set{Tuple{Int, Int, Int}}())
+    u0 = FractionalKdVAnsatz(α, p0, a, b, c, p, Set{Tuple{Int,Int,Int}}())
 
     findas!(u0)
     findbs!(u0)
@@ -91,52 +96,70 @@ function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
     if α < -1 + ϵ1
         # α ∈ I_1
 
-        u0 = FractionalKdVAnsatz(α, 12, 512, ifelse(isnothing(pp), (1 - α)/2, pp), use_midpoint = true)
+        u0 = FractionalKdVAnsatz(
+            α,
+            12,
+            512,
+            ifelse(isnothing(pp), (1 - α) / 2, pp),
+            use_midpoint = true,
+        )
     elseif α < -ϵ2
         # α ∈ I_2
 
         if α <= -0.885
             N0 = 11
             N1 = 512
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.87
             N0 = 10
             N1 = 512
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.85
             N0 = 9
             N1 = 256
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.8
             N0 = 7
             N1 = 256
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.75
             N0 = 6
             N1 = 128
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.61
             N0 = 5
             N1 = 64
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.36
             N0 = 4
             N1 = 16
-            p = (1 - α)/2
+            p = (1 - α) / 2
         elseif α <= -0.2
             N0 = 3
             N1 = 8
-            p = (1 - α)/2
+            p = (1 - α) / 2
         else
             N0 = 3
             N1 = 8
-            p = (2 - α)/3
+            p = (2 - α) / 3
         end
 
-        u0 = FractionalKdVAnsatz(α, N0, N1, ifelse(isnothing(pp), p, pp), use_midpoint = true)
+        u0 = FractionalKdVAnsatz(
+            α,
+            N0,
+            N1,
+            ifelse(isnothing(pp), p, pp),
+            use_midpoint = true,
+        )
     else
         # α ∈ I_3
-        u0 = FractionalKdVAnsatz(α, 1, 0, ifelse(isnothing(pp), one(α), pp), use_midpoint = false)
+        u0 = FractionalKdVAnsatz(
+            α,
+            1,
+            0,
+            ifelse(isnothing(pp), one(α), pp),
+            use_midpoint = false,
+        )
     end
 
     return u0
@@ -164,7 +187,7 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
     c = u0.c
     p = u0.p
     # We can no longer guarantee that any terms are zero
-    zeroterms = Set{Tuple{Int, Int, Int}}()
+    zeroterms = Set{Tuple{Int,Int,Int}}()
 
     u0_new = FractionalKdVAnsatz(α, p0, a, b, c, p, zeroterms)
 
@@ -183,7 +206,10 @@ function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{T}) where
 end
 
 function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{arb})
-    println(io, "FractionalKdVAnsatz{arb} N₀ = $(u0.N0), N₁ = $(u0.N1), prec = $(prec(parent(u0.α)))")
+    println(
+        io,
+        "FractionalKdVAnsatz{arb} N₀ = $(u0.N0), N₁ = $(u0.N1), prec = $(precision(parent(u0.α)))",
+    )
     print(io, "α = $(u0.α), p = $(u0.p)")
 end
 

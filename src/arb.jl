@@ -37,10 +37,10 @@ If `split` is true then returns the intervals as tuples and not balls.
 """
 function mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
     intervals = Vector{ifelse(split, NTuple{2,arb}, arb)}(undef, n)
-    dx = (xᵤ - xₗ)/n
+    dx = (xᵤ - xₗ) / n
     for i in eachindex(intervals)
-        yₗ = xₗ + (i - 1)*dx
-        yᵤ = xₗ + i*dx
+        yₗ = xₗ + (i - 1) * dx
+        yᵤ = xₗ + i * dx
         if split
             intervals[i] = (yₗ, yᵤ)
         else
@@ -59,16 +59,14 @@ accuracy of `x` measured in bits is more than `cutoff` lower than it's
 precision.
 """
 function iswide(x::arb; cutoff = 10)
-    return ArbTools.rel_accuracy_bits(x) < prec(parent(x)) - cutoff
+    return ArbTools.rel_accuracy_bits(x) < precision(parent(x)) - cutoff
 end
 
 function iswide(x::acb; cutoff = 10)
     # TODO: Arb implements this as well, slightly different, but it
     # has to be implemented in ArbTools first
-    return min(
-        ArbTools.rel_accuracy_bits(real(x)),
-        ArbTools.rel_accuracy_bits(imag(x)),
-    ) < prec(parent(x)) - cutoff
+    return min(ArbTools.rel_accuracy_bits(real(x)), ArbTools.rel_accuracy_bits(imag(x))) <
+           precision(parent(x)) - cutoff
 end
 
 iswide(x::Union{Arb,Acb}; cutoff = 10) = Arblib.rel_accuracy_bits(x) < precision(x) - cutoff
@@ -81,9 +79,17 @@ function zeta(s::arb; d::Integer = 0)
     a = one(s)
     res = PP()
 
-    ccall((:arb_poly_zeta_series, Nemo.libarb), Cvoid,
-          (Ref{arb_poly}, Ref{arb_poly}, Ref{arb}, Cint, Clong, Clong),
-          res, s_poly, a, 0, d + 1, parent(s).prec)
+    ccall(
+        (:arb_poly_zeta_series, Nemo.libarb),
+        Cvoid,
+        (Ref{arb_poly}, Ref{arb_poly}, Ref{arb}, Cint, Clong, Clong),
+        res,
+        s_poly,
+        a,
+        0,
+        d + 1,
+        parent(s).prec,
+    )
 
     return coeff(res, d)
 end
@@ -103,9 +109,15 @@ function stieltjes(type, n::Integer)
     res = zero(CC)
     a = one(CC)
 
-    ccall((:acb_dirichlet_stieltjes, Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{fmpz}, Ref{acb}, Clong),
-          res, fmpz(n), a, CC.prec)
+    ccall(
+        (:acb_dirichlet_stieltjes, Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{fmpz}, Ref{acb}, Clong),
+        res,
+        fmpz(n),
+        a,
+        CC.prec,
+    )
 
     convert(type, real(res))
 end
@@ -113,9 +125,15 @@ function stieltjes(::Type{Arb}, n::Integer)
     res = zero(Acb)
     a = one(Acb)
 
-    ccall((:acb_dirichlet_stieltjes, Arblib.libarb), Cvoid,
-          (Ref{Arblib.acb_struct}, Ref{fmpz}, Ref{Arblib.acb_struct}, Clong),
-          res, fmpz(n), a, precision(res))
+    ccall(
+        (:acb_dirichlet_stieltjes, Arblib.libarb),
+        Cvoid,
+        (Ref{Arblib.acb_struct}, Ref{fmpz}, Ref{Arblib.acb_struct}, Clong),
+        res,
+        fmpz(n),
+        a,
+        precision(res),
+    )
 
     return real(res)
 end
@@ -147,15 +165,15 @@ function contains_pi(x1::arb, x2::arb)
     end
 
     # We have k1ₗπ ≤ xₗ < (k1ᵤ + 1)π
-    k1 = floor(x1/parent(x1)(π))
+    k1 = floor(x1 / parent(x1)(π))
     (unique1ₗ, k1ₗ) = unique_integer(ceil(ArbTools.lbound(k1)))
     (unique1ᵤ, k1ᵤ) = unique_integer(floor(ArbTools.ubound(k1)))
-    @assert unique1ₗ && unique1ᵤ && k1ₗ*parent(x1)(π) ≤ x1 < (k1ᵤ + 1)*parent(x1)(π)
+    @assert unique1ₗ && unique1ᵤ && k1ₗ * parent(x1)(π) ≤ x1 < (k1ᵤ + 1) * parent(x1)(π)
     # We have k2ₗπ ≤ xₗ < (k2ᵤ + 1)π
-    k2 = floor(x2/parent(x2)(π))
+    k2 = floor(x2 / parent(x2)(π))
     (unique2ₗ, k2ₗ) = unique_integer(ceil(ArbTools.lbound(k2)))
     (unique2ᵤ, k2ᵤ) = unique_integer(floor(ArbTools.ubound(k2)))
-    @assert unique2ₗ && unique2ᵤ && k2ₗ*parent(x2)(π) ≤ x2 < (k2ᵤ + 1)*parent(x2)(π)
+    @assert unique2ₗ && unique2ᵤ && k2ₗ * parent(x2)(π) ≤ x2 < (k2ᵤ + 1) * parent(x2)(π)
 
     if k1ₗ == k2ᵤ
         # No kπ
@@ -179,15 +197,33 @@ Compute the (not regularised) incomplete beta function B(a, b; z).
 """
 function beta_inc(a::acb, b::acb, z::acb)
     res = parent(z)()
-    ccall(("acb_hypgeom_beta_lower", Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{acb}, Ref{acb}, Ref{acb}, Cint, Clong), res, a, b, z, 0, prec(parent(z)))
+    ccall(
+        ("acb_hypgeom_beta_lower", Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{acb}, Ref{acb}, Ref{acb}, Cint, Clong),
+        res,
+        a,
+        b,
+        z,
+        0,
+        precision(parent(z)),
+    )
     return res
 end
 
 function beta_inc(a::arb, b::arb, z::arb)
     res = parent(z)()
-    ccall(("arb_hypgeom_beta_lower", Nemo.libarb), Cvoid,
-          (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong), res, a, b, z, 0, prec(parent(z)))
+    ccall(
+        ("arb_hypgeom_beta_lower", Nemo.libarb),
+        Cvoid,
+        (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong),
+        res,
+        a,
+        b,
+        z,
+        0,
+        precision(parent(z)),
+    )
     return res
 end
 
@@ -252,9 +288,18 @@ Compute the (not regularised) Gauss hypergeometric function
 """
 function hypgeom_2f1(a::arb, b::arb, c::arb, z::arb)
     res = parent(z)()
-    ccall(("arb_hypgeom_2f1", Nemo.libarb), Cvoid,
-          (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong),
-          res, a, b, c, z, 0, prec(parent(z)))
+    ccall(
+        ("arb_hypgeom_2f1", Nemo.libarb),
+        Cvoid,
+        (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong),
+        res,
+        a,
+        b,
+        c,
+        z,
+        0,
+        precision(parent(z)),
+    )
     return res
 end
 
@@ -289,9 +334,9 @@ otherwise either `-x` or `x` is returned depending on the sign of x.
 """
 function Base.abs(x::arb_series, n::Integer = length(x))
     if contains_zero(x[0])
-        return arb_series(parent(x.poly)(
-            [abs(x[0]); fill(base_ring(parent(x.poly))(NaN), n - 1)]
-        ))
+        return arb_series(
+            parent(x.poly)([abs(x[0]); fill(base_ring(parent(x.poly))(NaN), n - 1)]),
+        )
     elseif x[0] < 0
         return -x
     else
@@ -305,8 +350,15 @@ Compute the generalised exponential integral Eₛ(z).
 """
 function expint(s::acb, z::acb)
     res = parent(s)()
-    ccall(("acb_hypgeom_expint", Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{acb}, Ref{acb}, Int), res, s, z, prec(parent(z)))
+    ccall(
+        ("acb_hypgeom_expint", Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{acb}, Ref{acb}, Int),
+        res,
+        s,
+        z,
+        precision(parent(z)),
+    )
     return res
 end
 
@@ -319,23 +371,41 @@ precision if required.
 """
 function cosint(a::arb, z::arb)
     RR = parent(z)
-    CC = ComplexField(prec(RR))
+    CC = ComplexField(precision(RR))
     res = CC()
-    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), z), 0, prec(RR))
+    ccall(
+        ("acb_hypgeom_gamma_upper", Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+        res,
+        CC(a),
+        CC(zero(z), z),
+        0,
+        precision(RR),
+    )
 
     if iswide(res)
         res2 = CC()
-        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res2, CC(a), CC(zero(z), z), 0, 4prec(RR))
-        res = CC(setintersection(real(res), real(res2)),
-                 setintersection(imag(res), imag(res2)))
+        ccall(
+            ("acb_hypgeom_gamma_upper", Nemo.libarb),
+            Cvoid,
+            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+            res2,
+            CC(a),
+            CC(zero(z), z),
+            0,
+            4precision(RR),
+        )
+        res = CC(
+            setintersection(real(res), real(res2)),
+            setintersection(imag(res), imag(res2)),
+        )
         if iswide(res, cutoff = 20)
             @warn "Wide enclosure when computing cosint res = $res"
         end
     end
 
-    return real(exp(CC(zero(a), -RR(π)*a/2))*res)
+    return real(exp(CC(zero(a), -RR(π) * a / 2)) * res)
 end
 
 """
@@ -347,26 +417,43 @@ precision if required.
 """
 function cosintpi(a::arb, z)
     RR = parent(a)
-    CC = ComplexField(prec(RR))
+    CC = ComplexField(precision(RR))
     res = CC()
-    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), RR(π)*z), 0, prec(RR))
+    ccall(
+        ("acb_hypgeom_gamma_upper", Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+        res,
+        CC(a),
+        CC(zero(z), RR(π) * z),
+        0,
+        precision(RR),
+    )
 
     if iswide(res)
-        RR2 = RealField(8prec(RR))
-        CC2 = ComplexField(prec(RR2))
+        RR2 = RealField(8precision(RR))
+        CC2 = ComplexField(precision(RR2))
         res2 = CC2()
-        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-              res2, CC2(a), CC2(zero(a), RR2(π)*RR2(z)), 0, prec(RR2))
-        res = CC(setintersection(real(res), real(res2)),
-                 setintersection(imag(res), imag(res2)))
+        ccall(
+            ("acb_hypgeom_gamma_upper", Nemo.libarb),
+            Cvoid,
+            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+            res2,
+            CC2(a),
+            CC2(zero(a), RR2(π) * RR2(z)),
+            0,
+            precision(RR2),
+        )
+        res = CC(
+            setintersection(real(res), real(res2)),
+            setintersection(imag(res), imag(res2)),
+        )
         if iswide(res, cutoff = 20)
             @warn "Wide enclosure when computing cosintpi res = $res"
         end
     end
 
-    return real(exp(CC(zero(a), -RR(π)*a/2))*res)
+    return real(exp(CC(zero(a), -RR(π) * a / 2)) * res)
 end
 
 """
@@ -380,8 +467,8 @@ function cosint_javi(x::arb)
     res1 = -cosint(zero(x), x)
 
     s, c = sincos(x)
-    lb = (s - (c + 1)/x)/x
-    ub = (s - (c - 1)/x)/x
+    lb = (s - (c + 1) / x) / x
+    ub = (s - (c - 1) / x) / x
     res2 = setunion(lb, ub)
 
     if isfinite(res1)
@@ -400,23 +487,41 @@ precision if required.
 """
 function sinint(a::arb, z::arb)
     RR = parent(z)
-    CC = ComplexField(prec(RR))
+    CC = ComplexField(precision(RR))
     res = CC()
-    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), z), 0, prec(RR))
+    ccall(
+        ("acb_hypgeom_gamma_upper", Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+        res,
+        CC(a),
+        CC(zero(z), z),
+        0,
+        precision(RR),
+    )
 
     if iswide(res)
         res2 = CC()
-        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res2, CC(a), CC(zero(z), z), 0, 4prec(RR))
-        res = CC(setintersection(real(res), real(res2)),
-                 setintersection(imag(res), imag(res2)))
+        ccall(
+            ("acb_hypgeom_gamma_upper", Nemo.libarb),
+            Cvoid,
+            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+            res2,
+            CC(a),
+            CC(zero(z), z),
+            0,
+            4precision(RR),
+        )
+        res = CC(
+            setintersection(real(res), real(res2)),
+            setintersection(imag(res), imag(res2)),
+        )
         if iswide(res, cutoff = 20)
             @warn "Wide enclosure when computing sinint res = $res"
         end
     end
 
-    return -imag(exp(CC(zero(a), -RR(π)*a/2))*res)
+    return -imag(exp(CC(zero(a), -RR(π) * a / 2)) * res)
 end
 
 """
@@ -428,24 +533,41 @@ precision if required.
 """
 function sinintpi(a::arb, z)
     RR = parent(a)
-    CC = ComplexField(prec(RR))
+    CC = ComplexField(precision(RR))
     res = CC()
-    ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-          (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int), res, CC(a), CC(zero(z), RR(π)*z), 0, prec(RR))
+    ccall(
+        ("acb_hypgeom_gamma_upper", Nemo.libarb),
+        Cvoid,
+        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+        res,
+        CC(a),
+        CC(zero(z), RR(π) * z),
+        0,
+        precision(RR),
+    )
 
     if iswide(res)
-        RR2 = RealField(8prec(RR))
-        CC2 = ComplexField(prec(RR2))
+        RR2 = RealField(8precision(RR))
+        CC2 = ComplexField(precision(RR2))
         res2 = CC2()
-        ccall(("acb_hypgeom_gamma_upper", Nemo.libarb), Cvoid,
-              (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-              res2, CC2(a), CC2(zero(a), RR2(π)*RR2(z)), 0, prec(RR2))
-        res = CC(setintersection(real(res), real(res2)),
-                 setintersection(imag(res), imag(res2)))
+        ccall(
+            ("acb_hypgeom_gamma_upper", Nemo.libarb),
+            Cvoid,
+            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
+            res2,
+            CC2(a),
+            CC2(zero(a), RR2(π) * RR2(z)),
+            0,
+            precision(RR2),
+        )
+        res = CC(
+            setintersection(real(res), real(res2)),
+            setintersection(imag(res), imag(res2)),
+        )
         if iswide(res, cutoff = 20)
             @warn "Wide enclosure when computing sinintpi res = $res"
         end
     end
 
-    return -imag(exp(CC(zero(a), -RR(π)*a/2))*res)
+    return -imag(exp(CC(zero(a), -RR(π) * a / 2)) * res)
 end

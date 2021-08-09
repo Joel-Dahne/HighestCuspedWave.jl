@@ -18,13 +18,14 @@ mainly the `[ϵ, π]` that takes time, could look more at what part of
 it. Otherwise it's mainly important to look at the overestimation in
 the evaluation due to the radius of `α`.
 """
-function delta0(u0::FractionalKdVAnsatz{arb};
-                ϵ::arb = zero(u0.α),
-                M::Integer = 3,
-                n::Integer = 6,
-                rtol::arb = parent(u0.α)(1e-3),
-                show_trace = false,
-                )
+function delta0(
+    u0::FractionalKdVAnsatz{arb};
+    ϵ::arb = zero(u0.α),
+    M::Integer = 3,
+    n::Integer = 6,
+    rtol::arb = parent(u0.α)(1e-3),
+    show_trace = false,
+)
     f = F0(u0, Asymptotic(), M = M)
     g = F0(u0)
     if iszero(ϵ)
@@ -39,32 +40,38 @@ function delta0(u0::FractionalKdVAnsatz{arb};
     # Bound the value one [0, ϵ]
     # Estimate the value by evaluating it at ϵ
     estimate = abs(f(ϵ))
-    res1 = enclosemaximum(f, parent(u0.α)(0), ϵ,
-                          lower_bound = estimate,
-                          rtol = rtol,
-                          atol = 2radius(estimate),
-                          absmax = true,
-                          maxevals = 10^4,
-                          show_trace = show_trace,
-                          )
+    res1 = enclosemaximum(
+        f,
+        parent(u0.α)(0),
+        ϵ,
+        lower_bound = estimate,
+        rtol = rtol,
+        atol = 2radius(estimate),
+        absmax = true,
+        maxevals = 10^4,
+        show_trace = show_trace,
+    )
 
     # Bound the value on [ϵ, π] by Ball evaluation
     # Estimate the value by evaluating it at a number of points on the interval
-    xs = ϵ .+ (parent(ϵ)(π) - ϵ).*range(0, stop = 1, length = 10)
+    xs = ϵ .+ (parent(ϵ)(π) - ϵ) .* range(0, stop = 1, length = 10)
     estimate = zero(ϵ)
     for x in xs
         estimate = max(estimate, abs(g(x)))
     end
-    res2 = enclosemaximum(g, ϵ, parent(u0.α)(π),
-                          evaltype = :taylor,
-                          n = n,
-                          lower_bound = estimate,
-                          rtol = rtol,
-                          atol = 4radius(estimate),
-                          absmax = true,
-                          maxevals = 10^4,
-                          show_trace = show_trace,
-                          )
+    res2 = enclosemaximum(
+        g,
+        ϵ,
+        parent(u0.α)(π),
+        evaltype = :taylor,
+        n = n,
+        lower_bound = estimate,
+        rtol = rtol,
+        atol = 4radius(estimate),
+        absmax = true,
+        maxevals = 10^4,
+        show_trace = show_trace,
+    )
 
     return max(res1, res2)
 end
@@ -75,13 +82,14 @@ Return true if `δ₀` is bounded by `C` together with an enclosure of
 the maximum. Uses an asymptotic expansion on the interval [0, ϵ] and
 ball arithmetic on [ϵ, π].
 """
-function delta0_bounded_by(u0::FractionalKdVAnsatz{arb},
-                           C::arb;
-                           ϵ::arb = zero(u0.α),
-                           M::Integer = 3,
-                           n::Integer = 6,
-                           show_trace = false,
-                           )
+function delta0_bounded_by(
+    u0::FractionalKdVAnsatz{arb},
+    C::arb;
+    ϵ::arb = zero(u0.α),
+    M::Integer = 3,
+    n::Integer = 6,
+    show_trace = false,
+)
     f = F0(u0, Asymptotic(), M = M)
     g = F0(u0)
     if iszero(ϵ)
@@ -94,7 +102,8 @@ function delta0_bounded_by(u0::FractionalKdVAnsatz{arb},
     end
 
     # Prove bound on [0, ϵ]
-    res1, enclosure1 = bounded_by(f, parent(u0.α)(0), ϵ, C, return_enclosure = true; show_trace)
+    res1, enclosure1 =
+        bounded_by(f, parent(u0.α)(0), ϵ, C, return_enclosure = true; show_trace)
 
     res1 || return false, parent(C)(NaN)
 
@@ -123,12 +132,13 @@ always gives a lower bound of δ₀.
 If `return_values = true` then also return the points and the computed
 values.
 """
-function delta0_estimate(u0::FractionalKdVAnsatz{T};
-                         ϵ = 0,
-                         M::Integer = 3,
-                         n::Integer = 100,
-                         return_values = false,
-                         ) where {T}
+function delta0_estimate(
+    u0::FractionalKdVAnsatz{T};
+    ϵ = 0,
+    M::Integer = 3,
+    n::Integer = 100,
+    return_values = false,
+) where {T}
     xs = range(0, stop = pi, length = n)[2:end]
     if T == arb
         xs = parent(u0.α).(xs)

@@ -20,5 +20,5 @@ function alpha0_estimate(u0::AbstractAnsatz{T}) where {T}
     else
         π = convert(T, pi)
     end
-    return u0.w(π)/(2u0(π))
+    return u0.w(π) / (2u0(π))
 end

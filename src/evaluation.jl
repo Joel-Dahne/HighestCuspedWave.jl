@@ -29,7 +29,7 @@ D(u0::AbstractAnsatz) = D(u0, Ball())
 function D(u0::AbstractAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
     return x -> begin
-        u0(x, evaltype)^2/2 + f(x)
+        u0(x, evaltype)^2 / 2 + f(x)
     end
 end
 
@@ -45,6 +45,6 @@ F0(u0::AbstractAnsatz) = F0(u0, Ball())
 function F0(u0::AbstractAnsatz, evaltype::Ball)
     f = D(u0, evaltype)
     return x -> begin
-        return f(x)/(u0.w(x)*u0(x, evaltype))
+        return f(x) / (u0.w(x) * u0(x, evaltype))
     end
 end

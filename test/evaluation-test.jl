@@ -110,7 +110,7 @@ end
             for x in range(0, stop = Float64(ϵ), length = 50)
                 x = RR(x)
                 y1 = HighestCuspedWave.hat(u0)(x)
-                y2 = c*x^u0.p0
+                y2 = c * x^u0.p0
                 # Due to y1 not being evaluated exactly we might not
                 # have y1 <= y2. Instead we make sure that y1 is never
                 # strictly greater than y2
