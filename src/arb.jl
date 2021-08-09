@@ -345,6 +345,23 @@ function Base.abs(x::arb_series, n::Integer = length(x))
 end
 
 """
+    abs(x::ArbSeries)
+Compute the absolute value of `x`.
+
+If `x[0]` contains zero then all non-constant terms are set to `NaN`,
+otherwise either `-x` or `x` is returned depending on the sign of x.
+"""
+function Base.abs(x::ArbSeries)
+    if Arblib.contains_zero(x[0])
+        return ArbSeries([abs(x[0]); fill(Arb(NaN), Arblib.degree(x) - 1)])
+    elseif x[0] < 0
+        return -x
+    else
+        return x
+    end
+end
+
+"""
     expint(s::acb, z::acb)
 Compute the generalised exponential integral Eₛ(z).
 """
