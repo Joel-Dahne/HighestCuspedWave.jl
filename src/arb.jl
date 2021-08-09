@@ -219,59 +219,39 @@ contains_pi(x1::arb, x2::arb) = contains_pi(Arb(x1), Arb(x2))
 """
     beta_inc(a, b, z)
 Compute the (not regularised) incomplete beta function B(a, b; z).
-"""
-function beta_inc(a::acb, b::acb, z::acb)
-    res = parent(z)()
-    ccall(
-        ("acb_hypgeom_beta_lower", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Ref{acb}, Cint, Clong),
-        res,
-        a,
-        b,
-        z,
-        0,
-        precision(parent(z)),
-    )
-    return res
-end
 
-function beta_inc(a::arb, b::arb, z::arb)
-    res = parent(z)()
-    ccall(
-        ("arb_hypgeom_beta_lower", Nemo.libarb),
-        Cvoid,
-        (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong),
-        res,
-        a,
-        b,
-        z,
-        0,
-        precision(parent(z)),
-    )
-    return res
-end
+Note that this method is different than
+[`SpecialFunctions.beta_inc`](@ref) both in that it returns the
+non-regularised value and that it only returns one value.
+"""
+beta_inc(a::Acb, b::Acb, z::Acb) = Arblib.hypgeom_beta_lower!(zero(z), a, b, z, 0)
+beta_inc(a::Arb, b::Arb, z::Arb) = Arblib.hypgeom_beta_lower!(zero(z), a, b, z, 0)
+
+beta_inc(a::acb, b::acb, z::acb) = parent(a)(beta_inc(Acb(a), Acb(b), Acb(z)))
+beta_inc(a::arb, b::arb, z::arb) = parent(a)(beta_inc(Arb(a), Arb(b), Arb(z)))
 
 """
-    beta_inc_zeroone(a::arb, b::arb, z::arb)
+    beta_inc_zeroone(a, b, z)
 Compute the (not regularised) incomplete beta function B(a, b; z)
 assuming that `0 <= z <= 1`, discarding any other numbers in the
 interval.
 
-# PROVE: That it's monotonically increasing in `z`.
+PROVE: That it's monotonically increasing in `z`.
 """
-function beta_inc_zeroone(a::arb, b::arb, z::arb)
+function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
     if 0 <= z <= 1
         return beta_inc(a, b, z)
     elseif z >= 0
-        return setunion(beta_inc(a, b, ArbTools.lbound(z)), beta_inc(a, b, one(z)))
+        return setunion(beta_inc(a, b, Arblib.lbound(Arb, z)), beta_inc(a, b, one(z)))
     elseif z <= 1
-        return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, ArbTools.ubound(z)))
+        return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, Arblib.ubound(Arb, z)))
     else
         return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
     end
 end
 
+beta_inc_zeroone(a::arb, b::arb, z::arb) =
+    parent(a)(beta_inc_zeroone(Arb(a), Arb(b), Arb(z)))
 
 """
     powpos(x, y)
