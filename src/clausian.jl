@@ -302,7 +302,7 @@ function Ci(x::arb_series, s)
     res = arb_series(parent(x.poly)(), length(x))
     x₀ = x[0]
 
-    for i = 0:length(x) - 1
+    for i = 0:length(x)-1
         if i % 2 == 0
             res[i] = (-1)^(div(i, 2)) * Ci(x₀, s - i) / factorial(i)
         else
@@ -424,7 +424,10 @@ function Si(x::Arb, s::Union{Arb,Integer})
         dSi = Ci(x, s - 1)
         if Arblib.contains_zero(dSi)
             # Use a zero order approximation
-            return Arblib.add_error!(Si(Arblib.midpoint(Arb, x), s), (x - Arblib.midpoint(Arb, x)) * dSi)
+            return Arblib.add_error!(
+                Si(Arblib.midpoint(Arb, x), s),
+                (x - Arblib.midpoint(Arb, x)) * dSi,
+            )
         else
             # Use that it's monotone
             xₗ, xᵤ = Arblib.getinterval(Arb, x)
