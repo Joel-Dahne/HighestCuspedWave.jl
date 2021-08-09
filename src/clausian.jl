@@ -422,7 +422,7 @@ function Si(x::Arb, s::Union{Arb,Integer})
     if iswide(x) # If this is true then s is always an Arb
         # Compute derivative
         dSi = Ci(x, s - 1)
-        if contains_zero(dSi)
+        if Arblib.contains_zero(dSi)
             # Use a zero order approximation
             return Arblib.add_error!(Si(Arblib.midpoint(Arb, x), s), (x - Arblib.midpoint(Arb, x)) * dSi)
         else
