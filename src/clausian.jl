@@ -9,75 +9,6 @@ export Li, Ci, Si, Ci_tilde
     Li(z, s)
 Compute the polylogarithm ``Li_s(z)``
 """
-function Li(z::acb, s::acb)
-    if iswide(s)
-        # TODO: Check that everything here is correct
-
-        # TODO: Tune this
-        n = 3 # Degree of Taylor expansion
-
-        s_mid = parent(s)(midpoint(real(s)), midpoint(imag(s)))
-        PP = AcbPolyRing(parent(s), :x)
-        w = PP()
-
-        # Compute the rest term of the Taylor expansion
-        s_poly = PP([s, one(s)])
-        ccall(
-            ("acb_poly_polylog_series", Nemo.libarb),
-            Cvoid,
-            (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Int, Int),
-            w,
-            s_poly,
-            z,
-            n + 1,
-            precision(parent(z)),
-        )
-        restterm = (s - s_mid)^n * coeff(w, n)
-        # Compute the Taylor polynomial at the midpoint of x
-        s_poly = PP([s_mid, one(s)])
-        ccall(
-            ("acb_poly_polylog_series", Nemo.libarb),
-            Cvoid,
-            (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Int, Int),
-            w,
-            s_poly,
-            z,
-            n,
-            precision(parent(z)),
-        )
-
-        # Evaluate the Taylor polynomial on s - s_mid and add the rest
-        # term
-        return evaluate(w, s - s_mid) + restterm
-    end
-    res = parent(z)()
-    ccall(
-        ("acb_polylog", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Clong),
-        res,
-        s,
-        z,
-        precision(parent(z)),
-    )
-
-    return res
-end
-
-function Li(z::acb, s::Integer)
-    res = parent(z)()
-    ccall(
-        ("acb_polylog_si", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Clong, Ref{acb}, Clong),
-        res,
-        s,
-        z,
-        precision(parent(z)),
-    )
-    return res
-end
-
 function Li(z::Acb, s::Union{Acb,Integer})
     if iswide(s) # If this is true then s is always an Acb
         # TODO: Check that everything here is correct
@@ -113,33 +44,16 @@ function Li(z::Acb, s::Union{Acb,Integer})
     return Arblib.polylog!(zero(z), s, z)
 end
 
+Li(z::acb, s::acb) = parent(z)(Li(Acb(z), Acb(s)))
+
+Li(z::acb, s::Integer) = parent(z)(Li(Acb(z), s))
+
 """
     Li(z, s, β)
 Compute the polylogarithm ``Li_s^{(β)}(z)``.
 
 That is, `Li(z, s)` differentiated `β` times w.r.t. `s` evaluated at `z`.
 """
-function Li(z::acb, s::acb, β::Integer)
-    res = parent(z)()
-    PP = AcbPolyRing(parent(z), :x)
-
-    w = PP()
-    s_poly = PP([s, one(s)])
-
-    ccall(
-        ("acb_poly_polylog_series", Nemo.libarb),
-        Cvoid,
-        (Ref{acb_poly}, Ref{acb_poly}, Ref{acb}, Clong, Clong),
-        w,
-        s_poly,
-        z,
-        β + 1,
-        precision(parent(z)),
-    )
-
-    return coeff(w, β) * factorial(β)
-end
-
 function Li(z::Acb, s::Acb, β::Integer)
     s_poly = AcbSeries([s, 1])
     w = Arblib.polylog_series!(AcbSeries(degree = β, prec = precision(z)), s_poly, z, β + 1)
@@ -147,22 +61,7 @@ function Li(z::Acb, s::Acb, β::Integer)
     return w[β] * factorial(β)
 end
 
-# Not required
-#function Li(z::arb, s::Integer)
-#    CC = ComplexField(precision(parent(z)))
-#    return real(Li(CC(z), s))
-#end
-#
-#function Li(z::arb, s)
-#    CC = ComplexField(precision(parent(z)))
-#    return real(Li(CC(z), CC(s)))
-#end
-#
-#function Li(z::T, s) where {T <: Real}
-#    CC = ComplexField(precision(BigFloat))
-#    res = real(Li(CC(z), CC(s)))
-#    return convert(float(T), res)
-#end
+Li(z::acb, s::acb, β::Integer) = parent(z)(Li(Acb(z), Acb(s), β))
 
 ###
 ### Ci
