@@ -271,17 +271,38 @@ function Ci_alternative(x::Arb, s::Arb, β::Arb; N = 1000, p = 2)
 end
 
 """
-    Ci(x::arb_series, s, n::Integer = length(x))
-Compute `n` terms of the Taylor series of Ciₛ(x).
+    Ci(x::Union{ArbSeries,arb_series}, s)
+
+Compute the Taylor series of Ciₛ(x).
 
 It's computed by directly computing the Taylor coefficients by
 differentiating Ciₛ and then composing with `x`.
 """
-function Ci(x::arb_series, s, n::Integer = length(x))
-    res = arb_series(parent(x.poly)(), n)
+function Ci(x::ArbSeries, s)
+    res = zero(x)
     x₀ = x[0]
 
-    for i = 0:n-1
+    for i = 0:Arblib.degree(x)
+        if i % 2 == 0
+            res[i] = (-1)^(i ÷ 2) * Ci(x₀, s - i) / factorial(i)
+        else
+            res[i] = -(-1)^(i ÷ 2) * Si(x₀, s - i) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the Clausian with that of the
+    # input
+    x_tmp = copy(x)
+    x_tmp[0] = 0
+
+    return Arblib.compose(res, x_tmp)
+end
+
+function Ci(x::arb_series, s)
+    res = arb_series(parent(x.poly)())
+    x₀ = x[0]
+
+    for i = 0:length(p) - 1
         if i % 2 == 0
             res[i] = (-1)^(div(i, 2)) * Ci(x₀, s - i) / factorial(i)
         else
@@ -294,7 +315,7 @@ function Ci(x::arb_series, s, n::Integer = length(x))
     x_tmp = arb_series(deepcopy(x.poly))
     x_tmp[0] = base_ring(parent(x.poly))(0)
 
-    return Nemo.compose(res, x_tmp, n)
+    return Nemo.compose(res, x_tmp)
 end
 
 """
