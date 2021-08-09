@@ -540,7 +540,7 @@ function T022(
 
     # PROVE: That there are no branch cuts that interact with the
     # integral
-    F(y, analytic = false) = begin
+    F(y; analytic = false) = begin
         if isreal(y)
             res = CC(
                 Ci(x - real(y), real(mα)) + Ci(x + real(y), real(mα)) -
@@ -560,7 +560,7 @@ function T022(
             b,
             rel_tol = rtol,
             abs_tol = atol,
-            eval_limit = 2000,
+            checkanalytic = true,
             verbose = Int(show_trace),
         ),
     )

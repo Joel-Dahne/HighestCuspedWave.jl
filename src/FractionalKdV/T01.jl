@@ -228,7 +228,7 @@ function T012(
     return x -> begin
         # PROVE: That there are no branch cuts that interact with the
         # integral
-        F(t, analytic = false) = begin
+        F(t; analytic = false) = begin
             if isreal(t)
                 res = CC(
                     Ci(x * (1 - real(t)), -α) + Ci(x * (1 + real(t)), -α) -
@@ -248,7 +248,7 @@ function T012(
                 b,
                 rel_tol = rtol,
                 abs_tol = atol,
-                eval_limit = 3000,
+                checkanalytic = true,
                 verbose = Int(show_trace),
             ),
         )
