@@ -125,151 +125,6 @@ Ci(x::arb, s::arb, β::Integer) = parent(x)(Ci(Arb(x), Arb(s), β))
 Ci(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
     convert(float(promote_type(S, T)), Ci(convert(Arb, x), convert(Arb, s), β))
 
-# For non-integer values of β we don't have an Arb-implementation and
-# fall back to a finite sum. This is extremely inefficient and
-# NON-RIGOROUS.
-# The sign here does not agree with the implementation above for
-# integer values of β, there is a factor (-1)^β missing. I'm still not
-# sure how to handle this in a good way.
-function Ci(x, s, β; N = 10000)
-    res = zero(x)
-
-    for k = ifelse(iszero(β), 1, 2):N
-        res += cos(k * x) * log(oftype(x, k))^β / k^s
-    end
-
-    return res
-end
-
-function Ci_tilde(x, s, β; N = 100000)
-    res = zero(x)
-
-    for k = ifelse(iszero(β), 1, 2):N
-        res += (cos(k * x) - 1) * log(oftype(x, k))^β / k^s
-    end
-
-    return res
-end
-
-function Ci_tilde(x::Arb, s::Arb, β::Arb; N = 100000)
-    res = zero(x)
-    tmp1, tmp2 = Arb(prec = 256), Arb(prec = 256)
-
-    for k = ifelse(iszero(β), 1, 2):N
-        #res += (cos(k * x) - 1) * log(oftype(x, k))^β / k^s
-        #Arblib.mul!(tmp1, x, k)
-        #Arblib.cos!(tmp1, tmp1)
-        #Arblib.sub!(tmp1, tmp1, 1)
-
-        #Arblib.set!(tmp2, k)
-        #Arblib.log!(tmp2, tmp2)
-        #Arblib.pow!(tmp2, tmp2, β)
-
-        #Arblib.mul!(tmp1, tmp1, tmp2)
-
-        #Arblib.set!(tmp2, k)
-        #Arblib.pow!(tmp2, tmp2, s)
-        #Arblib.div!(tmp1, tmp1, tmp2)
-
-        #Arblib.add!(res, res, tmp1)
-    end
-    res += let x = Float64(x), s = Float64(s), β = Float64(β)
-        res = 0
-
-        for k = ifelse(iszero(β), 1, 2):N
-            res += (cos(k * x) - 1) * log(k)^β / k^s
-        end
-
-        res
-    end
-
-    if Arblib.isnonpositive(β)
-        # The rest term is between -2log(N + 1)^β * ζ(s, N + 1) and 0
-        restterm = Arb((-2log(Arb(N + 1))^β * SpecialFunctions.zeta(s, Arb(N + 1)), 0))
-        res += restterm
-    else
-        # Add rest term is bounded in absolute value by 2ζ(s - ϵ, N +
-        # 1) with ϵ = β * log(log(N + 1)) / log(N + 1)
-        # TODO: Potentially use the derivatives of ζ(s, N + 1) with
-        # respect to s?
-        ϵ = β * log(log(Arb(N + 1))) / log(Arb(N + 1))
-        @show ϵ
-        restterm = 2SpecialFunctions.zeta(s - ϵ, Arb(N + 1))
-        Arblib.add_error!(res, restterm)
-    end
-
-    return res
-end
-
-"""
-    Ci_alternative(x, s, β; N = 1000)
-
-Alternative implementation of `Ci` for non-integer `β` using the
-Euler-Maclaurin formula.
-"""
-function Ci_alternative(x::Arb, s::Arb, β::Arb; N = 1000, p = 2)
-    @assert !iszero(β) # The implementations assumes β is non-zero
-
-    res = zero(x)
-
-    # Parameters for the Euler-Maclaurin formula using the notation
-    # from
-    # https://en.wikipedia.org/wiki/Euler%E2%80%93Maclaurin_formula
-    f(j) = cos(j * x) / j^s * log(j)^β
-    m = Arb(2, prec = precision(res))
-    n = Arb(N, prec = precision(res)) # TODO: tune this
-
-    # Integral
-    integral_part = real(Arblib.integrate(f, m, n))
-    @show integral_part
-    res += integral_part
-
-    # Endpoint values
-    endpoint_part = zero(res)
-    h = p ÷ 2
-
-    fm = f(ArbSeries([m, 1], degree = 2h - 1))
-    fn = f(ArbSeries([n, 1], degree = 2h - 1))
-
-    res += (fn[0] + fm[0]) / 2
-
-    for k = 1:h
-        endpoint_part +=
-            Arblib.bernoulli!(zero(res), unsigned(2k)) / 2k * (fn[2k-1] - fm[2k-1])
-    end
-
-    @show endpoint_part
-    res += endpoint_part
-
-    # Remainder term
-    integrand(j; analytic::Bool) = begin
-        j_floor = Arblib.real_floor!(zero(j), j, analytic)
-        isnan(j_floor) && return j_floor
-        # TODO: Check analyticity of f
-        B = Arblib.bernoulli_poly!(zero(j), unsigned(p), j - j_floor)
-        return f(AcbSeries([j, 1], degree = p))[p] * B
-    end
-
-    atol = Mag(Arblib.midref(res))
-    atol = Arblib.mul_2exp!(atol, atol, Arblib.rel_error_bits(res))
-
-    remainder =
-        (-1)^(p + 1) * real(Arblib.integrate(integrand, m, n, check_analytic = true; atol))
-
-    #remainder = zero(res)
-    #for start = 2:N-1
-    #    remainder +=
-    #        (-1)^(p + 1) * real(
-    #            Arblib.integrate(integrand, start, start + 1, check_analytic = true; atol)
-    #        )
-    #end
-
-    @show remainder
-    res += remainder
-
-    return res
-end
-
 """
     Ci(x::Union{ArbSeries,arb_series}, s)
 
@@ -307,6 +162,54 @@ function Ci(x::arb_series, s)
             res[i] = (-1)^(div(i, 2)) * Ci(x₀, s - i) / factorial(i)
         else
             res[i] = -(-1)^(div(i, 2)) * Si(x₀, s - i) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the Clausian with that of the
+    # input
+    x_tmp = arb_series(deepcopy(x.poly))
+    x_tmp[0] = base_ring(parent(x.poly))(0)
+
+    return Nemo.compose(res, x_tmp)
+end
+
+"""
+    Ci(x::Union{ArbSeries,arb_series}, s, β)
+
+Compute the Taylor series of Ciₛ(x).
+
+It's computed by directly computing the Taylor coefficients by
+differentiating Ciₛ and then composing with `x`.
+"""
+function Ci(x::ArbSeries, s, β::Integer)
+    res = zero(x)
+    x₀ = x[0]
+
+    for i = 0:Arblib.degree(x)
+        if i % 2 == 0
+            res[i] = (-1)^(i ÷ 2) * Ci(x₀, s - i, β) / factorial(i)
+        else
+            res[i] = -(-1)^(i ÷ 2) * Si(x₀, s - i, β) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the Clausian with that of the
+    # input
+    x_tmp = copy(x)
+    x_tmp[0] = 0
+
+    return Arblib.compose(res, x_tmp)
+end
+
+function Ci(x::arb_series, s, β::Integer)
+    res = arb_series(parent(x.poly)(), length(x))
+    x₀ = x[0]
+
+    for i = 0:length(x)-1
+        if i % 2 == 0
+            res[i] = (-1)^(div(i, 2)) * Ci(x₀, s - i, β) / factorial(i)
+        else
+            res[i] = -(-1)^(div(i, 2)) * Si(x₀, s - i, β) / factorial(i)
         end
     end
 
@@ -510,6 +413,155 @@ function Si_expansion(x::Arb, s::Arb, M::Integer)
     E = Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
 
     return (C, e, P, E)
+end
+
+###
+### In work non-rigorous methods for computations which do not have an Arb implementation
+###
+
+# For non-integer values of β we don't have an Arb-implementation and
+# fall back to a finite sum. This is extremely inefficient and
+# NON-RIGOROUS.
+# The sign here does not agree with the implementation above for
+# integer values of β, there is a factor (-1)^β missing. I'm still not
+# sure how to handle this in a good way.
+function Ci(x, s, β; N = 10000)
+    res = zero(x)
+
+    for k = ifelse(iszero(β), 1, 2):N
+        res += cos(k * x) * log(oftype(x, k))^β / k^s
+    end
+
+    return res
+end
+
+function Ci_tilde(x, s, β; N = 100000)
+    res = zero(x)
+
+    for k = ifelse(iszero(β), 1, 2):N
+        res += (cos(k * x) - 1) * log(oftype(x, k))^β / k^s
+    end
+
+    return res
+end
+
+function Ci_tilde(x::Arb, s::Arb, β::Arb; N = 100000)
+    res = zero(x)
+    tmp1, tmp2 = Arb(prec = 256), Arb(prec = 256)
+
+    for k = ifelse(iszero(β), 1, 2):N
+        #res += (cos(k * x) - 1) * log(oftype(x, k))^β / k^s
+        #Arblib.mul!(tmp1, x, k)
+        #Arblib.cos!(tmp1, tmp1)
+        #Arblib.sub!(tmp1, tmp1, 1)
+
+        #Arblib.set!(tmp2, k)
+        #Arblib.log!(tmp2, tmp2)
+        #Arblib.pow!(tmp2, tmp2, β)
+
+        #Arblib.mul!(tmp1, tmp1, tmp2)
+
+        #Arblib.set!(tmp2, k)
+        #Arblib.pow!(tmp2, tmp2, s)
+        #Arblib.div!(tmp1, tmp1, tmp2)
+
+        #Arblib.add!(res, res, tmp1)
+    end
+    res += let x = Float64(x), s = Float64(s), β = Float64(β)
+        res = 0
+
+        for k = ifelse(iszero(β), 1, 2):N
+            res += (cos(k * x) - 1) * log(k)^β / k^s
+        end
+
+        res
+    end
+
+    if Arblib.isnonpositive(β)
+        # The rest term is between -2log(N + 1)^β * ζ(s, N + 1) and 0
+        restterm = Arb((-2log(Arb(N + 1))^β * SpecialFunctions.zeta(s, Arb(N + 1)), 0))
+        res += restterm
+    else
+        # Add rest term is bounded in absolute value by 2ζ(s - ϵ, N +
+        # 1) with ϵ = β * log(log(N + 1)) / log(N + 1)
+        # TODO: Potentially use the derivatives of ζ(s, N + 1) with
+        # respect to s?
+        ϵ = β * log(log(Arb(N + 1))) / log(Arb(N + 1))
+        @show ϵ
+        restterm = 2SpecialFunctions.zeta(s - ϵ, Arb(N + 1))
+        Arblib.add_error!(res, restterm)
+    end
+
+    return res
+end
+
+"""
+    Ci_alternative(x, s, β; N = 1000)
+
+Alternative implementation of `Ci` for non-integer `β` using the
+Euler-Maclaurin formula.
+"""
+function Ci_alternative(x::Arb, s::Arb, β::Arb; N = 1000, p = 2)
+    @assert !iszero(β) # The implementations assumes β is non-zero
+
+    res = zero(x)
+
+    # Parameters for the Euler-Maclaurin formula using the notation
+    # from
+    # https://en.wikipedia.org/wiki/Euler%E2%80%93Maclaurin_formula
+    f(j) = cos(j * x) / j^s * log(j)^β
+    m = Arb(2, prec = precision(res))
+    n = Arb(N, prec = precision(res)) # TODO: tune this
+
+    # Integral
+    integral_part = real(Arblib.integrate(f, m, n))
+    @show integral_part
+    res += integral_part
+
+    # Endpoint values
+    endpoint_part = zero(res)
+    h = p ÷ 2
+
+    fm = f(ArbSeries([m, 1], degree = 2h - 1))
+    fn = f(ArbSeries([n, 1], degree = 2h - 1))
+
+    res += (fn[0] + fm[0]) / 2
+
+    for k = 1:h
+        endpoint_part +=
+            Arblib.bernoulli!(zero(res), unsigned(2k)) / 2k * (fn[2k-1] - fm[2k-1])
+    end
+
+    @show endpoint_part
+    res += endpoint_part
+
+    # Remainder term
+    integrand(j; analytic::Bool) = begin
+        j_floor = Arblib.real_floor!(zero(j), j, analytic)
+        isnan(j_floor) && return j_floor
+        # TODO: Check analyticity of f
+        B = Arblib.bernoulli_poly!(zero(j), unsigned(p), j - j_floor)
+        return f(AcbSeries([j, 1], degree = p))[p] * B
+    end
+
+    atol = Mag(Arblib.midref(res))
+    atol = Arblib.mul_2exp!(atol, atol, Arblib.rel_error_bits(res))
+
+    remainder =
+        (-1)^(p + 1) * real(Arblib.integrate(integrand, m, n, check_analytic = true; atol))
+
+    #remainder = zero(res)
+    #for start = 2:N-1
+    #    remainder +=
+    #        (-1)^(p + 1) * real(
+    #            Arblib.integrate(integrand, start, start + 1, check_analytic = true; atol)
+    #        )
+    #end
+
+    @show remainder
+    res += remainder
+
+    return res
 end
 
 # For non-integer values of β we don't have an Arb-implementation and
