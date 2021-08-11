@@ -563,11 +563,7 @@ function T013(
                     x^(-1 - u0.p) *
                     (
                         beta_inc_zeroone(1 + u0.p, Arb(1 + i), x / (2π - x)) -
-                        beta_inc_zeroone(
-                            1 + u0.p,
-                            Arb(1 + i),
-                            (x - δ1 * x) / (2π - x),
-                        )
+                        beta_inc_zeroone(1 + u0.p, Arb(1 + i), (x - δ1 * x) / (2π - x))
                     )
             end
 
