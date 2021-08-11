@@ -65,8 +65,12 @@ function eval_expansion(
 end
 
 function (u0::BHAnsatz{T})(x, ::Ball) where {T}
-    conv = T == arb ? parent(u0.a0) : a -> convert(T, a)
-    x = conv(x)
+    conv = ifelse(
+        T == arb,
+        parent(u0.a0),
+        ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a)),
+    )
+
     res = u0.a0 * (Ci(x, 2, 1) - zeta(conv(2), d = 1))
     res += u0.a1 * (Ci(x, 2) - zeta(conv(2)))
 
@@ -128,8 +132,6 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     π = Arb(Irrational{:π}())
     γ = Arb(Irrational{:γ}())
 
-    x = convert(Arb, x)
-
     res = OrderedDict{NTuple{4,Int},Arb}()
 
     res[(1, 1, 0, 0)] = u0.a0 * π / 2
@@ -162,11 +164,14 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
 end
 
 function H(u0::BHAnsatz{T}, ::Ball) where {T}
-    conv = T == arb ? parent(u0.a0) : a -> convert(T, a)
+    conv = ifelse(
+        T == arb,
+        parent(u0.a0),
+        ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a)),
+    )
     f = isnothing(u0.v0) ? x -> zero(x) : H(u0.v0)
 
     return x -> begin
-        x = conv(x)
         res = -u0.a0 * (Ci(x, 3, 1) - zeta(conv(3), d = 1))
         res += -u0.a1 * (Ci(x, 3) - zeta(conv(3)))
 
@@ -244,7 +249,6 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     γ₁ = stieltjes(Arb, 1)
 
     return x -> begin
-        x = convert(Arb, x)
         res = OrderedDict{NTuple{4,Int},Arb}()
 
         res[(2, 2, 0, 0)] = -u0.a0 / 4
