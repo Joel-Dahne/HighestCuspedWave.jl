@@ -88,36 +88,16 @@ iswide(x::Union{Arb,Acb}; cutoff = 10) = Arblib.rel_accuracy_bits(x) < precision
 
 iswide(::Number; cutoff = 10) = false
 
-function zeta(s::arb; d::Integer = 0)
-    PP = ArbPolyRing(parent(s), :x)
-    s_poly = PP([s, one(s)])
-    a = one(s)
-    res = PP()
-
-    ccall(
-        (:arb_poly_zeta_series, Nemo.libarb),
-        Cvoid,
-        (Ref{arb_poly}, Ref{arb_poly}, Ref{arb}, Cint, Clong, Clong),
-        res,
-        s_poly,
-        a,
-        0,
-        d + 1,
-        parent(s).prec,
-    )
-
-    return coeff(res, d)
-end
-
 function zeta(s::Arb; d::Integer = 0)
+    iszero(d) && return SpecialFunctions.zeta(s)
+
     s_series = ArbSeries([s, one(s)], degree = d)
-    return Arblib.zeta_series!(zero(s_series), s_series, one(s), 0, d + 1)[d]
+    return Arblib.zeta_series!(zero(s_series), s_series, one(s), 0, d + 1)[d] *
+           factorial(Arb(d, prec = precision(s)))
 end
 
-function zeta(s::T; d::Integer = 0) where {T}
-    RR = RealField(precision(BigFloat))
-    return convert(float(T), zeta(RR(s), d = d))
-end
+zeta(s::arb; d::Integer = 0) = parent(s)(zeta(Arb(s); d))
+zeta(s; d::Integer = 0) = convert(float(typeof(s)), (zeta(Arb(s); d)))
 
 function stieltjes(type, n::Integer)
     CC = ComplexField(precision(BigFloat))
