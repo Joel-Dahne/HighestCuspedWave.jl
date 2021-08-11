@@ -446,6 +446,23 @@ Si(x::S, s::T) where {S<:Real,T<:Real} = convert(
 )
 
 """
+    Si(x, s, β)
+Compute the Clausian function Siₛ^(β)(x).
+
+That is, `Siₛ` differentiated `β` times w.r.t. `s` evaluated at `x`.
+
+TODO: Handle wide (real) balls better similar to how `Si(x, s)` does
+it.
+"""
+Si(x::Acb, s::Acb, β::Integer) = (Li(exp(im * x), s, β) - Li(exp(-im * x), s, β)) / 2
+Si(x::acb, s::acb, β::Integer) = parent(x)(Si(Acb(x), Acb(s), β))
+
+Si(x::Arb, s::Arb, β::Integer) = imag(Li(exp(Acb(0, x)), convert(Acb, s), β))
+Si(x::arb, s::arb, β::Integer) = parent(x)(Si(Arb(x), Arb(s), β))
+Si(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
+    convert(float(promote_type(S, T)), Ci(convert(Arb, x), convert(Arb, s), β))
+
+"""
     Si_expansion(x, s, M::Integer)
 Compute the asymptotic expansion of `Si` at zero up to order `2M - 1`.
 
