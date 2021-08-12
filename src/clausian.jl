@@ -112,15 +112,14 @@ Compute the Clausian function Ciₛ^(β)(x).
 That is, `Ciₛ` differentiated `β` times w.r.t. `s` evaluated at `x`.
 
 TODO: If x is a wide (real) ball (as determined by iswide(x)) compute
-a tighter enclosure by using that Ci 2π periodic, monotonic for x ∈
-[0, π] and even, so that it's enough to evaluate on the endpoints and
-possibly at zero or π if `x` contains points on the form `2kπ` or (2k
-+ 1)π` respectively.
+a tighter enclosure by using that Ci 2π periodic and even. What more
+properties does it satisfy?
 """
 Ci(x::Acb, s::Acb, β::Integer) = (Li(exp(im * x), s, β) + Li(exp(-im * x), s, β)) / 2
 Ci(x::acb, s::acb, β::Integer) = parent(x)(Ci(Acb(x), Acb(s), β))
 
-Ci(x::Arb, s::Arb, β::Integer) = real(Li(exp(Acb(0, x)), convert(Acb, s), β))
+Ci(x::Arb, s::Arb, β::Integer) =
+    iszero(x) ? zeta(s, d = β) : real(Li(exp(Acb(0, x)), convert(Acb, s), β))
 Ci(x::arb, s::arb, β::Integer) = parent(x)(Ci(Arb(x), Arb(s), β))
 Ci(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
     convert(float(promote_type(S, T)), Ci(convert(Arb, x), convert(Arb, s), β))
