@@ -78,38 +78,34 @@ function findp0(α::Arb)
 
     # Find an approximation in Float64
     p0_approx = Arb(findp0(Float64(α)), prec = precision(α))
-    # Perform some iterations at higher precision
-    # FIXME: This seems to not fully use the precision of α but the
-    # global precision for some things
-    p0_approx =
-        Arblib.midpoint(Arb, first(nlsolve(p -> [f(p[1])], [p0_approx], ftol = 1e-20).zero))
 
-    # We want to widen the approximation p0_approx slightly so that it
-    # definitely contains a root. We do this in a heuristic way, using
-    # the fact that we know it's increasing on the interval we are
-    # interested in.
-    fp0 = f(ArbSeries([p0_approx, 1]))
-    step = -1.1(fp0[0]) / fp0[1]
-    if Arblib.isnegative(fp0[0])
-        l = p0_approx
-        u = p0_approx + step
-        for _ = 1:5
-            Arblib.ispositive(f(u)) && break
-            u += step
+    # Perform some Newton iterations at higher precision
+    p0_approx = let n = 3, p0 = Arb(p0_approx, prec = precision(α))
+        for i = 1:n
+            y = f(ArbSeries([p0, one(p0)]))
+            p0 = Arblib.midpoint(Arb, p0 - y[0] / y[1])
         end
-    else
-        l = p0_approx + step
-        for _ = 1:5
-            Arblib.isnegative(f(l)) && break
-            l += step
-        end
-        u = p0_approx
+        p0
     end
 
-    found, flags = ArbExtras.isolate_roots(f, ubound(l), lbound(u))
+    # We want to widen the approximation p0_approx slightly so that it
+    # definitely contains a root. We do this in a very simple way by
+    # widening it step by step until refine_root succeeds. This is
+    # definitely not the most efficient way, but good enough.
+    fp0 = f(ArbSeries([p0_approx, 1]))
+    step = max(eps(p0_approx), abs(fp0[0] / fp0[1]))
 
-    @assert only(flags)
-    p0 = ArbExtras.refine_root(f, Arb(only(found)), strict = true)
+    p0 = let p0_approx = copy(p0_approx)
+        i = 0
+        while true
+            Arblib.add_error!(p0_approx, 2^i * step)
+            p0 = ArbExtras.refine_root(f, p0_approx, strict = true)
+            isnan(p0) || break
+            i += 1
+            i > 100 && throw(ErrorException("could not isolate p0"))
+        end
+        p0
+    end
 
     return setprecision(p0, precision(α) ÷ 2)
 end
