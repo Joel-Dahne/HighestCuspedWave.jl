@@ -92,12 +92,13 @@ function zeta(s::Arb; d::Integer = 0)
     iszero(d) && return SpecialFunctions.zeta(s)
 
     s_series = ArbSeries([s, one(s)], degree = d)
-    return Arblib.zeta_series!(zero(s_series), s_series, one(s), 0, d + 1)[d] *
+    return SpecialFunctions.zeta(s_series, one(s))[d] *
            factorial(Arb(d, prec = precision(s)))
 end
 
 zeta(s::arb; d::Integer = 0) = parent(s)(zeta(Arb(s); d))
-zeta(s; d::Integer = 0) = convert(float(typeof(s)), (zeta(Arb(s); d)))
+zeta(s; d::Integer = 0) =
+    iszero(d) ? SpecialFunctions.zeta(s) : convert(float(typeof(s)), (zeta(Arb(s); d)))
 
 function stieltjes(type, n::Integer)
     CC = ComplexField(precision(BigFloat))
