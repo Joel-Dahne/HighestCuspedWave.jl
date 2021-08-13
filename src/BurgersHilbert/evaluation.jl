@@ -128,37 +128,57 @@ end
 
 function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # TODO: Check this
-    #@assert M >= 3
-    π = Arb(Irrational{:π}())
-    γ = Arb(Irrational{:γ}())
+    @assert M >= 3
 
     res = OrderedDict{NTuple{4,Int},Arb}()
 
-    res[(1, 1, 0, 0)] = u0.a0 * π / 2
-    res[(0, 1, 0, 0)] = -u0.a0 * (γ - 1) * π / 2 - u0.a1 * π / 2
+    # Error term
+    res[(0, 2M, 0, 0)] = 0
 
+    # First Clausian
+    γ = Arb(Irrational{:γ}())
+    res[(1, 1, 0, 0)] = Arb(π) / 2 * u0.a0
+    res[(0, 1, 0, 0)] = -(γ - 1) * Arb(π) / 2 * u0.a0
     for m = 1:M-1
-        term = u0.a0 * zeta(Arb(2 - 2m), d = 1) + u0.a1 * zeta(Arb(2 - 2m))
-        for n = 1:u0.N
-            term += Arb(n)^(2m) * u0.b[n]
+        res[(0, 2m, 0, 0)] = (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(Arb(2m)) * u0.a0
+    end
+    # TODO: Add error term
+
+    # Second Clausian
+    if !iszero(u0.a1)
+        C, _, p, E = Ci_expansion(x, Arb(2), M)
+        res[(0, 1, 0, 0)] += C * u0.a1
+        for m = 1:M-1
+            res[(0, 2m, 0, 0)] += p[2m] * u0.a1
         end
-        res[(0, 2m, 0, 0)] = (-1)^m * term / factorial(Arb(2m))
+        Arblib.add_error!(res[(0, 2M, 0, 0)], E * u0.a1)
     end
 
-    # Add Clausians coming from u0.v0
+    # Fourier terms
+    if !iszero(u0.N)
+        for m = 1:M-1
+            res[(0, 2m, 0, 0)] +=
+                (-1)^m * sum(Arb(n)^(2m) * u0.b[n] for n = 1:u0.N) / factorial(Arb(2m))
+        end
+        Arblib.add_error!(
+            res[(0, 2M, 0, 0)],
+            sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N) / factorial(Arb(2M)),
+        )
+    end
+
+    # Clausians coming from u0.v0
     if !isnothing(u0.v0)
         let α = u0.v0.α, p0 = u0.v0.p0
             for j = 1:u0.v0.N0
-                C, _, p, _ = Ci_expansion(x, 1 - α + j * p0, M)
-                res[(0, 0, 1, j)] = u0.v0.a[j] * C
+                C, _, p, E = Ci_expansion(x, 1 - α + j * p0, M)
+                res[(0, 0, 1, j)] = C * u0.v0.a[j]
                 for m = 1:M-1
-                    res[(0, 2m, 0, 0)] += u0.v0.a[j] * p[2m]
+                    res[(0, 2m, 0, 0)] += p[2m] * u0.v0.a[j]
                 end
+                Arblib.add_error!(res[(0, 2M, 0, 0)], E)
             end
         end
     end
-
-    #TODO: Add error term
 
     return res
 end
