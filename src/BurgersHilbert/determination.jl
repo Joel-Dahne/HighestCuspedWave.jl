@@ -18,19 +18,26 @@ function findbs!(u0::BHAnsatz{T}) where {T}
 
     f = D(u0, xs)
 
-    # Initial values which originally came from following the branch
-    # but are now taken as given.
-    initial = T[
-        -0.5332599597604509
-        -0.12693649125903272
-        -0.05148250768408276
-        -0.025438828102209
-        -0.013604301746747078
-        -0.0071927373626929905
-        -0.003124688630040378
-        -0.14723356162361959
-    ]
+    # The initial value we use depends on if u0.v0 is set or not
+    if isnothing(u0.v0)
+        # Initial values which originally came from following the branch
+        # but are now taken as given.
+        initial = T[
+            -0.5332599597604509
+            -0.12693649125903272
+            -0.05148250768408276
+            -0.025438828102209
+            -0.013604301746747078
+            -0.0071927373626929905
+            -0.003124688630040378
+            -0.14723356162361959
+        ]
+    else
+        # In this case we start zero as the initial guess
+        initial = T[]
+    end
     initial = [initial; zeros(T, max(n - length(initial), 0))][1:n]
+
     sol = nlsolve(f, initial, autodiff = :forward)
 
     if !sol.f_converged

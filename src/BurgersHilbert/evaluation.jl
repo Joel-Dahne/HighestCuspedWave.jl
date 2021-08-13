@@ -350,21 +350,23 @@ efficient way by precomputing as much as possible.
 NOTE: This is **not** rigorous!
 """
 function D(u0::BHAnsatz, xs::AbstractVector)
+    b = copy(u0.b)
+    u0.b .= 0
+
     u0_xs_a0_precomputed = zeros(length(xs))
     u0_xs_b_precomputed = zeros(length(xs), u0.N)
     Hu0_xs_a0_precomputed = zeros(length(xs))
     Hu0_xs_b_precomputed = zeros(length(xs), u0.N)
 
-    for i in eachindex(xs)
-        x = xs[i]
+    Hu0 = H(u0)
+    for (i, x) in enumerate(xs)
+        u0_xs_a0_precomputed[i] = u0(x) # u0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
+        Hu0_xs_a0_precomputed[i] = Hu0(x) # -u0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
 
-        u0_xs_a0_precomputed[i] = u0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
-        Hu0_xs_a0_precomputed[i] = -u0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
-
-        if !iszero(u0.a1)
-            u0_xs_a0_precomputed[i] += u0.a1 * (Ci(x, 2) - zeta(2))
-            Hu0_xs_a0_precomputed[i] -= u0.a1 * (Ci(x, 3) - zeta(3))
-        end
+        #if !iszero(u0.a1)
+        #    u0_xs_a0_precomputed[i] += u0.a1 * (Ci(x, 2) - zeta(2))
+        #    Hu0_xs_a0_precomputed[i] -= u0.a1 * (Ci(x, 3) - zeta(3))
+        #end
 
         for n = 1:u0.N
             u0_xs_b_precomputed[i, n] = cos(n * x) - 1
@@ -372,10 +374,12 @@ function D(u0::BHAnsatz, xs::AbstractVector)
         end
     end
 
+    copy!(u0.b, b)
+
     return b -> begin
         return (
-            (u0_xs_a0_precomputed .+ u0_xs_b_precomputed * b) .^ 2 ./ 2 .+
-            (Hu0_xs_a0_precomputed .+ Hu0_xs_b_precomputed * b)
+            (u0_xs_a0_precomputed + u0_xs_b_precomputed * b) .^ 2 / 2 +
+            (Hu0_xs_a0_precomputed + Hu0_xs_b_precomputed * b)
         )
     end
 end
