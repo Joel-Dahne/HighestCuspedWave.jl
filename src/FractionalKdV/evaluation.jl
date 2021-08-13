@@ -379,35 +379,32 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
 
     Hu0_precomputed[(0, 0, 2M)] = OrderedDict()
 
+    # Function to compute the dictionaries u0_res and H0_res
+    sum_dict(precomputed, a, S) = begin
+        res = empty(precomputed, S)
+        for (key, dict) in precomputed
+            for (j, v) in dict
+                res[key] = get(res, key, zero(S)) + v * a[j]
+            end
+        end
+        return res
+    end
+
     return a -> begin
-        S = promote_type(T, typeof(a))
+        S = promote_type(T, eltype(a))
 
-        # Compute u0
-        u0_res = OrderedDict{NTuple{3,Int},S}()
-        for (key, dict) in u0_precomputed
-            for (j, v) in dict
-                u0_res[key] = get(u0_res, key, zero(u0.α)) + v * a[j]
-            end
-        end
-
-        # Compute H(u0)
-        Hu0_res = OrderedDict{NTuple{3,Int},S}()
-        for (key, dict) in Hu0_precomputed
-            for (j, v) in dict
-                Hu0_res[key] = get(Hu0_res, key, zero(u0.α)) + v * a[j]
-            end
-        end
+        u0_res = sum_dict(u0_precomputed, a, S)
+        Hu0_res = sum_dict(Hu0_precomputed, a, S)
 
         # Compute u0^2/2
-        res = OrderedDict{NTuple{3,Int},S}()
-
+        res = empty(u0_res)
         u0_res = collect(u0_res)
         for (i, (key1, y1)) in enumerate(u0_res)
-            res[2 .* key1] = get(res, 2 .* key1, zero(u0.α)) + y1^2 / 2
+            res[2 .* key1] = get(res, 2 .* key1, zero(S)) + y1^2 / 2
             for j = i+1:length(u0_res)
                 (key2, y2) = u0_res[j]
                 key = key1 .+ key2
-                res[key] = get(res, key, zero(u0.α)) + y1 * y2
+                res[key] = get(res, key, zero(S)) + y1 * y2
             end
         end
 
