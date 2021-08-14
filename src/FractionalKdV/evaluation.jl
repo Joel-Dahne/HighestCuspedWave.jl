@@ -167,12 +167,15 @@ function D(
         expansion = empty(expansion1)
 
         # u0^2/2 term
-        # TODO: We can reduce the number of computations but using
-        # that multiplication is commutative
-        for ((i1, j1, m1), y1) in expansion1
-            for ((i2, j2, m2), y2) in expansion1
-                key = (i1 + i2, j1 + j2, m1 + m2)
-                expansion[key] = get(expansion, key, zero(u0.α)) + y1 * y2 / 2
+        let expansion1 = collect(expansion1)
+            z = zero(u0.α) # Avoid allocating zero multiple times
+            for (i, (key1, a1)) in enumerate(expansion1)
+                expansion[2 .* key1] = get(expansion, 2 .* key1, z) + a1^2 / 2
+                for j = i+1:length(expansion1)
+                    (key2, a2) = expansion1[j]
+                    key = key1 .+ key2
+                    expansion[key] = get(expansion, key, z) + a1 * a2
+                end
             end
         end
 
