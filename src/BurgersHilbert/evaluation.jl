@@ -212,7 +212,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             res[(1, 2, 0, 0)] += u0.a1 / 2
             for m = 1:M-1
                 if m == 1
-                    term = - Arb(3 // 2)
+                    term = -Arb(3 // 2)
                 else
                     term = -zeta(Arb(3 - 2m))
                 end
@@ -228,7 +228,8 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         if !iszero(u0.N)
             for m = 1:M-1
                 res[(0, 2m, 0, 0)] -=
-                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) / factorial(Arb(2m))
+                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) /
+                    factorial(Arb(2m))
             end
             Arblib.add_error!(
                 res[(0, 2M, 0, 0)],
