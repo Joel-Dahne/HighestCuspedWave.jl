@@ -84,7 +84,13 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     for m = 1:M-1
         res[(0, 2m, 0, 0)] = (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(Arb(2m)) * u0.a0
     end
-    # TODO: Add error term
+    # PROVE: Give an expression for the error term. The one we use
+    # here is twice the coefficient for x^2M which should be
+    # larger than required but this is yet to be proved.
+    Arblib.add_error!(
+        res[(0, 2M, 0, 0)],
+        2abs(zeta(Arb(2 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
+    )
 
     # Second Clausian
     if !iszero(u0.a1)
@@ -193,7 +199,13 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             end
             res[(0, 2m, 0, 0)] = -(-1)^m * term * u0.a0 / factorial(Arb(2m))
         end
-        # TODO: Add error term
+        # PROVE: Give an expression for the error term. The one we use
+        # here is twice the coefficient for x^2M which should be
+        # larger than required but this is yet to be proved.
+        Arblib.add_error!(
+            res[(0, 2M, 0, 0)],
+            2abs(zeta(Arb(3 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
+        )
 
         # Second Clausian
         if !iszero(u0.a1)
