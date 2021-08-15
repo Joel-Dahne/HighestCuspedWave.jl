@@ -27,7 +27,7 @@ function eval_expansion(
             # TODO: Handle the case when 0 ∈ x, i > 0, exponent > 0.
             # Then this should be finite but will not work as given
             # now.
-            res += y * abspow(log(abs(x)), i) * abspow(x, exponent)
+            res += y * log(abs(x))^i * abspow(x, exponent)
         end
     end
 
@@ -79,7 +79,7 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
 
     # First Clausian
     γ = Arb(Irrational{:γ}())
-    res[(1, 1, 0, 0)] = Arb(π) / 2 * u0.a0
+    res[(1, 1, 0, 0)] = -Arb(π) / 2 * u0.a0
     res[(0, 1, 0, 0)] = -(γ - 1) * Arb(π) / 2 * u0.a0
     for m = 1:M-1
         res[(0, 2m, 0, 0)] = (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(Arb(2m)) * u0.a0
@@ -190,7 +190,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
 
         # First Clausian
         res[(2, 2, 0, 0)] = -1 // 4 * u0.a0
-        res[(1, 2, 0, 0)] = -(3 // 4 - γ / 2) * u0.a0
+        res[(1, 2, 0, 0)] = (3 // 4 - γ / 2) * u0.a0
         for m = 1:M-1
             if m == 1
                 term = (3γ - γ^2 - 2γ₁ - 7 // 2 + (π^2) / 12) / 2
@@ -209,14 +209,14 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
 
         # Second Clausian
         if !iszero(u0.a1)
-            res[(1, 2, 0, 0)] += u0.a1 / 2
+            res[(1, 2, 0, 0)] += -u0.a1 / 2
             for m = 1:M-1
                 if m == 1
                     term = -Arb(3 // 2)
                 else
                     term = -zeta(Arb(3 - 2m))
                 end
-                res[(0, 2m, 0, 0)] = (-1)^m * term * u0.a1 / factorial(Arb(2m))
+                res[(0, 2m, 0, 0)] += (-1)^m * term * u0.a1 / factorial(Arb(2m))
             end
             Arblib.add_error!(
                 res[(0, 2M, 0, 0)],
