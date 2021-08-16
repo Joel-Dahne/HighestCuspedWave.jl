@@ -82,7 +82,7 @@ Ci(x::acb, s::acb) = parent(x)(Ci(Acb(x), Acb(s)))
 Ci(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
 function Ci(x::Arb, s::Union{Arb,Integer})
-    if iswide(x) # If this is true then s is always an Arb
+    if iswide(x)
         xₗ, xᵤ = Arblib.getinterval(Arb, x)
         (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
         res = union(Ci(xₗ, s), Ci(xᵤ, s))
@@ -111,15 +111,52 @@ Compute the Clausian function Ciₛ^(β)(x).
 
 That is, `Ciₛ` differentiated `β` times w.r.t. `s` evaluated at `x`.
 
-TODO: If x is a wide (real) ball (as determined by iswide(x)) compute
-a tighter enclosure by using that Ci 2π periodic and even. What more
-properties does it satisfy?
+If x is a wide (real) ball (as determined by iswide(x)) it computes a
+tighter enclosure by using the monotonicity properties of `Ci`.
+Currently this is only implemented for `β = 1`, `0 < x < 2π` and `s =
+2` or `s = 3`. The function has a critical point at `x = π`, one on
+the interval `0 < x < π` and one (due to being even around `π`) on `π
+< x < 2π`. The extrema can occur either on one of these critical
+points or on the endpoints of the ball. For efficiency reasons the
+critical point on `0 < x < π` is precomputed for `s = 2` and `s = 3`
+(the one on `π < x < 2π` is given by symmetry).
+
+PROVE: That there is only once critical point.
+TODO: Use that `Ci` is 2π periodic to allow for `x` outside `[0, 2π]`.
+This might not be needed in the end though.
 """
 Ci(x::Acb, s::Acb, β::Integer) = (Li(exp(im * x), s, β) + Li(exp(-im * x), s, β)) / 2
 Ci(x::acb, s::acb, β::Integer) = parent(x)(Ci(Acb(x), Acb(s), β))
 
-Ci(x::Arb, s::Arb, β::Integer) =
-    iszero(x) ? zeta(s, d = β) : real(Li(exp(Acb(0, x)), convert(Acb, s), β))
+function Ci(x::Arb, s::Arb, β::Integer)
+    iszero(x) && s > 1 && return zeta(s, d = β)
+
+    if false && iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
+        xₗ, xᵤ = Arblib.getinterval(Arb, x)
+
+        res = union(Ci(xₗ, s, β), Ci(xᵤ, s, β))
+
+        if s == 2
+            critical_point = Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]")
+        elseif s == 3
+            critical_point = Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]")
+        end
+        if Arblib.overlaps(x, critical_point) || Arblib.overlaps(x, 2Arb(π) - critical_point)
+            # Depending on the precision critical_point might count as
+            # wide so we explicitly call Li to avoid infinite
+            # recursion.
+            res = union(res, real(Li(exp(Acb(0, critical_point)), convert(Acb, s), β)))
+        end
+
+        if Arblib.overlaps(x, Arb(π))
+            res = union(res, Ci(Arb(π), s, β))
+        end
+
+        return res
+    end
+
+    return real(Li(exp(Acb(0, x)), convert(Acb, s), β))
+end
 Ci(x::arb, s::arb, β::Integer) = parent(x)(Ci(Arb(x), Arb(s), β))
 Ci(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
     convert(float(promote_type(S, T)), Ci(convert(Arb, x), convert(Arb, s), β))
