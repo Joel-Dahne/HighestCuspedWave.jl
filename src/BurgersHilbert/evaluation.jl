@@ -1,11 +1,21 @@
 """
-        eval_expansion(u0::BHAnsatz, expansion, x)
-    Evaluate the given expansion. The term `((i, m, k, l), y)` is
-    evaluated to `y * log(abs(x))^i * abs(x)^(-k*u0.v0.α + l*u0.v0.p0
-    + m)` and then they are all summed.
+    eval_expansion(u0::BHAnsatz, expansion, x)
 
-    In general x needs to be given both when computing the expansion and
-    when evaluating it.
+Evaluate the given expansion. The term `((i, m, k, l), y)` is
+evaluated to `y * log(abs(x))^i * abs(x)^(-k*u0.v0.α + l*u0.v0.p0 +
+m)` and then they are all summed.
+
+In general `x` needs to be given both when computing the expansion and
+when evaluating it.
+
+The terms `log(abs(x))^i * abs(x)^exponent` requires some extra work
+to bound when `x` contains zero (and `exponent > 0`). Due to the
+absolute value it's enough to bound it on the interval `[0,
+abs_ubound(x)]`. For `x = 0` it's zero and for the upper bound it's
+easily computed. The critical points are given by `x = 1` (if `i > 1`)
+and `x = exp(-i / exponent)`. For `x = 1` the value is zero and hence
+not important, the other critical point we have to take into account.
+
 """
 function eval_expansion(
     u0::BHAnsatz{T},
@@ -24,10 +34,21 @@ function eval_expansion(
         if iszero(i)
             res += y * abspow(x, exponent)
         else
-            # TODO: Handle the case when 0 ∈ x, i > 0, exponent > 0.
-            # Then this should be finite but will not work as given
-            # now.
-            res += y * log(abs(x))^i * abspow(x, exponent)
+            if Arblib.contains_zero(x)
+                exponent > 0 || throw(ErrorException("non-positive exponent"))
+                if !iszero(x)
+                    x_upper = Arblib.abs_ubound(Arb, x)
+                    term = union(zero(res), log(x_upper)^i * x_upper^exponent)
+
+                    critical_point = exp(oftype(res, -i) / exponent)
+                    if Arblib.overlaps(x, critical_point)
+                        term = union(term, log(critical_point)^i * critical_point^exponent)
+                    end
+                    res += y * term
+                end
+            else
+                res += y * log(abs(x))^i * abspow(x, exponent)
+            end
         end
     end
 
