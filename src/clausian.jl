@@ -362,7 +362,7 @@ Si(x::acb, s::acb, β::Integer) = parent(x)(Si(Acb(x), Acb(s), β))
 Si(x::Arb, s::Arb, β::Integer) = imag(Li(exp(Acb(0, x)), convert(Acb, s), β))
 Si(x::arb, s::arb, β::Integer) = parent(x)(Si(Arb(x), Arb(s), β))
 Si(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
-    convert(float(promote_type(S, T)), Ci(convert(Arb, x), convert(Arb, s), β))
+    convert(float(promote_type(S, T)), Si(convert(Arb, x), convert(Arb, s), β))
 
 """
     Si_expansion(x, s, M::Integer)
