@@ -141,7 +141,8 @@ function Ci(x::Arb, s::Arb, β::Integer)
         elseif s == 3
             critical_point = Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]")
         end
-        if Arblib.overlaps(x, critical_point) || Arblib.overlaps(x, 2Arb(π) - critical_point)
+        if Arblib.overlaps(x, critical_point) ||
+           Arblib.overlaps(x, 2Arb(π) - critical_point)
             # Depending on the precision critical_point might count as
             # wide so we explicitly call Li to avoid infinite
             # recursion.
