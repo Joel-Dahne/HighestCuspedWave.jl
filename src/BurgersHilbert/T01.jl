@@ -55,7 +55,7 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
             tx = t * x
             res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(tx / 2)^2)
             Arblib.real_abs!(res, res, analytic)
-            weight = tx * Arblib.sqrt_analytic!(zero(t), log((tx + 1) / tx), analytic)
+            weight = t * Arblib.sqrt_analytic!(zero(t), log((tx + 1) / tx), analytic)
             return res * weight
         end
 
@@ -67,10 +67,10 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
             rtol = 1e-10,
             atol = 1e-10,
         )
-        @assert isreal(res)
+        @assert !isfinite(res) || isreal(res)
         res = real(res)
 
-        return res * x / (convert(Arb, π) * u0.w(x) * u0(x))
+        return res * x / (π * sqrt(log((x + 1) / x)) * u0(x))
     end
 end
 

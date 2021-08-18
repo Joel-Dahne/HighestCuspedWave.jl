@@ -74,6 +74,6 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 
-        return res / (convert(Arb, π) * u0.w(x) * u0(x))
+        return res / (π * u0.w(x) * u0(x))
     end
 end
