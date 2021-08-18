@@ -37,6 +37,13 @@ Arb. Accounting for the fact that the integrand is non-analytic at `t
 = x`.
 """
 function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
+    end
+
     a = convert(Arb, δ0)
     b = 1 - convert(Arb, δ1)
 
@@ -45,9 +52,11 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
         # PROVE: That there are no branch cuts that interact with the
         # integral
         integrand(t; analytic::Bool) = begin
-            res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2)
+            tx = t * x
+            res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(tx / 2)^2)
             Arblib.real_abs!(res, res, analytic)
-            return res * t * x * sqrt(log((t * x + 1) / (t * x))) # TODO: Avoid hard-coding weight
+            weight = tx * Arblib.sqrt_analytic!(zero(t), log((tx + 1) / tx), analytic)
+            return res * weight
         end
 
         res = Arblib.integrate(
@@ -61,7 +70,7 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
         @assert isreal(res)
         res = real(res)
 
-        return res * x / (2convert(Arb, π) * u0.w(x) * u0(x))
+        return res * x / (convert(Arb, π) * u0.w(x) * u0(x))
     end
 end
 

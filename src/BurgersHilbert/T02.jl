@@ -42,6 +42,13 @@ Arb. Accounting for the fact that the integrand is non-analytic at `t
 TODO: This doesn't work when `x` is close to `π`.
 """
 function T022(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
+    end
+
     return x -> begin
         x = convert(Arb, x)
         a = x + δ2
@@ -52,7 +59,8 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
         integrand(y; analytic::Bool) = begin
             res = log(-sin((x - y) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
             Arblib.real_abs!(res, res, analytic)
-            return res * y * sqrt(log((y + 1) / y)) # TODO: Avoid hard-coding weight
+            weight = y * Arblib.sqrt_analytic!(zero(y), log((y + 1) / y), analytic)
+            return res * weight
         end
 
         res = Arblib.integrate(
@@ -66,6 +74,6 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 
-        return res / (2convert(Arb, π) * u0.w(x) * u0(x))
+        return res / (convert(Arb, π) * u0.w(x) * u0(x))
     end
 end
