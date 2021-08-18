@@ -20,8 +20,11 @@ It uses the fact that the integrand is strictly increasing on the
 interval `[0, 0.5]` for every value of `x`. The integral is thus
 bounded by the length of the interval (`δ0`) times the integrands
 value at the right endpoint.
+
+PROVE: That the integrand indeed is increasing on the said interval.
 """
 function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10))
+    δ0 < 0.5 || Throw(ArgumentError("δ0 must be less than 0.5, got $δ0"))
     return x -> begin
         x = convert(Arb, x)
 
