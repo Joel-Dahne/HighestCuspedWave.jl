@@ -16,14 +16,23 @@ end
     T011(u0::BHAnsatz; δ0)
 Computes the integral T_{0,1,1} from the paper.
 
-TODO: Implement this
+It uses the fact that the integrand is strictly increasing on the
+interval `[0, 0.5]` for every value of `x`. The integral is thus
+bounded by the length of the interval (`δ0`) times the integrands
+value at the right endpoint.
 """
 function T011(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10)
-    @warn "T011 not yet implemented"
+    δ0 = convert(Arb, δ0)
+
     return x -> begin
         x = convert(Arb, x)
 
-        return zero(x)
+        integrand(t) =
+            abs(log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)) *
+            t *
+            sqrt(log((t * x + 1) / (t * x)))
+
+        return δ0 * integrand(δ0)
     end
 end
 
