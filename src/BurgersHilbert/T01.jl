@@ -33,7 +33,7 @@ function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10))
             t *
             sqrt(log((t * x + 1) / (t * x)))
 
-        return δ0 * integrand(δ0)
+        return δ0 * integrand(δ0) * x / (π * sqrt(log((x + 1) / x)) * u0(x))
     end
 end
 
