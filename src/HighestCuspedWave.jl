@@ -44,5 +44,7 @@ include("BurgersHilbert/evaluation.jl")
 include("BurgersHilbert/alpha.jl")
 include("BurgersHilbert/delta.jl")
 include("BurgersHilbert/T0.jl")
+include("BurgersHilbert/T01.jl")
+include("BurgersHilbert/T02.jl")
 
 end # module
