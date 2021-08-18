@@ -6,7 +6,7 @@ integral T_{0,2} from the paper.
 function T02(
     u0::BHAnsatz,
     evaltype::Ball;
-    δ2 = 1e-2,
+    δ2::Arb = Arb(1e-10),
     ϵ = 1e-2, # TODO: Use this
 )
     f = T021(u0, evaltype; δ2)
@@ -22,7 +22,7 @@ Computes the (not yet existing) integral T_{0,2,1} from the paper.
 
 TODO: Implement this
 """
-function T021(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
+function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
     @warn "T021 not yet implemented"
     return x -> begin
         x = convert(Arb, x)
@@ -41,7 +41,7 @@ Arb. Accounting for the fact that the integrand is non-analytic at `t
 
 TODO: This doesn't work when `x` is close to `π`.
 """
-function T022(u0::BHAnsatz, ::Ball = Ball(); δ2 = 1e-10)
+function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.

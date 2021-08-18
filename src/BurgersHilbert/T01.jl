@@ -3,7 +3,7 @@
 Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
 integral T_{0,1} from the paper.
 """
-function T01(u0::BHAnsatz, evaltype::Ball; δ0 = 1e-10, δ1 = 1e-10)
+function T01(u0::BHAnsatz, evaltype::Ball; δ0::Arb = Arb(1e-10), δ1::Arb = Arb(1e-10))
     f = T011(u0, evaltype; δ0)
     g = T012(u0, evaltype; δ0, δ1)
     h = T013(u0, evaltype; δ1)
@@ -21,9 +21,7 @@ interval `[0, 0.5]` for every value of `x`. The integral is thus
 bounded by the length of the interval (`δ0`) times the integrands
 value at the right endpoint.
 """
-function T011(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10)
-    δ0 = convert(Arb, δ0)
-
+function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10))
     return x -> begin
         x = convert(Arb, x)
 
@@ -45,7 +43,7 @@ This is done by directly computing the integral with the integrator in
 Arb. Accounting for the fact that the integrand is non-analytic at `t
 = x`.
 """
-function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
+function T012(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10), δ1::Arb = Arb(1e-10))
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
@@ -53,8 +51,8 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0 = 1e-10, δ1 = 1e-10)
         @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
     end
 
-    a = convert(Arb, δ0)
-    b = 1 - convert(Arb, δ1)
+    a = δ0
+    b = 1 - δ1
 
     return x -> begin
         x = convert(Arb, x)
@@ -89,7 +87,7 @@ Computes the integral T_{0,1,3} from the paper.
 
 TODO: Implement this
 """
-function T013(u0::BHAnsatz, ::Ball = Ball(); δ1 = 1e-10)
+function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
     @warn "T013 not yet implemented"
     return x -> begin
         x = convert(Arb, x)

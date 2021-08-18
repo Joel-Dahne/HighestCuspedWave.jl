@@ -1,4 +1,10 @@
-function T0(u0::BHAnsatz, evaltype::Ball; δ0 = 1e-10, δ1 = 1e-10, δ2 = 1e-10)
+function T0(
+    u0::BHAnsatz,
+    evaltype::Ball;
+    δ0::Arb = Arb(1e-10),
+    δ1::Arb = Arb(1e-10),
+    δ2::Arb = Arb(1e-10),
+)
     f = T01(u0, evaltype; δ0, δ1)
     g = T02(u0, evaltype; δ2)
 
