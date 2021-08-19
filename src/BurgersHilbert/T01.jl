@@ -17,9 +17,10 @@ end
 Computes the integral T_{0,1,1} from the paper.
 
 It uses the fact that the integrand is strictly increasing on the
-interval `[0, 0.5]` for every value of `x`. The integral is thus
-bounded by the length of the interval (`δ0`) times the integrands
-value at the right endpoint.
+interval `[0, 0.5]` for every value of `x` and 0 at 0. This allows us
+to enclose the integrand on the interval which then easily gives an
+enclosure of the integral by multiplying with the size of the
+interval.
 
 PROVE: That the integrand indeed is increasing on the said interval.
 """
@@ -33,7 +34,9 @@ function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10))
             t *
             sqrt(log((t * x + 1) / (t * x)))
 
-        return δ0 * integrand(δ0) * x / (π * sqrt(log((x + 1) / x)) * u0(x))
+        integral = δ0 * Arb((0, integrand(δ0)))
+
+        return integral * x / (π * sqrt(log((x + 1) / x)) * u0(x))
     end
 end
 
