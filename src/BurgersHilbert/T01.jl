@@ -91,13 +91,72 @@ end
     T013(u0::BHAnsatz; δ1)
 Computes the integral T_{0,1,3} from the paper.
 
-TODO: Implement this
+To begin with we notice that the weight part of the integrand is well
+behaved and we can just factor it out by evaluating it on the whole
+interval.
+
+We are left with integrating the log-term. By noticing that the value
+inside the absolute value is negative so we can remove the absolute
+value by putting a minus sign. This allows us to split the integrand
+into three terms
+1. `log(sin(x * (1 - t) / 2))`
+2. `log(sin(x * (1 + t) / 2))`
+3. `-2log(sin(x * t / 2))`
+
+For the first term we have the inequality
+```
+c * x * (1 - t) / 2 <= sin(x * (1 - t) / 2) <= x * (1 - t) / 2
+```
+which holds for `c = sin(x * δ1 / 2) / (x * δ1 / 2)` on `0 <= x <= π`
+and `1 - δ1 <= t <= 1`. This gives us
+```
+log(c * x * (1 - t) / 2) <= log(sin(x * (1 - t) / 2)) <= log(x * (1 - t) / 2)
+```
+and the same inequality holds after integration.
+
+The third term is well behaved for any `x` bounded away from zero and
+`t` on the interval. We can thus enclose the integral by directly
+enclosing the integrand on the interval.
+
+If `x` is bounded away from `π` then the second term is also well
+behaved and we can treat it similarly to the third term. However, if
+`x` overlaps with `π` then it becomes singular and we have to handle
+it differently.
+
+In that case we first do the change of variables `t → 1 - s`, giving
+us the integral `∫ log(sin(x - x*s/2)) ds` from `0` to ` δ1`. We have
+that `sin(x - x*s/2) = sin(π - x - x*s/2)`. TODO: Finish this.
 """
 function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
-    @warn "T013 not yet implemented"
     return x -> begin
         x = convert(Arb, x)
 
-        return zero(x)
+        weight_factor = let t = Arb((1 - δ1, 1))
+            -t * sqrt(log((t * x + 1) / (t * x)))
+        end
+
+        part1 = let a = 1 - δ1, c = sin(x * δ1 / 2) / (x * δ1 / 2)
+            part1_lower = (1 - a) * (log((1 - a) * c * x / 2) - 1)
+            part1_upper = (1 - a) * (log((1 - a) * x / 2) - 1)
+
+            Arb((part1_lower, part1_upper))
+        end
+
+        part2 = let t = Arb((1 - δ1, 1))
+            if x < π
+                log(sin(x * (1 + t) / 2)) * δ1
+            else
+                @warn "T013 not implemented for x overlapping π"
+                log(sin(x * (1 + t) / 2)) * δ1
+            end
+        end
+
+        part3 = let t = Arb((1 - δ1, 1))
+            -2log(sin(x * t / 2)) * δ1
+        end
+
+        integral = weight_factor * (part1 + part2 + part3)
+
+        return integral * x / (π * sqrt(log((x + 1) / x)) * u0(x))
     end
 end
