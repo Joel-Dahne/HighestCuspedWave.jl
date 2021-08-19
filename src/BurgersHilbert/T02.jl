@@ -20,14 +20,68 @@ end
     T021(u0::BHAnsatz; δ2)
 Computes the (not yet existing) integral T_{0,2,1} from the paper.
 
-TODO: Implement this
+This method assumes that `x + δ2 < π`. Otherwise it's handled by
+[`T02`](@ref) directly.
+
+To begin with we notice that the weight part of the integrand is well
+behaved and we can just factor it out by evaluating it on the whole
+interval. We can also notice that the value inside the absolute value
+is negative so we can remove the absolute value by putting a minus
+sign, which we can bake in to the weight factor.
+
+We are left with integrating the log-term.  This allows us to split the integrand
+into three terms
+1. `log(-sin((x - y) / 2)) = log(sin((y - x) / 2))`
+2. `log(sin((x + y) / 2))`
+3. `-2log(sin(y / 2))`
+
+For the first term we use the inequality
+```
+c * (y - x) / 2 <= sin((y - x) / 2) <= (y - x) / 2
+```
+which holds for `c = sin(δ2 / 2) / (δ2 / 2)` on `0 <= x <= π`
+and `x <= t <= x + δ2`. This gives us
+```
+log(c * (y - x) / 2) <= log(sin((y - x) / 2)) <= log((y - x) / 2)
+```
+The same inequality holds after integration from `x` to `x + δ2` and
+gives us
+```
+δ2 * (log(c * δ2 / 2) - 1) <= ∫log(sin((y - x) / 2)) <= δ2 * (log(δ2 / 2) - 1)
+```
+
+The two remaining terms are both well behaved when `x` is bounded away
+from `0` and `π`, which we assume is the case as mentioned above. We
+can thus enclose the integral by directly enclosing the integrands on
+the interval and multiplying with the size of the interval.
 """
 function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
-    @warn "T021 not yet implemented"
     return x -> begin
         x = convert(Arb, x)
 
-        return zero(x)
+        if !(x + δ2 < π)
+            @warn "we don't have x + δ2 < π as required, x + δ2 = $(x + δ2)"
+            return Arb(NaN)
+        end
+
+        interval = Arb((x, x + δ2))
+
+        weight_factor = -u0.w(interval)
+
+        part1 = let c = sin(δ2 / 2) / (δ2 / 2)
+            part1_lower = δ2 * (log(c * δ2 / 2) - 1)
+            part1_upper = δ2 * (log(δ2 / 2) - 1)
+
+            Arb((part1_lower, part1_upper))
+        end
+
+        part2 = log(sin((x + interval) / 2)) * δ2
+
+        part3 = -2log(sin(interval / 2)) * δ2
+
+        integral = weight_factor * (part1 + part2 + part3)
+
+        return integral / (π * u0.w(x) * u0(x))
     end
 end
 
