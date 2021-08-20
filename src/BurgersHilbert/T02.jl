@@ -6,12 +6,15 @@ integral T_{0,2} from the paper.
 The interval of integration is `[x, π]`. Since the integrand is
 singular at `y = x` we split the interval into two parts, `[x, a]` and
 `[a, π]`. In principle we want to take `a = x = δ2`, however this
-gives issues if `x` is a wide ball. Instead we take `a` always be a
+gives issues if `x` is a wide ball. Instead we take `a` to always be a
 thin ball between `x` and `π`.
 
 In general we take `a = ubound(x + δ2)`. However if `x` is wide then
 it's beneficial to take a larger value than `δ2`, depending on the
 radius of `x`. In practice we take `8radius(x)` in that case.
+
+If `x` is very close to `π`, so that `a` would be larger than `π`,
+then we use the asymptotic version for the whole interval `[x, π]`.
 
 If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
@@ -20,13 +23,12 @@ function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-10), skip_div_u0 = 
     g = T022(u0, evaltype, skip_div_u0 = true; δ2)
 
     return x -> begin
+        x = convert(Arb, x)
         δ2 = max(δ2, 8Arblib.radius(Arb, x))
         a = Arblib.ubound(Arb, x + δ2)
 
         if !(a < π)
-            # TODO: Use asymptotic expansion on whole interval
-            @warn "not implemented"
-            return Arb(NaN)
+            return f(x, π)
         end
 
         res = f(x, a) + g(x, a)
@@ -43,10 +45,9 @@ end
     T021(u0::BHAnsatz)
 Computes the (not yet existing) integral T_{0,2,1} from the paper.
 
-The interval of integration is `[x, a]` and we let `δ` denote `a - x`.
-
-This method assumes that `a < π`. Otherwise it's handled by
-[`T02`](@ref) directly.
+The interval of integration is `[x, a]`. Both `x` and `a` are assumed
+to be less than or equal to `π`, if they are balls which overlap `π`
+anything above `π` will be ignored.
 
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
@@ -54,56 +55,104 @@ interval. We can also notice that the value inside the absolute value
 is negative so we can remove the absolute value by putting a minus
 sign, which we can bake in to the weight factor.
 
-We are left with integrating the log-term.  This allows us to split the integrand
-into three terms
+We are left with integrating the log-term. This allows us to split the
+integrand into three terms
 1. `log(-sin((x - y) / 2)) = log(sin((y - x) / 2))`
 2. `log(sin((x + y) / 2))`
 3. `-2log(sin(y / 2))`
 
-For the first term we use the inequality
+The third term is well behaved no matter the value of `x` and we can
+enclose that integral by enclosing the integrand on the interval and
+multiplying with the intervals size.
+
+For the first two terms we have to differentiate between the case when
+`x` overlaps with `π` and when it doesn't.
+
+For the case when `x` doesn't overlap with `π` we have that the second
+term is well behaved and we can bound its integral in the same way as
+we handle the third term. For the first term we use the inequality
 ```
 c * (y - x) / 2 <= sin((y - x) / 2) <= (y - x) / 2
 ```
 which holds for `c = sin(δ / 2) / (δ / 2)` on `0 <= x <= π` and `x <=
-t <= a`. This gives us
+y <= a`. This gives us
 ```
 log(c * (y - x) / 2) <= log(sin((y - x) / 2)) <= log((y - x) / 2)
 ```
-The same inequality holds after integration from `x` to `x + δ2` and
+The same inequality holds after integration from `x` to `a` and
 gives us
 ```
-δ * (log(c * δ / 2) - 1) <= ∫log(sin((y - x) / 2)) <= δ * (log(δ2 / 2) - 1)
+δ * (log(c * δ / 2) - 1) <= ∫log(sin((y - x) / 2)) <= δ * (log(δ / 2) - 1)
 ```
+where `δ = a - x`.
 
-The two remaining terms are both well behaved when `x` is bounded away
-from `0` and `π`, which we assume is the case as mentioned above. We
-can thus enclose the integral by directly enclosing the integrands on
-the interval and multiplying with the size of the interval.
+If `x` overlaps with `π` then we assume that `a = π` since this is the
+only valid case. We have that both the first and the second term are
+singular. We can get a direct upper bound for both of them by using
+that `log(sin(t)) <= 0` for all `t`, hence they are both upper bounded
+by `0`.
 
-TODO: Handle the case when `x` overlaps with `π` and `a = π`.
+For lower bounding the first term we use that `(y - x) / 2 < π / 2`
+and hence `sin((y - x) / 2) >= 2 / π * (y - x) / 2. We can thus lower
+bound the integral by integrating `log(2 / π * (y - x) / 2)` from `x`
+to `π`. This integral is given by `(π - x) * (-1 + log(2 / π * (π - x)
+/ 2))`, which is strictly increasing in `x` and a lower bound is hence
+given by evaluating it at `Arblib.lbound(x)`.
+
+For the second term we use that `sin((x + y) / 2) = sin(π - (x + y) /
+2)` and as long as `π - (x + y) / 2 < π / 2` this is lower bounded by
+`2 / π * (π - (x + y) / 2)`. The inequality `π - (x + y) / 2 < π / 2`
+holds on the interval as long as `x <= π / 2`. The integral of `2 / π
+* (π - (x + y) / 2)` from `x` to `π` is given by `(π - x) * (-1 +
+log(4 / π * (π - x)))`, which, similar to above, is strictly
+increasing in `x` and we can hence evaluate it at `Arblib.lbound(x)`
+to get a lower bound.
 """
 function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 = false)
     return (x, a = x + δ2) -> begin
         x = convert(Arb, x)
+        a = convert(Arb, a)
         δ = a - x
 
-        if !(a < π)
-            @warn "we don't have a < π as required, a = $a"
-            return Arb(NaN)
-        end
-
-        interval = Arb((x, a))
+        interval = union(x, a)
 
         weight_factor = -u0.w(interval)
 
-        part1 = let c = sin(δ / 2) / (δ / 2)
-            part1_lower = δ * (log(c * δ / 2) - 1)
-            part1_upper = δ * (log(δ / 2) - 1)
+        if !(x < π)
+            @assert Arblib.overlaps(a, Arb(π)) # Take π to be the upper integration limit
 
-            Arb((part1_lower, part1_upper))
+            x >= Arb(π) / 2 ||
+                throw(ArgumentError("we require that x >= π / 2, got x = $x"))
+
+            x_lower = Arblib.lbound(Arb, x)
+
+            x_lower < π || throw(
+                ArgumentError("we require that the lower bound of x is less than π"),
+            )
+
+            part1 = begin
+                part1_lower = (π - x_lower) * (-1 + log(2 / Arb(π) * (π - x_lower) / 2))
+                part1_upper = zero(x)
+
+                Arb((part1_lower, part1_upper))
+            end
+
+            part2 = begin
+                part2_lower = (π - x_lower) * (-1 + log(4 / Arb(π) * (π - x_lower)))
+                part2_upper = zero(x)
+
+                Arb((part2_lower, part2_upper))
+            end
+        else
+            part1 = let c = sin(δ / 2) / (δ / 2)
+                part1_lower = δ * (log(c * δ / 2) - 1)
+                part1_upper = δ * (log(δ / 2) - 1)
+
+                Arb((part1_lower, part1_upper))
+            end
+
+            part2 = log(sin((x + interval) / 2)) * δ
         end
-
-        part2 = log(sin((x + interval) / 2)) * δ
 
         part3 = -2log(sin(interval / 2)) * δ
 
@@ -141,6 +190,7 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 
 
     return (x, a = x + δ2) -> begin
         x = convert(Arb, x)
+        a = convert(Arb, a)
 
         # PROVE: That there are no branch cuts that interact with the
         # integral
