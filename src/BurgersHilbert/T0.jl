@@ -4,9 +4,10 @@ function T0(
     δ0::Arb = Arb(1e-10),
     δ1::Arb = Arb(1e-10),
     δ2::Arb = Arb(1e-10),
+    skip_div_u0 = false,
 )
-    f = T01(u0, evaltype; δ0, δ1)
-    g = T02(u0, evaltype; δ2)
+    f = T01(u0, evaltype, skip_div_u0 = true; δ0, δ1)
+    g = T02(u0, evaltype, skip_div_u0 = true; δ2)
 
     return x -> begin
         ## Integral on [0, x]
@@ -18,6 +19,10 @@ function T0(
         ## Integral on [x, π]
         part2 = g(x)
 
-        return part1 + part2
+        if skip_div_u0
+            return part1 + part2
+        else
+            return (part1 + part2) / u0(x)
+        end
     end
 end

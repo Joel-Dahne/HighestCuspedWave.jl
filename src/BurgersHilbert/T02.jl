@@ -1,18 +1,18 @@
 """
-    T02(u0::BHAnsatz; δ2)
+    T02(u0::BHAnsatz; δ2, skip_div_u0)
 Returns a function such that T02(u0; δ2, ϵ)(x) computes the
 integral T_{0,2} from the paper.
+
+If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
-function T02(
-    u0::BHAnsatz,
-    evaltype::Ball;
-    δ2::Arb = Arb(1e-10),
-    ϵ = 1e-2, # TODO: Use this
-)
-    f = T021(u0, evaltype; δ2)
-    g = T022(u0, evaltype; δ2)
-    return x -> begin
-        return f(x) + g(x)
+function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-10), skip_div_u0 = false)
+    f = T021(u0, evaltype, skip_div_u0 = true; δ2)
+    g = T022(u0, evaltype, skip_div_u0 = true; δ2)
+
+    if skip_div_u0
+        return x -> f(x) + g(x)
+    else
+        return x -> (f(x) + g(x)) / u0(x)
     end
 end
 
@@ -55,7 +55,7 @@ from `0` and `π`, which we assume is the case as mentioned above. We
 can thus enclose the integral by directly enclosing the integrands on
 the interval and multiplying with the size of the interval.
 """
-function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
+function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 = false)
     return x -> begin
         x = convert(Arb, x)
 
@@ -81,7 +81,12 @@ function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
 
         integral = weight_factor * (part1 + part2 + part3)
 
-        return integral / (π * u0.w(x) * u0(x))
+        res = integral / (π * u0.w(x))
+        if skip_div_u0
+            return res
+        else
+            return res / u0(x)
+        end
     end
 end
 
@@ -95,7 +100,7 @@ Arb. Accounting for the fact that the integrand is non-analytic at `t
 
 TODO: This doesn't work when `x` is close to `π`.
 """
-function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
+function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
@@ -128,6 +133,12 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10))
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 
-        return res / (π * u0.w(x) * u0(x))
+        res = res / (π * u0.w(x))
+
+        if skip_div_u0
+            return res
+        else
+            return res / u0(x)
+        end
     end
 end

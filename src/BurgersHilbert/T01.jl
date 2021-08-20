@@ -1,14 +1,25 @@
 """
-    T01(u0::BHAnsatz, ::Ball; δ1, δ2)
+    T01(u0::BHAnsatz, ::Ball; δ1, δ2, skip_div_u0)
 Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
 integral T_{0,1} from the paper.
+
+If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
-function T01(u0::BHAnsatz, evaltype::Ball; δ0::Arb = Arb(1e-10), δ1::Arb = Arb(1e-10))
-    f = T011(u0, evaltype; δ0)
-    g = T012(u0, evaltype; δ0, δ1)
-    h = T013(u0, evaltype; δ1)
-    return x -> begin
-        return f(x) + g(x) + h(x)
+function T01(
+    u0::BHAnsatz,
+    evaltype::Ball;
+    δ0::Arb = Arb(1e-10),
+    δ1::Arb = Arb(1e-10),
+    skip_div_u0 = false,
+)
+    f = T011(u0, evaltype, skip_div_u0 = true; δ0)
+    g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
+    h = T013(u0, evaltype, skip_div_u0 = true; δ1)
+
+    if skip_div_u0
+        return x -> f(x) + g(x) + h(x)
+    else
+        return x -> (f(x) + g(x) + h(x)) / u0(x)
     end
 end
 
@@ -24,7 +35,7 @@ interval.
 
 PROVE: That the integrand indeed is increasing on the said interval.
 """
-function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10))
+function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10), skip_div_u0 = false)
     δ0 < 0.5 || Throw(ArgumentError("δ0 must be less than 0.5, got $δ0"))
     return x -> begin
         x = convert(Arb, x)
@@ -36,7 +47,12 @@ function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10))
 
         integral = δ0 * Arb((0, integrand(δ0)))
 
-        return integral * x / (π * sqrt(log((x + 1) / x)) * u0(x))
+        res = integral * x / (π * sqrt(log((x + 1) / x)))
+        if skip_div_u0
+            return res
+        else
+            return res / u0(x)
+        end
     end
 end
 
@@ -49,7 +65,13 @@ This is done by directly computing the integral with the integrator in
 Arb. Accounting for the fact that the integrand is non-analytic at `t
 = x`.
 """
-function T012(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10), δ1::Arb = Arb(1e-10))
+function T012(
+    u0::BHAnsatz,
+    ::Ball = Ball();
+    δ0::Arb = Arb(1e-10),
+    δ1::Arb = Arb(1e-10),
+    skip_div_u0 = false,
+)
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
@@ -83,7 +105,13 @@ function T012(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10), δ1::Arb = A
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 
-        return res * x / (π * sqrt(log((x + 1) / x)) * u0(x))
+        res = res * x / (π * sqrt(log((x + 1) / x)))
+
+        if skip_div_u0
+            return res
+        else
+            return res / u0(x)
+        end
     end
 end
 
@@ -151,7 +179,7 @@ this is probably not needed.
 PROVE: There are several minor details here that might need to be
 proved.
 """
-function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
+function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10), skip_div_u0 = false)
     return x -> begin
         x = convert(Arb, x)
 
@@ -185,6 +213,12 @@ function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
 
         integral = weight_factor * (part1 + part2 + part3)
 
-        return integral * x / (π * sqrt(log((x + 1) / x)) * u0(x))
+        res = integral * x / (π * sqrt(log((x + 1) / x)))
+
+        if skip_div_u0
+            return res
+        else
+            return res / u0(x)
+        end
     end
 end
