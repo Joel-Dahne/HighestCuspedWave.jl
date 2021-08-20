@@ -112,20 +112,44 @@ and `1 - δ1 <= t <= 1`. This gives us
 ```
 log(c * x * (1 - t) / 2) <= log(sin(x * (1 - t) / 2)) <= log(x * (1 - t) / 2)
 ```
-and the same inequality holds after integration.
+and the same inequality holds after integration for `1 - δ1` to `1`
+and gives us
+```
+δ1 * (log(c * x * δ1 / 2) - 1) <= ∫log(sin(x * (1 - t) / 2)) <= δ1 * (log(x * δ1 / 2) - 1)
+```
 
 The third term is well behaved for any `x` bounded away from zero and
 `t` on the interval. We can thus enclose the integral by directly
-enclosing the integrand on the interval.
+enclosing the integrand on the interval and multiplying by the size of
+the interval.
 
 If `x` is bounded away from `π` then the second term is also well
 behaved and we can treat it similarly to the third term. However, if
 `x` overlaps with `π` then it becomes singular and we have to handle
-it differently.
+it differently. We first do the change of variables `t → 1 - s`,
+together with the identity `sin(x) = sin(π - x)`, giving us the
+integral `∫ log(sin(π - x + x * s / 2)) ds` from `0` to ` δ1`. We then
+take the very crude upper bound `sin(π - x + x * s / 2) <= 1` and for
+the lower bound we notice that `sin(π - x + x * s / 2)` is minimized
+by taking `x = π`, giving us the lower bound `sin(x * s / 2) <= sin(x
+- x * s / 2), which then gives the lower bound `x * s / 2`. This means
+  we have the bounds
+```
+x * s / 2 <= sin(π - x + x * s / 2) <= 1
+```
+and hence
+```
+log(x * s / 2) <= log(sin(π - x + x * s / 2)) <= log(1) = 0
+```
+After integration we thus get
+```
+δ1 * (log(c * x * δ1 / 2) - 1) <= ∫log(sin(π - x + x * s / 2)) <= 0
+```
 
-In that case we first do the change of variables `t → 1 - s`, giving
-us the integral `∫ log(sin(x - x*s/2)) ds` from `0` to ` δ1`. We have
-that `sin(x - x*s/2) = sin(π - x - x*s/2)`. TODO: Finish this.
+TODO: The upper bound for when `x` contains `π` could be improved, but
+this is probably not needed.
+PROVE: There are several minor details here that might need to be
+proved.
 """
 function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
     return x -> begin
@@ -135,9 +159,9 @@ function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
             -t * sqrt(log((t * x + 1) / (t * x)))
         end
 
-        part1 = let a = 1 - δ1, c = sin(x * δ1 / 2) / (x * δ1 / 2)
-            part1_lower = (1 - a) * (log((1 - a) * c * x / 2) - 1)
-            part1_upper = (1 - a) * (log((1 - a) * x / 2) - 1)
+        part1 = let c = sin(x * δ1 / 2) / (x * δ1 / 2)
+            part1_lower = δ1 * (log(c * x * δ1 / 2) - 1)
+            part1_upper = δ1 * (log(x * δ1 / 2) - 1)
 
             Arb((part1_lower, part1_upper))
         end
@@ -146,8 +170,12 @@ function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10))
             if x < π
                 log(sin(x * (1 + t) / 2)) * δ1
             else
-                @warn "T013 not implemented for x overlapping π"
-                log(sin(x * (1 + t) / 2)) * δ1
+                c = sin(x * δ1 / 2) / (x * δ1 / 2)
+
+                part2_lower = δ1 * (log(c * x * δ1 / 2) - 1)
+                part2_upper = zero(x)
+
+                Arb((part2_lower, part2_upper))
             end
         end
 
