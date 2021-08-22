@@ -101,7 +101,9 @@ function T012(
             check_analytic = true,
             rtol = 1e-10,
             atol = 1e-10,
+            warn_on_no_convergence = false,
         )
+
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 

@@ -596,7 +596,17 @@ function T022(
     end
 
     # TODO: Increase maximum number of evaluations
-    res = real(Arblib.integrate(f, a, b, check_analytic = true; rtol, atol))
+    res = real(
+        Arblib.integrate(
+            f,
+            a,
+            b,
+            check_analytic = true,
+            warn_on_no_convergence = false;
+            rtol,
+            atol,
+        ),
+    )
 
     return res / (Arb(π) * u0.w(x) * u0(x))
 end
