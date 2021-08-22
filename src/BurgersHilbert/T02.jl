@@ -86,8 +86,10 @@ gives us
 ```
 where `δ = a - x`.
 
-If `x` overlaps with `π` then we assume that `a = π` since this is the
-only valid case. We have that both the first and the second term are
+If `x` overlaps with `π` or is very close to `π` (less than
+`sqrt(eps(x)))` then we take `a = π` as the upper integration limit
+since even if a smaller `a` is given this will only give a small
+overestimation. We have that both the first and the second term are
 singular. We can get a direct upper bound for both of them by using
 that `log(sin(t)) <= 0` for all `t`, hence they are both upper bounded
 by `0`.
@@ -118,7 +120,7 @@ function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 
 
         weight_factor = -u0.w(interval)
 
-        if !(x < π)
+        if !(x < π - sqrt(eps(x)))
             @assert Arblib.overlaps(a, Arb(π)) # Take π to be the upper integration limit
 
             x >= Arb(π) / 2 ||

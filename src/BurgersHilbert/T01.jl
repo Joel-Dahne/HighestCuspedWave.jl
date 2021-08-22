@@ -175,6 +175,7 @@ After integration we thus get
 ```
 δ1 * (log(c * x * δ1 / 2) - 1) <= ∫log(sin(π - x + x * s / 2)) <= 0
 ```
+We use this bound if `x` is less than `sqrt(eps(x))` away from `π`.
 
 TODO: The upper bound for when `x` contains `π` could be improved, but
 this is probably not needed.
@@ -197,7 +198,7 @@ function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10), skip_div_u0 
         end
 
         part2 = let t = Arb((1 - δ1, 1))
-            if x < π
+            if x < π - sqrt(eps(x))
                 log(sin(x * (1 + t) / 2)) * δ1
             else
                 c = sin(x * δ1 / 2) / (x * δ1 / 2)
