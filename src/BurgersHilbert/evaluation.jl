@@ -22,7 +22,13 @@ function eval_expansion(
     expansion::AbstractDict{NTuple{4,S},T},
     x,
 ) where {T,S}
-    res = zero(u0.a0)
+    res = zero(x)
+
+    logabsx = log(abs(x))
+    if x isa Arb
+        x_upper = Arblib.abs_ubound(Arb, x)
+        logx_upper = log(x_upper)
+    end
 
     for ((i, m, k, l), y) in expansion
         if iszero(k) && iszero(l)
@@ -32,38 +38,38 @@ function eval_expansion(
         end
 
         if iszero(i)
-            res += y * abspow(x, exponent)
+            factor = abspow(x, exponent)
         else
-            if Arblib.contains_zero(x)
+            if x isa Arb && Arblib.contains_zero(x)
                 if exponent > 0
                     if !iszero(x)
-                        x_upper = Arblib.abs_ubound(Arb, x)
-                        term = union(zero(res), log(x_upper)^i * x_upper^exponent)
+                        factor = union(zero(res), logx_upper^i * x_upper^exponent)
 
                         critical_point = exp(oftype(res, -i) / exponent)
                         if Arblib.overlaps(x, critical_point)
-                            term =
-                                union(term, log(critical_point)^i * critical_point^exponent)
+                            factor = union(
+                                factor,
+                                log(critical_point)^i * critical_point^exponent,
+                            )
                         end
-                        res += y * term
                     end
                 elseif iszero(exponent)
                     i < 0 || throw(
                         ErrorException("zero x-exponent with non-negative log-exponent"),
                     )
                     if !iszero(x)
-                        x_upper = Arblib.abs_ubound(Arb, x)
+                        #x_upper = Arblib.abs_ubound(Arb, x)
                         x_upper < 1 || throw(ErrorException("division by log(1)"))
-                        term = union(zero(res), log(x_upper)^i * x_upper^exponent)
-                        res += y * term
+                        factor = union(zero(res), logx_upper^i * x_upper^exponent)
                     end
                 else
                     throw(ErrorException("negative x-exponent"))
                 end
             else
-                res += y * log(abs(x))^i * abspow(x, exponent)
+                factor = logabsx^i * abspow(x, exponent)
             end
         end
+        res += y * factor
     end
 
     return res
