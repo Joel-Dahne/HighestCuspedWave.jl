@@ -84,18 +84,61 @@ function T012(
 
     return x -> begin
         x = convert(Arb, x)
+
+        # Variables for storing temporary values during integration
+        x_complex = convert(Acb, x)
+        xdiv2 = x_complex / 2
+        tmp = zero(x_complex)
+        tx = zero(x_complex)
+
         # PROVE: That there are no branch cuts that interact with the
         # integral
-        integrand(t; analytic::Bool) = begin
-            tx = t * x
-            res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(tx / 2)^2)
+        integrand!(res, t; analytic::Bool) = begin
+            # The code below is an inplace version of the following code
+            #res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)
+            #Arblib.real_abs!(res, res, analytic)
+            #weight = t * Arblib.sqrt_analytic!(zero(t), log((t * x + 1) / (t * x)), analytic)
+            #return res * weight
+
+            Arblib.mul!(tx, t, x_complex)
+
+            # res = sin((1 - t) * x / 2)
+            Arblib.neg!(tmp, t)
+            Arblib.add!(tmp, tmp, 1)
+            Arblib.mul!(tmp, tmp, xdiv2)
+            Arblib.sin!(res, tmp)
+
+            # res *= sin((1 + t) * x / 2)
+            Arblib.add!(tmp, t, 1)
+            Arblib.mul!(tmp, tmp, xdiv2)
+            Arblib.sin!(tmp, tmp)
+            Arblib.mul!(res, res, tmp)
+
+            # res /= sin(t * x / 2)^2
+            Arblib.mul_2exp!(tmp, tx, -1)
+            Arblib.sin!(tmp, tmp)
+            Arblib.sqr!(tmp, tmp)
+            Arblib.div!(res, res, tmp)
+
+            Arblib.log!(res, res)
+
             Arblib.real_abs!(res, res, analytic)
-            weight = t * Arblib.sqrt_analytic!(zero(t), log((tx + 1) / tx), analytic)
-            return res * weight
+
+            # tmp = t * sqrt(log((tx + 1) / tx))
+            Arblib.add!(tmp, tx, 1)
+            Arblib.div!(tmp, tmp, tx)
+            Arblib.log!(tmp, tmp)
+            Arblib.sqrt_analytic!(tmp, tmp, analytic)
+            Arblib.mul!(tmp, tmp, t)
+
+            Arblib.mul!(res, res, tmp)
+
+            return
         end
 
-        res = Arblib.integrate(
-            integrand,
+        res = Arblib.integrate!(
+            integrand!,
+            zero(x_complex),
             a,
             b,
             check_analytic = true,
