@@ -341,7 +341,8 @@ function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
         # The term (2, 2, 0, 0) is identically equal to zero due to
         # the choice of a0
         # TODO: Check this
-        expansion[(2, 2, 0, 0)] = 0
+        @assert Arblib.contains_zero(expansion[(2, 2, 0, 0)])
+        delete!(expansion, (2, 2, 0, 0))
 
         return expansion
     end
