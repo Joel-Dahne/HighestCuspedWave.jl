@@ -75,7 +75,8 @@ we handle the third term. For the first term we use the inequality
 c * (y - x) / 2 <= sin((y - x) / 2) <= (y - x) / 2
 ```
 which holds for `c = sin(δ / 2) / (δ / 2)` on `0 <= x <= π` and `x <=
-y <= a`. This gives us
+y <= a`. In particular it also holds for `c = sin(ubound(δ) / 2) /
+(ubound(δ) / 2)` due to monotonicity. This gives us
 ```
 log(c * (y - x) / 2) <= log(sin((y - x) / 2)) <= log((y - x) / 2)
 ```
@@ -146,7 +147,7 @@ function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 
                 Arb((part2_lower, part2_upper))
             end
         else
-            part1 = let c = sin(δ / 2) / (δ / 2)
+            part1 = let c = sin(Arblib.ubound(Arb, δ) / 2) / (Arblib.ubound(δ) / 2)
                 part1_lower = δ * (log(c * δ / 2) - 1)
                 part1_upper = δ * (log(δ / 2) - 1)
 
@@ -179,8 +180,6 @@ should be a thin ball to not give problems with the integration.
 This is done by directly computing the integral with the integrator in
 Arb. Accounting for the fact that the integrand is non-analytic at `y
 = x`.
-
-TODO: This doesn't work when `x` is close to `π`.
 """
 function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
