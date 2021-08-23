@@ -19,6 +19,8 @@ function T0(
         ## Integral on [x, π]
         part2 = g(x)
 
+        isfinite(part2) || return part2 # Avoid computing u0(x)
+
         if skip_div_u0
             return part1 + part2
         else
