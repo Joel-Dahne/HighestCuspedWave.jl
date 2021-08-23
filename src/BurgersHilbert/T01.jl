@@ -24,6 +24,91 @@ function T01(
 end
 
 """
+    T01(u0::BHAnsatz, ::Asymptotic)
+Returns a function such that `T01(u0, Asymptotic())(x)` computes an
+**upper bound** of the integral T_{0,1} from the paper using an
+evaluation strategy that works asymptotically as `x` goes to 0.
+
+The integral is split into one main term and several error terms.
+
+The integral for the main term is `∫|log(1 - t) + log(1 + t) -
+2log(t)|t dt` on the interval `[0, 1]`. Which turns out to be equal to
+`log(2)`
+
+PROVE: That it equals `log(2)` (Mathematica handles it)
+
+TODO: Handle the error terms
+"""
+function T01(
+    u0::BHAnsatz,
+    ::Asymptotic;
+    non_asymptotic_u0 = false,
+    precompute_u0_expansion = false,
+    ϵ = nothing,
+)
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
+    end
+
+    @warn "T01(u0, Asymptotic()) doesn't bound the error term yet"
+
+    if precompute_u0_expansion
+        ϵ = convert(Arb, ϵ)
+        u0_expansion = u0(ϵ, AsymptoticExpansion())
+
+        u0_expansion_div_xlogx = empty(u0_expansion)
+        for ((i, m, k, l), value) in u0_expansion
+            u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
+        end
+    else
+        u0_expansion_div_xlog = nothing
+    end
+
+    factor(x) = begin
+        # PROVE: That this is monotonically decreasing on [0, 1]
+        w(x) = sqrt(log(1 / x)) / (log(x) * sqrt(log((x + 1) / x)))
+
+        if iszero(x)
+            weight = zero(x)
+        elseif Arblib.contains_zero(x) && x < 1
+            weight = union(zero(x), w(Arblib.ubound(Arb, x)))
+        else
+            weight = w(x)
+        end
+
+        if !precompute_u0_expansion
+            u0_expansion = u0(x, AsymptoticExpansion())
+
+            u0_expansion_div_xlogx = empty(u0_expansion)
+            for ((i, m, k, l), value) in u0_expansion
+                u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
+            end
+        end
+
+        return weight / (π * eval_expansion(u0, u0_expansion_div_xlogx, x))
+    end
+
+    return x -> begin
+        x = convert(Arb, x)
+
+        @assert !precompute_u0_expansion || x <= ϵ
+
+        main_term = log(Arb(2))
+
+        error_term = zero(x) # TODO
+
+        if non_asymptotic_u0
+            return x^2 * sqrt(log(1 / x)) / (π * u0.w(x) * u0(x)) * (main_term + error_term)
+        else
+            return factor(x) * (main_term + error_term)
+        end
+    end
+end
+
+"""
     T011(u0::BHAnsatz; δ0)
 Computes the integral T_{0,1,1} from the paper.
 
