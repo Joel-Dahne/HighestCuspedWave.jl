@@ -46,5 +46,6 @@ include("BurgersHilbert/delta.jl")
 include("BurgersHilbert/T0.jl")
 include("BurgersHilbert/T01.jl")
 include("BurgersHilbert/T02.jl")
+include("BurgersHilbert/CB.jl")
 
 end # module
