@@ -51,16 +51,6 @@ expansion. The integral of the singular part is computed by finding
 where the integrand is positive respectively negative and then
 integrating explicitly. The expansion is integrated term wise and the
 resulting sum is bounded.
-
-FIXME: There is something wrong somewhere. The result doesn't match up
-completely with the non-asymptotic version for small values of `x`. I
-don't know which one is the correct one...
-```
-u0 = FractionalKdVAnsatz(RR(-0.6), pp = RR(1))
-x = RR(1e-6)
-a = HighestCuspedWave.T01(u0, Ball())(x)
-b = HighestCuspedWave.T01(u0, Asymptotic())(x)
-overlaps(a, b)
 ```
 """
 function T01(
