@@ -363,7 +363,7 @@ otherwise either `-x` or `x` is returned depending on the sign of x.
 """
 function Base.abs(x::ArbSeries)
     if Arblib.contains_zero(x[0])
-        return ArbSeries([abs(x[0]); fill(Arb(NaN), Arblib.degree(x) - 1)])
+        return ArbSeries([abs(x[0]); fill(Arb(NaN), Arblib.degree(x))])
     elseif x[0] < 0
         return -x
     else
