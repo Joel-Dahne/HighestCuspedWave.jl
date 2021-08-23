@@ -8,8 +8,8 @@ If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 function T01(
     u0::BHAnsatz,
     evaltype::Ball;
-    δ0::Arb = Arb(1e-10),
-    δ1::Arb = Arb(1e-10),
+    δ0::Arb = Arb(1e-5),
+    δ1::Arb = Arb(1e-5),
     skip_div_u0 = false,
 )
     f = T011(u0, evaltype, skip_div_u0 = true; δ0)
@@ -35,7 +35,7 @@ interval.
 
 PROVE: That the integrand indeed is increasing on the said interval.
 """
-function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-10), skip_div_u0 = false)
+function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u0 = false)
     δ0 < 0.5 || Throw(ArgumentError("δ0 must be less than 0.5, got $δ0"))
     return x -> begin
         x = convert(Arb, x)
@@ -68,8 +68,8 @@ Arb. Accounting for the fact that the integrand is non-analytic at `t
 function T012(
     u0::BHAnsatz,
     ::Ball = Ball();
-    δ0::Arb = Arb(1e-10),
-    δ1::Arb = Arb(1e-10),
+    δ0::Arb = Arb(1e-5),
+    δ1::Arb = Arb(1e-5),
     skip_div_u0 = false,
 )
     # This uses a hard coded version of the weight so just as an extra
@@ -182,7 +182,7 @@ this is probably not needed.
 PROVE: There are several minor details here that might need to be
 proved.
 """
-function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-10), skip_div_u0 = false)
+function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     return x -> begin
         x = convert(Arb, x)
 

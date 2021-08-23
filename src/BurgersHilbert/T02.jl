@@ -18,7 +18,7 @@ then we use the asymptotic version for the whole interval `[x, π]`.
 
 If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
-function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-10), skip_div_u0 = false)
+function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     f = T021(u0, evaltype, skip_div_u0 = true; δ2)
     g = T022(u0, evaltype, skip_div_u0 = true; δ2)
 
@@ -111,7 +111,7 @@ log(4 / π * (π - x)))`, which, similar to above, is strictly
 increasing in `x` and we can hence evaluate it at `Arblib.lbound(x)`
 to get a lower bound.
 """
-function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 = false)
+function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     return (x, a = x + δ2) -> begin
         x = convert(Arb, x)
         a = convert(Arb, a)
@@ -181,7 +181,7 @@ This is done by directly computing the integral with the integrator in
 Arb. Accounting for the fact that the integrand is non-analytic at `y
 = x`.
 """
-function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-10), skip_div_u0 = false)
+function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
