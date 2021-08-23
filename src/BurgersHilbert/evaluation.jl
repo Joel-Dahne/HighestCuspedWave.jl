@@ -348,6 +348,15 @@ function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
     end
 end
 
+function F0(u0::BHAnsatz, evaltype::Ball)
+    f = H(u0, evaltype)
+    return x -> begin
+        y = u0(x, evaltype)
+
+        return (y^2 / 2 + f(x)) / (u0.w(x) * y)
+    end
+end
+
 # TODO: Properly implement this method so that we can evaluate it at 0
 function F0(u0::BHAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T}
     f = D(u0, Asymptotic(); M)
