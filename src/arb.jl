@@ -67,6 +67,19 @@ end
 
 mince(x::arb, n::Integer; split = false) = mince(getinterval(x)..., n; split)
 
+function mince(x::Arb, n::Integer)
+    balls = Vector{Arb}(undef, n)
+    xₗ, xᵤ = Arblib.getinterval(Arb, x)
+    dx = (xᵤ - xₗ) / n
+    for i in eachindex(balls)
+        yₗ = xₗ + (i - 1) * dx
+        yᵤ = xₗ + i * dx
+        balls[i] = Arb((yₗ, yᵤ))
+    end
+
+    return balls
+end
+
 """
     iswide(x; cutoff = 10)
 Return true if `x` is wide in the meaning that the effective relative
