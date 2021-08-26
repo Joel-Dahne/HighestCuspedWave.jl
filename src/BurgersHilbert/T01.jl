@@ -64,7 +64,7 @@ function T01(
             u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
         end
     else
-        u0_expansion_div_xlog = nothing
+        u0_expansion_div_xlogx = nothing
     end
 
     factor(x) = begin
