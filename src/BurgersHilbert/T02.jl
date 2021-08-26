@@ -180,6 +180,9 @@ should be a thin ball to not give problems with the integration.
 This is done by directly computing the integral with the integrator in
 Arb. Accounting for the fact that the integrand is non-analytic at `y
 = x`.
+
+Notice that the expression inside the absolute value is always
+negative, so we can replace the absolute value with a negation.
 """
 function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
@@ -201,16 +204,14 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
         # integral
         integrand!(res, y; analytic::Bool) = begin
             # The code below is an inplace version of the following code
-            #res = log(-sin((x - y) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
-            #Arblib.real_abs!(res, res, analytic)
+            #res = -log(sin((y - x) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
             #weight = y * Arblib.sqrt_analytic!(zero(y), log((y + 1) / y), analytic)
             #return res * weight
 
-            # res = -sin((x - y) / 2)
-            Arblib.sub!(tmp, x_complex, y)
+            # res = sin((y - x) / 2)
+            Arblib.sub!(tmp, y, x_complex)
             Arblib.mul_2exp!(tmp, tmp, -1)
-            Arblib.sin!(tmp, tmp)
-            Arblib.neg!(res, tmp)
+            Arblib.sin!(res, tmp)
 
             # res *= sin((x + y) / 2)
             Arblib.add!(tmp, x_complex, y)
@@ -226,7 +227,7 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
 
             Arblib.log!(res, res)
 
-            Arblib.real_abs!(res, res, analytic)
+            Arblib.neg!(res, res)
 
             # tmp = y * sqrt(log((y + 1) / y))
             Arblib.add!(tmp, y, 1)
