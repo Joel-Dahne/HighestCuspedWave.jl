@@ -75,6 +75,89 @@ function eval_expansion(
     return res
 end
 
+"""
+    _eval_expansion!(u0::BHAnsatz, expansion, x)
+
+Fast, inplace version of [`eval_expansion`](@ref).
+
+It only works for `Arb` and `ArbSeries`. It takes the expansion as a
+vector instead of a dictionary and assumes that the `exponent`
+occurring in [`eval_expansion`](@ref) is precomputed and added to the
+vector instead of `(m, k, l)`.
+
+It assumes that `x >= 0` an any negative parts of the ball `x` are
+ignored. The case when `x` contains zero is only supported for the
+type `Arb` and not for `ArbSeries`, for `ArbSeries` is just returns
+`NaN` in that case.
+"""
+function _eval_expansion!(
+    res::T,
+    u0::BHAnsatz{Arb},
+    expansion::Vector{Tuple{Int,Arb,Arb}},
+    x::T,
+) where {T<:Union{Arb,ArbSeries}}
+    if T == Arb && Arblib.contains_nonpositive(x)
+        iszero(x) && return Arblib.zero!(res)
+        # Use the upper bound of x
+        x = Arblib.ubound(Arb, x)
+        contained_zero = true
+    elseif T == ArbSeries && Arblib.contains_nonpositive(x[0])
+        for i = 0:Arblib.degree(res)
+            res[i] = NaN
+        end
+        return res
+    else
+        contained_zero = false
+    end
+
+    Arblib.zero!(res)
+
+    len = length(x)
+    term = zero(x)
+
+    logx = log(x)
+    invlogx = inv(logx)
+    z = zero(x)
+
+    for (i, exponent, y) in expansion
+        # term = x^exponent
+        if T == Arb
+            Arblib.pow!(term, x, exponent)
+        elseif T == ArbSeries
+            Arblib.pow_arb_series!(term, x, exponent, len)
+        end
+
+        if i == -1
+            # term *= inv(log(x))
+            if T == Arb
+                Arblib.mul!(term, term, invlogx)
+            elseif T == ArbSeries
+                Arblib.mullow!(term, term, invlogx, len)
+            end
+        elseif i != 0
+            # term *= log(x)^i
+            throw(ArgumentError("i = $i: this should not occur in the cases we care about"))
+        end
+
+        Arblib.mul!(term, term, y)
+
+        # Use that each term is monotonically increasing and zero at x
+        # = 0, except the constant term
+        if contained_zero && !(iszero(i) && iszero(exponent))
+            Arblib.union!(term, term, z)
+        end
+
+        # res += term
+        if T == Arb
+            Arblib.add!(res, res, term)
+        elseif T == ArbSeries
+            Arblib.add_series!(res, res, term, len)
+        end
+    end
+
+    return res
+end
+
 function (u0::BHAnsatz{T})(x, ::Ball) where {T}
     conv = ifelse(
         T == arb,
@@ -357,11 +440,100 @@ function F0(u0::BHAnsatz, evaltype::Ball)
     end
 end
 
-# TODO: Properly implement this method so that we can evaluate it at 0
-function F0(u0::BHAnsatz{T}, ::Asymptotic; M::Integer = 3) where {T}
-    f = D(u0, Asymptotic(); M)
+"""
+    F0(u0::BHAnsatz{Arb}, ::Asymptotic)
+
+Returns a function such that `F0(u0, Asymptotic())(x)` is computed
+accurately for small values of `x`.
+
+This method is one of the bottlenecks of [`delta0`](@ref) and for this
+reasons it is heavily optimized. The method assumes that `x >= 0` and
+any negative parts of the ball `x` are ignored.
+
+It precomputes the expansions of `u0` and `D(u0)` and for that reason
+a number `ϵ` has to be given, the resulting expansion will be valid
+for all `x < ϵ`. The value of `ϵ` has to be less than `1`.
+
+If `exponent_limit` is set to some number then all terms in the
+expansions with an exponent equal to or greater than this limit will
+be collapsed into one term.
+TODO: Be more detail about how this works and make sure that it works
+with the log-factors as well.
+"""
+function F0(
+    u0::BHAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 3,
+    ϵ::Arb = Arb(1e-2),
+    exponent_limit::Union{Arb,Nothing} = nothing,
+)
+    @assert ϵ < 1
+
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
+    end
+
+    u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
+    Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+
+    # Divide the expansion by x * log(x) and x^2 * log(x)
+    # respectively, also precompute the exponents.
+    u0_expansion_div_xlogx = Vector{Tuple{Int,Arb,Arb}}(undef, length(u0_expansion))
+    Du0_expansion_div_x2logx = Vector{Tuple{Int,Arb,Arb}}(undef, length(Du0_expansion))
+    for (index, ((i, m, k, l), value)) in enumerate(u0_expansion)
+        u0_expansion_div_xlogx[index] = (i - 1, -k * u0.v0.α + l * u0.v0.p0 + m - 1, value)
+    end
+    for (index, ((i, m, k, l), value)) in enumerate(Du0_expansion)
+        Du0_expansion_div_x2logx[index] =
+            (i - 1, -k * u0.v0.α + l * u0.v0.p0 + m - 2, value)
+    end
+
+    # If an exponent limit is given, collapse all terms with an
+    # exponent greater than or equal to that.
+    if !isnothing(exponent_limit)
+        let coeff = sum(
+                getindex.(filter(x -> x[2] >= exponent_limit, u0_expansion_div_xlogx), 3),
+            )
+            filter!(x -> !(x[2] >= exponent_limit), u0_expansion_div_xlogx)
+            push!(u0_expansion_div_xlogx, (0, exponent_limit, coeff))
+        end
+        let coeff = sum(
+                getindex.(filter(x -> x[2] >= exponent_limit, Du0_expansion_div_x2logx), 3),
+            )
+            filter!(x -> !(x[2] >= exponent_limit), Du0_expansion_div_x2logx)
+            push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff))
+        end
+    end
+
+    # The function inv(sqrt(log((abs(x) + 1) / abs(x))))
+    # PROVE: That this is monotonically increasing on [0, 1]
+    w!(res, x) = Arblib.set!(res, inv(sqrt(log((x + 1) / x))))
+
+    # Version of w! that also handles x overlapping 0
+    weight!(res, x) = begin
+        iszero(x) && return Arblib.zero!(res)
+
+        if x isa Arb && Arblib.contains_zero(x)
+            w!(res, Arblib.ubound(Arb, x))
+            return Arblib.union!(res, res, zero(res))
+        end
+
+        return w!(res, x)
+    end
+
     return x -> begin
-        return f(x) / (u0.w(x) * u0(x, Asymptotic()))
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && x[0] <= ϵ)
+
+        res = weight!(zero(x), x)
+
+        res /= _eval_expansion!(zero(x), u0, u0_expansion_div_xlogx, x)
+
+        res *= _eval_expansion!(zero(x), u0, Du0_expansion_div_x2logx, x)
+
+        return res
     end
 end
 
