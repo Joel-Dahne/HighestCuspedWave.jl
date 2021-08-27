@@ -29,6 +29,10 @@ Returns a function such that `T01(u0, Asymptotic())(x)` computes an
 **upper bound** of the integral T_{0,1} from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
 
+It precomputes the expansions of `u0` and for that reason a number `ϵ`
+has to be given, the resulting expansion will be valid for all `x <
+ϵ`. The value of `ϵ` has to be less than `1`.
+
 The integral is split into one main term and several error terms.
 
 The integral for the main term is `∫|log(1 - t) + log(1 + t) -
@@ -43,8 +47,7 @@ function T01(
     u0::BHAnsatz,
     ::Asymptotic;
     non_asymptotic_u0 = false,
-    precompute_u0_expansion = false,
-    ϵ = nothing,
+    ϵ = Arb(2e-1),
 )
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
@@ -55,21 +58,19 @@ function T01(
 
     @warn "T01(u0, Asymptotic()) doesn't bound the error term yet"
 
-    if precompute_u0_expansion
-        ϵ = convert(Arb, ϵ)
-        u0_expansion = u0(ϵ, AsymptoticExpansion())
+    ϵ = convert(Arb, ϵ)
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
 
-        u0_expansion_div_xlogx = empty(u0_expansion)
-        for ((i, m, k, l), value) in u0_expansion
-            u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
-        end
-    else
-        u0_expansion_div_xlogx = nothing
+    u0_expansion_div_xlogx = empty(u0_expansion)
+    for ((i, m, k, l), value) in u0_expansion
+        u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
     end
 
     factor(x) = begin
         # PROVE: That this is monotonically decreasing on [0, 1]
         w(x) = sqrt(log(1 / x)) / (log(x) * sqrt(log((x + 1) / x)))
+
+        @assert x <= ϵ
 
         if iszero(x)
             weight = zero(x)
@@ -79,22 +80,11 @@ function T01(
             weight = w(x)
         end
 
-        if !precompute_u0_expansion
-            u0_expansion = u0(x, AsymptoticExpansion())
-
-            u0_expansion_div_xlogx = empty(u0_expansion)
-            for ((i, m, k, l), value) in u0_expansion
-                u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
-            end
-        end
-
         return weight / (π * eval_expansion(u0, u0_expansion_div_xlogx, x))
     end
 
     return x -> begin
         x = convert(Arb, x)
-
-        @assert !precompute_u0_expansion || x <= ϵ
 
         main_term = log(Arb(2))
 
