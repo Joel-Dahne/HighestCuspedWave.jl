@@ -42,6 +42,130 @@ function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-5), skip_div_u0 = f
 end
 
 """
+    T02(u0::BHAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
+Returns a function such that `T02(u0, Asymptotic())(x)` computes an
+**upper bound** of the integral T_{0,2} from the paper using an
+evaluation strategy that works asymptotically as `x` goes to 0.
+
+It precomputes the expansions of `u0` and for that reason a number `ϵ`
+has to be given, the resulting expansion will be valid for all `x <
+ϵ`. The value of `ϵ` has to be less than `1`.
+
+TODO: This is currently only partially implemented for full asymptotic
+evaluation. It computes the integral after the change of variables `t
+= y / x` using normal ball arithmetic. The factor outside the integral
+is computed using an asymptotic approach.
+"""
+function T02(
+    u0::BHAnsatz,
+    ::Asymptotic;
+    non_asymptotic_u0 = false,
+    ϵ = Arb(2e-1),
+)
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
+    end
+
+    ϵ = convert(Arb, ϵ)
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
+
+    u0_expansion_div_xlogx = empty(u0_expansion)
+    for ((i, m, k, l), value) in u0_expansion
+        u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
+    end
+
+    factor(x) = begin
+        # PROVE: That this is monotonically decreasing on [0, 1]
+        w(x) = 1 / (log(x) * sqrt(log((x + 1) / x)))
+
+        @assert x <= ϵ
+
+        if iszero(x)
+            weight = zero(x)
+        elseif Arblib.contains_zero(x) && x < 1
+            weight = union(zero(x), w(Arblib.ubound(Arb, x)))
+        else
+            weight = w(x)
+        end
+
+        return weight / (π * eval_expansion(u0, u0_expansion_div_xlogx, x))
+    end
+
+    return x -> begin
+        x = convert(Arb, x)
+
+        # Variables for storing temporary values during integration
+        x_complex = convert(Acb, x)
+        xdiv2 = x_complex / 2
+        tmp = zero(x_complex)
+        tx = zero(x_complex)
+
+        # TEMPORARY: This currently computes a non-asymptotic version
+        # for testing purposes
+        integrand!(res, t; analytic::Bool) = begin
+            # The code below is an inplace version of the following code
+            #res = -log(sin(x * (t - 1) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)
+            #weight = t * Arblib.sqrt_analytic!(zero(t), log((t * x + 1) / (t * x)), analytic)
+            #return res * weight
+
+            Arblib.mul!(tx, t, x_complex)
+
+            # res = sin((t - 1) * x / 2)
+            Arblib.sub!(tmp, t, 1)
+            Arblib.mul!(tmp, tmp, xdiv2)
+            Arblib.sin!(res, tmp)
+
+            # res *= sin((1 + t) * x / 2)
+            Arblib.add!(tmp, t, 1)
+            Arblib.mul!(tmp, tmp, xdiv2)
+            Arblib.sin!(tmp, tmp)
+            Arblib.mul!(res, res, tmp)
+
+            # res /= sin(t * x / 2)^2
+            Arblib.mul_2exp!(tmp, tx, -1)
+            Arblib.sin!(tmp, tmp)
+            Arblib.sqr!(tmp, tmp)
+            Arblib.div!(res, res, tmp)
+
+            Arblib.log!(res, res)
+            Arblib.neg!(res, res)
+
+            # tmp = t * sqrt(log((tx + 1) / tx))
+            Arblib.add!(tmp, tx, 1)
+            Arblib.div!(tmp, tmp, tx)
+            Arblib.log!(tmp, tmp)
+            Arblib.sqrt_analytic!(tmp, tmp, analytic)
+            Arblib.mul!(tmp, tmp, t)
+
+            Arblib.mul!(res, res, tmp)
+
+            return
+        end
+
+        δ = Arb(1e-10)
+
+        res = Arblib.integrate!(
+            integrand!,
+            zero(x_complex),
+            one(x_complex) + δ,
+            π / x_complex,
+            check_analytic = true,
+            rtol = 1e-10,
+            atol = 1e-10,
+            warn_on_no_convergence = false,
+        )
+
+        @assert !isfinite(res) || isreal(res)
+        res = real(res)
+
+        return res * factor(x)
+    end
+end
+
+"""
     T021(u0::BHAnsatz)
 Computes the (not yet existing) integral T_{0,2,1} from the paper.
 
