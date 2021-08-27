@@ -56,12 +56,7 @@ evaluation. It computes the integral after the change of variables `t
 = y / x` using normal ball arithmetic. The factor outside the integral
 is computed using an asymptotic approach.
 """
-function T02(
-    u0::BHAnsatz,
-    ::Asymptotic;
-    non_asymptotic_u0 = false,
-    ϵ = Arb(2e-1),
-)
+function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
