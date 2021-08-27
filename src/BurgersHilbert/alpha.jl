@@ -1,6 +1,5 @@
 function alpha0(
     u0::BHAnsatz{Arb};
-    M::Integer = 3,
     rtol = 1e-5,
     degree = 1,
     maxevals = 2000,
@@ -56,9 +55,9 @@ function alpha0(
         point_value_max = abs(f(ϵ)), # Maximum is in practice attained here
         degree = -1,
         threaded = true,
-        maxevals = 10000,
-        depth = 30;
-        rtol,
+        depth = 30,
+        atol = 0.1; # This value is much smaller than m2 so we don't need good bounds
+        maxevals,
         verbose,
     )
 
