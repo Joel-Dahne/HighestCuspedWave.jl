@@ -105,29 +105,15 @@ end
 
 # ╔═╡ 61151255-15d4-45ec-a3ad-573c46d34d93
 α0 = if use_rigorous_bounds_α0
-	alpha0(u0, verbose = true)
+    alpha0(u0, verbose = true)
 else
-	maximum(α0_ys)
+    maximum(α0_ys)
 end
 
 # ╔═╡ ab9d59df-3488-4f8a-a321-d23aab7e01d4
 let pl = plot(legend = :bottomright)
-	plot!(
-		pl, 
-		α0_xs, 
-		α0_ys, 
-		ribbon = radius.(Arb, α0_ys), 
-		label = "", 
-		m = :dot, 
-		ms = 1,
-	)
-	hline!(
-		pl,
-		[α0],
-		ribbon = [radius(Arb, α0)],
-		color = :green,
-		label = "α₀",
-	)
+    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :dot, ms = 1)
+    hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
 end
 
 # ╔═╡ 87b3712f-1cf7-4d02-b1d1-d68d7f4464d6
@@ -140,14 +126,14 @@ C_B_xs, C_B_ys = let xs = range(Arb(1e-1), π, length = 100)
     Threads.@threads for i in eachindex(xs)
         ys[i] = f(xs[i])
     end
-	xs, ys
+    xs, ys
 end
 
 # ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 C_B = if use_rigorous_bounds_C_B
-	CB(u0, verbose = true)
+    CB(u0, verbose = true)
 else
-	maximum(C_B_ys)
+    maximum(C_B_ys)
 end
 
 # ╔═╡ 89d54f92-8b3a-4913-875d-31068856fb62
@@ -157,17 +143,11 @@ let pl = plot(legend = :bottomright)
         C_B_xs,
         C_B_ys,
         ribbon = Arblib.radius.(Arb, C_B_ys),
-		label = "",
+        label = "",
         m = :dot,
         ms = 1,
     )
-    hline!(
-		pl, 
-		[C_B], 
-		ribbon = [Arblib.radius(Arb, C_B)],
-		color = :green,
-		label = "C_B",
-	)
+    hline!(pl, [C_B], ribbon = [Arblib.radius(Arb, C_B)], color = :green, label = "C_B")
 end
 
 # ╔═╡ 5bc3a7c1-9acd-49c4-afd4-e0a94b3b02d7
@@ -195,34 +175,32 @@ We can now plot the defect on the interval `[0, π]`. We do three different plot
 end
 
 # ╔═╡ 1bb84607-4f0f-4e7b-a24f-258b4e581c2c
-δ0_asym_xs, δ0_asym_ys = let xs = exp.(range(log(Arb("1e-100")), log(Arb("1e-1")), length = 200))
-    ys = similar(xs)
-	f = F0(u0, Asymptotic(), ϵ = 2xs[end])
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = f(xs[i])
+δ0_asym_xs, δ0_asym_ys =
+    let xs = exp.(range(log(Arb("1e-100")), log(Arb("1e-1")), length = 200))
+        ys = similar(xs)
+        f = F0(u0, Asymptotic(), ϵ = 2xs[end])
+        Threads.@threads for i in eachindex(xs)
+            ys[i] = f(xs[i])
+        end
+        xs, ys
     end
-    xs, ys
-end
 
 # ╔═╡ fb6c12ad-3391-4623-a201-412335742930
-δ0_very_asym_xs, δ0_very_asym_ys = let xs = exp.(range(log(Arb("1e-100000")), log(Arb("1e-100")), length = 200))
-    ys = similar(xs)
-	f = F0(u0, Asymptotic(), ϵ = 2xs[end])
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = f(xs[i])
+δ0_very_asym_xs, δ0_very_asym_ys =
+    let xs = exp.(range(log(Arb("1e-100000")), log(Arb("1e-100")), length = 200))
+        ys = similar(xs)
+        f = F0(u0, Asymptotic(), ϵ = 2xs[end])
+        Threads.@threads for i in eachindex(xs)
+            ys[i] = f(xs[i])
+        end
+        xs, ys
     end
-    xs, ys
-end
 
 # ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
 δ0 = if use_rigorous_bounds_δ0
-	delta0(u0, verbose = true)
+    delta0(u0, verbose = true)
 else
-	max(
-		maximum(abs.(δ0_ys)),
-		maximum(abs.(δ0_asym_ys)),
-		maximum(abs.(δ0_very_asym_ys)),
-	)
+    max(maximum(abs.(δ0_ys)), maximum(abs.(δ0_asym_ys)), maximum(abs.(δ0_very_asym_ys)))
 end
 
 # ╔═╡ ac03e920-25ad-4127-ad87-00e907701da3
@@ -236,7 +214,7 @@ let pl = plot()
         ms = 1,
         label = "defect",
     )
-	hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
+    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
@@ -254,7 +232,7 @@ let pl = plot()
         label = "defect",
         xaxis = :log10,
     )
-	hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
+    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
@@ -272,7 +250,7 @@ let pl = plot()
         label = "defect",
         xlabel = "log(x)",
     )
-	hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
+    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
