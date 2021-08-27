@@ -1,5 +1,5 @@
 """
-    CB(u0::BHAnsatz; verbose = false)
+    CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
 
 Upper bound the value of `C_B` from the paper.
 
@@ -32,11 +32,11 @@ turns out to be the more costly part of the procedure.
 One problem we have to deal with is that `T0(u0)` currently doesn't
 fully allow evaluation on `x` values strictly larger than `π`. To
 handle this we use [`ArbExtras.extrema_enclosure`](@ref) on the
-interval `[ϵ, ubound(Arb(π))]`, which is strictly less than `π`, and
+interval `[ϵ, lbound(Arb(π))]`, which is strictly less than `π`, and
 then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
 separately.
 """
-function CB(u0::BHAnsatz; verbose = false)
+function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
     ϵ = Arb(1e-1)
 
     # TODO: Bound the value on [0, ϵ]
@@ -64,7 +64,7 @@ function CB(u0::BHAnsatz; verbose = false)
 
         # Compute a tighter enclosure of u0 by using evaluation with
         # ArbSeries. In practice this will pick up that u0 is monotone
-        # on the interval and there is very efficient.
+        # on the interval and therefore very efficient.
         invu0 = inv(
             Arb(
                 ArbExtras.extrema_series(u0, Arblib.getinterval(Arf, x)..., degree = 1)[1:2],
@@ -84,10 +84,10 @@ function CB(u0::BHAnsatz; verbose = false)
         a,
         b,
         degree = -1,
-        atol = Arb(1e-3),
         abs_value = true,
         point_value_max = estimate,
         threaded = true;
+        atol,
         verbose,
     )
 
