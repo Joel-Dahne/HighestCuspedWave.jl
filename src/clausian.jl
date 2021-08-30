@@ -88,17 +88,16 @@ Ci(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 function Ci(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
-        x = setprecision(x, prec)
-        xₗ, xᵤ = Arblib.getinterval(Arb, x)
+        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
         (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
         res = union(Ci(xₗ, s), Ci(xᵤ, s))
         if include_zero
-            res = union(res, Ci(zero(x), s))
+            res = union(res, Ci(zero(xₗ), s))
         end
         if include_pi
             res = union(res, Ci(Arb(π; prec), s))
         end
-        return res
+        return setprecision(res, precision(x))
     end
     s = s isa Integer ? s : Acb(s, prec = precision(x))
     return real(Li(exp(Acb(0, x, prec = precision(x))), s))
@@ -143,11 +142,8 @@ function Ci(x::Arb, s::Arb, β::Integer)
 
     if false && iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
-        x = setprecision(x, prec)
-        xₗ, xᵤ = Arblib.getinterval(Arb, x)
-
+        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
         res = union(Ci(xₗ, s, β), Ci(xᵤ, s, β))
-
         if s == 2
             critical_point =
                 Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]"; prec)
@@ -167,7 +163,7 @@ function Ci(x::Arb, s::Arb, β::Integer)
             res = union(res, Ci(Arb(π; prec), s, β))
         end
 
-        return res
+        return setprecision(res, precision(x))
     end
 
     return real(Li(exp(Acb(0, x, prec = precision(x))), convert(Acb, s), β))
@@ -378,21 +374,23 @@ Si(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
 function Si(x::Arb, s::Union{Arb,Integer})
     if iswide(x) # If this is true then s is always an Arb
+        orig_prec = precision(x)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
         x = setprecision(x, prec)
         # Compute derivative
         dSi = Ci(x, s - 1)
         if Arblib.contains_zero(dSi)
             # Use a zero order approximation
-            return Arblib.add_error!(
+            res = Arblib.add_error!(
                 Si(Arblib.midpoint(Arb, x), s),
                 (x - Arblib.midpoint(Arb, x)) * dSi,
             )
         else
             # Use that it's monotone
             xₗ, xᵤ = Arblib.getinterval(Arb, x)
-            return union(Si(xₗ, s), Si(xᵤ, s))
+            res = union(Si(xₗ, s), Si(xᵤ, s))
         end
+        return setprecision(res, orig_prec)
     end
     s = s isa Integer ? s : Acb(s)
     return imag(Li(exp(Acb(0, x, prec = precision(x))), s))
