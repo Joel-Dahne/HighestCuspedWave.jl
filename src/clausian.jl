@@ -72,10 +72,14 @@ Li(z::acb, s::acb, β::Integer) = parent(z)(Li(Acb(z), Acb(s), β))
 Compute the Clausian function Ciₛ(x).
 
 If x is a wide (real) ball (as determined by iswide(x)) it computes a
-tighter enclosure by using that `Ci` is 2π periodic, monotonic for `x ∈
-[0, π]` and even, so that it's enough to evaluate on the endpoints and
-possibly at zero or π if `x` contains points on the form `2kπ` or (2k
-+ 1)π` respectively.
+tighter enclosure by using that `Ci` is 2π periodic, monotonic for `x
+∈ [0, π]` and even, so that it's enough to evaluate on the endpoints
+and possibly at zero or π if `x` contains points on the form `2kπ` or
+(2k + 1)π` respectively. In the wide case it computes the endpoints at
+a reduced precision given by
+```
+prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+```
 """
 Ci(x::Acb, s) = (Li(exp(im * x), s) + Li(exp(-im * x), s)) / 2
 Ci(x::acb, s::acb) = parent(x)(Ci(Acb(x), Acb(s)))
@@ -83,6 +87,8 @@ Ci(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
 function Ci(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+        x = setprecision(x, prec)
         xₗ, xᵤ = Arblib.getinterval(Arb, x)
         (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
         res = union(Ci(xₗ, s), Ci(xᵤ, s))
@@ -90,12 +96,12 @@ function Ci(x::Arb, s::Union{Arb,Integer})
             res = union(res, Ci(zero(x), s))
         end
         if include_pi
-            res = union(res, Ci(Arb(π), s))
+            res = union(res, Ci(Arb(π; prec), s))
         end
         return res
     end
-    s = s isa Integer ? s : Acb(s)
-    return real(Li(exp(Acb(0, x)), s))
+    s = s isa Integer ? s : Acb(s, prec = precision(x))
+    return real(Li(exp(Acb(0, x, prec = precision(x))), s))
 end
 
 Ci(x::arb, s::arb) = parent(x)(Ci(Arb(x), Arb(s)))
@@ -119,7 +125,11 @@ the interval `0 < x < π` and one (due to being even around `π`) on `π
 < x < 2π`. The extrema can occur either on one of these critical
 points or on the endpoints of the ball. For efficiency reasons the
 critical point on `0 < x < π` is precomputed for `s = 2` and `s = 3`
-(the one on `π < x < 2π` is given by symmetry).
+(the one on `π < x < 2π` is given by symmetry). In the wide case it
+computes the endpoints at a reduced precision given by
+```
+prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+```
 
 PROVE: That there is only once critical point.
 TODO: Use that `Ci` is 2π periodic to allow for `x` outside `[0, 2π]`.
@@ -132,31 +142,35 @@ function Ci(x::Arb, s::Arb, β::Integer)
     iszero(x) && s > 1 && return zeta(s, d = β)
 
     if false && iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+        x = setprecision(x, prec)
         xₗ, xᵤ = Arblib.getinterval(Arb, x)
 
         res = union(Ci(xₗ, s, β), Ci(xᵤ, s, β))
 
         if s == 2
-            critical_point = Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]")
+            critical_point =
+                Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]"; prec)
         elseif s == 3
-            critical_point = Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]")
+            critical_point = Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]"; prec)
         end
         if Arblib.overlaps(x, critical_point) ||
            Arblib.overlaps(x, 2Arb(π) - critical_point)
             # Depending on the precision critical_point might count as
             # wide so we explicitly call Li to avoid infinite
             # recursion.
-            res = union(res, real(Li(exp(Acb(0, critical_point)), convert(Acb, s), β)))
+            res =
+                union(res, real(Li(exp(Acb(0, critical_point; prec)), convert(Acb, s), β)))
         end
 
         if Arblib.overlaps(x, Arb(π))
-            res = union(res, Ci(Arb(π), s, β))
+            res = union(res, Ci(Arb(π; prec), s, β))
         end
 
         return res
     end
 
-    return real(Li(exp(Acb(0, x)), convert(Acb, s), β))
+    return real(Li(exp(Acb(0, x, prec = precision(x))), convert(Acb, s), β))
 end
 Ci(x::arb, s::arb, β::Integer) = parent(x)(Ci(Arb(x), Arb(s), β))
 Ci(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
@@ -352,7 +366,11 @@ If x is a wide (real) ball (as determined by iswide(x)) it computes a
 tighter enclosure by first checking if the derivative doesn't contains
 zero, if not it uses monotonicity to only evaluate at endpoints. If
 the derivative does contain zero it uses a zero order approximation
-instead.
+instead. In the wide case it computes the endpoints at a reduced
+precision given by
+```
+prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+```
 """
 Si(x::Acb, s) = (Li(exp(im * x), s) - Li(exp(-im * x), s)) / 2
 Si(x::acb, s::acb) = parent(x)(Ci(Acb(x), Acb(s)))
@@ -360,6 +378,8 @@ Si(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
 function Si(x::Arb, s::Union{Arb,Integer})
     if iswide(x) # If this is true then s is always an Arb
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+        x = setprecision(x, prec)
         # Compute derivative
         dSi = Ci(x, s - 1)
         if Arblib.contains_zero(dSi)
@@ -375,7 +395,7 @@ function Si(x::Arb, s::Union{Arb,Integer})
         end
     end
     s = s isa Integer ? s : Acb(s)
-    return imag(Li(exp(Acb(0, x)), s))
+    return imag(Li(exp(Acb(0, x, prec = precision(x))), s))
 end
 
 Si(x::arb, s::arb) = parent(x)(Si(Arb(x), Arb(s)))
@@ -397,7 +417,8 @@ it.
 Si(x::Acb, s::Acb, β::Integer) = (Li(exp(im * x), s, β) - Li(exp(-im * x), s, β)) / 2
 Si(x::acb, s::acb, β::Integer) = parent(x)(Si(Acb(x), Acb(s), β))
 
-Si(x::Arb, s::Arb, β::Integer) = imag(Li(exp(Acb(0, x)), convert(Acb, s), β))
+Si(x::Arb, s::Arb, β::Integer) =
+    imag(Li(exp(Acb(0, x, prec = precision(x))), convert(Acb, s), β))
 Si(x::arb, s::arb, β::Integer) = parent(x)(Si(Arb(x), Arb(s), β))
 Si(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
     convert(float(promote_type(S, T)), Si(convert(Arb, x), convert(Arb, s), β))
