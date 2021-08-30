@@ -274,7 +274,8 @@ function H(u0::BHAnsatz{T}, ::Ball) where {T}
         if !isnothing(u0.v0)
             let α = u0.v0.α, p0 = u0.v0.p0
                 for j = 1:u0.v0.N0
-                    res -= u0.v0.a[j] * (Ci(x, 2 - α + j * p0) - zeta(2 - α + j * p0))
+                    s = 2 - α + j * p0
+                    res -= u0.v0.a[j] * (Ci(x, s) - zeta(s))
                 end
             end
         end
