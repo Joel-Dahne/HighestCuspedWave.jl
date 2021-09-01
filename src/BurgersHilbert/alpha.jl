@@ -70,6 +70,7 @@ function alpha0(
         Arblib.ubound(Arb(π)),
         abs_value = true,
         point_value_max = abs(g(Arb(π))), # Maximum is in practice attained here
+        depth_start = 6,
         threaded = true;
         degree,
         maxevals,

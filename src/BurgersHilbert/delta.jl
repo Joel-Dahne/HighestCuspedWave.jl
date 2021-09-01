@@ -57,6 +57,7 @@ function delta0(
         ϵ2,
         abs_value = true,
         log_bisection = true,
+        depth_start = 23,
         threaded = true,
         maxevals = typemax(Int),
         depth = typemax(Int);
@@ -70,6 +71,7 @@ function delta0(
         ϵ2,
         ϵ3,
         abs_value = true,
+        depth_start = 17,
         log_bisection = true,
         threaded = true,
         maxevals = typemax(Int),
@@ -84,6 +86,7 @@ function delta0(
         ϵ3,
         ϵ,
         abs_value = true,
+        depth_start = 10,
         log_bisection = true,
         threaded = true,
         maxevals = typemax(Int),
@@ -103,6 +106,7 @@ function delta0(
         ϵ,
         Arblib.ubound(Arb(π)),
         abs_value = true,
+        depth_start = 7,
         threaded = true;
         degree,
         maxevals,
