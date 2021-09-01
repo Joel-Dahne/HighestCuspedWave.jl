@@ -52,9 +52,9 @@ has to be given, the resulting expansion will be valid for all `x <
 ϵ`. The value of `ϵ` has to be less than `1`.
 
 TODO: This is currently only partially implemented for full asymptotic
-evaluation. It computes the integral after the change of variables `t
-= y / x` using normal ball arithmetic. The factor outside the integral
-is computed using an asymptotic approach.
+evaluation. It computes the integral after expanding the `log(sin)`
+terms but doesn't yet bound the error term nor the works for `x`
+overlapping zero.
 """
 function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
     # This uses a hard coded version of the weight so just as an extra
@@ -63,7 +63,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
     let x = Arb(0.5)
         @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
     end
-
+    @warn "this doesn't yet bound the error"
     ϵ = convert(Arb, ϵ)
     u0_expansion = u0(ϵ, AsymptoticExpansion())
 
@@ -93,60 +93,42 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
         x = convert(Arb, x)
 
         # Variables for storing temporary values during integration
-        x_complex = convert(Acb, x)
-        xdiv2 = x_complex / 2
-        tmp = zero(x_complex)
-        tx = zero(x_complex)
+        tmp = Acb(prec = precision(x))
 
-        # TEMPORARY: This currently computes a non-asymptotic version
-        # for testing purposes
-        integrand!(res, t; analytic::Bool) = begin
+        integrand!(res, y; analytic::Bool) = begin
             # The code below is an inplace version of the following code
-            #res = -log(sin(x * (t - 1) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)
-            #weight = t * Arblib.sqrt_analytic!(zero(t), log((t * x + 1) / (t * x)), analytic)
+            #res = (1 + cot(y / 2)^2)
+            #weight = y * Arblib.sqrt_analytic!(zero(t), log((y + 1) / y), analytic)
             #return res * weight
 
-            Arblib.mul!(tx, t, x_complex)
-
-            # res = sin((t - 1) * x / 2)
-            Arblib.sub!(tmp, t, 1)
-            Arblib.mul!(tmp, tmp, xdiv2)
-            Arblib.sin!(res, tmp)
-
-            # res *= sin((1 + t) * x / 2)
-            Arblib.add!(tmp, t, 1)
-            Arblib.mul!(tmp, tmp, xdiv2)
-            Arblib.sin!(tmp, tmp)
-            Arblib.mul!(res, res, tmp)
-
-            # res /= sin(t * x / 2)^2
-            Arblib.mul_2exp!(tmp, tx, -1)
-            Arblib.sin!(tmp, tmp)
+            # tmp = cot(y / 2)^2
+            Arblib.mul_2exp!(tmp, y, -1)
+            Arblib.cot!(tmp, tmp)
             Arblib.sqr!(tmp, tmp)
-            Arblib.div!(res, res, tmp)
 
-            Arblib.log!(res, res)
-            Arblib.neg!(res, res)
+            # res = 1 + tmp
+            Arblib.add!(res, tmp, 1)
 
-            # tmp = t * sqrt(log((tx + 1) / tx))
-            Arblib.add!(tmp, tx, 1)
-            Arblib.div!(tmp, tmp, tx)
+            # res *= y
+            Arblib.mul!(res, res, y)
+
+            # tmp = sqrt(log((y + 1) / y))
+            Arblib.add!(tmp, y, 1)
+            Arblib.div!(tmp, tmp, y)
             Arblib.log!(tmp, tmp)
             Arblib.sqrt_analytic!(tmp, tmp, analytic)
-            Arblib.mul!(tmp, tmp, t)
 
+            # res *= tmp
             Arblib.mul!(res, res, tmp)
 
             return
         end
 
-        δ = Arb(1e-10)
-
         res = Arblib.integrate!(
             integrand!,
-            zero(x_complex),
-            one(x_complex) + δ,
-            π / x_complex,
+            zero(tmp),
+            x,
+            π,
             check_analytic = true,
             rtol = 1e-10,
             atol = 1e-10,
@@ -156,7 +138,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
         @assert !isfinite(res) || isreal(res)
         res = real(res)
 
-        return res * factor(x)
+        return res * factor(x) / 4
     end
 end
 
