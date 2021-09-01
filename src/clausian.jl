@@ -78,7 +78,7 @@ and possibly at zero or π if `x` contains points on the form `2kπ` or
 (2k + 1)π` respectively. In the wide case it computes the endpoints at
 a reduced precision given by
 ```
-prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
 """
 Ci(x::Acb, s) = (Li(exp(im * x), s) + Li(exp(-im * x), s)) / 2
@@ -87,7 +87,7 @@ Ci(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 
 function Ci(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
-        prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
         xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
         (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
         res = union(Ci(xₗ, s), Ci(xᵤ, s))
@@ -127,7 +127,7 @@ critical point on `0 < x < π` is precomputed for `s = 2` and `s = 3`
 (the one on `π < x < 2π` is given by symmetry). In the wide case it
 computes the endpoints at a reduced precision given by
 ```
-prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
 
 PROVE: That there is only once critical point.
@@ -141,7 +141,7 @@ function Ci(x::Arb, s::Arb, β::Integer)
     iszero(x) && s > 1 && return zeta(s, d = β)
 
     if false && iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
-        prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
         xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
         res = union(Ci(xₗ, s, β), Ci(xᵤ, s, β))
         if s == 2
@@ -365,7 +365,7 @@ the derivative does contain zero it uses a zero order approximation
 instead. In the wide case it computes the endpoints at a reduced
 precision given by
 ```
-prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
 """
 Si(x::Acb, s) = (Li(exp(im * x), s) - Li(exp(-im * x), s)) / 2
@@ -375,7 +375,7 @@ Si(x::acb, s::Integer) = parent(x)(Ci(Acb(x), s))
 function Si(x::Arb, s::Union{Arb,Integer})
     if iswide(x) # If this is true then s is always an Arb
         orig_prec = precision(x)
-        prec = min(max(Arblib.rel_accuracy_bits(x) + 64, 64), precision(x))
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
         x = setprecision(x, prec)
         # Compute derivative
         dSi = Ci(x, s - 1)
