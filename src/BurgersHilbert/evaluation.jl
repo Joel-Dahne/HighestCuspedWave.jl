@@ -52,6 +52,8 @@ function eval_expansion(
                                 log(critical_point)^i * critical_point^exponent,
                             )
                         end
+                    else
+                        factor = zero(x)
                     end
                 elseif iszero(exponent)
                     i < 0 || throw(
@@ -61,6 +63,8 @@ function eval_expansion(
                         #x_upper = Arblib.abs_ubound(Arb, x)
                         x_upper < 1 || throw(ErrorException("division by log(1)"))
                         factor = union(zero(res), logx_upper^i * x_upper^exponent)
+                    else
+                        factor = zero(x)
                     end
                 else
                     throw(ErrorException("negative x-exponent"))
