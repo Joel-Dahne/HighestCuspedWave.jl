@@ -100,7 +100,7 @@ J11 = ∫4sqrt(-log(y)) / y dy
 J12 = ∫-2sqrt(-log(y)) / log(y) dy
 ```
 ```
-J11 = ∫(1 + cot(y / 2)^2) * y * sqrt(log((y + 1) / y)) - 4sqrt(-log(y)) / y - (-2sqrt(-log(y)) / log(y)) dy
+J13 = ∫(1 + cot(y / 2)^2) * y * sqrt(log((y + 1) / y)) - 4sqrt(-log(y)) / y - (-2sqrt(-log(y)) / log(y)) dy
 ```
 all with the limits `x` to `ϵ`. Notice that both `J12` and `J13` are
 both bounded in `x`. The first two we can compute explicitly, giving
@@ -133,8 +133,75 @@ and
 part3 = W(x) * E
 ```
 
-TODO: Handle asymptotic evaluation of `J13`, notice that it should be
-bounded.
+For computing `J13` we need to be able to enclose the integrand for
+`y` overlapping `0`. This is done by expanding the integral and
+explicitly bounding all the constants, it requires quite a bit of
+work. Recall that the integrand in this case is given by
+```
+(1 + cot(y / 2)^2) * y * sqrt(log((y + 1) / y)) - 4sqrt(-log(y)) / y - (-2sqrt(-log(y)) / log(y))
+```
+As a first step we take out the term `y * sqrt(log((y + 1) / y))`,
+this can be checked to be bounded and monotone and is hence easy to
+enclose. Next we rewrite `sqrt(log((y + 1) / y))` as
+```
+sqrt(log(y + 1) - log(y)) = sqrt(-log(y)) * sqrt(1 - log(y + 1) / log(y))
+```
+We expect the integrand to behave like `y * sqrt(-log(y))` so we
+factor that out, giving us
+```
+y * sqrt(-log(y)) * (cot(y / 2)^2 * sqrt(1 - log(y + 1) / log(y)) - 4 / y^2 + 2 / (y * log(y)))
+```
+To handle the large parenthesis we put everything in one fraction,
+giving us (skipping the `y * sqrt(-log(y))` in front and rewriting
+`cot(y / 2) = 1 / tan(y / 2)`)
+```
+(y^3 * log(y) * sqrt(1 - log(y + 1) / log(y)) - 4y * log(y) * tan(y / 2)^2 + 2y^2 * tan(y / 2)^2) /
+(y^3 * log(y) * tan(y / 2)^2)
+```
+Now consider the three expansions
+```
+tan(y / 2)^2 = y^2 / 4 + C1 * y^4
+```
+```
+sqrt(1 - log(y + 1) / log(y)) = 1 - 1 // 2 * log(y + 1) / log(y) + C2 * y^2
+```
+and
+```
+log(1 + y) = y + C3 * y^2
+```
+where `C1`, `C2` and `C3` can be **explicitly** enclosed by balls.
+Inserting this in the expression above gives us for the denominator
+```
+(y^3 * log(y) * tan(y / 2)^2) = log(y) * (y^5 / 4 + C1 * y^7)
+```
+and for the numerator we get
+```
+(y^3 * log(y) - 1 // 2 * y^3 * log(y + 1) + C2 * y^5 * log(y)) -
+(y^3 * log(y) + 4C1 * y^5 * log(y)) +
+(1 // 2 * y^4 + 2C1 * y^6)
+```
+We see that the two occurrences of `y^3 * log(y)` cancel out, also
+expanding the `log(1 + y)` term gives
+```
+(-1 // 2 * y^4 - 1 // 2 * C3 * y^5 + C2 * y^5 * log(y)) -
+4C1 * y^5 * log(y) + 1 // 2 * y^4 + 2C1 * y^6
+```
+and the `-1 // 2 * y^4` terms cancel, leaving us with
+```
+-1 // 2 * C3 * y^5 + C2 * y^5 * log(y) - 4C1 * y^5 * log(y) + 2C1 * y^6 =
+(C2 - 4C1) * y^5 * log(y) - 1 // 2 * C3 * y^5 + 2C1 * y^6
+```
+Now putting the numerator and denominator together and canceling the
+`y^5 * log(y)` factor we get
+```
+((C2 - 4C1) - 1 // 2 * C3 / log(y) + 2C1 * y^2 / log(y)) / (1 // 4 + C1 * y^5)
+```
+This can be explicitly bounded.
+
+For enclosing `C1` and `C3` we can use `ArbSeries directly.
+
+TODO: How do we enclose `C2`? It seems like the second derivative is
+not even bounded?
 TODO: Handle asymptotic evaluation of `part3`, notice that it should
 behave like `O(x^4)`.
 """
@@ -206,6 +273,54 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
         #weight = y * Arblib.sqrt_analytic!(zero(t), log((y + 1) / y), analytic)
         #return res * weight - 4sqrt(-log(y)) / y - (-2sqrt(-log(y)) / log(y))
 
+        if Arblib.contains_zero(y)
+            # The integrand is not analytic at y = 0 and our bounds
+            # only work for real y
+            if analytic || !isreal(y)
+                Arblib.indeterminate!(res)
+                return
+            end
+
+            # Get the upper bound of the real part of y
+            yᵤ = ubound(Arb, Arblib.realref(y))
+
+            # Bound the term y * sqrt(log((y + 1) / y)) which is
+            # monotonically increasing and 0 at y = 0
+            term1 = union(zero(yᵤ), yᵤ * sqrt(log((yᵤ + 1) / yᵤ)))
+
+            # Bound the more complicated term cot(y / 2)^2 * y *
+            # sqrt(log((y + 1) / y)) - 4sqrt(-log(y)) / y -
+            # (-2sqrt(-log(y)) / log(y))
+
+            # Compute C1, C2 and C3 as described in the documentation above
+
+            # C1 and C3 can be computed directly with ArbSeries
+            C1, C2, C3 = let y = ArbSeries([real(y), 1], degree = 4)
+                C1 = (tan(y / 2)^2)[4]
+                # FIXME: This value works in practice on [0, 1/2] but
+                # is not proved
+                C2 = union(-one(yᵤ), zero(yᵤ))
+                C3 = log(1 + y)[2]
+                C1, C2, C3
+            end
+
+            # Evaluate ((C2 - 4C1) - 1 // 2 * C3 / log(y) + 2C1 * y^2 / log(y)) / (1 // 4 + C1 * y^5)
+            # We can use that 1 / log(y), y^2 / log(y) and y^5 are all
+            # zero at y = 0 and monotone on [0, 1]
+            fraction =
+                (
+                    (C2 - 4C1) - 1 // 2 * C3 * union(zero(yᵤ), 1 / log(yᵤ)) +
+                    2C1 * union(zero(yᵤ), yᵤ^2 / log(yᵤ))
+                ) / (1 // 4 + C1 * union(zero(yᵤ), yᵤ^5))
+
+            # Now term2 = y * sqrt(-log(y)) * constant and is monotone on [0, ϵ]
+            term2 = union(zero(yᵤ), yᵤ * sqrt(-log(yᵤ)) * fraction)
+
+            Arblib.add!(res, res, term1 + term2)
+
+            return
+        end
+
         tmp = zero(res)
 
         # res = 1 + cot(y / 2)^2
@@ -268,14 +383,16 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
             if iszero(x)
                 erfsqrtlogx = one(x)
             elseif Arblib.contains_zero(x)
-                erfsqrtlogx = union(SpecialFunctions.erf(sqrt(-log(Arblib.ubound(Arb, x)))), one(x))
+                erfsqrtlogx = union(
+                    SpecialFunctions.erf(sqrt(-log(Arblib.ubound(Arb, x)))),
+                    one(x),
+                )
             else
                 erfsqrtlogx = SpecialFunctions.erf(sqrt(-log(x)))
             end
 
             2sqrt(oftype(x, π)) * (erfsqrtlogx - SpecialFunctions.erf(sqrt(-log(ϵ))))
         end
-        # TODO: Allow asymptotic expansion
         J13 = real(
             Arblib.integrate!(
                 integrand_J13!,
