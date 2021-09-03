@@ -189,7 +189,7 @@ gives us
 where `δ = a - x`.
 
 If `x` overlaps with `π` or is very close to `π` (less than
-`sqrt(eps(x)))` then we take `a = π` as the upper integration limit
+`sqrt(eps(x))`) then we take `a = π` as the upper integration limit
 since even if a smaller `a` is given this will only give a small
 overestimation. We have that both the first and the second term are
 singular. We can get a direct upper bound for both of them by using
@@ -301,8 +301,6 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
         x_complex = convert(Acb, x)
         tmp = zero(x_complex)
 
-        # PROVE: That there are no branch cuts that interact with the
-        # integral
         integrand!(res, y; analytic::Bool) = begin
             # The code below is an inplace version of the following code
             #res = -log(sin((y - x) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
