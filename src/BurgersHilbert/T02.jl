@@ -51,10 +51,92 @@ It precomputes the expansions of `u0` and for that reason a number `ϵ`
 has to be given, the resulting expansion will be valid for all `x <
 ϵ`. The value of `ϵ` has to be less than `1`.
 
-TODO: This is currently only partially implemented for full asymptotic
-evaluation. It computes the integral after expanding the `log(sin)`
-terms but doesn't yet bound the error term nor the works for `x`
-overlapping zero.
+To begin with the factor `x * log(x) / (π * u0(x))` is factored out
+from the whole expression and added back in the end. Notice that this
+factor is bounded.
+
+What we are left with computing is
+```
+W(x) * I
+```
+where `W(x) = 1 / (x^2 * log(x) * sqrt(log((x + 1) / x)))` and `I`
+given by the integral
+```
+∫(log(sin((y - x) / 2)) + log(sin((y + x) / 2)) - 2log(sin(y / 2))) * y * sqrt(log((y + 1) / y)) dy
+```
+for `x` to `π`.
+
+Expanding the `log(sin)` terms at `x = 0` we find that
+```
+log(sin((y - x) / 2)) + log(sin((y + x) / 2)) - 2log(sin(y / 2)) = x^2 / 4 * (1 + cot(y / 2)^2) + O(x^4)
+```
+and we can therefore split the problem into computing the two
+integrals
+```
+J = ∫(1 + cot(y / 2)^2) * y * sqrt(log((y + 1) / y)) dy
+```
+and
+```
+E = ∫(-(log(sin((y - x) / 2)) + log(sin((y + x) / 2)) - 2log(sin(y / 2))) - x^2 / 4 * (1 + cot(y / 2)^2)) * y * sqrt(log((y + 1) / y)) dy
+```
+both from `x` to `π`.
+
+We will split `J` into several parts, one parts which grows in `x` and
+other parts which are all bounded. To begin with we split the integral
+domain into two intervals, one from `x` to `ϵ` which we will call `J1`
+and one from `ϵ` to `π` which we will call `J2`. The integral `J2` is
+bounded and an enclosure can be computed directly using
+`Arblib.integrate`.
+
+For `J1` we expand the integrand at `y = 0`, giving us
+```
+(1 + cot(y / 2)^2) * y * sqrt(log((y + 1) / y)) = 4sqrt(-log(y)) / y - 2sqrt(-log(y)) / log(y) + O(y)
+```
+We therefore split `J1` into three parts
+```
+J11 = ∫4sqrt(-log(y)) / y dy
+```
+```
+J12 = ∫-2sqrt(-log(y)) / log(y) dy
+```
+```
+J11 = ∫(1 + cot(y / 2)^2) * y * sqrt(log((y + 1) / y)) - 4sqrt(-log(y)) / y - (-2sqrt(-log(y)) / log(y)) dy
+```
+all with the limits `x` to `ϵ`. Notice that both `J12` and `J13` are
+both bounded in `x`. The first two we can compute explicitly, giving
+us
+```
+J11 = 8 // 3 * (sqrt(-log(ϵ)) * log(ϵ) - (-log(x))^(3 // 2))
+```
+and
+```
+J12 = 2sqrt(π) * (erf(sqrt(-log(x))) - erf(sqrt(-log(ϵ))))
+```
+Finally we split `J11` into the constant and the non-constant part,
+`J111 = 8 // 3 * sqrt(-log(ϵ)) * log(ϵ)` and `J112 = -8 // 3 *
+(-log(x))^(3 // 2)`.
+
+The full integral is now given by
+```
+I = x^2 / 4 * (J111 + J112 + J12 + J13 + J2) + E
+```
+And we are interested in `W(x) * I`. To be able to properly cancel all
+occurrences of `x` we split it into three parts
+```
+part1 = -2sqrt(-log(x)) / 3sqrt(log((x + 1) / x))
+```
+```
+part2 = (J111 + J12 + J13 + J2) / 4(log(x) * sqrt(log((x + 1) / x)))
+```
+and
+```
+part3 = W(x) * E
+```
+
+TODO: Handle asymptotic evaluation of `J13`, notice that it should be
+bounded.
+TODO: Handle asymptotic evaluation of `part3`, notice that it should
+behave like `O(x^4)`.
 """
 function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
     # This uses a hard coded version of the weight so just as an extra
@@ -63,13 +145,98 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
     let x = Arb(0.5)
         @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
     end
-    @warn "this doesn't yet bound the error"
-    ϵ = convert(Arb, ϵ)
-    u0_expansion = u0(ϵ, AsymptoticExpansion())
 
+    ϵ = convert(Arb, ϵ)
+    @assert ϵ < 1
+
+    # Compute expansion for u0 and set up W(x) method
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
     u0_expansion_div_xlogx = empty(u0_expansion)
     for ((i, m, k, l), value) in u0_expansion
         u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
+    end
+
+    # Enclose J2
+    integrand_J2!(res, y; analytic::Bool) = begin
+        # The code below is an inplace version of the following code
+        #res = (1 + cot(y / 2)^2)
+        #weight = y * Arblib.sqrt_analytic!(zero(t), log((y + 1) / y), analytic)
+        #return res * weight
+
+        tmp = zero(res)
+
+        # res = 1 + cot(y / 2)^2
+        Arblib.mul_2exp!(res, y, -1)
+        Arblib.cot!(res, res)
+        Arblib.sqr!(res, res)
+        Arblib.add!(res, res, 1)
+
+        # res *= y
+        Arblib.mul!(res, res, y)
+
+        # tmp = sqrt(log((y + 1) / y))
+        Arblib.add!(tmp, y, 1)
+        Arblib.div!(tmp, tmp, y)
+        Arblib.log!(tmp, tmp)
+        Arblib.sqrt_analytic!(tmp, tmp, analytic)
+
+        # res *= tmp
+        Arblib.mul!(res, res, tmp)
+
+        return
+    end
+
+    J2 = Arblib.integrate!(
+        integrand_J2!,
+        Acb(prec = precision(ϵ)),
+        ϵ,
+        π,
+        check_analytic = true,
+        rtol = 1e-10,
+        atol = 1e-10,
+        warn_on_no_convergence = false,
+    )
+
+    @assert !isfinite(J2) || isreal(J2)
+    J2 = real(J2)
+
+    integrand_J13!(res, y; analytic::Bool) = begin
+        # The code below is an inplace version of the following code
+        #res = (1 + cot(y / 2)^2)
+        #weight = y * Arblib.sqrt_analytic!(zero(t), log((y + 1) / y), analytic)
+        #return res * weight - 4sqrt(-log(y)) / y - (-2sqrt(-log(y)) / log(y))
+
+        tmp = zero(res)
+
+        # res = 1 + cot(y / 2)^2
+        Arblib.mul_2exp!(res, y, -1)
+        Arblib.cot!(res, res)
+        Arblib.sqr!(res, res)
+        Arblib.add!(res, res, 1)
+
+        # res *= y
+        Arblib.mul!(res, res, y)
+
+        # tmp = sqrt(log((y + 1) / y))
+        Arblib.add!(tmp, y, 1)
+        Arblib.div!(tmp, tmp, y)
+        Arblib.log!(tmp, tmp)
+        Arblib.sqrt_analytic!(tmp, tmp, analytic)
+
+        # res *= tmp
+        Arblib.mul!(res, res, tmp)
+
+        # res -= 4sqrt(-log(y)) / y
+        Arblib.sub!(res, res, 4Arblib.sqrt_analytic!(zero(tmp), -log(y), analytic) / y)
+
+        # res -= -2sqrt(-log(y)) / log(y)
+        Arblib.sub!(
+            res,
+            res,
+            -2Arblib.sqrt_analytic!(zero(tmp), (-log(y)), analytic) / log(y),
+        )
+
+        return
     end
 
     factor(x) = begin
@@ -86,59 +253,130 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
             weight = w(x)
         end
 
-        return weight / (π * eval_expansion(u0, u0_expansion_div_xlogx, x))
+        return weight
     end
+
+    W(x) = 1 / (x^2 * log(x) * sqrt(log((x + 1) / x)))
 
     return x -> begin
         x = convert(Arb, x)
 
-        # Variables for storing temporary values during integration
-        tmp = Acb(prec = precision(x))
+        J111 = 8 // 3 * sqrt(-log(ϵ)) * log(ϵ)
+        #J112 = 8 // 3 * (-log(x))^(3 // 2) # We don't actually use this value in the end
+        J12 = begin
+            # Use that erf(sqrt(-log(x))) is monotonically increasing and bounded by 1
+            if iszero(x)
+                erfsqrtlogx = one(x)
+            elseif Arblib.contains_zero(x)
+                erfsqrtlogx = union(SpecialFunctions.erf(sqrt(-log(Arblib.ubound(Arb, x)))), one(x))
+            else
+                erfsqrtlogx = SpecialFunctions.erf(sqrt(-log(x)))
+            end
 
-        integrand!(res, y; analytic::Bool) = begin
+            2sqrt(oftype(x, π)) * (erfsqrtlogx - SpecialFunctions.erf(sqrt(-log(ϵ))))
+        end
+        # TODO: Allow asymptotic expansion
+        J13 = real(
+            Arblib.integrate!(
+                integrand_J13!,
+                Acb(prec = precision(x)),
+                x,
+                ϵ,
+                check_analytic = true,
+                rtol = 1e-10,
+                atol = 1e-10,
+                warn_on_no_convergence = false,
+            ),
+        )
+
+        #J = J111 + J112 + J12 + J13 + J2
+
+        # Variables for storing temporary values during integration
+        x_complex = convert(Acb, x)
+        tmp = zero(x_complex)
+
+        integrand_E!(res, y; analytic::Bool) = begin
             # The code below is an inplace version of the following code
-            #res = (1 + cot(y / 2)^2)
-            #weight = y * Arblib.sqrt_analytic!(zero(t), log((y + 1) / y), analytic)
+            #res = -log(sin((y - x) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
+            #res -= x^2 / 4 * (1 + cot(y / 2)^2)
+            #weight = y * Arblib.sqrt_analytic!(zero(y), log((y + 1) / y), analytic)
             #return res * weight
 
-            # tmp = cot(y / 2)^2
+            # res = sin((y - x) / 2)
+            Arblib.sub!(tmp, y, x_complex)
+            Arblib.mul_2exp!(tmp, tmp, -1)
+            Arblib.sin!(res, tmp)
+
+            # res *= sin((x + y) / 2)
+            Arblib.add!(tmp, x_complex, y)
+            Arblib.mul_2exp!(tmp, tmp, -1)
+            Arblib.sin!(tmp, tmp)
+            Arblib.mul!(res, res, tmp)
+
+            # res /= sin(y / 2)^2
+            Arblib.mul_2exp!(tmp, y, -1)
+            Arblib.sin!(tmp, tmp)
+            Arblib.sqr!(tmp, tmp)
+            Arblib.div!(res, res, tmp)
+
+            Arblib.log!(res, res)
+
+            Arblib.neg!(res, res)
+
+            # res -= x^2 / 4 * (1 + cot(y / 2)^2)
             Arblib.mul_2exp!(tmp, y, -1)
             Arblib.cot!(tmp, tmp)
             Arblib.sqr!(tmp, tmp)
+            Arblib.add!(tmp, tmp, 1)
+            Arblib.mul!(tmp, tmp, x_complex)
+            Arblib.mul!(tmp, tmp, x_complex)
+            Arblib.div!(tmp, tmp, 4)
+            Arblib.sub!(res, res, tmp)
 
-            # res = 1 + tmp
-            Arblib.add!(res, tmp, 1)
-
-            # res *= y
-            Arblib.mul!(res, res, y)
-
-            # tmp = sqrt(log((y + 1) / y))
+            # tmp = y * sqrt(log((y + 1) / y))
             Arblib.add!(tmp, y, 1)
             Arblib.div!(tmp, tmp, y)
             Arblib.log!(tmp, tmp)
             Arblib.sqrt_analytic!(tmp, tmp, analytic)
+            Arblib.mul!(tmp, tmp, y)
 
-            # res *= tmp
             Arblib.mul!(res, res, tmp)
 
             return
         end
 
-        res = Arblib.integrate!(
-            integrand!,
-            zero(tmp),
-            x,
-            π,
-            check_analytic = true,
-            rtol = 1e-10,
-            atol = 1e-10,
-            warn_on_no_convergence = false,
+        # TODO: Allow asymptotic expansion
+        E = real(
+            Arblib.integrate!(
+                integrand_E!,
+                zero(x_complex),
+                x + Arb(1e-20),
+                π,
+                check_analytic = true,
+                rtol = 1e-20,
+                atol = 1e-20,
+                warn_on_no_convergence = false,
+            ),
         )
 
-        @assert !isfinite(res) || isreal(res)
-        res = real(res)
+        part1 = begin
+            # PROVE: that this is monotonically decreasing in x and 1 at x = 0
+            if iszero(x)
+                value = one(x)
+            elseif Arblib.contains_zero(x)
+                xᵤ = ubound(Arb, x)
+                value = union(one(x), sqrt(-log(xᵤ)) / sqrt(log((xᵤ + 1) / xᵤ)))
+            else
+                value = sqrt(-log(x)) / sqrt(log((x + 1) / x))
+            end
+            -2 // 3 * value
+        end
+        part2 = (J111 + J12 + J13 + J2) / 4(log(x) * sqrt(log((x + 1) / x)))
+        part3 = W(x) * E
 
-        return res * factor(x) / 4
+        res = part1 + part2 + part3
+
+        return res / (π * eval_expansion(u0, u0_expansion_div_xlogx, x))
     end
 end
 
