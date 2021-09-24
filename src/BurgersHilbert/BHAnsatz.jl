@@ -35,29 +35,11 @@ function BHAnsatz{T}(
     return u0
 end
 
-function BHAnsatz(
-    RR::RealField,
-    N::Integer = 0;
-    a1 = RR(0),
-    v0::Union{Nothing,FractionalKdVAnsatz} = nothing,
-)
-    a0 = 2 / RR(π)^2
-    b = fill(zero(a0), N)
-
-    u0 = BHAnsatz{arb}(a0, a1, b, v0)
-
-    findbs!(u0)
-
-    return u0
-end
-
 function Base.getproperty(u0::BHAnsatz, name::Symbol)
     if name == :N
         return length(u0.b)
     elseif name == :w
         return x -> abs(x) * sqrt(log((abs(x) + 1) / abs(x)))
-    elseif name == :parent
-        return parent(u0.a0)
     else
         return getfield(u0, name)
     end
@@ -65,11 +47,6 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", u0::BHAnsatz{T}) where {T}
     print(io, "BHAnsatz{$T}: N = $(u0.N)")
-    isnothing(u0.v0) || print(io, ", v0 is set")
-end
-
-function Base.show(io::IO, ::MIME"text/plain", u0::BHAnsatz{arb})
-    print(io, "BHAnsatz{arb}: N = $(u0.N), prec = $(precision(parent(u0.a0)))")
     isnothing(u0.v0) || print(io, ", v0 is set")
 end
 

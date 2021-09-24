@@ -5,8 +5,8 @@ Find values of b[n] to minimize the defect D(u0).
 This is done by solving the non-linear system given by requiring that
 D(u0) evaluates to zero on N collocation points.
 
-It uses nlsolve to find the zero, however nlsolve doesn't support
-arb-types so this is always done in Float64.
+It uses nlsolve to find the zero, however nlsolve doesn't support Arb
+so this is always done in Float64.
 """
 function findbs!(u0::BHAnsatz{T}) where {T}
     if u0.N == 0
@@ -46,18 +46,6 @@ function findbs!(u0::BHAnsatz{T}) where {T}
     end
 
     copy!(u0.b, sol.zero)
-
-    return u0
-end
-
-function findbs!(u0::BHAnsatz{arb})
-    u0_float = convert(BHAnsatz{Float64}, u0)
-
-    findbs!(u0_float)
-    # TODO: Possibly perform some Newton iterations if the values are
-    # required to a higher precision.
-
-    u0.b .= parent(u0.a0).(u0_float.b)
 
     return u0
 end
