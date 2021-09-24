@@ -101,7 +101,7 @@ given by `t = 1 / sqrt(2)`. The integral for `I₁₁` can be computed
 explicitly and is given by `log(2)`. The integrand for `I₁₂` is
 bounded and can be computed using `Arblib.integrate`, we just have to
 be careful with handling `x` close to zero.
-PROVE: The value for the integral for `I₁₁`, Mathematica gives this.
+- **PROVE**: The value for the integral for `I₁₁`, Mathematica gives this.
 
 For `I₂` we see the same simplification for the absolute value factor,
 giving us
@@ -172,8 +172,9 @@ The remaining integral can be computed exactly and is given by `sqrt(π
 `log(sinc(y))` on the interval `[0, x / π]`, the second derivative is
 monotonically decreasing on the interval and can hence be enclosed by
 evaluating it on the endpoints.
-PROVE: That the second derivative of `log(sinc(y))` is monotonically
-decreasing on `[0, x / π]`, or find another way to enclose `D`
+- **PROVE**: That the second derivative of `log(sinc(y))` is
+    monotonically decreasing on `[0, x / π]`, or find another way to
+    enclose `D`
 
 For `I₄` we get, using the above computed expressions for `R₁`, `R₂`,
 `R₃` and the enclosure `R4` for `R₄` to rewrite
@@ -198,7 +199,8 @@ need to handle it slightly different. We instead consider
 log(2) * sqrt(log(1 / x)) * inv(log(x) * sqrt(log((x + 1) / x)))
 ```
 which again is zero at `x = 0` and monotonically decreasing.
-PROVE: That these two functions indeed are monotonically decreasing.
+- **PROVE**: That these two functions indeed are monotonically
+    decreasing.
 """
 function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
     # This uses a hard coded version of the weight so just as an extra
@@ -355,12 +357,12 @@ end
 Computes the integral T_{0,1,1} from the paper.
 
 It uses the fact that the integrand is strictly increasing on the
-interval `[0, 0.5]` for every value of `x` and 0 at 0. This allows us
-to enclose the integrand on the interval which then easily gives an
-enclosure of the integral by multiplying with the size of the
+interval `[0, 0.5]` for every value of `x` and 0 at `x = 0`. This
+allows us to enclose the integrand on the interval which then easily
+gives an enclosure of the integral by multiplying with the size of the
 interval.
 
-PROVE: That the integrand indeed is increasing on the said interval.
+**PROVE**: That the integrand indeed is increasing on the said interval.
 """
 function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u0 = false)
     δ0 < 0.5 || Throw(ArgumentError("δ0 must be less than 0.5, got $δ0"))
@@ -418,8 +420,6 @@ function T012(
         tmp = zero(x_complex)
         tx = zero(x_complex)
 
-        # PROVE: That there are no branch cuts that interact with the
-        # integral
         integrand!(res, t; analytic::Bool) = begin
             # The code below is an inplace version of the following code
             #res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)
@@ -547,10 +547,10 @@ After integration we thus get
 ```
 We use this bound if `x` is less than `sqrt(eps(x))` away from `π`.
 
-TODO: The upper bound for when `x` contains `π` could be improved, but
-this is probably not needed.
-PROVE: There are several minor details here that might need to be
-proved.
+- **TODO**: The upper bound for when `x` contains `π` could be
+    improved, but this is probably not needed.
+- **PROVE**: There are several minor details here that might need to
+    be proved.
 """
 function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     return x -> begin

@@ -555,7 +555,6 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
 
                     yᵤ = ubound(Arb, real(y))
                     return Acb((0, yᵤ * sqrt(log((yᵤ + 1) / yᵤ))))
-                    # TODO
                 else
                     return y * Arblib.real_sqrtpos!(zero(y), log((y + 1) / y), analytic)
                 end

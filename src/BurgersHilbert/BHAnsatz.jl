@@ -4,14 +4,8 @@ export BHAnsatz
     BHAnsatz{T}
 a0 - Corresponds to the a₀ coefficient in the paper
 a1 - Coefficient in front of C₂, doesn't exist in the paper yet
-as - Coefficients in front of C₂^(β) with `β` taken from `βs`
-βs - `β` values for each coefficient in `as`
 b - Vector corresponding to the bₙ's in the paper
-f - Temporary! General function added when evaluating directly
-Hf - Temporary! General function added when evaluating H directly
-
-TODO: Neither `as` nor `βs` exist in the paper yet and their support
-is so far only partial in the code as well.
+v0 - Tail part coming from a FractionalKdVAnsatz
 """
 struct BHAnsatz{T} <: AbstractAnsatz{T}
     a0::T
