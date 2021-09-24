@@ -255,7 +255,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
             R4 = zero(x)
         else
             xᵤ = ubound(Arb, x)
-            R4 = Arb((0, sqrt(log(xᵤ + 1))))
+            R4 = Arb((0, sqrt(log1p(xᵤ))))
         end
 
         # This term includes the weight factor
