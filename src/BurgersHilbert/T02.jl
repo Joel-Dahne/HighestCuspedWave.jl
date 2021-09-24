@@ -44,8 +44,8 @@ end
 """
     T02(u0::BHAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
 Returns a function such that `T02(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral T_{0,2} from the paper using an
-evaluation strategy that works asymptotically as `x` goes to 0.
+enclosure of the integral T_{0,2} from the paper using an evaluation
+strategy that works asymptotically as `x` goes to 0.
 
 It precomputes the expansions of `u0` and for that reason a number `ϵ`
 has to be given, the resulting expansion will be valid for all `x <
@@ -78,134 +78,213 @@ and
 ```
 E = -∫((log(sin((y - x) / 2)) + log(sin((y + x) / 2)) - 2log(sin(y / 2))) - (log((y - x) / 2) + log((y + x) / 2) - 2log(y / 2))) * y * sqrt(log((y + 1) / y)) dy
 ```
-with `I = J + E`. We can simplify `E` to
-```
-E = -∫(log(2sin((y - x) / 2) / (y - x)) + log(2sin((y + x) / 2) / (y + x)) - 2log(2sin(y / 2) / y)) * y * sqrt(log((y + 1) / y)) dy
-```
+with `I = J + E`.
 
-For `J` we can simplify it to
+The change of coordinates `t = y /x` gives us for `J`
 ```
-J = -∫(log(y - x) + log(y + x) - 2log(y)) * y * sqrt(log((y + 1) / y)) dy
+J = -x^2 * ∫(log(x * (t - 1) / 2) + log(x * (1 + x) / 2) - 2log(t * x / 2)) * t * sqrt(log((t * x + 1) / (t * x))) dt
 ```
-by taking out the divisions by `2`. We can simplify it further by
-rewriting `log(y - x) = log(y) + log(1 - x / y)` and `log(y + x) =
-log(y) + log(1 + x / y)`, giving us
+from `1` to `π / x`. This can be simplified further using that
 ```
-J = -∫(log(1 - x / y) + log(1 + x / y)) * y * sqrt(log((y + 1) / y)) dy
+log(x * (t - 1) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2) = log(1 - 1 / t^2)
 ```
-Finally we can combine the two logs
-```
-J = -∫log(1 - (x / y)^2) * y * sqrt(log((y + 1) / y)) dy
-```
-Recall that this integral is taken from `x` to `π`. Next we do a
-change of variables, `t = y / x`, giving us the integral
+giving us
 ```
 J = -x^2 * ∫log(1 - 1 / t^2) * t * sqrt(log((t * x + 1) / (t * x))) dt
 ```
-from `1` to `π / x`. Assuming that `x < 1 // 2` we split this into
-three parts, one from `1` to `2`, one from `2` to `1 / x` and one from
-`1 / x` to `π / x`, which we call `J1`, `J2` and `J3` respectively.
+Now let `J₁`, `J₂` and `J₃` be given by the integral
+```
+∫log(1 - 1 / t^2) * t * sqrt(log((t * x + 1) / (t * x))) dt
+```
+from `1` to `2` for `J₁`, from `2` to `1 / x` for `J₂` and from `1 /
+x` to `π / x` for `J₃`. Which means we have
+```
+J = -x^2 * (J₁ + J₂ + J₃)
+```
 
-For `J1` we first notice that
+For `J₁` we first notice that
 ```
 sqrt(log((t * x + 1) / (t * x))) = sqrt(log((t * x + 1) / (t * x + t)) + log((x + 1) / x))
 ```
 Here we have that `log((t * x + 1) / (t * x + t))` is bounded for `0 <
 x < 1 / 2` and `1 < t < 2` and an enclosure can easily be computed
-with interval arithmetic, call this enclosure `C`. This allows us to
-simplify `J1` as
+with interval arithmetic, call this enclosure `C₁`. This allows us to
+simplify `J₁` as
 ```
-J1 = -x^2 * sqrt(C + log((x + 1) / x)) * ∫log(1 - 1 / t^2) * t dt
+J₁ = sqrt(C + log((x + 1) / x)) * ∫log(1 - 1 / t^2) * t dt
 ```
 where the integral can now be explicitly computed to be `log(3 *
-sqrt(3) / 16)`. If we also consider the `W(x)` factor we find that
+sqrt(3) / 16)`. If we also include the `-x^2` factor as well as the
+`W(x)` factor
 ```
-W(x) * J1 = -x^2 * sqrt(C + log((x + 1) / x)) * log(3 * sqrt(3) / 16) / (x^2 * log(x) * sqrt(log((x + 1) / x)))
+-x^2 * J₁ * W(x) = -x^2 * sqrt(C + log((x + 1) / x)) * log(3 * sqrt(3) / 16) / (x^2 * log(x) * sqrt(log((x + 1) / x)))
 ```
 which simplifies to
 ```
-W(x) * J1 = -log(3 * sqrt(3) / 16) * sqrt(C + log((x + 1) / x)) / (log(x) * sqrt(log((x + 1) / x)))
+-x^2 * J₁ * W(x) = -log(3 * sqrt(3) / 16) * sqrt(C₁ + log((x + 1) / x)) / (log(x) * sqrt(log((x + 1) / x)))
 ```
-PROVE: that `sqrt(C + log((x + 1) / x)) / (log(x) * sqrt(log((x +
-1) / x)))` is zero at `x = 0` and monotonically decreasing.
+Focusing on the `sqrt(C₁ + log((x + 1) / x)) / (log(x) * sqrt(log((x +
+1) / x)))` factor we can rewrite this as
+```
+inv(log(x)) * sqrt(1 + C₁ / log(1 + 1 / x))
+```
+Where we can see that both `inv(log(x))` as well as `sqrt(1 + C₁ /
+log(1 + 1 / x))` are decreasing in `x`. It is also clear that the
+limit at `x = 0` is given by `0`. Since it is decreasing it can be
+enclosed by evaluating it at the endpoints.
 
-For `J2` we use the Taylor expansion
+For `J₂` we use the Taylor expansion
 ```
-log(1 - 1 / t^2) = - 1 / t^2 + D / t^4,
+log(1 - 1 / t^2) = - 1 / t^2 + C₂ / t^4,
 ```
-where `D` is the rest term, together with
+where `C₂` is the rest term, together with
 ```
 sqrt(log((t * x + 1) / (t * x))) = sqrt(log(1 / (t * x))) + (sqrt(log((t * x + 1) / (t * x))) - sqrt(log(1 / (t * x))))
 ```
 to split the integral into four terms
 ```
-J21 = x^2 * ∫ sqrt(log(1 / (t * x))) / t dt
+J₂₁ = -∫ sqrt(log(1 / (t * x))) / t dt
 ```
 ```
-J22 = x^2 * ∫ (sqrt(log((t * x + 1) / (t * x))) - sqrt(log(1 / (t * x)))) / t dt
+J₂₂ = -∫ (sqrt(log((t * x + 1) / (t * x))) - sqrt(log(1 / (t * x)))) / t dt
 ```
 ```
-J23 = -D * x^2 * ∫ sqrt(log(1 / (t * x))) / t^3 dt
+J₂₃ = C₂ * ∫ sqrt(log(1 / (t * x))) / t^3 dt
 ```
 ```
-J24 = -D * x^2 ∫ (sqrt(log((t * x + 1) / (t * x))) - sqrt(log(1 / (t * x)))) / t^3 dt
+J₂₄ = C₂ * ∫ (sqrt(log((t * x + 1) / (t * x))) - sqrt(log(1 / (t * x)))) / t^3 dt
 ```
-We can bound `D` directly using `ArbSeries`. The integrals `J21` and
-`J23` can be computed explicitly, giving us
+We can bound `C₂` directly using `ArbSeries` and the fact that `0 < 1
+/ t^2 < 1 // 4`. The integrals `J₂₁` and `J₂₃` can be computed
+explicitly, giving us
 ```
-J21 = 2 // 3 * x^2 * log(1 / 2x)^(3 // 2)
+J₂₁ = -2 // 3 * log(1 / 2x)^(3 // 2)
 ```
 and
 ```
-J23 = -1 // 8 * D * x^2 * (sqrt(-log(2x)) - sqrt(2π) * x^2 * erfi(sqrt(-log(4x^2))))
+J₂₃ = C₂ / 8 * (sqrt(-log(2x)) - sqrt(2π) * x^2 * erfi(sqrt(-log(4x^2))))
 ```
-For `J22` and `J24` we will use the fact that `sqrt(log((t * x + 1) /
+For `J₂₂` and `J₂₄` we will use the fact that `sqrt(log((t * x + 1) /
 (t * x))) - sqrt(log(1 / (t * x)))` is bounded on `[2, 1 / x]` to
-factor it out as a constant. If we let `G` be a ball containing the
+factor it out as a constant. If we let `C₃` be a ball containing the
 range of it we get
 ```
-J22 = G * x^2 * ∫1 / t dt = -G * x^2 * log(2x)
+J₂₂ = -C₃ * ∫1 / t dt = C₃ * log(2x)
 ```
 ```
-J24 = -D * G * x^2 * ∫1 / t^3 dt = 1 // 8 * D * G * x^2 * (1 - 4x^2)
+J₂₄ = C₂ * C₃ * ∫1 / t^3 dt = C₂ * C₃ / 8 * (1 - 4x^2)
 ```
-TODO: Figure out how to handle the `erfi` function in a good way.
-TODO: Bound G on the interval `[2, 1 / x]`.
+To find `C₃` we notice that
+```
+sqrt(log((t * x + 1) / (t * x))) - sqrt(log(1 / (t * x))) = sqrt(log(1 + 1 / y)) - sqrt(log(1 / y))
+```
+with `y = t * x`, since `2 < t < 1 / x` we have `0 < y < 1`. The
+function is monotonically increasing on this interval. At `y = 0` it
+is zero and at `y = 1` it is `sqrt(log(2))`. Finally we want to take
+into account the `-x^2` factor and the `W(x)` factor. For `J₂₁` we get
+```
+-x^2 * J₂₁ * W(x) = 2 // 3 * log(1 / 2x)^(3 // 2) / (log(x) * sqrt(log((x + 1) / x)))
+```
+which we can enclose by noticing that `log(1 / 2x)^(3 // 2) / (log(x)
+* sqrt(log((x + 1) / x)))` is `-1` at `x = 0` and increasing. For
+`J₂₂` we get
+```
+-x^2 * J₂₂ * W(x) = -C₃ * log(2x) / (log(x) * sqrt(log((x + 1) / x)))
+```
+which can be enclosed by noticing that `log(2x) / (log(x) *
+sqrt(log((x + 1) / x)))` is zero at `x = 0` and increasing. For `J₂₃`
+we get
+```
+-x^2 * J₂₃ * W(x) = -C₂ / 8 * (sqrt(-log(2x)) - sqrt(2π) * x^2 * erfi(sqrt(-log(4x^2)))) / (log(x) * sqrt(log((x + 1) / x)))
+```
+Here we need to handle the factor
+```
+(sqrt(-log(2x)) - sqrt(2π) * x^2 * erfi(sqrt(-log(4x^2)))) / (log(x) * sqrt(log((x + 1) / x)))
+```
+It is zero at `x = 0` but unfortunately not monotonic for `0 < x <
+0.5`. For now we use that it is monotonic on `0 < x < 0.1` and throw
+an error if `x` contains zero but is larger than this. Finally for
+`J₂₄` we get
+```
+-x^2 * J₂₄ * W(x) = -C₂ * C₃ / 8 * (1 - 4x^2) / (log(x) * sqrt(log((x + 1) / x)))
+```
+and here we only have to use the monotonicity of `(log(x) *
+sqrt(log((x + 1) / x)))`, which we already have from `T01`.
+- **PROVE**: That `sqrt(log(1 + 1 / y)) - sqrt(log(1 / y))` is
+    increasing on `[0, 1]`.
+- **PROVE**: That `log(1 / 2x)^(3 // 2) / (log(x) * sqrt(log((x + 1) /
+    x)))` is `-1` at `x = 0` and increasing.
+- **PROVE**: That `log(2x) / (log(x) * sqrt(log((x + 1) / x)))` is
+    increasing.
+- **TODO**: Figure out a more rigorous way to compute an enclosure of
+    `(sqrt(-log(2x)) - sqrt(2π) * x^2 * erfi(sqrt(-log(4x^2)))) /
+    (log(x) * sqrt(log((x + 1) / x)))`.
 
-
-For `J3` we notice that
+For `J₃` we notice that
 ```
 sqrt(log((π + 1) / π)) < sqrt(log((t * x + 1) / (t * x))) < sqrt(log(2))
 ```
-for `1 / x < t < π / x`. If we let `D` be a ball containing this
+for `1 / x < t < π / x`. If we let `C₄` be a ball containing this
 interval we have
 ```
-J3 = -x^2 * D * ∫log(1 - 1 / t^2) * t dt
+J₃ = C₄ * ∫log(1 - 1 / t^2) * t dt
 ```
 where the integral can be computed to be
 ```
 ∫log(1 - 1 / t^2) * t dt = 1 / (2x^2) * ((x^2 - 1) * log(1 / x^2 - 1) + (π^2 - x^2) * log(π^2 / x^2 - 1) - 2(π^2 * log(π) + log(x) - π^2 * log(x)))
 ```
-which we will call `P(x)`. Including the `W(x)` factor we get
+which we will call `P(x)`. To simplify `P(x)` we first rewrite it as
 ```
-W(x) * J3 = -x^2 * D * P(x) / (x^2 * log(x) * sqrt(log((x + 1) / x)))
+P(x) = ((x^2 - 1) * log(1 / x^2 - 1) - 2log(x) + (π^2 - x^2) * log(π^2 / x^2 - 1) - 2π^2 * log(π) + 2π^2 * log(x)) / (2x^2)
 ```
-which simplifies to
+First focusing on the term `(x^2 - 1) * log(1 / x^2 - 1) - 2log(x)` we
+can simplify this to
 ```
-W(x) * J3 = -D * P(x) / (log(x) * sqrt(log((x + 1) / x)))
+(x^2 - 1) * log(1 / x^2 - 1) - 2log(x) = x^2 * log(1 / x^2 - 1) - (log(1 / x^2 - 1) + 2log(x)) = x^2 * log(1 / x^2 - 1) - log1p(-x^2)
 ```
-PROVE: monotonicity for of P(x).
+For the term `(π^2 - x^2) * log(π^2 / x^2 - 1) - 2π^2 * log(π) + 2π^2 * log(x)` we get
+```
+(π^2 - x^2) * log(π^2 / x^2 - 1) - 2π^2 * log(π) + 2π^2 * log(x) = -x^2 * log(π^2 / x^2 - 1) + π^2 * (log(π^2 / x^2 - 1) - 2log(π) + 2log(x)) = -x^2 * log(π^2 / x^2 - 1) + π^2 * log1p(-x^2 / π^2)
+```
+This gives us
+```
+P(x) = (x^2 * log(1 / x^2 - 1) - log1p(-x^2) - x^2 * log(π^2 / x^2 - 1) + π^2 * log1p(-x^2 / π^2)) / (2x^2)
+```
+which we can simplify further to
+```
+P(x) = log((1 - x^2) / (π^2 - x^2)) / 2 + (π^2 * log1p(-x^2 / π^2) - log1p(-x^2)) / 2x^2
+```
+Including the `-x^2` and `W(x)` factors we get
+```
+-x^2 * J₃ * W(x) = -C₄ * P(x) / (log(x) * sqrt(log((x + 1) / x)))
+```
+- **PROVE**: That `P(x) / (log(x) * sqrt(log((x + 1) / x)))` is
+    increasing.
 
-For `E` we start by taking out a factor `x^2` from the integrand,
-giving us
+For `E` we start by simplifying it to
 ```
-E = -x^2 * ∫(log(2sin((y - x) / 2) / (y - x)) + log(2sin((y + x) / 2) / (y + x)) - 2log(2sin(y / 2) / y)) * y * sqrt(log((y + 1) / y)) / x^2 dy
+E = -∫(log(sinc((y - x) / 2π)) + log(sinc((y + x) / 2π)) - 2log(sinc(y / 2π))) * y * sqrt(log((y + 1) / y)) dy
 ```
-which is to be integrated from `x` to `π`. We notice that this
-integrand is uniformly bounded on the interval and we can thus enclose
-the integral for all values of `x`.
-TODO: Compute this bound.
-
+Next we want to factor out a `x^2` from the integral. We do this by
+using that `(log(sinc((y - x) / 2π)) + log(sinc((y + x) / 2π)) -
+2log(sinc(y / 2π))) / x^2` is uniformly bounded in both `x` and `y`.
+If we let `C₅` be an enclosure we can rewrite `E` as
+```
+E = -C₅ * x^2 * ∫y * sqrt(log((y + 1) / y)) dy
+```
+The integral can be enclosed directly using `Arblib.integrate` by
+using the monotonicity of the integrand close to `x = 0`. Including
+the weight factor we get
+```
+E * W(x) = -C₅ * ∫y * sqrt(log((y + 1) / y)) dy / (log(x) * sqrt(log((x + 1) / x))
+```
+which can be bounded using the monotonoicity of `log(x) * sqrt(log((x
++ 1) / x)`.
+- **TODO**: Compute the enclosure `C₅`. possibly using the Taylor expansions
+```
+log(sinc((y + x) / 2π)) = log(sinc(y / 2π)) + ??? * x + D * x^2
+log(sinc((y - x) / 2π)) = log(sinc(y / 2π)) - ??? * x + D * x^2
+```
 """
 function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
     # This uses a hard coded version of the weight so just as an extra
@@ -214,8 +293,6 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
     let x = Arb(0.5)
         @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
     end
-
-    @warn "T02(u0, Asymptotic()) doesn't bound the error term completely yet"
 
     ϵ = convert(Arb, ϵ)
     @assert ϵ < 0.5
@@ -230,36 +307,51 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
     # This gives the factor x * log(x) / (π * u0(x))
     factor(x) = inv(π * eval_expansion(u0, u0_expansion_div_xlogx, x))
 
-    W(x) = 1 / (x^2 * log(x) * sqrt(log((x + 1) / x)))
+    # This gives the factor inv(log(x) * sqrt(log((x + 1) / x))) in a
+    # way so that it can handle x including zero
+    weight_factor(x) = begin
+        iszero(x) && return zero(x)
+
+        if Arblib.contains_zero(x)
+            # Use that inv(log(x) * sqrt(log((x + 1) / x))) is
+            # monotonically decreasing for 0 < x < 1.
+            xᵤ = ubound(Arb, x)
+
+            return Arb((inv(log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))), 0))
+        end
+
+        return inv(log(x) * sqrt(log((x + 1) / x)))
+    end
 
     # Setting this to true makes the code do a few sanity checks on
     # the results, they are proved to hold but it's good to double
     # check.
-    check_results = true
+    check_results = false
+
     return x -> begin
         x = convert(Arb, x)
+        @assert x <= ϵ
 
-        # Includes the W(x) factor
+        # J1 = -x^2 * J₁ * W(x)
         J1 = let t = Arb((1, 2))
-            C = log((t * x + 1) / (t * x + t))
+            C₁ = log((t * x + 1) / (t * x + t))
 
+            # Enclose the factor inv(log(x)) * sqrt(1 + C₁ / log(1 + 1
+            # / x)) using that it's zero at x = 0 and monotonically
+            # decreasing.
             if iszero(x)
-                # PROVE: That this is zero at x = 0
-                fact = zero(x)
+                xfactor = zero(x)
             elseif Arblib.contains_zero(x)
-                # PROVE: That this is monotone
                 xᵤ = ubound(Arb, x)
-                fact = union(
-                    zero(x),
-                    sqrt(C + log((xᵤ + 1) / xᵤ)) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
-                )
+                xfactor = Arb((inv(log(xᵤ)) * sqrt(1 + C₁ / log(1 + 1 / xᵤ)), zero(x)))
             else
-                fact = sqrt(C + log((x + 1) / x)) / (log(x) * sqrt(log((x + 1) / x)))
+                xfactor = inv(log(x)) * sqrt(1 + C₁ / log(1 + 1 / x))
             end
 
-            -log(3 * sqrt(oftype(x, 3)) / 16) * fact
+            -log(3 * sqrt(Arb(3)) / 16) * xfactor
         end
 
+        # Sanity check results for J1
         if check_results
             J1_check =
                 -x^2 *
@@ -283,37 +375,99 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
             @assert Arblib.overlaps(J1, J1_check)
         end
 
-        # Includes the W(x) factor
+        # J2 = -x^2 * J₂ * W(x)
         J2 = let
-            # Bound the constant D using ArbSeries. We compute the
+            # Bound the constant C₂ using ArbSeries. We compute the
             # error term for log(1 - a) for a in [0, 1 // 4]
-            D = log(1 - ArbSeries([Arb((0, 1 // 4)), 1, 0]))[2]
+            C₂ = log(1 - ArbSeries([Arb((0, 1 // 4)), 1, 0]))[2]
 
             if check_results
                 for t in range(Arb(2), 1 / x, length = 1000)
-                    @assert Arblib.overlaps(log(1 - 1 / t^2), -1 / t^2 + D / t^4)
+                    @assert Arblib.overlaps(log(1 - 1 / t^2), -1 / t^2 + C₂ / t^4)
                 end
             end
 
-            # FIXME: Using this as a temporary enclosure for the error
-            # term, this should be updated with a proved enclosure.
-            G = Arb((0, 1))
+            # Enclosure of sqrt(log((t * x + 1) / (t * x))) -
+            # sqrt(log(1 / (t * x)))
+            C₃ = Arb((0, sqrt(log(Arb(2)))))
 
-            J21 = 2 // 3 * log(1 / 2x)^(3 // 2)
+            # J21 = -x^2 * J₂₁ * W(x)
+            J21 = begin
+                # Enclose log(1 / 2x)^(3 // 2) / (log(x) * sqrt(log((x + 1) / x)))
+                if iszero(x)
+                    xfactor = -one(x)
+                elseif Arblib.contains_zero(x)
+                    xᵤ = ubound(Arb, x)
+                    xfactor = Arb((
+                        -1,
+                        log(1 / 2xᵤ)^(3 // 2) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
+                    ))
+                else
+                    xfactor = log(1 / 2x)^(3 // 2) / (log(x) * sqrt(log((x + 1) / x)))
+                end
 
-            J22 = -G * log(2x)
+                2 // 3 * xfactor
+            end
 
-            J23 =
-                1 // 8 *
-                D *
-                (
-                    sqrt(-log(2x)) -
-                    sqrt(2oftype(x, π)) * x^2 * SpecialFunctions.erfi(sqrt(-log(4x^2)))
-                )
+            # J22 = -x^2 * J22 * W(x)
+            J22 = begin
+                # Enclose log(2x) / (log(x) * sqrt(log((x + 1) / x)))
+                if iszero(x)
+                    xfactor = zero(x)
+                elseif Arblib.contains_zero(x)
+                    xᵤ = ubound(Arb, x)
+                    xfactor = Arb((0, log(2xᵤ) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ)))))
+                else
+                    xfactor = log(2x) / (log(x) * sqrt(log((x + 1) / x)))
+                end
+                -C₃ * xfactor
+            end
 
-            J24 = -1 // 8 * D * G * (1 - 4x^2)
+            # J23 = -x^2 * J₂₃ * W(x)
+            J23 = let π = Arb(π)
+                # Enclose (sqrt(-log(2x)) - sqrt(2π) * x^2 *
+                # erfi(sqrt(-log(4x^2)))) / (log(x) * sqrt(log((x + 1)
+                # / x)))
+                if iszero(x)
+                    xfactor = zero(x)
+                elseif Arblib.contains_zero(x)
+                    # TODO: It is not monotonic for x larger than this
+                    @assert x < 0.1
+                    xᵤ = ubound(Arb, x)
+                    xfactor = Arb((
+                        (
+                            sqrt(-log(2xᵤ)) -
+                            sqrt(2π) * xᵤ^2 * SpecialFunctions.erfi(sqrt(-log(4xᵤ^2)))
+                        ) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
+                        0,
+                    ))
+                else
+                    xfactor =
+                        (
+                            sqrt(-log(2x)) -
+                            sqrt(2π) * x^2 * SpecialFunctions.erfi(sqrt(-log(4x^2)))
+                        ) / (log(x) * sqrt(log((x + 1) / x)))
+                end
 
-            (J21 + J22 + J23 + J24) / (log(x) * sqrt(log((x + 1) / x)))
+                C₂ / 8 * xfactor
+            end
+
+            # J24 = -x^2 * J₂₄ * W(x)
+            J24 = begin
+                # Enclose inv(log(x) * sqrt(log((x + 1) / x)))
+                if iszero(x)
+                    xfactor = zero(x)
+                elseif Arblib.contains_zero(x)
+                    xᵤ = ubound(Arb, x)
+                    xfactor = Arb((inv(log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))), 0))
+                else
+                    xfactor = inv(log(x) * sqrt(log((x + 1) / x)))
+                end
+
+                C₂ * C₃ / 8 * (1 - 4x^2) * xfactor
+            end
+
+            J21 + J22 + J23 + J24
         end
 
         if check_results
@@ -339,19 +493,26 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
             @assert Arblib.overlaps(J2, J2_check)
         end
 
-        # Includes the W(x) factor
+        # J3 = -x^2 * J₃ * W(x)
         J3 = let
-            D = Arb((sqrt(log((Arb(π) + 1) / Arb(π))), sqrt(log(Arb(2)))))
+            C₄ = Arb((sqrt(log((Arb(π) + 1) / Arb(π))), sqrt(log(Arb(2)))))
 
-            # FIXME: Compute a proper enclosure of P(x)
-            P = let π = Arb(π)
-                1 / (2x^2) * (
-                    (x^2 - 1) * log(1 / x^2 - 1) + (π^2 - x^2) * log(π^2 / x^2 - 1) -
-                    2(π^2 * log(π) + log(x) - π^2 * log(x))
-                )
+            P(x) =
+                let π = Arb(π)
+                    log((1 - x^2) / (π^2 - x^2)) / 2 +
+                    (π^2 * log1p(-x^2 / π^2) - log1p(-x^2)) / (2x^2)
+                end
+            # Enclose P(x) / (log(x) * sqrt(log((x + 1) / x)))
+            if iszero(x)
+                xfactor = zero(x)
+            elseif Arblib.contains_zero(x)
+                xᵤ = ubound(Arb, x)
+                xfactor = Arb((0, P(xᵤ) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ)))))
+            else
+                xfactor = P(x) / (log(x) * sqrt(log((x + 1) / x)))
             end
 
-            -D * P / (log(x) * sqrt(log((x + 1) / x)))
+            -C₄ * xfactor
         end
 
         if check_results
@@ -379,18 +540,43 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
 
         # Includes the W(x) factor
         E = let
-            # Enclosure of the integrand
-            # FIXME: Using this as a temporary enclosure for the error
-            # term, this should be updated with a proved enclosure.
-            D = Arb((-1, 0))
+            # Enclosure of (log(sinc((y - x) / 2π)) + log(sinc((y + x)
+            # / 2π)) - 2log(sinc(y / 2π))) / x^2
+            # TODO: Compute a proper enclosure, this one was given by
+            # simply plotting the function for some x values and
+            # eye-balling an rough enclosure
+            C₅ = Arb((-0.2, -0.05))
 
-            # This gives us an enclosure of the integral
-            -π * D / (log(x) * sqrt(log((x + 1) / x)))
+            # Enclosure of ∫y * sqrt(log((y + 1) / y)) dy from x to π
+            integrand_E(y; analytic) = begin
+                if Arblib.contains_zero(y)
+                    analytic && return Arblib.indeterminate!(zero(y))
+                    @assert isreal(y)
+
+                    yᵤ = ubound(Arb, real(y))
+                    return Acb((0, yᵤ * sqrt(log((yᵤ + 1) / yᵤ))))
+                    # TODO
+                else
+                    return y * Arblib.real_sqrtpos!(zero(y), log((y + 1) / y), analytic)
+                end
+            end
+            integral_E =
+                real(Arblib.integrate(integrand_E, x, π, check_analytic = true))
+
+            # Enclose inv(log(x) * sqrt(log((x + 1) / x)))
+            if iszero(x)
+                xfactor = zero(x)
+            elseif Arblib.contains_zero(x)
+                xᵤ = ubound(Arb, x)
+                xfactor = Arb((inv(log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))), 0))
+            else
+                xfactor = inv(log(x) * sqrt(log((x + 1) / x)))
+            end
+
+            -C₅ * integral_E * xfactor
         end
 
         return factor(x) * (J1 + J2 + J3 + E)
-
-        return J1, J2, J3, E
     end
 end
 
