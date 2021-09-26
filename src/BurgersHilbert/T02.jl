@@ -432,15 +432,18 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
                     xfactor = zero(x)
                 elseif Arblib.contains_zero(x)
                     # TODO: It is not monotonic for x larger than this
-                    @assert x < 0.1
-                    xᵤ = ubound(Arb, x)
-                    xfactor = Arb((
-                        (
-                            sqrt(-log(2xᵤ)) -
-                            sqrt(2π) * xᵤ^2 * SpecialFunctions.erfi(sqrt(-log(4xᵤ^2)))
-                        ) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
-                        0,
-                    ))
+                    if x < 0.1
+                        xᵤ = ubound(Arb, x)
+                        xfactor = Arb((
+                            (
+                                sqrt(-log(2xᵤ)) -
+                                sqrt(2π) * xᵤ^2 * SpecialFunctions.erfi(sqrt(-log(4xᵤ^2)))
+                            ) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
+                            0,
+                        ))
+                    else
+                        xfactor = Arblib.indeterminate!(zero(x))
+                    end
                 else
                     xfactor =
                         (
