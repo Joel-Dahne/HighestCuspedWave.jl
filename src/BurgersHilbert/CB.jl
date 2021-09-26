@@ -7,6 +7,10 @@ The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use an asymptotic expansion of `T0(u0)` whereas on ´[ϵ,
 π]` we use a non-asymptotic version.
 
+In practice the maximum is attained on `[ϵ, π]` and for that reason we
+compute the maximum on this part first and then only prove that the
+value on `[0, ϵ]` is bounded by this value.
+
 For the non-asymptotic version we do a number of optimizations for
 performance reasons.
 
@@ -37,11 +41,7 @@ then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
 separately.
 """
 function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
-    ϵ = Arb(1e-1)
-
-    # TODO: Bound the value on [0, ϵ]
-    @warn "evaluation on [0, ϵ] not implemented"
-    m1 = zero(Arb)
+    ϵ = Arf(1e-1)
 
     # Bound the value on [ϵ, π]
 
@@ -75,11 +75,11 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
     end
 
     # Bound it on [ϵ, lbound(Arb(π))]
-    a = Arblib.lbound(ϵ)
+    a = ϵ
     b = Arblib.lbound(Arb(π))
     estimate = maximum(abs.(T0(u0).(range(Arb(a), Arb(b), length = 10))))
 
-    m21 = ArbExtras.maximum_enclosure(
+    m1 = ArbExtras.maximum_enclosure(
         g,
         a,
         b,
@@ -93,9 +93,34 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
     )
 
     # Bound it on [lbound(Arb(π)), π]
-    m22 = T0(u0)(union(Arb(b), Arb(π)))
+    m2 = T0(u0)(union(Arb(b), Arb(π)))
 
-    m2 = max(m21, m22)
+    m = max(m1, m2)
+
+    # Show that it is bounded by m on [0, ϵ]
+    h = T0(u0, Asymptotic(), ϵ = 1.1ϵ)
+    ϵ2 = Arf(1e-100)
+
+    # Handle the interval [0, ϵ2] with one evalution
+    h(Arb((0, ϵ2))) <= m ||
+        throw(ErrorException("bound doesn't hold on $((0, Float64(ϵ2)))"))
+    verbose && @info "Bound satisfied on $((0, Float64(ϵ2)))"
+
+    # Bound it on [ϵ2, ϵ]
+    check_bound = ArbExtras.bounded_by(
+        h,
+        ϵ2,
+        ϵ,
+        lbound(m),
+        degree = -1,
+        log_bisection = true,
+        threaded = true;
+        verbose,
+    )
+
+    if !check_bound
+        throw(ErrorException("bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"))
+    end
 
     return max(m1, m2)
 end
