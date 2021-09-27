@@ -464,9 +464,18 @@ for all `x < ϵ`. The value of `ϵ` has to be less than `1`.
 
 If `exponent_limit` is set to some number then all terms in the
 expansions with an exponent equal to or greater than this limit will
-be collapsed into one term.
-TODO: Be more detail about how this works and make sure that it works
-with the log-factors as well.
+be collapsed into term which is treated as an error. More precisely
+any term of the form
+```
+y * log(abs(x))^i * abs(x)^e
+```
+for which `e >= exponent_limit` and `i == 0 || i == -1` will be
+rewritten as `z * x^exponent_limit` where `z` is an enclosure of `y *
+log(abs(x))^i * abs(x)^(e - exponent_limit)` on the interval `[0, ϵ]`.
+This interval is computed by using that `abs(x)^(e - exponent_limit) ∈
+[0, 1]` for `abs(x) < 1` and that `log(x)^(-1) ∈ [inv(log(ϵ)), 0]`.
+Notice that for the last interval to not be huge we need `ϵ` to be
+bounded away from `1`.
 """
 function F0(
     u0::BHAnsatz{Arb},
@@ -502,18 +511,42 @@ function F0(
     # If an exponent limit is given, collapse all terms with an
     # exponent greater than or equal to that.
     if !isnothing(exponent_limit)
-        let coeff = sum(
-                getindex.(filter(x -> x[2] >= exponent_limit, u0_expansion_div_xlogx), 3),
-            )
-            filter!(x -> !(x[2] >= exponent_limit), u0_expansion_div_xlogx)
-            push!(u0_expansion_div_xlogx, (0, exponent_limit, coeff))
+        # A ball representing [0, 1]
+        unit_interval = Arblib.unit_interval!(Arb())
+        # A ball representing the interval [0, inv(log(ϵ))]
+        invlog_interval = Arb((inv(log(ϵ)), 0))
+
+        # Compute the coefficient in front of the error term for u0
+        coeff_u0 = zero(Arb)
+        for (i, exponent, y) in u0_expansion_div_xlogx
+            if exponent >= exponent_limit && (i == 0 || i == -1)
+                z = y * unit_interval
+                if i == -1
+                    z *= invlog_interval
+                end
+                coeff_u0 += z
+            end
         end
-        let coeff = sum(
-                getindex.(filter(x -> x[2] >= exponent_limit, Du0_expansion_div_x2logx), 3),
-            )
-            filter!(x -> !(x[2] >= exponent_limit), Du0_expansion_div_x2logx)
-            push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff))
+        # Filter out the terms included in the error term for u0
+        filter!(((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)), u0_expansion_div_xlogx)
+        # Add error term to expansion
+        push!(u0_expansion_div_xlogx, (0, exponent_limit, coeff_u0))
+
+        # Compute the coefficient in front of the error term for Du0
+        coeff_Du0 = zero(Arb)
+        for (i, exponent, y) in Du0_expansion_div_x2logx
+            if exponent >= exponent_limit && (i == 0 || i == -1)
+                z = y * unit_interval
+                if i == -1
+                    z *= invlog_interval
+                end
+                coeff_Du0 += z
+            end
         end
+        # Filter out the terms included in the error term for Du0
+        filter!(((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)), Du0_expansion_div_x2logx)
+        # Add error term to expansion
+        push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff_Du0))
     end
 
     # The function inv(sqrt(log((abs(x) + 1) / abs(x))))
