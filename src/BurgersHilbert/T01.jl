@@ -99,9 +99,14 @@ with `I₁ <= I₁₁ + I₁₂`. We can get rid of the absolute value by
 splitting the integral at the only zero of `log(1 / t^2 - 1)` which is
 given by `t = 1 / sqrt(2)`. The integral for `I₁₁` can be computed
 explicitly and is given by `log(2)`. The integrand for `I₁₂` is
-bounded and can be computed using `Arblib.integrate`, we just have to
-be careful with handling `x` close to zero.
+bounded and can be computed using `Arblib.integrate`, using that the
+integrand is zero at both `t = 0` and `t = 1`, increasing at the
+former and decreasing at the latter.
 - **PROVE**: The value for the integral for `I₁₁`, Mathematica gives this.
+- **TODO**: Prove that the integrand for `I₁₂` is zero at both `t = 0` and
+    `t = 1`, increasing at the former and decreasing at the latter.
+    Give explicit bounds in `t` for when it is increasing respectively
+    decreasing.
 
 For `I₂` we see the same simplification for the absolute value factor,
 giving us
@@ -282,19 +287,21 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
                     analytic && return Arblib.indeterminate!(zero(t))
                     @assert isreal(t)
 
-                    # Use monotonicity of the integrand close to zero
-                    # PROVE: That it is monotonic and also on which interval.
+                    # Use that the integrand is increasing close to zero
+                    # FIXME: Use the correct bounds for when it is increasing
                     tᵤ = ubound(Arb, real(t))
-                    tᵤ < 0.1 || return Arblib.indeterminate!(zero(t)) # FIXME: Put proper value
+                    tᵤ < 0.1 || return Arblib.indeterminate!(zero(t))
                     return Acb((zero(tᵤ), log(1 / tᵤ^2 - 1) * tᵤ * sqrt(log(1 / tᵤ))))
                 elseif Arblib.overlaps(t, one(t))
                     analytic && return Arblib.indeterminate!(zero(t))
                     @assert isreal(t)
 
-                    # Use monotonicity of the integrand close to one
-                    # PROVE: That it is monotonic and also on which interval.
+                    # Use that the integrand is increasing (since we
+                    # are skipping the absolute value in this case)
+                    # close to one
+                    # FIXME: Use the correct bounds for when it is increasing
                     tₗ = lbound(Arb, real(t))
-                    tₗ > 0.99 || return Arblib.indeterminate!(zero(t)) # FIXME: Put proper value
+                    tₗ > 0.99 || return Arblib.indeterminate!(zero(t))
                     return Acb((log(1 / tₗ^2 - 1) * tₗ * sqrt(log(1 / tₗ)), zero(tₗ)))
                 else
                     return log(1 / t^2 - 1) *

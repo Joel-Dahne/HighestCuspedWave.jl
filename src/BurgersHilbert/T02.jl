@@ -213,7 +213,7 @@ sqrt(log((x + 1) / x)))`, which we already have from `T01`.
 - **PROVE**: That `sqrt(log(1 + 1 / y)) - sqrt(log(1 / y))` is
     increasing on `[0, 1]`.
 - **PROVE**: That `log(1 / 2x)^(3 // 2) / (log(x) * sqrt(log((x + 1) /
-    x)))` is `-1` at `x = 0` and increasing.
+    x)))` is `-1` at `x = 0` and increasing on `[0, 0.5]`.
 - **PROVE**: That `log(2x) / (log(x) * sqrt(log((x + 1) / x)))` is
     increasing.
 - **TODO**: Figure out a more rigorous way to compute an enclosure of
@@ -258,8 +258,8 @@ Including the `-x^2` and `W(x)` factors we get
 ```
 -x^2 * J₃ * W(x) = -C₄ * P(x) / (log(x) * sqrt(log((x + 1) / x)))
 ```
-- **PROVE**: That `P(x) / (log(x) * sqrt(log((x + 1) / x)))` is
-    increasing.
+- **PROVE**: That `P(x) / (log(x) * sqrt(log((x + 1) / x)))` is zero
+    at `x = 0` and increasing on `[0, 1]`.
 
 For `E` we start by simplifying it to
 ```
@@ -280,7 +280,7 @@ E * W(x) = -C₅ * ∫y * sqrt(log((y + 1) / y)) dy / (log(x) * sqrt(log((x + 1)
 ```
 which can be bounded using the monotonoicity of `log(x) * sqrt(log((x
 + 1) / x)`.
-- **TODO**: Compute the enclosure `C₅`. possibly using the Taylor expansions
+- **TODO**: Compute the enclosure `C₅`. possibly using the Taylor expansions.
 ```
 log(sinc((y + x) / 2π)) = log(sinc(y / 2π)) + ??? * x + D * x^2
 log(sinc((y - x) / 2π)) = log(sinc(y / 2π)) - ??? * x + D * x^2
@@ -431,7 +431,9 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
                 if iszero(x)
                     xfactor = zero(x)
                 elseif Arblib.contains_zero(x)
-                    # TODO: It is not monotonic for x larger than this
+                    # FIXME: This should be updated once we have an
+                    # interval for which the function is known to be
+                    # increasing
                     if x < 0.1
                         xᵤ = ubound(Arb, x)
                         xfactor = Arb((
@@ -545,7 +547,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
         E = let
             # Enclosure of (log(sinc((y - x) / 2π)) + log(sinc((y + x)
             # / 2π)) - 2log(sinc(y / 2π))) / x^2
-            # TODO: Compute a proper enclosure, this one was given by
+            # FIXME: Compute a proper enclosure, this one was given by
             # simply plotting the function for some x values and
             # eye-balling an rough enclosure
             C₅ = Arb((-0.2, -0.05))

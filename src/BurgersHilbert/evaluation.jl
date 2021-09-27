@@ -193,7 +193,6 @@ The highest term, `x^2M`, an error term is which makes sure that
 evaluation of the expansion gives an enclosure of the result.
 """
 function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
-    # TODO: Check this
     @assert M >= 3
 
     res = OrderedDict{NTuple{4,Int},Arb}()
@@ -208,9 +207,10 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     for m = 1:M-1
         res[(0, 2m, 0, 0)] = (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(Arb(2m)) * u0.a0
     end
-    # PROVE: Give an expression for the error term. The one we use
+    # TODO: Give an expression for the error term. The one we use
     # here is twice the coefficient for x^2M which should be
-    # larger than required but this is yet to be proved.
+    # larger than required but this is yet to be proved. The minimum
+    # value for M should also be checked in relation to this.
     Arblib.add_error!(
         res[(0, 2M, 0, 0)],
         2abs(zeta(Arb(2 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
@@ -296,7 +296,6 @@ The highest term, `x^2M`, an error term is which makes sure that
 evaluation of the expansion gives an enclosure of the result.
 """
 function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
-    # TODO: Check this
     @assert M >= 3
 
     π = Arb(Irrational{:π}())
@@ -320,9 +319,10 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             end
             res[(0, 2m, 0, 0)] = -(-1)^m * term * u0.a0 / factorial(Arb(2m))
         end
-        # PROVE: Give an expression for the error term. The one we use
+        # TODO: Give an expression for the error term. The one we use
         # here is twice the coefficient for x^2M which should be
-        # larger than required but this is yet to be proved.
+        # larger than required but this is yet to be proved. The minimum
+        # value for M should also be checked in relation to this.
         Arblib.add_error!(
             res[(0, 2M, 0, 0)],
             2abs(zeta(Arb(3 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
@@ -420,7 +420,6 @@ function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
 
         # The term (2, 2, 0, 0) is identically equal to zero due to
         # the choice of a0
-        # TODO: Check this
         @assert Arblib.contains_zero(expansion[(2, 2, 0, 0)])
         delete!(expansion, (2, 2, 0, 0))
 
@@ -550,15 +549,15 @@ function F0(
     end
 
     # The function inv(sqrt(log((abs(x) + 1) / abs(x))))
-    # PROVE: That this is monotonically increasing on [0, 1]
     w!(res, x) = Arblib.set!(res, inv(sqrt(log((x + 1) / x))))
 
     # Version of w! that also handles x overlapping 0
+    # PROVE: That w! is monotonically increasing on [0, ∞]
     weight!(res, x) = begin
         iszero(x) && return Arblib.zero!(res)
 
         if x isa Arb && Arblib.contains_zero(x)
-            w!(res, Arblib.ubound(Arb, x))
+            w!(res, ubound(Arb, x))
             return Arblib.union!(res, res, zero(res))
         end
 
