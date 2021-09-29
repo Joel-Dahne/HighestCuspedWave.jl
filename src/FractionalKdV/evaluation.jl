@@ -4,13 +4,18 @@
 export hat, eval_expansion
 
 """
-        eval_expansion(u0::FractionalKdVAnsatz, expansion, x)
-    Evaluate the given expansion. The term ((i, j, m), y) is evaluated to
-    y*abs(x)^(-i*u0.α + j*u0.p0 + m) and then they are all summed.
+    eval_expansion(u0::FractionalKdVAnsatz, expansion, x; offset_i = 0, offset = 0)
 
-    In general x needs to be given both when computing the expansion and
-    when evaluating it.
-    """
+Evaluate the given expansion. The term `((i, j, m), y)` is evaluated
+to `y*abs(x)^(-i*u0.α + j*u0.p0 + m)` and then they are all summed.
+
+In general `x` needs to be given both when computing the expansion and
+when evaluating it.
+
+The arguments `offset_i` and `offset` can be set to adjust the
+exponent, in that case the exponent will be given by `-(i + offset_i)
+* u0.α + j * u0.p0 + m + offset`
+"""
 function eval_expansion(
     u0::FractionalKdVAnsatz{T},
     expansion::AbstractDict{NTuple{3,Int},T},
@@ -22,7 +27,8 @@ function eval_expansion(
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
-            res += y * abspow(x, -(i + offset_i) * u0.α + j * u0.p0 + m + offset)
+            exponent = -(i + offset_i) * u0.α + j * u0.p0 + m + offset
+            res += y * abspow(x, exponent)
         end
     end
 
