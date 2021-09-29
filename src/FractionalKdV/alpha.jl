@@ -98,7 +98,8 @@ function alpha0(u0::FractionalKdVAnsatz{Arb}; M::Integer = 3, rtol = 1e-5)
         f,
         Arblib.lbound(ϵ),
         Arblib.ubound(Arb(π)),
-        abs_value = true;
+        abs_value = true,
+        threaded = true;
         point_value_max = m1, # m1 is a lower bound of the maximum
         atol = 2Arblib.radius(m1), # We cannot expect to do better than m1
         rtol,
