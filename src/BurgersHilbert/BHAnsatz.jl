@@ -3,26 +3,23 @@ export BHAnsatz
 """
     BHAnsatz{T}
 a0 - Corresponds to the a₀ coefficient in the paper
-a1 - Coefficient in front of C₂, doesn't exist in the paper yet
 b - Vector corresponding to the bₙ's in the paper
 v0 - Tail part coming from a FractionalKdVAnsatz
 """
 struct BHAnsatz{T} <: AbstractAnsatz{T}
     a0::T
-    a1::T
     b::Vector{T}
     v0::Union{Nothing,FractionalKdVAnsatz{T}}
 end
 
 function BHAnsatz{T}(
     N::Integer = 0;
-    a1 = zero(T),
     v0::Union{Nothing,FractionalKdVAnsatz} = nothing,
 ) where {T}
     a0 = 2 / convert(T, π)^2
     b = zeros(T, N)
 
-    u0 = BHAnsatz{T}(a0, a1, b, v0)
+    u0 = BHAnsatz{T}(a0, b, v0)
 
     findbs!(u0)
 
@@ -47,7 +44,6 @@ end
 function Base.convert(::Type{BHAnsatz{T}}, u0::BHAnsatz) where {T}
     return BHAnsatz{T}(
         convert(T, u0.a0),
-        convert(T, u0.a1),
         convert(Vector{T}, u0.b),
         isnothing(u0.v0) ? nothing : convert(FractionalKdVAnsatz{T}, u0.v0),
     )

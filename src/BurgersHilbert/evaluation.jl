@@ -166,7 +166,6 @@ function (u0::BHAnsatz{T})(x, ::Ball) where {T}
     conv = ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a))
 
     res = u0.a0 * (Ci(x, 2, 1) - zeta(conv(2), d = 1))
-    res += u0.a1 * (Ci(x, 2) - zeta(conv(2)))
 
     for n = 1:u0.N
         res += u0.b[n] * (cos(n * x) - 1)
@@ -216,16 +215,6 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
         2abs(zeta(Arb(2 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
     )
 
-    # Second Clausian
-    if !iszero(u0.a1)
-        C, _, p, E = Ci_expansion(x, Arb(2), M)
-        res[(0, 1, 0, 0)] += C * u0.a1
-        for m = 1:M-1
-            res[(0, 2m, 0, 0)] += p[2m] * u0.a1
-        end
-        Arblib.add_error!(res[(0, 2M, 0, 0)], E * u0.a1)
-    end
-
     # Fourier terms
     if !iszero(u0.N)
         for m = 1:M-1
@@ -260,7 +249,6 @@ function H(u0::BHAnsatz{T}, ::Ball) where {T}
 
     return x -> begin
         res = -u0.a0 * (Ci(x, 3, 1) - zeta(conv(3), d = 1))
-        res -= u0.a1 * (Ci(x, 3) - zeta(conv(3)))
 
         for n = 1:u0.N
             res -= u0.b[n] / n * (cos(n * x) - 1)
@@ -327,23 +315,6 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             res[(0, 2M, 0, 0)],
             2abs(zeta(Arb(3 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
         )
-
-        # Second Clausian
-        if !iszero(u0.a1)
-            res[(1, 2, 0, 0)] += -u0.a1 / 2
-            for m = 1:M-1
-                if m == 1
-                    term = -Arb(3 // 2)
-                else
-                    term = -zeta(Arb(3 - 2m))
-                end
-                res[(0, 2m, 0, 0)] += (-1)^m * term * u0.a1 / factorial(Arb(2m))
-            end
-            Arblib.add_error!(
-                res[(0, 2M, 0, 0)],
-                2(2π)^(4 - 2M) * zeta(2M - 2) / (4π^2 - x^2),
-            )
-        end
 
         # Fourier terms
         if !iszero(u0.N)
@@ -598,11 +569,6 @@ function D(u0::BHAnsatz, xs::AbstractVector)
     for (i, x) in enumerate(xs)
         u0_xs_a0_precomputed[i] = u0(x) # u0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
         Hu0_xs_a0_precomputed[i] = Hu0(x) # -u0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
-
-        #if !iszero(u0.a1)
-        #    u0_xs_a0_precomputed[i] += u0.a1 * (Ci(x, 2) - zeta(2))
-        #    Hu0_xs_a0_precomputed[i] -= u0.a1 * (Ci(x, 3) - zeta(3))
-        #end
 
         for n = 1:u0.N
             u0_xs_b_precomputed[i, n] = cos(n * x) - 1
