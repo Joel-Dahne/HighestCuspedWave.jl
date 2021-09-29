@@ -91,9 +91,7 @@ function T02(
     ::Ball;
     δ2::Arf = Arf(1e-2),
     ϵ::Arb = 1 + u0.α,
-    rtol = 0,
-    atol = 0,
-    show_trace = false,
+    skip_div_u0 = false,
 )
     if u0.p == 1
         # Use the closed form expression
@@ -117,25 +115,33 @@ function T02(
             else
                 res -= x / 2 * Si(2x, 1 - α)
             end
-            return 2 / (π * u0.w(x) * u0(x)) * res
+            if skip_div_u0
+                return 2 / (π * u0.w(x)) * res
+            else
+                return 2 / (π * u0.w(x) * u0(x)) * res
+            end
         end
     else
         return x -> begin
             a = Arblib.ubound(Arb, x + δ2)
 
             # Compute with the asymptotic expansion on the whole interval
-            res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π))
+            res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π), skip_div_u0 = true)
 
             if π < a || π - x < ϵ
                 return res_asymptotic
             end
 
-            part1 = T021(u0, Ball(), a, x; ϵ)
+            part1 = T021(u0, Ball(), a, x, skip_div_u0 = true; ϵ)
 
-            part2 = T022(u0, Ball(), a, x; rtol, atol, show_trace)
+            part2 = T022(u0, Ball(), a, x, skip_div_u0 = true)
 
-            res = part1 + part2
-            return intersect(res, res_asymptotic)
+            res = intersect(part1 + part2, res_asymptotic)
+            if skip_div_u0
+                return res
+            else
+                return res / u0(x)
+            end
         end
     end
 end
@@ -388,6 +394,7 @@ function T021(
     x::Arb;
     ϵ::Arb = Arb(1e-1),
     N::Integer = 3,
+    skip_div_u0 = false,
 )
     Γ = SpecialFunctions.gamma
     α = u0.α
@@ -479,7 +486,11 @@ function T021(
 
     # Prove: that the expression inside the absolute value of the
     # integrand is positive
-    return res / (Arb(π) * u0.w(x) * u0(x))
+    if skip_div_u0
+        return res / (Arb(π) * u0.w(x))
+    else
+        return res / (Arb(π) * u0.w(x) * u0(x))
+    end
 end
 
 """
@@ -515,12 +526,10 @@ function T022(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball;
     δ2::Arf = Arf(1e-4),
-    rtol = 0,
-    atol = 0,
-    show_trace = false,
+    skip_div_u0 = false,
 )
     return x -> begin
-        T022(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; rtol, atol, show_trace)
+        T022(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; skip_div_u0)
     end
 end
 
@@ -574,9 +583,7 @@ function T022(
     ::Ball,
     a::Arb,
     x::Arb;
-    rtol = 0,
-    atol = 0,
-    show_trace = false,
+    skip_div_u0 = false,
 )
     mα = Acb(-u0.α)
     a = Acb(a)
@@ -602,11 +609,15 @@ function T022(
             a,
             b,
             check_analytic = true,
-            warn_on_no_convergence = false;
-            rtol,
-            atol,
+            rtol = 1e-5,
+            atol = 1e-5,
+            warn_on_no_convergence = false,
         ),
     )
 
-    return res / (Arb(π) * u0.w(x) * u0(x))
+    if skip_div_u0
+        return res / (Arb(π) * u0.w(x))
+    else
+        return res / (Arb(π) * u0.w(x) * u0(x))
+    end
 end

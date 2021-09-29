@@ -28,15 +28,15 @@ function T01(
     evaltype::Ball;
     δ0::Arf = Arf(1e-2),
     δ1::Arf = Arf(1e-2),
-    rtol = 0,
-    atol = 0,
-    show_trace = false,
+    skip_div_u0 = false
 )
-    f = T011(u0, evaltype; δ0)
-    g = T012(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
-    h = T013(u0, evaltype; δ1)
-    return x -> begin
-        return f(x) + g(x) + h(x)
+    f = T011(u0, evaltype, skip_div_u0 = true; δ0)
+    g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
+    h = T013(u0, evaltype, skip_div_u0 = true; δ1)
+    if skip_div_u0
+        return x -> f(x) + g(x) + h(x)
+    else
+        return x -> (f(x) + g(x) + h(x)) / u0(x)
     end
 end
 
@@ -200,6 +200,7 @@ function T011(
     ::Ball = Ball();
     δ0::Arf = Arf(1e-2),
     N::Integer = 3,
+    skip_div_u0 = false,
 )
     Γ = SpecialFunctions.gamma
     α = u0.α
@@ -238,7 +239,11 @@ function T011(
 
         # Prove: that the expression inside the absolute value of the
         # integrand is negative
-        return -res * x / (π * u0(x))
+        if skip_div_u0
+            return -res * x / π
+        else
+            return -res * x / (π * u0(x))
+        end
     end
 end
 
@@ -299,9 +304,7 @@ function T012(
     ::Ball = Ball();
     δ0::Arf = Arf(1e-2),
     δ1::Arf = Arf(1e-2),
-    rtol = 0,
-    atol = 0,
-    show_trace = false,
+    skip_div_u0 = false,
 )
     α = u0.α
     mα = Acb(-α)
@@ -311,7 +314,7 @@ function T012(
     return x -> begin
         # PROVE: That there are no branch cuts that interact with the
         # integral
-        f(t; analytic = false) = begin
+        f(t; analytic) = begin
             t = Acb(t)
             if isreal(t)
                 res = Acb(
@@ -332,13 +335,17 @@ function T012(
                 a,
                 b,
                 check_analytic = true,
-                warn_on_no_convergence = false;
-                rtol,
-                atol,
+                rtol = 1e-5,
+                atol = 1e-5,
+                warn_on_no_convergence = false,
             ),
         )
 
-        return res * x / (π * u0(x))
+        if skip_div_u0
+            return res * x / π
+        else
+            return res * x / (π * u0(x))
+        end
     end
 end
 
@@ -483,6 +490,7 @@ function T013(
     δ1::Arf = Arf(1e-2),
     ϵ::Arb = Arb(1e-2),
     N::Integer = 3,
+    skip_div_u0 = false,
 )
     Γ = SpecialFunctions.gamma
     α = u0.α
@@ -573,6 +581,10 @@ function T013(
 
         # Prove: that the expression inside the absolute value of the
         # integrand is positive
-        return res * x / (π * u0(x))
+        if skip_div_u0
+            return res * x / π
+        else
+            return res * x / (π * u0(x))
+        end
     end
 end

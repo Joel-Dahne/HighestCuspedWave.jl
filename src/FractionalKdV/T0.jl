@@ -33,12 +33,10 @@ function T0(
     δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
     δ2::Arf = Arf(1e-2),
     ϵ::Arb = 1 + u0.α,
-    rtol = 0,
-    atol = 0,
-    show_trace = false,
+    skip_div_u0 = false,
 )
-    f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
-    g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
+    f = T01(u0, evaltype, skip_div_u0 = true; δ0, δ1)
+    g = T02(u0, evaltype, skip_div_u0 = true; δ2, ϵ)
 
     return x -> begin
         ## Integral on [0, x] - Change to t = y/x
@@ -49,6 +47,13 @@ function T0(
 
         ## Integral on [x, π]
         part2 = g(x)
-        return part1 + part2
+
+        isfinite(part2) || return part2
+
+        if skip_div_u0
+            return part1 + part2
+        else
+            return (part1 + part2) / u0(x)
+        end
     end
 end
