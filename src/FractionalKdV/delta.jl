@@ -104,7 +104,7 @@ function delta0(
         degree = -1,
         abs_value = true,
         point_value_max = estimate,
-        atol = 2Arblib.radius(estimate),
+        atol = 4Arblib.radius(estimate),
         maxevals = 10000,
         depth = 60,
         verbose = show_trace;
@@ -118,6 +118,7 @@ function delta0(
         ϵ,
         Arblib.ubound(Arb(π)),
         abs_value = true,
+        degree = n,
         point_value_max = estimate,
         atol = 4Arblib.radius(Arb, estimate),
         verbose = show_trace;
