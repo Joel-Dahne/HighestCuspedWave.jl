@@ -236,11 +236,11 @@ function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
     if 0 <= z <= 1
         return beta_inc(a, b, z)
     elseif z >= 0
-        return setunion(beta_inc(a, b, Arblib.lbound(Arb, z)), beta_inc(a, b, one(z)))
+        return union(beta_inc(a, b, Arblib.lbound(Arb, z)), beta_inc(a, b, one(z)))
     elseif z <= 1
-        return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, Arblib.ubound(Arb, z)))
+        return union(beta_inc(a, b, zero(z)), beta_inc(a, b, Arblib.ubound(Arb, z)))
     else
-        return setunion(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
+        return union(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
     end
 end
 
