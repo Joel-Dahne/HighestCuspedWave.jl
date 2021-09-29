@@ -45,6 +45,10 @@ function (u0::FractionalKdVAnsatz)(x, ::Ball)
         res += u0.c * (Ci(x, 2) - zeta(2one(u0.α)))
     end
 
+    if !isnothing(u0.v0)
+        res += u0.v0(x)
+    end
+
     return res
 end
 
@@ -100,6 +104,14 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
 
         if !iszero(u0.c)
             res -= u0.c * (Ci(x, 2 - u0.α) - zeta(2 - u0.α))
+        end
+
+        # Add Clausians coming from u0.v0
+        if !isnothing(u0.v0)
+            for j = 1:u0.v0.N0
+                s = 1 - u0.v0.α + j * u0.v0.p0 - u0.α
+                res -= u0.v0.a[j] * (Ci(x, s) - zeta(s))
+            end
         end
 
         return res
@@ -311,6 +323,8 @@ points x ∈ xs with u0.a and u0.b set to the given values. Does this in
 an efficient way by precomputing as much as possible.
 """
 function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
+    isnothing(u0.v0) || @warn "This method doesn't support u0.v0"
+
     u0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
     u0_xs_b_precomputed = zeros(length(xs), u0.N1)
     Hu0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
