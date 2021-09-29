@@ -1,10 +1,18 @@
 export BHAnsatz
 
 """
-    BHAnsatz{T}
-a0 - Corresponds to the a₀ coefficient in the paper
-b - Vector corresponding to the bₙ's in the paper
-v0 - Tail part coming from a FractionalKdVAnsatz
+    BHAnsatz{T}(a0::T, b::Vector{T}, v0::Union{Nothing,FractionalKdVAnsatz{T}})
+    BHAnsatz{T}(N::Integer = 0; v0::Union{Nothing,FractionalKdVAnsatz{T}} = nothing)
+
+Construct an ansatz for use with the Burgers-Hilbert equation. It
+stores three parameters
+- `a0` which is the coefficient in front of the leading Clausen
+  function. Corresponds to \$a_0\$ in the paper.
+- `b` which is a vector of Fourier coefficients. Corresponds to \$b_n\$
+  in the paper.
+- `v0` which can either be `nothing` or a `FractionalKdVAnsatz`. If it
+  is the latter then the non-leading Clausen terms from that are added
+  to ansatz.
 """
 struct BHAnsatz{T} <: AbstractAnsatz{T}
     a0::T
@@ -41,10 +49,8 @@ function Base.show(io::IO, ::MIME"text/plain", u0::BHAnsatz{T}) where {T}
     isnothing(u0.v0) || print(io, ", v0 is set")
 end
 
-function Base.convert(::Type{BHAnsatz{T}}, u0::BHAnsatz) where {T}
-    return BHAnsatz{T}(
-        convert(T, u0.a0),
-        convert(Vector{T}, u0.b),
-        isnothing(u0.v0) ? nothing : convert(FractionalKdVAnsatz{T}, u0.v0),
-    )
-end
+Base.convert(::Type{BHAnsatz{T}}, u0::BHAnsatz) where {T} = BHAnsatz{T}(
+    convert(T, u0.a0),
+    convert(Vector{T}, u0.b),
+    isnothing(u0.v0) ? nothing : convert(FractionalKdVAnsatz{T}, u0.v0),
+)
