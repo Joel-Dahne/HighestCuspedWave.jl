@@ -28,7 +28,7 @@ function T01(
     evaltype::Ball;
     δ0::Arf = Arf(1e-2),
     δ1::Arf = Arf(1e-2),
-    skip_div_u0 = false
+    skip_div_u0 = false,
 )
     f = T011(u0, evaltype, skip_div_u0 = true; δ0)
     g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)

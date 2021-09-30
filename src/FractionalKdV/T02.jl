@@ -578,13 +578,7 @@ function T022(
 
 end
 
-function T022(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Ball,
-    a::Arb,
-    x::Arb;
-    skip_div_u0 = false,
-)
+function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 = false)
     mα = Acb(-u0.α)
     a = Acb(a)
     b = Acb(π)

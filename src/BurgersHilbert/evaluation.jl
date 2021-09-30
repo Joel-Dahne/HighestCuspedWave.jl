@@ -498,7 +498,10 @@ function F0(
             end
         end
         # Filter out the terms included in the error term for u0
-        filter!(((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)), u0_expansion_div_xlogx)
+        filter!(
+            ((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)),
+            u0_expansion_div_xlogx,
+        )
         # Add error term to expansion
         push!(u0_expansion_div_xlogx, (0, exponent_limit, coeff_u0))
 
@@ -514,7 +517,10 @@ function F0(
             end
         end
         # Filter out the terms included in the error term for Du0
-        filter!(((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)), Du0_expansion_div_x2logx)
+        filter!(
+            ((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)),
+            Du0_expansion_div_x2logx,
+        )
         # Add error term to expansion
         push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff_Du0))
     end
