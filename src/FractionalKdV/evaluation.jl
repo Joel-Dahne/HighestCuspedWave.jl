@@ -6,28 +6,38 @@ export hat, eval_expansion
 """
     eval_expansion(u0::FractionalKdVAnsatz, expansion, x; offset_i = 0, offset = 0)
 
-Evaluate the given expansion. The term `((i, j, m), y)` is evaluated
-to `y*abs(x)^(-i*u0.α + j*u0.p0 + m)` and then they are all summed.
+Evaluate the given expansion. The term `((i, j, k, l,  m), y)` is evaluated
+to
+```
+y*abs(x)^(-i * u0.α + j * u0.p0 - k * u0.v0.α + l * u0.v0.p0 + m)
+```
+and then they are all summed.
 
 In general `x` needs to be given both when computing the expansion and
 when evaluating it.
 
 The arguments `offset_i` and `offset` can be set to adjust the
-exponent, in that case the exponent will be given by `-(i + offset_i)
-* u0.α + j * u0.p0 + m + offset`
+exponent, in that case the exponent will be given by
+```
+-(i + offset_i) * u0.α + j * u0.p0 - k * u0.v0.α + l * u0.v0.p0 + m + offset
+```
 """
 function eval_expansion(
     u0::FractionalKdVAnsatz{T},
-    expansion::AbstractDict{NTuple{3,Int},T},
+    expansion::AbstractDict{NTuple{5,Int},T},
     x;
     offset_i::Integer = 0,
     offset = 0,
 ) where {T}
     res = zero(u0.α)
 
-    for ((i, j, m), y) in expansion
+    for ((i, j, k, l, m), y) in expansion
         if !iszero(y)
             exponent = -(i + offset_i) * u0.α + j * u0.p0 + m + offset
+            if !(iszero(k) && iszero(l))
+                exponent += -k * u0.v0.α + l * u0.v0.p0
+            end
+
             res += y * abspow(x, exponent)
         end
     end
@@ -65,30 +75,41 @@ end
 function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - (u0.α + u0.N0 * u0.p0) / 2
 
-    expansion = OrderedDict{NTuple{3,Int},T}()
+    expansion = OrderedDict{NTuple{5,Int},T}()
 
     for j = 0:u0.N0
-        expansion[(1, j, 0)] = a0(u0, j)
+        expansion[(1, j, 0, 0, 0)] = a0(u0, j)
     end
 
     for m = 1:M-1
-        expansion[(0, 0, 2m)] = termK0(u0, m)
+        expansion[(0, 0, 0, 0, 2m)] = termK0(u0, m)
     end
 
     if T == arb || T == Arb
-        expansion[(0, 0, 2M)] = E(u0, M)(x)
+        expansion[(0, 0, 0, 0, 2M)] = E(u0, M)(x)
     end
 
     if !iszero(u0.c)
-        expansion[(0, 0, 1)] = -u0.c * u0.α.parent(π) / 2
+        expansion[(0, 0, 0, 0, 1)] = -u0.c * u0.α.parent(π) / 2
 
         for m = 1:M-1
-            expansion[(0, 0, 2m)] +=
+            expansion[(0, 0, 0, 0, 2m)] +=
                 u0.c * (-1)^m * zeta((2 - 2m)one(u0.α)) / factorial(fmpz(2m))
         end
 
         if T == arb
             @warn "no error term for C₂ implemented"
+        end
+    end
+
+    if !isnothing(u0.v0)
+        for j = 1:u0.v0.N0
+            C, _, p, E = Ci_expansion(x, 1 - u0.v0.α + j * u0.v0.p0, M)
+            expansion[(0, 0, 1, j, 0)] = C * u0.v0.a[j]
+            for m = 1:M-1
+                expansion[(0, 0, 0, 0, 2m)] += p[2m] * u0.v0.a[j]
+            end
+            Arblib.add_error!(expansion[(0, 0, 0, 0, 2M)], E)
         end
     end
 
@@ -115,7 +136,7 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
         # Add Clausians coming from u0.v0
         if !isnothing(u0.v0)
             for j = 1:u0.v0.N0
-                s = 1 - u0.v0.α + j * u0.v0.p0 - u0.α
+                s = 1 - u0.α - u0.v0.α + j * u0.v0.p0 - u0.α
                 res -= u0.v0.a[j] * (Ci(x, s) - zeta(s))
             end
         end
@@ -132,36 +153,48 @@ end
 function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - u0.α + u0.N0 * u0.p0 / 2
     return x -> begin
-        expansion = OrderedDict{NTuple{3,Int},T}()
+        expansion = OrderedDict{NTuple{5,Int},T}()
 
         for j = 0:u0.N0
-            expansion[(2, j, 0)] = -A0(u0, j)
+            expansion[(2, j, 0, 0, 0)] = -A0(u0, j)
         end
 
         for m = 1:M-1
-            expansion[(0, 0, 2m)] = -termL0(u0, m)
+            expansion[(0, 0, 0, 0, 2m)] = -termL0(u0, m)
         end
 
         if T == arb || T == Arb
-            expansion[(0, 0, 2M)] = EH(u0, M)(x)
+            expansion[(0, 0, 0, 0, 2M)] = EH(u0, M)(x)
         end
 
         if !iszero(u0.c)
             Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
-            expansion[(1, 0, 1)] = -u0.c * Γ(u0.α - 1) * sinpi((2 - u0.α) / 2)
+            expansion[(1, 0, 0, 0, 1)] = -u0.c * Γ(u0.α - 1) * sinpi((2 - u0.α) / 2)
 
             for m = 1:M-1
-                expansion[(0, 0, 2m)] -=
+                expansion[(0, 0, 0, 0, 2m)] -=
                     u0.c * (-1)^m * zeta(2 - u0.α - 2m) / factorial(fmpz(2m))
             end
 
             if T == arb
-                expansion[(0, 0, 2M)] +=
+                expansion[(0, 0, 0, 0, 2M)] +=
                     u0.c * ball(
                         zero(u0.α),
                         2(2u0.α.parent(π))^(3 - u0.α - 2M) * zeta(2M - 1 + u0.α) /
                         (4u0.α.parent(π)^2 - x^2),
                     )
+            end
+        end
+
+        # Add Clausians coming from u0.v0
+        if !isnothing(u0.v0)
+            for j = 1:u0.v0.N0
+                C, _, p, E = Ci_expansion(x, 1 - u0.α - u0.v0.α + j * u0.v0.p0, M)
+                expansion[(1, 0, 1, j, 0)] = C * u0.v0.a[j]
+                for m = 1:M-1
+                    expansion[(0, 0, 0, 0, 2m)] += p[2m] * u0.v0.a[j]
+                end
+                Arblib.add_error!(expansion[(0, 0, 0, 0, 2M)], E)
             end
         end
 
@@ -204,8 +237,8 @@ function D(
 
         # Terms in u0.zeroterms are supposed to be identically equal
         # to zero
-        for key in u0.zeroterms
-            expansion[key] = zero(u0.α)
+        for (i, j, m) in u0.zeroterms
+            expansion[(i, j, 0, 0, m)] = zero(u0.α)
         end
 
         return expansion
