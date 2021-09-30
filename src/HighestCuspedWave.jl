@@ -48,4 +48,7 @@ include("BurgersHilbert/T01.jl")
 include("BurgersHilbert/T02.jl")
 include("BurgersHilbert/CB.jl")
 
+include("BHKdV/BHKdVAnsatz.jl")
+include("BHKdV/evaluation.jl")
+
 end # module
