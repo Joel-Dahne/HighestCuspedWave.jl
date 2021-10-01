@@ -12,12 +12,12 @@ a0 * (Ci(x, 1 - α) - Ci(x, 1 - α + p0) - (zeta(1 - α) - zeta(1 - α + p0)))
 ```
 we make use of the fact that this converges to
 ```
-2 / π^2 * (Ci(x, 2, 1) - zeta(2, d = 1))
+u0.v0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
 ```
 , which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
 evaluate this function and add precomputed \$L^\\infty\$ bounds for
 ```
-a0 * (Ci(x, 1 - α) - Ci(x, 1 - α + p0) - (zeta(1 - α) - zeta(1 - α + p0))) - 2 / π^2 * (Ci(x, 2, 1) - zeta(2, d = 1))
+a0 * (Ci(x, 1 - α) - Ci(x, 1 - α + p0) - (zeta(1 - α) - zeta(1 - α + p0))) - u0.v0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
 ```
 valid for the entire range `α ∈ (-1, -1 + u0.ϵ]`.
 
@@ -41,11 +41,14 @@ function (u0::BHKdVAnsatz{Arb})(x, ::Ball)
     # Tail term
 
     # Clausen terms
-    res += u0.v0(x)
+    for j = 1:u0.v0.v0.N0
+        s = 1 - u0.v0.v0.α + j * u0.v0.v0.p0
+        res += u0.v0.v0.a[j] * (Ci(x, s) - zeta(s))
+    end
 
     # Fourier terms
-    for n = 1:u0.N
-        res += u0.b[n] * (cos(n * x) - 1)
+    for n = 1:u0.v0.N
+        res += u0.v0.b[n] * (cos(n * x) - 1)
     end
 
     return res
@@ -64,12 +67,12 @@ The transform of the main term is given by
 ```
 we make use of the fact that this converges to
 ```
--2 / π^2 * (Ci(x, 3, 1) - zeta(3, d = 1))
+-u0.v0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
 ```
 , which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
 evaluate this function and add precomputed \$L^\\infty\$ bounds for
 ```
--a0 * (Ci(x, 1 - 2α) - Ci(x, 1 - 2α + p0) - (zeta(1 - 2α) - zeta(1 - 2α + p0))) - 2 / π^2 * (Ci(x, 3, 1) - zeta(3, d = 1))
+-a0 * (Ci(x, 1 - 2α) - Ci(x, 1 - 2α + p0) - (zeta(1 - 2α) - zeta(1 - 2α + p0))) + u0.v0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
 ```
 valid for the entire range `α ∈ (-1, -1 + u0.ϵ]`.
 
@@ -85,8 +88,8 @@ be a ball containing `(-1, -1 + u0.ϵ]`.
 
 For the Clausen functions we have to be a bit more careful. The
 transformation takes `Ci(x, s)` to `-Ci(x, s - α)` but putting `α` as
-a ball doesn't give good results. It gives a large overestimations, in
-particular when `s - α` is close to an integer, and fails when it
+a ball doesn't give good enclosures. It gives a large overestimations,
+in particular when `s - α` is close to an integer, and fails when it
 overlaps with an integer. Instead we use the approximation given by
 taking the Hilbert transform and bounding the error. The Hilbert
 transform of `Ci(x, s)` is given by `-Ci(x, s + 1)`. For the error we
@@ -112,7 +115,7 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
         # Main term
 
         # Approximation
-        res = -2 / Arb(π)^2 * (Ci(x, 3, 1) - zeta(Arb(3), d = 1))
+        res = -u0.v0.a0 * (Ci(x, 3, 1) - zeta(Arb(3), d = 1))
 
         # Add error bounds
         if u0.ϵ <= 0.0003
@@ -124,8 +127,8 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
         # Tail term
 
         # Clausen terms
-        for j = 1:u0.v0.N0
-            s = 2 - u0.v0.α + j * u0.v0.p0
+        for j = 1:u0.v0.v0.N0
+            s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
             term = Ci(x, s) - zeta(s)
             if s >= 2 && u0.ϵ <= 0.0003
                 Arblib.add_error!(term, Mag(3e-4))
@@ -133,13 +136,13 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
                 # Error bounds only valid for s >= 2
                 throw(ErrorException("no L^∞ bounds for s = $s and ϵ = $ϵ"))
             end
-            res -= u0.v0.a[j] * term
+            res -= u0.v0.v0.a[j] * term
         end
 
         # Fourier terms
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
-            for n = 1:u0.N
-                res -= u0.b[n] * n^α * (cos(n * x) - 1)
+            for n = 1:u0.v0.N
+                res -= u0.v0.b[n] * n^α * (cos(n * x) - 1)
             end
         end
 
