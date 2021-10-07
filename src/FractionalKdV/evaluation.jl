@@ -54,10 +54,6 @@ function (u0::FractionalKdVAnsatz)(x, ::Ball)
         res += u0.b[n] * (cos(n * x) - 1)
     end
 
-    if !iszero(u0.c)
-        res += u0.c * (Ci(x, 2) - zeta(2one(u0.α)))
-    end
-
     return res
 end
 
@@ -82,19 +78,6 @@ function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) 
         expansion[(0, 0, 2M)] = E(u0, M)(x)
     end
 
-    if !iszero(u0.c)
-        expansion[(0, 0, 1)] = -u0.c * u0.α.parent(π) / 2
-
-        for m = 1:M-1
-            expansion[(0, 0, 2m)] +=
-                u0.c * (-1)^m * zeta((2 - 2m)one(u0.α)) / factorial(fmpz(2m))
-        end
-
-        if T == arb
-            @warn "no error term for C₂ implemented"
-        end
-    end
-
     return expansion
 end
 
@@ -109,10 +92,6 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
 
         for n = 1:u0.N1
             res -= u0.b[n] * (n * one(u0.α))^u0.α * (cos(n * x) - 1)
-        end
-
-        if !iszero(u0.c)
-            res -= u0.c * (Ci(x, 2 - u0.α) - zeta(2 - u0.α))
         end
 
         return res
@@ -139,25 +118,6 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
 
         if T == arb || T == Arb
             expansion[(0, 0, 2M)] = EH(u0, M)(x)
-        end
-
-        if !iszero(u0.c)
-            Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
-            expansion[(1, 0, 1)] = -u0.c * Γ(u0.α - 1) * sinpi((2 - u0.α) / 2)
-
-            for m = 1:M-1
-                expansion[(0, 0, 2m)] -=
-                    u0.c * (-1)^m * zeta(2 - u0.α - 2m) / factorial(fmpz(2m))
-            end
-
-            if T == arb
-                expansion[(0, 0, 2M)] +=
-                    u0.c * ball(
-                        zero(u0.α),
-                        2(2u0.α.parent(π))^(3 - u0.α - 2M) * zeta(2M - 1 + u0.α) /
-                        (4u0.α.parent(π)^2 - x^2),
-                    )
-            end
         end
 
         return expansion
@@ -279,7 +239,6 @@ function c(u0::FractionalKdVAnsatz{T}, ϵ; M::Integer = 3) where {T<:Union{arb,A
     end
     @assert ϵ > 0
     @assert M >= 1 - (u0.α + u0.N0 * u0.p0) / 2
-    iszero(u0.c) || @warn "not implemented for C₂"
 
     numerator = zero(u0.α)
     for j = 1:u0.N0
