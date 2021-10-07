@@ -1,14 +1,19 @@
 """
-    delta0(u0::FractionalKdVAnsatz; ϵ::arb = 0, M::Integer = 3, n::Integer = 6)
-Upper bound the value of `δ₀` from the paper.
+    delta0(u0::FractionalKdVAnsatz; ϵ::Arf = 0, M::Integer = 3, degree::Integer = 6)
+
+Enclose the value of `δ₀` from the paper.
 
 Uses an asymptotic expansion with `M` terms on the interval `[0, ϵ]`
-and ball arithmetic together with Taylor expansions of degree `n` on
-`[ϵ, π]`.
+and ball arithmetic together with Taylor expansions of degree `degree`
+on `[ϵ, π]`.
 
-If `ϵ` is zero then it tries to determine an optimal value of it by
+If `ϵ` is zero then it tries to determine an optimal value for it by
 finding where the asymptotic expansion gives better bounds than ball
 arithmetic. This is mostly relevant when `u0.α` is wide.
+
+If `threaded = true` it enables threading when calling
+[`ArbExtras.maximum_enclosure`](@ref). If `verbose = true` print more
+information about the process.
 
 TODO: Look more at tuning for `n`, it seems to depend on the precise
 values. It might be beneficial to reduce `ϵ` in smaller steps. It's
@@ -17,74 +22,19 @@ it. Otherwise it's mainly important to look at the overestimation in
 the evaluation due to the radius of `α`.
 """
 function delta0(
-    u0::FractionalKdVAnsatz{arb};
-    ϵ::arb = zero(u0.α),
-    M::Integer = 3,
-    n::Integer = 6,
-    rtol::arb = parent(u0.α)(1e-3),
-    show_trace = false,
-)
-    f = F0(u0, Asymptotic(), M = M)
-    g = F0(u0)
-    if iszero(ϵ)
-        # Find a value of ϵ such that the asymptotic error is smaller
-        # than the direct one
-        ϵ = one(ϵ)
-        while !(radius(f(ϵ)) < radius(g(ϵ))) && ϵ > 1e-3
-            ϵ /= 2
-        end
-    end
-
-    # Bound the value one [0, ϵ]
-    # Estimate the value by evaluating it at ϵ
-    estimate = abs(f(ϵ))
-    res1 = enclosemaximum(
-        f,
-        parent(u0.α)(0),
-        ϵ,
-        lower_bound = estimate,
-        rtol = rtol,
-        atol = 2radius(estimate),
-        absmax = true,
-        maxevals = 10^4,
-        show_trace = show_trace,
-    )
-
-    # Bound the value on [ϵ, π] by Ball evaluation
-    # Estimate the value by evaluating it at a number of points on the interval
-    xs = ϵ .+ (parent(ϵ)(π) - ϵ) .* range(0, stop = 1, length = 10)
-    estimate = zero(ϵ)
-    for x in xs
-        estimate = max(estimate, abs(g(x)))
-    end
-    res2 = enclosemaximum(
-        g,
-        ϵ,
-        parent(u0.α)(π),
-        evaltype = :taylor,
-        n = n,
-        lower_bound = estimate,
-        rtol = rtol,
-        atol = 4radius(estimate),
-        absmax = true,
-        maxevals = 10^4,
-        show_trace = show_trace,
-    )
-
-    return max(res1, res2)
-end
-
-function delta0(
     u0::FractionalKdVAnsatz{Arb};
     ϵ::Arf = zero(Arf),
     M::Integer = 3,
-    n::Integer = 6,
+    degree::Integer = 6,
     rtol = 1e-3,
-    show_trace = false,
+    threaded = true,
+    verbose = false,
 )
+    # For asymptotic evaluation
     f = F0(u0, Asymptotic(); M)
-
+    # For non-asymptotic evaluation
     g = F0(u0)
+
     if iszero(ϵ)
         # Find a value of ϵ such that the asymptotic error is smaller
         # than the direct one
@@ -92,6 +42,8 @@ function delta0(
         while !(Arblib.radius(f(Arb(ϵ))) < Arblib.radius(g(Arb(ϵ)))) && ϵ > 1e-3
             ϵ /= 2
         end
+
+        verbose && @info "ϵ was determined to be" ϵ
     end
 
     # Bound the value one [0, ϵ]
@@ -104,12 +56,10 @@ function delta0(
         degree = -1,
         abs_value = true,
         point_value_max = estimate,
-        atol = 4Arblib.radius(estimate),
-        maxevals = 10000,
-        depth = 60,
-        threaded = true,
-        verbose = show_trace;
+        atol = 4Arblib.radius(estimate); # We can expect to do better than this
         rtol,
+        threaded,
+        verbose,
     )
 
     # Bound the value on [ϵ, π] by Ball evaluation
@@ -119,12 +69,12 @@ function delta0(
         ϵ,
         Arblib.ubound(Arb(π)),
         abs_value = true,
-        degree = n,
         point_value_max = estimate,
-        atol = 4Arblib.radius(Arb, estimate),
-        threaded = true,
-        verbose = show_trace;
+        atol = 4Arblib.radius(estimate); # We can expect to do better than this
         rtol,
+        degree,
+        threaded,
+        verbose,
     )
 
     return max(res1, res2)
