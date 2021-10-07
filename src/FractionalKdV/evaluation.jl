@@ -57,9 +57,8 @@ function (u0::FractionalKdVAnsatz)(x, ::Ball)
     return res
 end
 
-function (u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 3)
-    return eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
-end
+(u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 3) =
+    eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 
 function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) where {T}
     @assert M >= 1 - (u0.α + u0.N0 * u0.p0) / 2
