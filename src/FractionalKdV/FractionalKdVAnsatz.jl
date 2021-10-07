@@ -12,8 +12,6 @@ p - Exponent for the weight, which is |x|^p
 zeroterms - List of terms of D(u0) which guaranteed to be identically
 equal to zero. It is a set of tuples on the form (i, j, m), see
 eval_expansion for more information.
-v0 - Tail part coming from another FractionalKdVAnsatz. Meant for
-going from `α = -1` to `α = -1 + ϵ`
 """
 struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     α::T
@@ -23,7 +21,6 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     c::T
     p::T
     zeroterms::Set{Tuple{Int,Int,Int}}
-    v0::Union{Nothing,FractionalKdVAnsatz{T}}
 end
 
 """
@@ -79,7 +76,7 @@ function FractionalKdVAnsatz(
         fill(zero(α), max(N1 - length(initial_b), 0))
     ]
 
-    u0 = FractionalKdVAnsatz(α, p0, a, b, c, p, Set{Tuple{Int,Int,Int}}(), nothing)
+    u0 = FractionalKdVAnsatz(α, p0, a, b, c, p, Set{Tuple{Int,Int,Int}}())
 
     findas!(u0)
     findbs!(u0)
@@ -168,29 +165,6 @@ function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
     return u0
 end
 
-"""
-    FractionalKdVAnsatz(α, u0::BHAnsatz)
-
-Construct a `FractionalKdVAnsatz` from a `BHAnsatz`.
-
-This is meant for handling the continuation going from `α = -1` to `α
-= -1 + ϵ`.
-
-It sets up the correct leading term for the ansatz and the rest of the
-approximation is taken from u0.
-"""
-function FractionalKdVAnsatz(α::T, u0::AbstractAnsatz{T}; p = (1 - α) / 2) where {T}
-    p0 = HighestCuspedWave.findp0(α)
-
-    a0 = HighestCuspedWave.finda0(α)
-    a = OffsetArray([a0, -a0], 0:1)
-    b = deepcopy(u0.b)
-
-    c = zero(T)
-
-    FractionalKdVAnsatz{Arb}(α, p0, a, b, c, p, Set{Tuple{Int,Int,Int}}(), u0.v0)
-end
-
 function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     if name == :N0
         return length(u0.a) - 1
@@ -226,12 +200,7 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
 end
 
 function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{T}) where {T}
-    print(io, "FractionalKdVAnsatz{$T} N₀ = $(u0.N0), N₁ = $(u0.N1)")
-    if !isnothing(u0.v0)
-        println(io, ", has a tail u0.v0")
-    else
-        println(io)
-    end
+    println(io, "FractionalKdVAnsatz{$T} N₀ = $(u0.N0), N₁ = $(u0.N1)")
     print(io, "α = $(u0.α), p = $(u0.p)")
 end
 
@@ -252,7 +221,6 @@ function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) w
         convert(T, u0.c),
         convert(T, u0.p),
         copy(u0.zeroterms),
-        u0.v0,
     )
 end
 
@@ -266,6 +234,5 @@ function Base.convert(::Type{FractionalKdVAnsatz{arb}}, u0::FractionalKdVAnsatz)
         RR(u0.c),
         RR(u0.p),
         copy(u0.zeroterms),
-        u0.v0,
     )
 end
