@@ -8,6 +8,7 @@ setprecision(Arb, 64) do
     @testset "HighestCuspedWave" begin
         include("arb-test.jl")
         include("clausian-test.jl")
+        include("clausen.jl")
         include("evaluation-test.jl")
 
         #include("T0-test.jl") # Not finished and takes a long time

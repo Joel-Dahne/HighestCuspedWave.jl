@@ -1,0 +1,325 @@
+export polylog, clausenc, clausens
+
+###
+### polylog
+###
+
+"""
+    polylog(s, z)
+
+Compute the polylogarithm \$Li_s(z)\$.
+
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure using a Taylor expansion in `s`.
+"""
+function polylog(s::Union{Acb,Integer}, z::Acb)
+    if iswide(s) # If this is true then s is always an Acb
+        # Degree of Taylor expansion, could possibly be tuned
+        degree = 2
+
+        s_mid = Acb(Arblib.midref(Arblib.realref(s)), Arblib.midref(Arblib.imagref(s)))
+
+        # Compute the rest term of the Taylor expansion
+        w = Arblib.polylog_series!(
+            AcbSeries(degree = degree + 1, prec = precision(z)),
+            AcbSeries([s, 1]),
+            z,
+            degree + 2,
+        )
+
+        restterm = (s - s_mid)^(degree + 1) * w[degree+1]
+
+        # Compute the Taylor polynomial at the midpoint of x
+        w_mid = Arblib.polylog_series!(
+            AcbSeries(prec = precision(z); degree),
+            AcbSeries([s_mid, 1]),
+            z,
+            degree + 1,
+        )
+
+        # Evaluate the Taylor polynomial on s - s_mid and add the rest
+        # term
+        res = w_mid(s - s_mid) + restterm
+
+        # If the resulting enclosure is not contained in the enclosure
+        # coming from w[0] then take their intersection. Notice that
+        # they will always intersect, so taking the intersection is
+        # always okay.
+        if !Arblib.contains(w[0], res)
+            Arblib.intersection!(
+                Arblib.realref(res),
+                Arblib.realref(res),
+                Arblib.realref(w[0]),
+            )
+            Arblib.intersection!(
+                Arblib.imagref(res),
+                Arblib.imagref(res),
+                Arblib.imagref(w[0]),
+            )
+        end
+
+        return res
+    end
+
+    return Arblib.polylog!(zero(z), s, z)
+end
+
+###
+### clausenc
+###
+
+"""
+    _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
+
+Evaluation of the `clausenc` function through the polylog function.
+
+It uses the formula
+```
+clausenc(x, s) = real(polylog(exp(im * x), s))
+```
+"""
+function _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
+    z = exp(Acb(0, x, prec = precision(x)))
+    s = s isa Integer ? s : Acb(s, prec = precision(x))
+    return real(polylog(s, z))
+end
+
+"""
+    _clausenc_zeta(x::Arb, s::Arb)
+
+Evaluation of the `clausenc` function through the zeta function.
+
+It uses the formula
+```
+clausenc(x, s) = let v = 1 - s
+    gamma(v) * inv(2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+end
+```
+Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
+periodic zeta function and then taking the real part.
+
+It currently only handles `0 < x < π` and `s` not overlapping any
+integer.
+
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure using a Taylor expansion in `s`.
+"""
+function _clausenc_zeta(x::Arb, s::Arb)
+    0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
+
+    v = let v = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(v, s)
+        Arblib.add!(v, v, 1)
+    end
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv2pi
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
+
+    f =
+        v ->
+            SpecialFunctions.gamma(v) *
+            inv2pi^v *
+            cospi(v / 2) *
+            (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi))
+
+    if iswide(s)
+        res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
+        return Arb(res)
+    end
+
+    return f(v)
+end
+
+"""
+    clausenc(x, s)
+
+Compute the Clausen function \$C_s(x)\$.
+
+If `x` is a wide (real) ball, as determined by `iswide(x)`, it
+computes a tighter enclosure by using that the function is
+`2π`-periodic, monotonic for `x ∈ [0, π]` and even, so that it's
+enough to evaluate on the endpoints and possibly at zero or `π` if `x`
+contains points on the form `2kπ` or (2k + 1)π` respectively. In the
+wide case it computes the endpoints at a reduced precision given by
+```
+prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+```
+"""
+function clausenc(x::Arb, s::Union{Arb,Integer})
+    if iswide(x)
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
+        (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
+        res = union(clausenc(xₗ, s), clausenc(xᵤ, s))
+        if include_zero
+            res = union(res, clausenc(zero(xₗ), s))
+        end
+        if include_pi
+            res = union(res, clausenc(Arb(π; prec), s))
+        end
+        return setprecision(res, precision(x))
+    end
+
+    if s isa Arb && 0 < x < π && !Arblib.contains_int(s)
+        return _clausenc_zeta(x, s)
+    end
+
+    return _clausenc_polylog(x, s)
+end
+
+clausenc(x::Acb, s) = (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+
+clausenc(x::S, s::T) where {S<:Real,T<:Real} = convert(
+    float(promote_type(S, T)),
+    clausenc(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
+)
+
+"""
+    clausenc(x::ArbSeries, s)
+
+Compute the Taylor series of the Clausen function \$C_s(x)\$.
+
+It's computed by directly computing the Taylor coefficients by
+differentiating `clausenc` and then composing with `x`.
+"""
+function clausenc(x::ArbSeries, s)
+    res = zero(x)
+    x₀ = x[0]
+
+    for i = 0:Arblib.degree(x)
+        if i % 2 == 0
+            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
+        else
+            res[i] = -(-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the result with that of the input
+    x[0] = 0
+    Arblib.compose_series!(res, res, x, Arblib.degree(res) + 1)
+    x[0] = x₀
+
+    return res
+end
+
+###
+### clausens
+###
+
+"""
+    _clausens_polylog(x::Arb, s::Union{Arb,Integer})
+
+Evaluation of the `clausens` function through the polylog function.
+
+It uses the formula
+```
+clausens(x, s) = imag(polylog(exp(im * x), s))
+```
+"""
+function _clausens_polylog(x::Arb, s::Union{Arb,Integer})
+    z = exp(Acb(0, x, prec = precision(x)))
+    s = s isa Integer ? s : Acb(s, prec = precision(x))
+    return imag(polylog(s, z))
+end
+
+"""
+    _clausens_zeta(x::Arb, s::Arb)
+
+Evaluation of the `clausens` function through the zeta function.
+
+It uses the formula
+```
+clausens(x, s) = let v = 1 - s
+    gamma(v) * inv(2π)^v * sinpi(v / 2) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+end
+```
+Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
+periodic zeta function and then taking the imaginary part.
+
+It currently only handles `0 < x < π` and `s` not overlapping any
+integer.
+
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure using a Taylor expansion in `s`.
+"""
+function _clausens_zeta(x::Arb, s::Arb)
+    0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
+
+    v = let v = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(v, s)
+        Arblib.add!(v, v, 1)
+    end
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv(2Arb(π, prec = precision(x)))
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
+    f = v -> SpecialFunctions.gamma(v) *
+        inv2pi^v *
+        sinpi(v / 2) *
+        (
+            SpecialFunctions.zeta(v, xinv2pi) -
+            SpecialFunctions.zeta(v, onemxinv2pi)
+        )
+
+    if iswide(s)
+        res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
+        return Arb(res)
+    end
+
+    return f(v)
+end
+
+"""
+    clausens(x, s)
+
+Compute the Clausen function \$S_s(x)\$.
+
+If `x` is a wide (real) ball, as determined by `iswide(x)`, it
+computes a tighter enclosure by first checking if the derivative
+doesn't contains zero, if not it uses monotonicity to only evaluate at
+endpoints. If the derivative does contain zero it uses a zeroth order
+approximation instead. In the wide case it computes the endpoints at a
+reduced precision given by
+```
+prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+```
+"""
+function clausens(x::Arb, s::Union{Arb,Integer})
+    if iswide(x)
+        orig_prec = precision(x)
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+        x = setprecision(x, prec)
+        # Compute derivative
+        dclausens = clausenc(x, s - 1)
+        if Arblib.contains_zero(dclausens)
+            # Use a zero order approximation
+            res = Arblib.add_error!(
+                clausens(Arblib.midpoint(Arb, x), s),
+                (x - Arblib.midpoint(Arb, x)) * dclausens,
+            )
+        else
+            # Use that it's monotone
+            xₗ, xᵤ = Arblib.getinterval(Arb, x)
+            res = union(clausens(xₗ, s), clausens(xᵤ, s))
+        end
+        return setprecision(res, orig_prec)
+    end
+
+    if s isa Arb && 0 < x < π && !Arblib.contains_int(s)
+        return _clausens_zeta(x, s)
+    end
+
+    return _clausens_polylog(x, s)
+end
+
+clausens(x::Acb, s) = (polylog(s, exp(im * x)) - polylog(s, exp(-im * x))) / 2
+
+clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
+    float(promote_type(S, T)),
+    clausens(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
+)
