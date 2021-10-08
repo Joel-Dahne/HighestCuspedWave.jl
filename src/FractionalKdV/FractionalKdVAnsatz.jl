@@ -184,7 +184,7 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
     # We can no longer guarantee that any terms are zero
     zeroterms = Set{Tuple{Int,Int,Int}}()
 
-    u0_new = FractionalKdVAnsatz(α, p0, a, b, c, p, zeroterms)
+    u0_new = FractionalKdVAnsatz(α, p0, a, b, p, zeroterms)
 
     # We have to update u0.a[0] to make the term (2, 0, 0) zero
     if u0_new.N0 >= 0
