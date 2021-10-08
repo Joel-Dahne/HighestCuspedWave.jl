@@ -351,17 +351,6 @@ function D(u0::BHAnsatz, ::Asymptotic; M::Integer = 3)
     f = D(u0, AsymptoticExpansion(); M)
 
     return x -> eval_expansion(u0, f(x), x)
-
-    if isnothing(u0.v0) && false
-        5
-    else
-        # This is more or less a temporary solution
-        f = x -> u0(x, Asymptotic(), M = M)
-        g = H(u0, Asymptotic(), M = M)
-        return x -> begin
-            f(x)^2 / 2 + g(x)
-        end
-    end
 end
 
 function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
