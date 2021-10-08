@@ -205,6 +205,75 @@ function clausenc(x::ArbSeries, s)
     return res
 end
 
+"""
+    clausenc_expansion(x, s, M::Integer)
+
+Compute the asymptotic expansion of `clausenc(x, s)` at zero up to
+order `2M - 2`, meaning that the error term is of order `2M`.
+
+It returns four things, the coefficient `C` and exponent `e` for the
+non-analytic term, the analytic terms as a `ArbSeries` `P` and the
+error term `E`. The `M` is the same as in Lemma 2.1 in
+enciso18:convex_whith.
+
+It satisfies that `clausenc(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for
+all `|y| <= |x|`.
+
+If `skip_constant = true` it doesn't compute the constant term in the
+expansion. This is useful if you want to compute the expansion for
+`clausenc(x, s) - clausenc(0, s)`.
+
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure of the coefficients using a Taylor expansion in `s`.
+"""
+function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
+    Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
+    # TODO: Check this
+    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2"))
+
+    π = oftype(x, pi)
+
+    # Non-analytic term
+    if s == 2
+        C = -π / 2
+    else
+        if iswide(s)
+            C = Arb(
+                ArbExtras.extrema_series(
+                    s -> SpecialFunctions.gamma(1 - s) * sinpi(s / 2),
+                    Arblib.getinterval(s)...,
+                    degree = 2,
+                )[1:2]
+            )
+        else
+            C = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
+        end
+    end
+    e = s - 1
+
+    # Analytic term
+    P = ArbSeries(degree = 2M - 2, prec = precision(x))
+    start = skip_constant ? 1 : 0
+    for m = start:M-1
+        if iswide(s)
+            z = Arb(
+                ArbExtras.extrema_series(
+                    s -> zeta(s - 2m),
+                    Arblib.getinterval(s)...,
+                )[1:2]
+            )
+        else
+            z = zeta(s - 2m)
+        end
+        P[2m] = (-1)^m * z / factorial(2m)
+    end
+
+    # Error term
+    E = Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
+
+    return (C, e, P, E)
+end
+
 ###
 ### clausens
 ###

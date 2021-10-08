@@ -38,6 +38,10 @@
         # TODO: Add tests for wide values of s
     end
 
+    @testset "clausenc_expansion" begin
+        # TODO
+    end
+
     @testset "clausens" begin
         # Check that the evaluation with polylog and zeta agree on (0, π)
         for s in range(Arb(1), 5, length = 10)[2:end-1]
