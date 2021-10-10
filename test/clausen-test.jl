@@ -42,6 +42,38 @@
         # TODO
     end
 
+    @testset "clausencmzeta" begin
+        # Check that the evaluation with zeta and naive implementation
+        # agree on (0, π)
+        for s in range(Arb(1), 5, length = 10)[2:end-1]
+            for x in range(Arb(0), π, length = 100)[2:end-1]
+                res1 = HighestCuspedWave._clausencmzeta_zeta(x, s)
+                res2 = clausenc(x, s) - zeta(s)
+                @test Arblib.overlaps(res1, res2)
+            end
+        end
+
+        # Check that _clausen_zeta throws an error outside of the domain
+        @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(-1), Arb(2.5))
+        @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(4), Arb(2.5))
+
+        # Check evaluation with integer s
+        @test isfinite(clausencmzeta(Arb(1), 2))
+        @test isfinite(clausencmzeta(Arb(1), 3))
+        @test isfinite(clausencmzeta(Arb(1), Arb(2)))
+        @test isfinite(clausencmzeta(Arb(1), Arb(3)))
+
+        # Check evaluation on wide intervals
+        let interval = Arb((1, 2)), s = Arb(2.5)
+            y = clausencmzeta(interval, s)
+            for x in range(getinterval(Arb, interval)..., length = 100)
+                @test Arblib.overlaps(clausencmzeta(x, s), y)
+            end
+        end
+
+        # TODO: Add tests for wide values of s
+    end
+
     @testset "clausens" begin
         # Check that the evaluation with polylog and zeta agree on (0, π)
         for s in range(Arb(1), 5, length = 10)[2:end-1]

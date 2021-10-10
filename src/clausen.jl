@@ -1,4 +1,4 @@
-export polylog, clausenc, clausens
+export polylog, clausenc, clausencmzeta, clausens
 
 ###
 ### polylog
@@ -272,6 +272,116 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     E = Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
 
     return (C, e, P, E)
+end
+
+###
+### clausencmzeta
+###
+
+"""
+    _clausencmzeta_zeta(x::Arb, s::Arb)
+
+Evaluation of the `clausencmzeta` function through the zeta function.
+
+This method is similar to [`_clausenc_zeta`](@ref) with the addition
+that for wide `s` it also takes into account the subtraction of
+`zeta(s)` when computing the enclosure.
+"""
+function _clausencmzeta_zeta(x::Arb, s::Arb)
+    0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
+
+    # Implements y -> 1 - y in a way that preserves the precision
+    onem(y::Arb) = let res = zero(y)
+        Arblib.neg!(res, y)
+        Arblib.add!(res, res, 1)
+    end
+    onem(y::ArbSeries) = 1 - y # This one already preserves precision
+
+    v = onem(s)
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv2pi
+    onemxinv2pi = onem(xinv2pi)
+
+    f =
+        v ->
+            SpecialFunctions.gamma(v) *
+            inv2pi^v *
+            cospi(v / 2) *
+            (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi)) -
+            zeta(onem(v))
+
+    if iswide(s)
+        res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
+        return Arb(res)
+    end
+
+    return f(v)
+end
+
+"""
+    clausencmzeta(x, s)
+
+Compute `clausenc(x, s) - zeta(s)`. Notice that `clausenc(0, s) =
+zeta(s)` so this is `clausenc` normalized to be zero at `x = 0`.
+
+Typically this method just calls [`clausenc`](@ref) and [`zeta`](@ref)
+directly and gives no direct benefit.
+
+However, if `s` is a wide ball it can better handle the cancellations
+between the two terms by computing them correctly. This is handled by
+the method [`_clausencmzeta_zeta`](@ref). Since this method only
+supports `0 < x < π` and `s` not overlapping an integer we fall back
+to calling the methods directly if this is not satisfied.
+
+Otherwise it behaves like `clausenc(x, s) - zeta(s)` with the only
+difference being that it converts `x` and `s` to the same type to
+begin with.
+"""
+function clausencmzeta(x::Arb, s::Arb)
+    if !iswide(s) || !(0 < x < π) || Arblib.contains_int(s)
+        # If s is not wide or we are in a case which
+        # _clausencmzeta_zeta doesn't support, call the clausenc and
+        # zeta functions directly.
+        return clausenc(x, s) - zeta(s)
+    end
+
+    if iswide(x)
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
+        # We know that 0 < x < π so it is always monotonically
+        # increasing
+        res = Arb((clausencmzeta(xₗ, s), clausencmzeta(xᵤ, s)))
+
+        return setprecision(res, precision(x))
+    end
+
+    return _clausencmzeta_zeta(x, s)
+end
+
+function clausencmzeta(x::ArbSeries, s::Arb)
+    res = zero(x)
+    x₀ = x[0]
+
+    res[0] = clausencmzeta(x, s)
+    for i = 1:Arblib.degree(x)
+        if i % 2 == 0
+            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
+        else
+            res[i] = -(-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the result with that of the input
+    x[0] = 0
+    Arblib.compose_series!(res, res, x, Arblib.degree(res) + 1)
+    x[0] = x₀
+
+    return res
+end
+
+function clausencmzeta(x, s)
+    x, s = promote(x, s)
+    return clausenc(x, s) - zeta(s)
 end
 
 ###
