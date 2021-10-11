@@ -76,5 +76,8 @@ function Base.getproperty(u0::BHKdVAnsatz, name::Symbol)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", u0::BHKdVAnsatz)
-    print(io, "$(typeof(u0)) u0.v0.N = $(u0.v0.N), u0.v0.v0.N0 = $(u0.v0.v0.N0), ϵ = $(u0.ϵ)")
+    print(
+        io,
+        "$(typeof(u0)) u0.v0.N = $(u0.v0.N), u0.v0.v0.N0 = $(u0.v0.v0.N0), ϵ = $(u0.ϵ)",
+    )
 end
