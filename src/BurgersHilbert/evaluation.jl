@@ -387,26 +387,6 @@ function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
     end
 end
 
-function F0(u0::BHAnsatz, evaltype::Ball)
-    f = H(u0, evaltype)
-    return x -> begin
-        # res = (u0(x)^2 / 2 + f(x)) / (u0.w(x) * u0(x))
-        res = inv(u0.w(x))
-
-        isfinite(res) || return res
-
-        y = u0(x, evaltype)
-
-        res /= y
-
-        isfinite(res) || return res
-
-        res = (y^2 / 2 + f(x)) * res
-
-        return res
-    end
-end
-
 """
     F0(u0::BHAnsatz{Arb}, ::Asymptotic)
 

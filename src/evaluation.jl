@@ -45,7 +45,21 @@ F0(u0::AbstractAnsatz) = F0(u0, Ball())
 function F0(u0::AbstractAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
     return x -> begin
-        u0x = u0(x, evaltype)
-        return ((u0x)^2 / 2 + f(x)) / (u0.w(x) * u0x)
+        # res = (u0(x)^2 / 2 + f(x)) / (u0.w(x) * u0(x))
+        res = inv(u0.w(x))
+
+        # Abort early if non-finite
+        isfinite(res) || return res
+
+        y = u0(x, evaltype)
+
+        res /= y
+
+        # Abort early if non-finite
+        isfinite(res) || return res
+
+        res = (y^2 / 2 + f(x)) * res
+
+        return res
     end
 end
