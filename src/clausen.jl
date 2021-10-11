@@ -377,6 +377,8 @@ function clausencmzeta(x::ArbSeries, s::Arb)
     return res
 end
 
+clausencmzeta(x::ArbSeries, s) = clausenc(x, s) - zeta(Arb(s, prec = precision(x)))
+
 function clausencmzeta(x, s)
     x, s = promote(x, s)
     return clausenc(x, s) - zeta(s)
