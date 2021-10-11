@@ -243,7 +243,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
                     s -> SpecialFunctions.gamma(1 - s) * sinpi(s / 2),
                     Arblib.getinterval(s)...,
                     degree = 2,
-                )[1:2]
+                )[1:2],
             )
         else
             C = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
@@ -257,10 +257,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     for m = start:M-1
         if iswide(s)
             z = Arb(
-                ArbExtras.extrema_series(
-                    s -> zeta(s - 2m),
-                    Arblib.getinterval(s)...,
-                )[1:2]
+                ArbExtras.extrema_series(s -> zeta(s - 2m), Arblib.getinterval(s)...)[1:2],
             )
         else
             z = zeta(s - 2m)
@@ -291,10 +288,11 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
     0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
 
     # Implements y -> 1 - y in a way that preserves the precision
-    onem(y::Arb) = let res = zero(y)
-        Arblib.neg!(res, y)
-        Arblib.add!(res, res, 1)
-    end
+    onem(y::Arb) =
+        let res = zero(y)
+            Arblib.neg!(res, y)
+            Arblib.add!(res, res, 1)
+        end
     onem(y::ArbSeries) = 1 - y # This one already preserves precision
 
     v = onem(s)
@@ -349,8 +347,8 @@ function clausencmzeta(x::Arb, s::Arb)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
         xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
         # We know that 0 < x < π so it is always monotonically
-        # increasing
-        res = Arb((clausencmzeta(xₗ, s), clausencmzeta(xᵤ, s)))
+        # decreasing
+        res = Arb((clausencmzeta(xᵤ, s), clausencmzeta(xₗ, s)))
 
         return setprecision(res, precision(x))
     end
@@ -362,7 +360,7 @@ function clausencmzeta(x::ArbSeries, s::Arb)
     res = zero(x)
     x₀ = x[0]
 
-    res[0] = clausencmzeta(x, s)
+    res[0] = clausencmzeta(x₀, s)
     for i = 1:Arblib.degree(x)
         if i % 2 == 0
             res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
@@ -437,13 +435,12 @@ function _clausens_zeta(x::Arb, s::Arb)
         Arblib.neg!(onemxinv2pi, xinv2pi)
         Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
     end
-    f = v -> SpecialFunctions.gamma(v) *
-        inv2pi^v *
-        sinpi(v / 2) *
-        (
-            SpecialFunctions.zeta(v, xinv2pi) -
-            SpecialFunctions.zeta(v, onemxinv2pi)
-        )
+    f =
+        v ->
+            SpecialFunctions.gamma(v) *
+            inv2pi^v *
+            sinpi(v / 2) *
+            (SpecialFunctions.zeta(v, xinv2pi) - SpecialFunctions.zeta(v, onemxinv2pi))
 
     if iswide(s)
         res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
