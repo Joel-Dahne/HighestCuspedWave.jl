@@ -43,8 +43,9 @@ The strategy for evaluation depends on type of `evaltype`.
 F0(u0::AbstractAnsatz) = F0(u0, Ball())
 
 function F0(u0::AbstractAnsatz, evaltype::Ball)
-    f = D(u0, evaltype)
+    f = H(u0, evaltype)
     return x -> begin
-        return f(x) / (u0.w(x) * u0(x, evaltype))
+        u0x = u0(x, evaltype)
+        return ((u0x)^2 / 2 + f(x)) / (u0.w(x) * u0x)
     end
 end
