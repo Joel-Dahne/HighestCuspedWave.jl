@@ -2,96 +2,130 @@
 
 """
     a0(u0::FractionalKdVAnsatz, j::Integer)
-Compute a_j^0 from Lemma 3.2
+
+Compute \$a_j^0\$ from Lemma 3.2.
 """
-function a0(u0::FractionalKdVAnsatz{T}, j::Integer) where {T}
-    Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
-    return Γ(u0.α - j * u0.p0) * sinpi((1 - u0.α + j * u0.p0) / 2) * u0.a[j]
+function a0(u0::FractionalKdVAnsatz, j::Integer)
+    s = 1 - u0.α + j * u0.p0
+    f(s) = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
+
+    if iswide(s)
+        return u0.a[j] *
+               Arb(ArbExtras.extrema_series(f, Arblib.getinterval(s)..., degree = 2)[1:2])
+    end
+
+    return u0.a[j] * f(s)
 end
 
 """
     K0(u0::FractionalKdVAnsatz, m::Integer)
-Compute K_m^0 from Lemma 3.2
+
+Compute \$K_m^0\$ from Lemma 3.2.
 """
 function K0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
     for j = 0:u0.N0
-        res += zeta(1 - u0.α + j * u0.p0 - 2m) * u0.a[j]
+        s = 1 - u0.α + j * u0.p0 - 2m
+        if iswide(s)
+            res +=
+                u0.a[j] * Arb(
+                    ArbExtras.extrema_series(zeta, Arblib.getinterval(s)..., degree = 2)[1:2],
+                )
+        else
+            res += u0.a[j] * zeta(s)
+        end
     end
 
-    res /= factorial(fmpz(2m))
-    res *= (-1)^m
+    # We don't expect 2m to be greater than 20 so we can do this with
+    # Int64
+    res /= (-1)^m * factorial(2m)
 
     return res
 end
 
 """
     termK0(u0::FractionalKdVAnsatz, m::Integer)
-Compute K_m^0 - (-1)^m/((2m)!)sum(n^(2m)b_n for n in 1:N1)
-occurring in Lemma 3.2
+
+Compute `K0(u0, m) + (-1)^m * sum(n^(2m) * b_n for n in 1:u0.N1) /
+factorial(2m)` occurring in Lemma 3.2.
+
 """
 function termK0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
-    for j = 0:u0.N0
-        res += zeta(1 - u0.α + j * u0.p0 - 2m) * u0.a[j]
-    end
-
     for n = 1:u0.N1
-        res += parent(u0.α)(n)^(2m) * u0.b[n]
+        res += oftype(res, n)^(2m) * u0.b[n]
     end
 
-    res /= factorial(fmpz(2m))
-    res *= (-1)^m
+    # We don't expect 2m to be greater than 20 so we can do this with
+    # Int64
+    res /= (-1)^m * factorial(2m)
 
-    return res
+    return res + K0(u0, m)
 end
 
 """
     A0(u0::FractionalKdVAnsatz, j::Integer)
-Compute A_j^0 from Lemma 3.2
+
+Compute \$A_j^0\$ from Lemma 3.2.
 """
-function A0(u0::FractionalKdVAnsatz{T}, j::Integer) where {T}
-    Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
-    return Γ(2 * u0.α - j * u0.p0) * sinpi((1 - 2 * u0.α + j * u0.p0) / 2) * u0.a[j]
+function A0(u0::FractionalKdVAnsatz, j::Integer)
+    s = 1 - 2u0.α + j * u0.p0
+
+    f(s) = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
+
+    if iswide(s)
+        return u0.a[j] *
+               Arb(ArbExtras.extrema_series(f, Arblib.getinterval(s)..., degree = 2)[1:2])
+    end
+
+    return u0.a[j] * f(s)
 end
 
 """
     L0(u0::FractionalKdVAnsatz, m::Integer)
-Compute L_m^0 from Lemma 3.2
+
+Compute \$L_m^0\$ from Lemma 3.2.
 """
 function L0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
     for j = 0:u0.N0
-        res += zeta(1 - 2 * u0.α + j * u0.p0 - 2m) * u0.a[j]
+        s = 1 - 2 * u0.α + j * u0.p0 - 2m
+        if iswide(s)
+            res +=
+                u0.a[j] * Arb(
+                    ArbExtras.extrema_series(zeta, Arblib.getinterval(s)..., degree = 2)[1:2],
+                )
+        else
+            res += u0.a[j] * zeta(s)
+        end
     end
 
-    res /= factorial(fmpz(2m))
-    res *= (-1)^m
+    # We don't expect 2m to be greater than 20 so we can do this with
+    # Int64
+    res /= (-1)^m * factorial(2m)
 
     return res
 end
 
 """
     termL0(u0::FractionalKdVAnsatz, m::Integer)
-Compute L_m^0 - (-1)^m/((2m)!)sum(n^(2m + α)b_n for n in 1:N1)
-occurring in Lemma 3.2
+
+Compute `L0(u0, m) + (-1)^m * sum(n^(2m + α) * b_n for n in 1:N1) /
+factorial(2m)` occurring in Lemma 3.2.
 """
 function termL0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
 
-    for j = 0:u0.N0
-        res += zeta(1 - 2 * u0.α + j * u0.p0 - 2m) * u0.a[j]
-    end
-
     for n = 1:u0.N1
-        res += parent(u0.α)(n)^(2m + u0.α) * u0.b[n]
+        res += oftype(res, n)^(2m + u0.α) * u0.b[n]
     end
 
-    res /= factorial(fmpz(2m))
-    res *= (-1)^m
+    # We don't expect 2m to be greater than 20 so we can do this with
+    # Int64
+    res /= (-1)^m * factorial(2m)
 
-    return res
+    return res + L0(u0, m)
 end
