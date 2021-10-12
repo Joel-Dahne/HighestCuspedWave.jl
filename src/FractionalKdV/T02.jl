@@ -494,114 +494,47 @@ function T021(
 end
 
 """
-    T022(u0::FractionalKdVAnsatz{arb}, a::arb, x::arb)
-Computes the (not yet existing) integral T_{0,2,2} from the paper.
+    T022(u0::FractionalKdVAnsatz{Arb}, a::Arb, x::Arb)
 
-TODO: Write about how this is done.
+Compute the (not yet existing) integral \$T_{0,2,2}\$ from the paper.
+
+This is the integral
+```
+∫abs(clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)) * y^p dy
+```
+from `a` to `π`. We should have `x < a < π`.
+
+On this interval
+```
+clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)
+```
+is positive so we can skip the absolute value.
+- **PROVE:** That this is positive.
 """
 T022(u0::FractionalKdVAnsatz, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 
-function T022(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball;
-    δ2::arb = parent(u0.α)(1e-4),
-    rtol = -1.0,
-    atol = -1.0,
-    show_trace = false,
-)
-    return x -> begin
-        T022(
-            u0,
-            Ball(),
-            ArbTools.ubound(x + δ2),
-            x,
-            rtol = rtol,
-            atol = atol,
-            show_trace = show_trace,
-        )
-    end
-end
-
-function T022(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Ball;
-    δ2::Arf = Arf(1e-4),
-    skip_div_u0 = false,
-)
-    return x -> begin
-        T022(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; skip_div_u0)
-    end
-end
-
-function T022(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball,
-    a::arb,
-    x::arb;
-    rtol = -1.0,
-    atol = -1.0,
-    show_trace = false,
-)
-    CC = ComplexField(precision(parent(u0.α)))
-    mα = CC(-u0.α)
-    a = CC(a)
-    b = CC(parent(u0.α)(π))
-
-    # PROVE: That there are no branch cuts that interact with the
-    # integral
-    F(y; analytic = false) = begin
-        if isreal(y)
-            res = CC(
-                Ci(x - real(y), real(mα)) + Ci(x + real(y), real(mα)) -
-                2Ci(real(y), real(mα)),
-            )
-        else
-            res = Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα)
-        end
-
-        return ArbTools.real_abs(res, analytic = analytic) * y^u0.p
-    end
-    res = real(
-        ArbTools.integrate(
-            CC,
-            F,
-            a,
-            b,
-            rel_tol = rtol,
-            abs_tol = atol,
-            checkanalytic = true,
-            verbose = Int(show_trace),
-        ),
-    )
-
-    return res / (parent(u0.α)(π) * u0.w(x) * u0(x))
-
-end
-
 function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 = false)
-    mα = Acb(-u0.α)
-    a = Acb(a)
-    b = Acb(π)
+    mα = -u0.α
+    cmα = Acb(mα)
+    cp = Acb(u0.p)
 
-    # PROVE: That there are no branch cuts that interact with the
-    # integral
     f(y; analytic = false) = begin
-        y = Acb(y)
         if isreal(y)
-            res = Acb(Ci(x - real(y), -u0.α) + Ci(x + real(y), -u0.α) - 2Ci(real(y), -u0.α))
+            ry = real(y)
+            res = Acb(clausenc(ry - x, mα) + clausenc(x + ry, mα) - 2clausenc(ry, mα))
         else
-            res = Ci(x - y, mα) + Ci(x + y, mα) - 2Ci(y, mα)
+            y = Acb(y)
+            res = clausenc(x - y, cmα) + clausenc(x + y, cmα) - 2clausenc(y, cmα)
         end
 
-        return Arblib.real_abs!(res, res, analytic) * y^u0.p
+        return res * Arblib.pow_analytic!(zero(y), y, cp, analytic)
     end
 
-    # TODO: Increase maximum number of evaluations
     res = real(
         Arblib.integrate(
             f,
             a,
-            b,
+            π,
             check_analytic = true,
             rtol = 1e-5,
             atol = 1e-5,
@@ -610,8 +543,8 @@ function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 
     )
 
     if skip_div_u0
-        return res / (Arb(π) * u0.w(x))
+        return res / (π * u0.w(x))
     else
-        return res / (Arb(π) * u0.w(x) * u0(x))
+        return res / (π * u0.w(x) * u0(x))
     end
 end
