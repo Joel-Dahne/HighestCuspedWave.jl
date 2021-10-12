@@ -1,31 +1,9 @@
-# TODO: There is a lot more tuning to be done!
-function T0(
-    u0::FractionalKdVAnsatz{arb},
-    evaltype::Ball;
-    δ0::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
-    δ1::arb = ifelse(isone(u0.p), parent(u0.α)(1e-4), parent(u0.α)(1e-3)),
-    δ2::arb = parent(u0.α)(1e-2),
-    ϵ::arb = 1 + u0.α,
-    rtol = -1.0,
-    atol = -1.0,
-    show_trace = false,
-)
-    f = T01(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
-    g = T02(u0, evaltype; δ2, ϵ, rtol, atol, show_trace)
+"""
+    T0(u0::FractionalKdVAnsatz{Arb}, ::Ball)
 
-    return x -> begin
-        ## Integral on [0, x] - Change to t = y/x
-        part1 = f(x)
-
-        # Short circuit on a non-finite result
-        isfinite(part1) || return part1
-
-        ## Integral on [x, π]
-        part2 = g(x)
-        return part1 + part2
-    end
-end
-
+**TODO:** Tune the values for `δ0, δ1, δ2` depending on `u0.α` and
+`u0.p`.
+"""
 function T0(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
@@ -39,7 +17,7 @@ function T0(
     g = T02(u0, evaltype, skip_div_u0 = true; δ2, ϵ)
 
     return x -> begin
-        ## Integral on [0, x] - Change to t = y/x
+        ## Integral on [0, x]
         part1 = f(x)
 
         # Short circuit on a non-finite result
