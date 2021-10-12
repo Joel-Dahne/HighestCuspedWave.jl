@@ -1,42 +1,39 @@
 """
-    T01(u0::FractionalKdVAnsatz, ::Ball; δ1, δ2)
+    T01(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1, δ2)
+
 Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
-integral T_{0,1} from the paper.
+integral \$T_{0,1}\$ from the paper.
 
-The integral is split into three parts depending on `δ1` and `δ2`.
-These are given by `T011`, `T012` and `T013`.
+The integral is split into three parts, one on `[0, δ1]`, one on `[δ1,
+1 - δ2]` and one on `[1 - δ2, 1]`. These are These are given by
+[`T011`](@ref), [`T012`](@ref) and [`T013`](@ref).
 """
-function T01(
-    u0::FractionalKdVAnsatz{arb},
-    evaltype::Ball;
-    δ0::arb = parent(u0.α)(1e-2),
-    δ1::arb = parent(u0.α)(1e-2),
-    rtol = -1.0,
-    atol = -1.0,
-    show_trace = false,
-)
-    f = T011(u0, evaltype; δ0)
-    g = T012(u0, evaltype; δ0, δ1, rtol, atol, show_trace)
-    h = T013(u0, evaltype; δ1)
-    return x -> begin
-        return f(x) + g(x) + h(x)
-    end
-end
-
 function T01(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
-    δ0::Arf = Arf(1e-2),
-    δ1::Arf = Arf(1e-2),
+    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
     skip_div_u0 = false,
 )
     f = T011(u0, evaltype, skip_div_u0 = true; δ0)
     g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
     h = T013(u0, evaltype, skip_div_u0 = true; δ1)
-    if skip_div_u0
-        return x -> f(x) + g(x) + h(x)
-    else
-        return x -> (f(x) + g(x) + h(x)) / u0(x)
+
+    return x -> begin
+        asymptotic_part = f(x) + h(x)
+
+        # Short circuit on a non-finite result
+        isfinite(asymptotic_part) || return asymptotic_part
+
+        non_asymptotic_part = g(x)
+
+        isfinite(non_asymptotic_part) || return non_asymptotic_part
+
+        if skip_div_u0
+            return asymptotic_part + non_asymptotic_part
+        else
+            return (asymptotic_part + non_asymptotic_part) / u0(x)
+        end
     end
 end
 
@@ -248,90 +245,51 @@ function T011(
 end
 
 """
-    T012(u0::FractionalKdVAnsatz{arb}, evaltype = Ball(); δ0, δ1)
-Returns a function such that T012(u0; δ0, δ1)(x) computes the integral
-T_{0,1,2} from the paper.
+    T012(u0::FractionalKdVAnsatz{Arb}, evaltype = Ball(); δ0, δ1)
+
+Returns a function such that `T012(u0; δ0, δ1)(x)` computes the
+integral \$T_{0,1,2}\$ from the paper. This is the integral
+```
+x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^p dt
+```
+from `δ0` to `1 - δ1`.
 """
-function T012(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball = Ball();
-    δ0::arb = parent(u0.α)(1e-2),
-    δ1::arb = parent(u0.α)(1e-2),
-    rtol = -1.0,
-    atol = -1.0,
-    show_trace = false,
-)
-    α = u0.α
-    CC = ComplexField(precision(parent(α)))
-    mα = CC(-α)
-    a = CC(δ0)
-    b = CC(1 - δ1)
-
-    return x -> begin
-        # PROVE: That there are no branch cuts that interact with the
-        # integral
-        F(t; analytic = false) = begin
-            if isreal(t)
-                res = CC(
-                    Ci(x * (1 - real(t)), -α) + Ci(x * (1 + real(t)), -α) -
-                    2Ci(x * real(t), -α),
-                )
-            else
-                res = Ci(x * (1 - t), mα) + Ci(x * (1 + t), mα) - 2Ci(x * t, mα)
-            end
-
-            return ArbTools.real_abs(res, analytic = analytic) * t^u0.p
-        end
-        res = real(
-            ArbTools.integrate(
-                CC,
-                F,
-                a,
-                b,
-                rel_tol = rtol,
-                abs_tol = atol,
-                checkanalytic = true,
-                verbose = Int(show_trace),
-            ),
-        )
-
-        return res * x / (parent(u0.α)(π) * u0(x))
-    end
-end
-
 function T012(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ0::Arf = Arf(1e-2),
-    δ1::Arf = Arf(1e-2),
+    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
     skip_div_u0 = false,
 )
-    α = u0.α
-    mα = Acb(-α)
+    mα = -u0.α
+    cmα = Acb(mα)
+    cp = Acb(u0.p)
+
     a = Acb(δ0)
     b = 1 - Acb(δ1)
 
     return x -> begin
-        # PROVE: That there are no branch cuts that interact with the
-        # integral
-        f(t; analytic) = begin
-            t = Acb(t)
+        integrand(t; analytic) = begin
             if isreal(t)
+                rt = real(t)
+
                 res = Acb(
-                    Ci(x * (1 - real(t)), -α) + Ci(x * (1 + real(t)), -α) -
-                    2Ci(x * real(t), -α),
+                    clausenc(x * (1 - rt), mα) + clausenc(x * (1 + rt), mα) -
+                    2clausenc(x * rt, mα),
                 )
             else
-                res = Ci(x * (1 - t), mα) + Ci(x * (1 + t), mα) - 2Ci(x * t, mα)
+                res =
+                    clausenc(x * (1 - t), cmα) + clausenc(x * (1 + t), cmα) -
+                    2clausenc(x * t, cmα)
             end
 
-            return Arblib.real_abs!(res, res, analytic) * t^u0.p
+            return Arblib.real_abs!(res, res, analytic) *
+                   Arblib.pow_analytic!(zero(t), t, cp, analytic)
         end
 
-        # TODO: Increase maximum number of evaluations
         res = real(
             Arblib.integrate(
-                f,
+                integrand,
                 a,
                 b,
                 check_analytic = true,
