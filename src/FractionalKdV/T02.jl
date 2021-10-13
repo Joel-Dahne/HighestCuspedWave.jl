@@ -427,7 +427,6 @@ T022(u0::FractionalKdVAnsatz, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs..
 
 function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 = false)
     mα = -u0.α
-    cmα = Acb(mα)
     cp = Acb(u0.p)
 
     f(y; analytic = false) = begin
@@ -436,7 +435,7 @@ function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 
             res = Acb(clausenc(ry - x, mα) + clausenc(x + ry, mα) - 2clausenc(ry, mα))
         else
             y = Acb(y)
-            res = clausenc(x - y, cmα) + clausenc(x + y, cmα) - 2clausenc(y, cmα)
+            res = clausenc(x - y, mα) + clausenc(x + y, mα) - 2clausenc(y, mα)
         end
 
         return res * Arblib.pow_analytic!(zero(y), y, cp, analytic)

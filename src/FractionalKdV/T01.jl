@@ -262,7 +262,6 @@ function T012(
     skip_div_u0 = false,
 )
     mα = -u0.α
-    cmα = Acb(mα)
     cp = Acb(u0.p)
 
     a = Acb(δ0)
@@ -279,8 +278,8 @@ function T012(
                 )
             else
                 res =
-                    clausenc(x * (1 - t), cmα) + clausenc(x * (1 + t), cmα) -
-                    2clausenc(x * t, cmα)
+                    clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) -
+                    2clausenc(x * t, mα)
             end
 
             return Arblib.real_abs!(res, res, analytic) *
