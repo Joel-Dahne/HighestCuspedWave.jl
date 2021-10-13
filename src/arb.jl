@@ -233,15 +233,9 @@ interval.
 PROVE: That it's monotonically increasing in `z`.
 """
 function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
-    if 0 <= z <= 1
-        return beta_inc(a, b, z)
-    elseif z >= 0
-        return union(beta_inc(a, b, Arblib.lbound(Arb, z)), beta_inc(a, b, one(z)))
-    elseif z <= 1
-        return union(beta_inc(a, b, zero(z)), beta_inc(a, b, Arblib.ubound(Arb, z)))
-    else
-        return union(beta_inc(a, b, zero(z)), beta_inc(a, b, one(z)))
-    end
+    z_lower = Arblib.ispositive(z) ? lbound(Arb, z) : zero(z)
+    z_upper = z < 1 ? ubound(Arb, z) : one(z)
+    return Arb((beta_inc(a, b, z_lower), beta_inc(a, b, z_upper)))
 end
 
 beta_inc_zeroone(a::arb, b::arb, z::arb) =
