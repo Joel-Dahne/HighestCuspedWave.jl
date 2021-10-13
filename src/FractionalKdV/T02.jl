@@ -231,18 +231,36 @@ function T02(
 end
 
 """
-    T021(u0::FractionalKdVAnstaz{arb}, a::arb, x::arb)
+    T021(u0::FractionalKdVAnstaz{Arb}, a::Arb, x::Arb)
 Computes the (not yet existing) integral T_{0,2,1} from the paper.
 
-The strategy for evaluation is the same as for T011 except that the
-first term is singular and the last two are analytic and their Taylor
-expansion is computed at `t = x`.
+That is the integral
+```
+∫abs(clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)) * y^p dy
+```
+from `x` to `a`.
 
-The integral that needs to be computed in this case is `∫_x^a (y -
-x)^s*y^p dy` which is given by `x^(s + p + 1)*(Γ(1 + s)*Γ(-1 - s -
-p)/Γ(-p) - B(-1 - s - p, 1 + s; x/a)` where B(a, b; z) is the
-incomplete Beta-function. For `p = 1` we instead use the expression
-`(a - x)^(1+s)*((a - x)/(2 + s) + x/(1 + s))`.
+The strategy for evaluation is the same as for [`T011`](@ref) except
+that the first term is singular and the last two are analytic and
+their Taylor expansion is computed at `t = x`.
+
+The integral that needs to be computed in this case is
+```
+∫_x^a (y - x)^s*y^p dy
+```
+which is given by
+```
+x^(s + p + 1) * (gamma(1 + s) * gamma(-1 - s - p) / gamma(-p) - B(-1 - s - p, 1 + s; x / a))
+```
+where B(a, b; z) is the incomplete Beta-function. In the end we are
+dividing by `w(x) = x^p` and hence we can simplify it by cancelling
+the `p` in the `x`-exponent directly.
+
+For `p = 1` we instead use the expression
+```
+(a - x)^(1+s) * ((a - x) / (2 + s) + x / (1 + s))
+```
+and we divide by the weight directly.
 
 If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
 expansion gives a very poor approximation for `Ci(x + y, -α)`. In this
@@ -260,18 +278,6 @@ that case.
 T021(u0::FractionalKdVAnsatz, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
 function T021(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball;
-    δ2::arb = parent(u0.α)(1e-4),
-    ϵ::arb = parent(u0.α)(1e-1),
-    N::Integer = 3,
-)
-    return x -> begin
-        T021(u0, Ball(), ArbTools.ubound(x + δ2), x, ϵ = ϵ, N = N)
-    end
-end
-
-function T021(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball;
     δ2::Arf = Arf(1e-4),
@@ -281,110 +287,6 @@ function T021(
     return x -> begin
         T021(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; ϵ, N)
     end
-end
-
-function T021(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball,
-    a::arb,
-    x::arb;
-    ϵ::arb = parent(u0.α)(1e-1),
-    N::Integer = 3,
-)
-    Γ = Nemo.gamma
-    α = u0.α
-    δ2 = a - x
-    π = parent(α)(pi)
-
-    PP = ArbPolyRing(parent(α), :x)
-
-    # Determine if the asymptotic expansion or the Taylor
-    # expansion should be used for the second term
-    use_asymptotic = π - x < ϵ
-
-    # Analytic terms
-    (P, E) = taylor_with_error(x, setunion(x, a), N) do y
-        if !use_asymptotic
-            return Ci(x + y, -α) - 2Ci(y, -α)
-        else
-            return -2Ci(y, -α)
-        end
-    end
-    P_restterm = ball(zero(α), E * δ2^N)
-
-    # Singular term
-    M = div(N, 2) + 1
-    (C, e, P2, P2_E) = Ci_expansion(δ2, -α, M)
-    P2_restterm = P2_E * (δ2)^(2M)
-
-    # Compute the integral
-    res = zero(α)
-    # Integrate the singular term
-    # Using ∫_x^a |x - y|^s*y^p dy = ∫_x^a (y - x)^s*y^p dy
-    if u0.p == 1
-        res += C * abspow(δ2, 1 + e) * (δ2 / (2 + e) + x / (1 + e))
-    else
-        res +=
-            C *
-            x^(1 + e + u0.p) *
-            (
-                Γ(1 + e) * Γ(-1 - e - u0.p) / Γ(-u0.p) -
-                beta_inc_zeroone(-1 - e - u0.p, 1 + e, x / a)
-            )
-    end
-
-    # Integrate the analytic terms
-    full_series = P + P2
-    for i = 0:N-1
-        if u0.p == 1
-            res += full_series[i] * δ2^(1 + i) * (δ2 / (2 + i) + x / (1 + i))
-        else
-            res +=
-                full_series[i] *
-                x^(1 + i + u0.p) *
-                (
-                    Γ(parent(α)(1 + i)) * Γ(-1 - i - u0.p) / Γ(-u0.p) -
-                    beta_inc(-1 - i - u0.p, parent(α)(1 + i), x / a)
-                )
-        end
-    end
-
-    # Add the error term
-    res += δ2 * (P_restterm + P2_restterm)
-
-    if use_asymptotic
-        # Handle asymptotic expansion of Ci(x + y, -α)
-        # The furthest away from 2π we are is at y = x
-        (C, e, P3, P3_E) = Ci_expansion(2π - 2x, -α, M)
-        P3_restterm = P2_E * (2π - 2x)^(2M)
-
-        # Add the singular part to the integral
-        res +=
-            C *
-            (2π - x)^(1 + e + u0.p) *
-            (
-                beta_inc_zeroone(1 + u0.p, 1 + e, a / (2π - x)) -
-                beta_inc_zeroone(1 + u0.p, 1 + e, x / (2π - x))
-            )
-
-        for i = 0:2:N-1
-            # Only even terms
-            res +=
-                P3[i] *
-                (2π - x)^(1 + i + u0.p) *
-                (
-                    beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), a / (2π - x)) -
-                    beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x / (2π - x))
-                )
-        end
-
-        # Add error term
-        res += δ2 * P3_restterm
-    end
-
-    # Prove: that the expression inside the absolute value of the
-    # integrand is positive
-    return res / (parent(u0.α)(π) * u0.w(x) * u0(x))
 end
 
 function T021(
@@ -404,46 +306,50 @@ function T021(
     # expansion should be used for the second term
     use_asymptotic = π - x < ϵ
 
-    # Analytic terms
-    (P, E) = taylor_with_error(x, union(x, a), N) do y
-        if !use_asymptotic
-            return Ci(x + y, -α) - 2Ci(y, -α)
-        else
-            return -2Ci(y, -α)
-        end
-    end
-    P_restterm = Arblib.add_error!(zero(α), E * δ2^N)
+    # Compute expansion
 
     # Singular term
     M = N ÷ 2 + 1
-    (C, e, P2, P2_E) = Ci_expansion(δ2, -α, M)
-    P2_restterm = P2_E * δ2^(2M)
+    (C, e, P1, P1_E) = clausenc_expansion(δ2, -α, M)
+    P1_restterm = P1_E * δ2^(2M)
 
-    # Compute the integral
-    res = zero(α)
-    # Integrate the singular term
-    # Using ∫_x^a |x - y|^s*y^p dy = ∫_x^a (y - x)^s*y^p dy
-    if u0.p == 1
-        res += C * abspow(δ2, 1 + e) * (δ2 / (2 + e) + x / (1 + e))
+    # Analytic terms
+    (P2, P2_E) = taylor_with_error(x, union(x, a), N) do y
+        if !use_asymptotic
+            return clausenc(x + y, -α) - 2clausenc(y, -α)
+        else
+            return -2clausenc(y, -α)
+        end
+    end
+    P2_restterm = Arblib.add_error!(zero(α), P2_E * δ2^N)
+
+    # Compute the integrals
+
+    # Integrate the singular term and divide by w(x) = x^p
+    if isone(u0.p)
+        singular_term = C * abspow(δ2, 1 + e) * (δ2 / (2 + e) + x / (1 + e)) / u0.w(x)
     else
-        res +=
+        singular_term =
             C *
-            x^(1 + e + u0.p) *
+            x^(1 + e) *
             (
                 Γ(1 + e) * Γ(-1 - e - u0.p) / Γ(-u0.p) -
                 beta_inc_zeroone(-1 - e - u0.p, 1 + e, x / a)
             )
     end
 
-    # Integrate the analytic terms
-    full_series = P + P2
+    # Integrate the analytic terms and divide them by w(x) = x^p
+    full_series = P1 + P2
+
+    analytic_term = zero(α)
     for i = 0:N-1
-        if u0.p == 1
-            res += full_series[i] * δ2^(1 + i) * (δ2 / (2 + i) + x / (1 + i))
+        if isone(u0.p)
+            analytic_term +=
+                full_series[i] * δ2^(1 + i) * (δ2 / (2 + i) + x / (1 + i)) / u0.w(x)
         else
-            res +=
+            analytic_term +=
                 full_series[i] *
-                x^(1 + i + u0.p) *
+                x^(1 + i) *
                 (
                     Γ(Arb(1 + i)) * Γ(-1 - i - u0.p) / Γ(-u0.p) -
                     beta_inc(-1 - i - u0.p, Arb(1 + i), x / a)[1]
@@ -451,45 +357,51 @@ function T021(
         end
     end
 
-    # Add the error term
-    res += δ2 * (P_restterm + P2_restterm)
+    res = singular_term + analytic_term
+
+    # Add rest term
+    res += δ2 * (P1_restterm + P2_restterm)
 
     if use_asymptotic
         # Handle asymptotic expansion of Ci(x + y, -α)
         # The furthest away from 2π we are is at y = x
-        (C, e, P3, P3_E) = Ci_expansion(2Arb(π) - 2x, -α, M)
-        P3_restterm = P2_E * (2Arb(π) - 2x)^(2M)
+        (C, e, P3, P3_E) = clausenc_expansion(2Arb(π) - 2x, -α, M)
+        P3_restterm = P3_E * (2Arb(π) - 2x)^(2M)
 
-        # Add the singular part to the integral
-        res +=
+        # Add the singular part divided by u0.w(x)
+        singular_term_2 =
             C *
             (2Arb(π) - x)^(1 + e + u0.p) *
             (
                 beta_inc_zeroone(1 + u0.p, 1 + e, a / (2Arb(π) - x)) -
                 beta_inc_zeroone(1 + u0.p, 1 + e, x / (2Arb(π) - x))
-            )
+            ) / u0.w(x)
 
         for i = 0:2:N-1
             # Only even terms
-            res +=
+            singular_term_2 +=
                 P3[i] *
                 (2Arb(π) - x)^(1 + i + u0.p) *
                 (
                     beta_inc_zeroone(1 + u0.p, Arb(1 + i), a / (2Arb(π) - x)) -
                     beta_inc_zeroone(1 + u0.p, Arb(1 + i), x / (2Arb(π) - x))
-                )
+                ) / u0.w(x)
         end
 
-        # Add error term
-        res += δ2 * P3_restterm
+        # Add rest term
+        singular_term_2 += δ2 * P3_restterm
+
+        # Add to res
+        res += singular_term_2
     end
 
     # Prove: that the expression inside the absolute value of the
     # integrand is positive
+
     if skip_div_u0
-        return res / (Arb(π) * u0.w(x))
+        return res / π
     else
-        return res / (Arb(π) * u0.w(x) * u0(x))
+        return res / (π * u0(x))
     end
 end
 
