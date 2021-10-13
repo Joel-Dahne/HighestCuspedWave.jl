@@ -8,11 +8,7 @@ k l, m)` correspond to the term
 ```
 y * abs(x)^(i * α + j * p0 - k*u0-v0.v0.α + l*u0.v0.v0.p0 + m)
 ```
-where `α ∈ (-1, -1 + u0.ϵ]` and corresponding `p0`.
-- **TODO:** How to handle `α`? We could just make it a ball but that
-    might give to bad enclosures. Currently we just take `α = -1`
-- **TODO:** Once we figure out how to handle `p0` we will have to
-    implement that as well.
+where `α ∈ (-1, -1 + u0.ϵ]` and `p0 = 1 + α + (1 + α)^2 / 2`.
 
 The parameter `p` corresponds to multiplication by the factor
 ```
@@ -73,43 +69,10 @@ u0.v0.a0 * (
 )
 ```
 where `γ₁ = stieltjes(Arb, 1)`.
-- **TODO:** Compute error bounds for this factor, preferably ones that
-  depend on `x`
-
-# Specially handled terms
-Some kind of terms are handled specially
-
-`(1, 0, 1, 0, 0, 0, 0)`: This comes from `u0(x) / x^-α` and is given
-by
-```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
-```
-**TODO:** How to handle this term? It diverges as `α -> -1` so can't
-  be enclosed explicitly.
-
-# Division by `a0`
-If `div_a0 = true` then divide the value by `a0`. For terms which
-contains an `a0` this is cancelled explicitly. For other terms they
-are multiplied by `inv(a0)`. An enclosure of `inv(a0)` is computed by
-using that `a0` is zero at `α = 0` and decreasing. If `p > 0` we
-cancel the `a0` term from it. In the case when `p == 1` this means
-that we get
-```
-(gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
-```
-and as `α -> -1` both `gamma(α) * sinpi((1 - α) / 2)` and `gamma(α -
-p0) * sinpi((1 - α + p0) / 2)` converges to `-π / 2`, we can enclose
-them using monotonicity. The factor `x^p0` can be enclosed by using the monotonicity
-
-is always contained in `[0,
-1]` so we can precompute an enclosure for
-```
-gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0
-```
-and add the `x^-α` to the exponent.
-- **TODO:** The case `p > 1` is currently not supported.
-- **TODO:** In the case that `p` is zero but `q > 0` we could cancel
-    the `a0` term from there as well but this seems to never occur.
+- **TODO:** In the end we might not need this factor since it is
+    handled specially by [`F0`](@ref). But otherwise we would need to
+    compute error bounds for this factor, preferably ones that depend
+    on `x`
 """
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
@@ -122,78 +85,69 @@ function eval_expansion(
     res = zero(x)
 
     # Enclosure of α
-    # FIXME: How to handle this?
     α = Arb((-1, -1 + u0.ϵ))
-    #α = Arb(-1)
 
-    # Enclosure of p0
-    # FIXME: How to handle this?
-    p0 = Arb((0, findp0(-1 + u0.ϵ)))
+    # Compute i * α + j * p0 + m in a way that accounts for dependence
+    # between α and p0 and computes more accurate enclosures in some
+    # special cases. We use p0 = 1 + α + (1 + α)^2 / 2
+    exponent_α_p0_m(i, j, m; verbose = false) = begin
+        if i + 2j >= 0
+            # It is increasing in α, evaluated at endpoints
+
+            # α = -1 can be done with rational numbers
+            lower = let α = -1
+                Arb(i * α + j * (1 + α + (1 + α)^2 // 2) + m)
+            end
+
+            upper = let α = -1 + u0.ϵ
+                i * α + j * (1 + α + (1 + α)^2 / 2) + m
+            end
+
+            enclosure = Arb((lower, upper))
+
+            # If the lower bound is zero we want to avoid any spurious
+            # negative parts
+            iszero(lower) && Arblib.nonnegative_part!(enclosure, enclosure)
+
+            return enclosure
+        end
+
+        return m + (i + j) * α + j * (1 + (1 + α)^2 / 2)
+    end
 
     # Irrationals used
     π = Arb(Irrational{:π}())
     γ = Arb(Irrational{:γ}())
     γ₁ = stieltjes(Arb, 1)
 
-    if div_a0
-        inva0 = Arb((inv(finda0(-1 + u0.ϵ)), 0))
-
-        # Enclosure of gamma(α) * sinpi((1 - α) / 2) using
-        # monotonicity and that it converges to -π / 2
-        # PROVE: Monotonicity and limit
-        c1 = let α = -1 + u0.ϵ
-            Arb((SpecialFunctions.gamma(α) * sinpi((1 - α) / 2), -Arb(π) / 2))
-        end
-
-        # Enclosure of gamma(α - p0) * sinpi((1 - α + p0) / 2)
-        # using monotonicity and that it converges to -π / 2
-        # PROVE: Monotonicity and limit
-        c2 = let α = -1 + u0.ϵ, p0 = findp0(α)
-            Arb((-Arb(π) / 2, SpecialFunctions.gamma(α - p0) * sinpi((1 - α + p0) / 2)))
-        end
-
-        # Enclosure of the factor corresponding to p, skipping the
-        # x^-α part
-        p_enclosure = c1 - c2 * Arb((0, 1))
-    end
-
     for ((p, q, i, j, k, l, m), y) in expansion
         if !iszero(y)
             term = y
 
-            exponent = α * i + j * p0 - k * u0.v0.v0.α + l * u0.v0.v0.p0 + m
+            exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
 
             if !iszero(p)
-                if div_a0
-                    # Cancel the a0 factor explicitly, add the x^-α
-                    # factor to the exponent and enclose the rest.
-                    @assert isone(p)
-                    # Multiply the term by p_enclosure and add -α to the exponent
-                    term *= p_enclosure
-                    exponent += -α
-                else
-                    # Factor out x^(1 - u0.ϵ) and add to exponent
-                    exponent += 1 - u0.ϵ
+                # Factor out x^(1 - u0.ϵ) and add to exponent
+                exponent += 1 - u0.ϵ
 
-                    # This currently uses the limiting expression but
-                    # without adding explicit error bounds
-                    if Arblib.contains_zero(x)
-                        # Use monotonicity
-                        # TODO: Determine the interval of monotonicity
-                        lower = zero(x)
-                        upper = let x = ubound(Arb, x)
-                            (-inv(π) * log(abs(x)) - (γ - 1) / π) * abspow(x, u0.ϵ)
-                        end
-
-                        factor = Arb((lower, upper))
-                    else
-                        factor = (-inv(π) * log(abs(x)) - (γ - 1) / π) * abspow(x, u0.ϵ)
+                # This currently uses the limiting expression but
+                # without adding explicit error bounds
+                if Arblib.contains_zero(x)
+                    # Use monotonicity
+                    # TODO: Determine the interval of monotonicity
+                    lower = zero(x)
+                    upper = let x = ubound(Arb, x)
+                        (-inv(π) * log(abs(x)) - (γ - 1) / π) * abspow(x, u0.ϵ)
                     end
 
-                    @warn "Error term not implemented for p = $p"
-
-                    term *= factor^p
+                    factor = Arb((lower, upper))
+                else
+                    factor = (-inv(π) * log(abs(x)) - (γ - 1) / π) * abspow(x, u0.ϵ)
                 end
+
+                @warn "Error term not implemented for p = $p" maxlog = 1
+
+                term *= factor^p
             end
 
             if !iszero(q)
@@ -210,13 +164,6 @@ function eval_expansion(
                 @warn "Error term not implemented for q = $q"
 
                 term *= factor^q
-            end
-
-            if div_a0 && iszero(p)
-                # If we are to divide by a0 and there was no p
-                # term to cancel it with we just perform the
-                # division.
-                term *= inva0
             end
 
             term *= abspow(x, exponent)
@@ -670,7 +617,7 @@ directly since both of them diverge. As a first step we extract the
 leading part of the expansion of `u0(x) / x^-α`, corresponding to the
 term `(1, 0, 1, 0, 0, 0, 0)`, given by
 ```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α + p0) * sinpi((1 - α + p0) / 2) * x^p0)
+a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
 ```
 We then prove that the remaining part of `u0(x) / x^-α` is positive
 and if we remove it we hence still get an upper bound of the value.
@@ -686,7 +633,7 @@ it is therefore enough to consider
 (D(u0)(x) / x^(-2α + p0)) / (a0 * (w1 - w2 * x^p0))
 ```
 
-# Split denominator
+# Split numerator
 The next step is to split `D(u0)(x) / x^(-2α + p0)` into three parts,
 the term corresponding to `(2, 0, 2, -1, 0, 0, 0)`. which we will call
 `P`, the term corresponding to `(0, 1, 2, -1, 0, 0, 0)`, which we will
@@ -796,41 +743,32 @@ interested in bounding
 ```
 R / (a0 * (w1 - w2 * x^p0))
 ```
-Dividing by `x^p0` we have
+The numerator can be enclosed directly with [`eval_expansion`](@ref).
+For the denominator it's enough to bound it away from zero. Since
+`abs(w1) > abs(w2)` and they have the same sign (this is proved above)
+we can get a value closer to zero by considering
 ```
-(R / x^p0) / (a0 * (w1 / x^p0 - w2))
-```
-where the numerator can be enclosed directly with
-[`eval_expansion`](@ref). For the denominator it's enough to get a
-lower bound greater than zero. Factoring out `w1` we have
-```
-w1 * a0 * (1 / x^p0 - w2 / w1)
-```
-We have `w2 / w1 < 1` so we can get a lower bound by considering
-```
-w1 * a0 * (1 / x^p0 - 1)
+a0 * (w1 - w1 * x^p0) = w1 * a0 * (1 - x^p0)
 ```
 We can also note that the function is decreasing in `x` so it is
 enough to lower bound it for `ubound(x)`.
-- **PROVE:** That `w2 / w1 < 1`.
 
-To handle `a0 * (1 / x^p0 - 1)` we expand `a0` and `(1 / x^p0 - 1)`
-separately in `α`. We have
+To handle `a0 * (1 - x^p0)` we expand `a0` and `1 - x^p0` separately
+in `α`. We have
 ```
 a0 = -2 / (π^2 * (α + 1)) + O(1)
 ```
 and
 ```
-1 / x^p0 - 1 = -log(x) * (α + 1) + O((α + 1)^2)
+1 - x^p0 = -log(x) * (α + 1) + O((α + 1)^2)
 ```
 Multiplying these two together we get
 ```
-a0 * (1 / x^p0 - 1) = 2log(x) / (π^2 * (α + 1)) + O(α + 1)
+a0 * (1 - x^p0) = 2log(x) / π^2 + O(α + 1)
 ```
 which we can evaluate at `ubound(x)`.
 - **TODO:** Explicitly bound the error terms and incorporate that in
     the bound.
-
 """
 function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e-2))
     gamma = SpecialFunctions.gamma
@@ -866,18 +804,14 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
     delete!(u0_expansion_div_xmα, (1, 0, 1, 0, 0, 0, 0))
 
     # Take out the two terms (2, 0, 2, -1, 0, 0, 0) and (0, 1, 2, -1,
-    # 0, 0, 0) from the expansion of D(u0) and handle them separately
+    # 0, 0, 0) from the expansion of D(u0) and handle them separately.
+    # Call the result R
     delete!(Du0_expansion_div_xm2αp0, (2, 0, 2, -1, 0, 0, 0))
     delete!(Du0_expansion_div_xm2αp0, (0, 1, 2, -1, 0, 0, 0))
+    R = Du0_expansion_div_xm2αp0
 
     #return u0_expansion_div_xmα
-    #return Du0_expansion_div_xm2αp0
-
-    # Divide the expansion of D(u0) by x^p0 and call this R
-    R = empty(Du0_expansion_div_xm2αp0)
-    for ((p, q, i, j, k, l, m), y) in Du0_expansion_div_xm2αp0
-        R[(p, q, i, j - 1, k, l, m)] = y
-    end
+    #return R
 
     # x^(-2α + p0) / (u0.w(x) * x^-α) = x^(-1 - α + p0) / log(10 + inv(x))
     weight(x) = begin
@@ -958,8 +892,6 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
 
             numerator / denominator
         end
-
-        @show res1 res2
 
         return (res1 + res2) * weight(x)
     end
