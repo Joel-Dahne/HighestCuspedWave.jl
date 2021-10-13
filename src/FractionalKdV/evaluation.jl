@@ -47,7 +47,8 @@ function (u0::FractionalKdVAnsatz)(x, ::Ball)
 
     for j = 0:u0.N0
         s = 1 - u0.α + j * u0.p0
-        res += u0.a[j] * (Ci(x, s) - zeta(s))
+        #res += u0.a[j] * (Ci(x, s) - zeta(s))
+        res += u0.a[j] * clausencmzeta(x, s)
     end
 
     for n = 1:u0.N1
@@ -86,7 +87,8 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
 
         for j = 0:u0.N0
             s = 1 - 2u0.α + j * u0.p0
-            res -= u0.a[j] * (Ci(x, s) - zeta(s))
+            #res -= u0.a[j] * (Ci(x, s) - zeta(s))
+            res -= u0.a[j] * clausencmzeta(x, s)
         end
 
         for n = 1:u0.N1
