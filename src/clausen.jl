@@ -98,19 +98,17 @@ end
 Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
 periodic zeta function and then taking the real part.
 
-It currently only handles `0 < x < π` and `s` not overlapping any
+It currently only handles `0 < x < 2π` and `s` not overlapping any
 integer.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure using a Taylor expansion in `s`.
 """
 function _clausenc_zeta(x::Arb, s::Arb)
-    0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
+    # Check that x > 0
+    Arblib.ispositive(x) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
-    v = let v = zero(x) # We do it like this to preserve the precision
-        Arblib.neg!(v, s)
-        Arblib.add!(v, v, 1)
-    end
     inv2pi = inv(2Arb(π, prec = precision(x)))
     xinv2pi = x * inv2pi
     onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
@@ -118,17 +116,76 @@ function _clausenc_zeta(x::Arb, s::Arb)
         Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
     end
 
-    f =
-        v ->
-            SpecialFunctions.gamma(v) *
-            inv2pi^v *
-            cospi(v / 2) *
-            (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi))
+    # Check that 1 - x / 2π > 0, i.e. x < 2π
+    Arblib.ispositive(onemxinv2pi) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    v = let v = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(v, s)
+        Arblib.add!(v, v, 1)
+    end
+
+    f(v) =
+        SpecialFunctions.gamma(v) *
+        inv2pi^v *
+        cospi(v / 2) *
+        (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi))
 
     if iswide(s)
         res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
         return Arb(res)
     end
+
+    return f(v)
+end
+
+"""
+    _clausenc_zeta(x::Acb, s::Arb)
+
+Evaluation of the `clausenc` function through the zeta function.
+
+This uses the same formula as the method with `x::Arb`.
+
+It currently only handles `0 < real(x) < 2π` and `s` not overlapping
+any integer.
+
+Not that this does **not** handle wide values of `s` in any special
+way. This method is currently only used in the integration for
+bounding the error term and in that case getting the most accurate
+bound is not important. It could be something to consider later on.
+
+- *TODO:* Check if this formula holds for complex `x`, it seems to
+   give correct results at least.
+"""
+function _clausenc_zeta(x::Acb, s::Arb)
+    # Check that real(x) > 0
+    Arblib.ispositive(Arblib.realref(x)) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv2pi
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
+
+    # Check that real(1 - x / 2π) > 0, i.e. real(x) < 2π
+    Arblib.ispositive(Arblib.realref(onemxinv2pi)) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    v = let v = Arb(prec = precision(x)) # We do it like this to preserve the precision
+        Arblib.neg!(v, s)
+        Arblib.add!(v, v, 1)
+    end
+
+    f(v) =
+        SpecialFunctions.gamma(v) *
+        inv2pi^v *
+        cospi(v / 2) *
+        (
+            SpecialFunctions.zeta(Acb(v), xinv2pi) +
+            SpecialFunctions.zeta(Acb(v), onemxinv2pi)
+        )
 
     return f(v)
 end
@@ -147,6 +204,11 @@ wide case it computes the endpoints at a reduced precision given by
 ```
 prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
+
+**TODO:** Figure out how to compute accurate bounds for `s`
+overlapping an integer or being close to an integer. The current
+approach doesn't work if `s overlaps an integer and gives terrible
+bounds for wide `s` close to an integer.
 """
 function clausenc(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
@@ -163,14 +225,35 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, precision(x))
     end
 
-    if s isa Arb && 0 < x < π && !Arblib.contains_int(s)
-        return _clausenc_zeta(x, s)
+    # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
+    if s isa Arb && !Arblib.contains_int(s)
+        if Arblib.ispositive(x) && x < 2Arb(π)
+            return _clausenc_zeta(x, s)
+        end
     end
 
     return _clausenc_polylog(x, s)
 end
 
-clausenc(x::Acb, s) = (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+function clausenc(x::Acb, s::Arb)
+    # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
+    if s isa Arb && !Arblib.contains_int(s)
+        if Arblib.ispositive(Arblib.realref(x)) && Arblib.realref(x) < 2Arb(π)
+            return _clausenc_zeta(x, s)
+        end
+    end
+
+    s = Acb(s)
+    return (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+end
+
+function clausenc(x::Acb, s::Union{Acb,Integer})
+    if s isa Acb && isreal(s)
+        clausenc(x, real(s))
+    else
+        (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+    end
+end
 
 clausenc(x::S, s::T) where {S<:Real,T<:Real} = convert(
     float(promote_type(S, T)),
@@ -285,8 +368,6 @@ that for wide `s` it also takes into account the subtraction of
 `zeta(s)` when computing the enclosure.
 """
 function _clausencmzeta_zeta(x::Arb, s::Arb)
-    0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
-
     # Implements y -> 1 - y in a way that preserves the precision
     onem(y::Arb) =
         let res = zero(y)
@@ -295,18 +376,26 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
         end
     onem(y::ArbSeries) = 1 - y # This one already preserves precision
 
-    v = onem(s)
+    # Check that x > 0
+    Arblib.ispositive(x) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
     inv2pi = inv(2Arb(π, prec = precision(x)))
     xinv2pi = x * inv2pi
     onemxinv2pi = onem(xinv2pi)
 
-    f =
-        v ->
-            SpecialFunctions.gamma(v) *
-            inv2pi^v *
-            cospi(v / 2) *
-            (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi)) -
-            zeta(onem(v))
+    # Check that 1 - x / 2π > 0, i.e. x < 2π
+    Arblib.ispositive(onemxinv2pi) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    v = onem(s)
+
+    f(v) =
+        SpecialFunctions.gamma(v) *
+        inv2pi^v *
+        cospi(v / 2) *
+        (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi)) -
+        zeta(onem(v))
 
     if iswide(s)
         res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
@@ -336,7 +425,7 @@ difference being that it converts `x` and `s` to the same type to
 begin with.
 """
 function clausencmzeta(x::Arb, s::Arb)
-    if !iswide(s) || !(0 < x < π) || Arblib.contains_int(s)
+    if !iswide(s) || Arblib.contains_int(s) || !Arblib.ispositive(x) || !(x < 2Arb(π))
         # If s is not wide or we are in a case which
         # _clausencmzeta_zeta doesn't support, call the clausenc and
         # zeta functions directly.
@@ -418,31 +507,38 @@ end
 Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
 periodic zeta function and then taking the imaginary part.
 
-It currently only handles `0 < x < π` and `s` not overlapping any
+It currently only handles `0 < x < 2π` and `s` not overlapping any
 integer.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure using a Taylor expansion in `s`.
 """
 function _clausens_zeta(x::Arb, s::Arb)
-    0 < x < π || throw(DomainError(x, "method only supports x on the interval (0, π)"))
+    # Check that x > 0
+    Arblib.ispositive(x) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv2pi
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
+
+    # Check that 1 - x / 2π > 0, i.e. x < 2π
+    Arblib.ispositive(onemxinv2pi) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
     v = let v = zero(x) # We do it like this to preserve the precision
         Arblib.neg!(v, s)
         Arblib.add!(v, v, 1)
     end
-    inv2pi = inv(2Arb(π, prec = precision(x)))
-    xinv2pi = x * inv(2Arb(π, prec = precision(x)))
-    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
-        Arblib.neg!(onemxinv2pi, xinv2pi)
-        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
-    end
-    f =
-        v ->
-            SpecialFunctions.gamma(v) *
-            inv2pi^v *
-            sinpi(v / 2) *
-            (SpecialFunctions.zeta(v, xinv2pi) - SpecialFunctions.zeta(v, onemxinv2pi))
+
+    f(v) =
+        SpecialFunctions.gamma(v) *
+        inv2pi^v *
+        sinpi(v / 2) *
+        (SpecialFunctions.zeta(v, xinv2pi) - SpecialFunctions.zeta(v, onemxinv2pi))
 
     if iswide(s)
         res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
@@ -488,8 +584,11 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, orig_prec)
     end
 
-    if s isa Arb && 0 < x < π && !Arblib.contains_int(s)
-        return _clausens_zeta(x, s)
+    # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
+    if s isa Arb && !Arblib.contains_int(s)
+        if Arblib.ispositive(x) && x < 2Arb(π)
+            return _clausens_zeta(x, s)
+        end
     end
 
     return _clausens_polylog(x, s)

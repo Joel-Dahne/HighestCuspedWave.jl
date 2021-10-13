@@ -4,18 +4,32 @@
     end
 
     @testset "clausenc" begin
-        # Check that the evaluation with polylog and zeta agree on (0, π)
+        # Check that the evaluation with polylog and zeta agree on (0, 2π)
         for s in range(Arb(1), 5, length = 10)[2:end-1]
-            for x in range(Arb(0), π, length = 100)[2:end-1]
+            for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
                 res1 = HighestCuspedWave._clausenc_polylog(x, s)
                 res2 = HighestCuspedWave._clausenc_zeta(x, s)
                 @test Arblib.overlaps(res1, res2)
             end
         end
 
+        # Check that the evaluation with polylog and zeta agree for
+        # complex values
+        for s in range(Arb(1), 5, length = 10)[2:end-1]
+            for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
+                for y in range(Arb(-10), 10, length = 10)
+                    z = Acb(x, y)
+                    res1 =
+                        (polylog(Acb(s), exp(im * z)) + polylog(Acb(s), exp(-im * z))) / 2
+                    res2 = HighestCuspedWave._clausenc_zeta(z, s)
+                    @test Arblib.overlaps(res1, res2)
+                end
+            end
+        end
+
         # Check that _clausen_zeta throws an error outside of the domain
         @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(-1), Arb(2.5))
-        @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(4), Arb(2.5))
+        @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(7), Arb(2.5))
 
         # Check evaluation with integer s
         @test isfinite(clausenc(Arb(1), 2))
@@ -46,7 +60,7 @@
         # Check that the evaluation with zeta and naive implementation
         # agree on (0, π)
         for s in range(Arb(1), 5, length = 10)[2:end-1]
-            for x in range(Arb(0), π, length = 100)[2:end-1]
+            for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
                 res1 = HighestCuspedWave._clausencmzeta_zeta(x, s)
                 res2 = clausenc(x, s) - zeta(s)
                 @test Arblib.overlaps(res1, res2)
@@ -55,7 +69,7 @@
 
         # Check that _clausen_zeta throws an error outside of the domain
         @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(-1), Arb(2.5))
-        @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(4), Arb(2.5))
+        @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(7), Arb(2.5))
 
         # Check evaluation with integer s
         @test isfinite(clausencmzeta(Arb(1), 2))
@@ -77,7 +91,7 @@
     @testset "clausens" begin
         # Check that the evaluation with polylog and zeta agree on (0, π)
         for s in range(Arb(1), 5, length = 10)[2:end-1]
-            for x in range(Arb(0), π, length = 100)[2:end-1]
+            for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
                 res1 = HighestCuspedWave._clausens_polylog(x, s)
                 res2 = HighestCuspedWave._clausens_zeta(x, s)
                 @test Arblib.overlaps(res1, res2)
@@ -86,7 +100,7 @@
 
         # Check that _clausen_zeta throws an error outside of the domain
         @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(-1), Arb(2.5))
-        @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(4), Arb(2.5))
+        @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(7), Arb(2.5))
 
         # Check evaluation with integer s
         @test isfinite(clausens(Arb(1), 2))
