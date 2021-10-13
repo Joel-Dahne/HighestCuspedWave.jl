@@ -48,16 +48,16 @@ function FractionalKdVAnsatz(
     initial_b::Vector{T} = T[],
 ) where {T}
     # Using the midpoint only makes sense for T == arb
-    use_midpoint = use_midpoint && T == arb
+    use_midpoint = use_midpoint && T == Arb
 
     if use_midpoint
         # TODO: We have to remember that we take the midpoint of p!!!
-        p = midpoint(p)
+        p = Arblib.midpoint(Arb, p)
     end
 
     p0 = findp0(α)
     if use_midpoint
-        p0 = midpoint(p0)
+        p0 = Arblib.midpoint(Arb, p0)
     end
 
     a = OffsetVector(
@@ -111,9 +111,13 @@ function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
             N0 = 10
             N1 = 512
             p = (1 - α) / 2
-        elseif α <= -0.85
+        elseif α <= -0.848
             N0 = 9
-            N1 = 256
+            N1 = 512
+            p = (1 - α) / 2
+        elseif α <= -0.825
+            N0 = 8
+            N1 = 512
             p = (1 - α) / 2
         elseif α <= -0.8
             N0 = 7
