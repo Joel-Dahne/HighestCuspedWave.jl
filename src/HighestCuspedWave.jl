@@ -16,7 +16,9 @@ import Nemo: midpoint, radius
 
 include("arb.jl")
 include("clausian.jl")
-include("clausen.jl") # New version of clausian.jl
+include("special-functions/polylog.jl")
+include("special-functions/clausenc.jl")
+include("special-functions/clausens.jl")
 include("types.jl")
 include("bounded_by.jl")
 include("evaluation.jl")
