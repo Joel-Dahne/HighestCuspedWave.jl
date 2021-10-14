@@ -600,3 +600,43 @@ clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
     float(promote_type(S, T)),
     clausens(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
 )
+
+"""
+    clausens_expansion(x, s, M::Integer)
+
+Compute the asymptotic expansion of `clausens(x, s)` at zero up to
+order `2M - 1`, meaning that the error term is of order `2M`.
+
+It returns four things, the coefficient `C` and exponent `e` for the
+non-analytic term, the analytic terms as a `ArbSeries` `P` and the
+error term `E`. The `M` is the same as in Lemma 2.1 in
+enciso18:convex_whith.
+
+It satisfies that `clausens(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for
+all `|y| <= |x|`.
+
+Note that this method doesn't handle wide values of `s` in any special
+way. This has not been needed anywhere so far.
+"""
+function clausens_expansion(x::Arb, s::Arb, M::Integer)
+    Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
+    # TODO: Check this
+    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2"))
+
+    π = oftype(x, pi)
+
+    # Non-analytic term
+    C = SpecialFunctions.gamma(1 - s) * cospi(s / 2)
+    e = s - 1
+
+    # Analytic term
+    P = ArbSeries(degree = 2M - 1, prec = precision(x))
+    for m = 0:M-1
+        P[2m + 1] = (-1)^m * zeta(s - 2m - 1) / factorial(2m + 1)
+    end
+
+    # Error term
+    E = Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
+
+    return (C, e, P, E)
+end
