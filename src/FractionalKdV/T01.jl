@@ -125,9 +125,10 @@ function T01(
 end
 
 """
-    T011(u0::FractionalKdVAnstaz{arb}, evaltype = Ball(); δ0)
-Returns a function such that T011(u0; δ0)(x) computes the integral
-T_{0,1,1} from the paper.
+    T011(u0::FractionalKdVAnstaz{Arb}, evaltype = Ball(); δ0)
+
+Returns a function such that `T011(u0; δ0)(x)` computes the integral
+\$T_{0,1,1}\$ from the paper.
 
 The strategy for evaluation is to compute an expansion for the
 integrand which is then integrated termwise on the interval. The first
@@ -139,63 +140,24 @@ and also here enclose the error term.
 
 The value inside the absolute value has constant sign so we can remove
 it. Switching integration and summation gives us terms of the form
-`∫_0^δ0 t^s*t^p dt` where `s` depends on the term and `p = u0.p`. This
-is easily calculated to be `δ0^(s + p + 1*/(s + p + 1)`. The errors
-are handled as constant values which are just multiplied by the length
-of the interval.
+```
+∫_0^δ0 t^s * t^p dt
+```
+where `s` depends on the term and `p = u0.p`. This is easily
+calculated to be
+```
+δ0^(s + p + 1 / (s + p + 1)
+```
+The errors are handled as constant values which are just multiplied by
+the length of the interval.
+
+**Prove:** that the expression inside the absolute value of the
+integrand is of constant sign and determine the sign.
 """
-function T011(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball = Ball();
-    δ0::arb = parent(u0.α)(1e-2),
-    N::Integer = 3,
-)
-    Γ = Nemo.gamma
-    α = u0.α
-
-    PP = ArbPolyRing(parent(α), :x)
-
-    M = div(N, 2) + 1
-
-    return x -> begin
-        # Analytic terms
-        (P, P_E) = taylor_with_error(zero(α), setunion(zero(α), δ0), N) do t
-            Ci(x * (1 - t), -α) + Ci(x * (1 + t), -α)
-        end
-        P_restterm = ball(zero(α), P_E * δ0^N)
-
-        # Singular term
-        (C, e, P2, P2_E) = Ci_expansion(x * δ0, -α, M)
-        C *= x^e
-        for m = 1:M-1
-            P2[2m] *= x^(2m)
-        end
-        P2_restterm = P2_E * (x * δ0)^(2M)
-
-        # Compute the integral
-        res = zero(α)
-        # Integrate the singular term
-        res -= 2C * δ0^(e + u0.p + 1) / (e + u0.p + 1)
-
-        # Integrate the analytic terms
-        full_series = P - 2P2
-        for i = 0:N-1
-            res += full_series[i] * δ0^(i + u0.p + 1) / (i + u0.p + 1)
-        end
-
-        # Add the error term
-        res += δ0 * (P_restterm - P2_restterm)
-
-        # Prove: that the expression inside the absolute value of the
-        # integrand is negative
-        return -res * x / (parent(α)(π) * u0(x))
-    end
-end
-
 function T011(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ0::Arf = Arf(1e-2),
+    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
     N::Integer = 3,
     skip_div_u0 = false,
 )
@@ -207,13 +169,13 @@ function T011(
 
     return x -> begin
         # Analytic terms
-        (P, P_E) = taylor_with_error(zero(α), union(zero(α), δ0), N) do t
-            Ci(x * (1 - t), -α) + Ci(x * (1 + t), -α)
+        (P1, P1_E) = taylor_with_error(zero(α), union(zero(α), δ0), N) do t
+            clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α)
         end
-        P_restterm = Arblib.add_error!(zero(α), P_E * δ0^N)
+        P1_restterm = Arblib.add_error!(zero(α), P1_E * δ0^N)
 
         # Singular term
-        (C, e, P2, P2_E) = Ci_expansion(x * δ0, -α, M)
+        (C, e, P2, P2_E) = clausenc_expansion(x * δ0, -α, M)
         C *= x^e
         for m = 1:M-1
             P2[2m] *= x^(2m)
@@ -221,21 +183,22 @@ function T011(
         P2_restterm = P2_E * (x * δ0)^(2M)
 
         # Compute the integral
-        res = zero(α)
+
         # Integrate the singular term
-        res -= 2C * δ0^(e + u0.p + 1) / (e + u0.p + 1)
+        singular_term = -2C * δ0^(e + u0.p + 1) / (e + u0.p + 1)
 
         # Integrate the analytic terms
-        full_series = P - 2P2
+        analytic_term = zero(α)
+        full_series = P1 - 2P2
         for i = 0:N-1
-            res += full_series[i] * δ0^(i + u0.p + 1) / (i + u0.p + 1)
+            analytic_term += full_series[i] * δ0^(i + u0.p + 1) / (i + u0.p + 1)
         end
 
-        # Add the error term
-        res += δ0 * (P_restterm - P2_restterm)
+        res = singular_term + analytic_term
 
-        # Prove: that the expression inside the absolute value of the
-        # integrand is negative
+        # Add the error term
+        res += δ0 * (P1_restterm - P2_restterm)
+
         if skip_div_u0
             return -res * x / π
         else
@@ -295,6 +258,7 @@ function T012(
                 rtol = 1e-5,
                 atol = 1e-5,
                 warn_on_no_convergence = false,
+                opts = Arblib.calc_integrate_opt_struct(0, 5_000, 0, 0, 0),
             ),
         )
 
@@ -307,144 +271,54 @@ function T012(
 end
 
 """
-    T013(u0::FractionalKdVAnstaz{arb}, evaltype = Ball(); δ1)
-Returns a function such that T013(u0; δ1)(x) computes the integral
-T_{0,1,3} from the paper.
+    T013(u0::FractionalKdVAnstaz{Arb}, evaltype = Ball(); δ1)
+
+Returns a function such that `T013(u0; δ1)(x)` computes the integral
+\$T_{0,1,3}\$ from the paper.
 
 The strategy for evaluation is the same as for [`T011`](@ref) except
 that the first term is singular and the last two are analytic and
 their Taylor expansion is computed at `t = 1`.
 
-The integral that needs to be computed in this case is `∫_(1 - δ1)^1
-(1 - t)^s*t^p dt` which is given by `Γ(1 + s)*Γ(1 + p)/Γ(2 + s + p) -
-B(1 + p, 1 + s; 1 - δ1)` where B(a, b; z) is the incomplete
-Beta-function.
+The integral that needs to be computed in this case is
+```
+∫_(1 - δ1)^1 (1 - t)^s * t^p dt
+```
+which is given by
+```
+Γ(1 + s) * Γ(1 + p) / Γ(2 + s + p) - B(1 + p, 1 + s; 1 - δ1)
+```
+where `B(a, b; z)` is the incomplete Beta-function.
 
 If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
-expansion gives a very poor approximation for `Ci(x*(t + 1), -α)`. In
-this case we make use of the fact that it's 2π periodic and even, so
-that `Ci(x*(t + 1), -α) = Ci(x*(t + 1) - 2π, -α) = Ci(2π - x*(t + 1),
--α)`, to be able to use the asymptotic expansion instead. That gives
-us the integral ```∫_(1 - δ1)^1 (2π - x*(t + 1))^s*t^p dt` which is
-given by `(2π - x)^(1 + p + s)*x^(-1 - p)*(B(1 + p, 1 + s, x/(2π - x))
-- B(1 + p, 1 + s, (x - δ1*x)/(2π - x)))```. The value of `x/(2π - x)`
-will always be less than or equal to 1 for `x` less than or equal to
-π, however due to overestimation the enclosing ball might contain
-values greater than one, we therefore have to use `beta_inc_zeroone`
-to be able to get finite results in that case.
+expansion gives a very poor approximation for `clausenc(x * (t + 1),
+-α)`. In this case we make use of the fact that it's 2π periodic and
+even, so that
+```
+clausenc(x * (t + 1), -α) = clausenc(x * (t + 1) - 2π, -α) = clausenc(2π - x * (t + 1), -α)
+```
+, to be able to use the asymptotic expansion instead. That gives us the
+integral
+```
+∫_(1 - δ1)^1 (2π - x * (t + 1))^s * t^p dt
+```
+which is given by
+```
+(2π - x)^(1 + p + s) * x^(-1 - p) * (B(1 + p, 1 + s, x / (2π - x)) - B(1 + p, 1 + s, (x - δ1 * x) / (2π - x)))
+```
+The value of `x / (2π - x)` will always be less than or equal to 1 for
+`x` less than or equal to π, however due to overestimation the
+enclosing ball might contain values greater than one, we therefore
+have to use [`beta_inc_zeroone`](@ref) to be able to get finite
+results in that case.
 
-TODO: We could precompute some of the values, in particular the
-beta_inc functions can be precomputed.
+**Prove:** that the expression inside the absolute value of the
+integrand is of constant sign and determine the sign.
 """
-function T013(
-    u0::FractionalKdVAnsatz{arb},
-    ::Ball = Ball();
-    δ1::arb = parent(u0.α)(1e-2),
-    ϵ::arb = parent(u0.α)(1e-2),
-    N::Integer = 3,
-)
-    Γ = Nemo.gamma
-    α = u0.α
-    π = parent(α)(pi)
-
-    PP = ArbPolyRing(parent(α), :x)
-
-    M = div(N, 2) + 1
-
-    return x -> begin
-        # Determine if the asymptotic expansion or the Taylor
-        # expansion should be used for the second term
-        use_asymptotic = π - x < ϵ
-
-        # Analytic terms
-        (P, E) = taylor_with_error(one(α), setunion(1 - δ1, one(α)), N) do t
-            if !use_asymptotic
-                return Ci(x * (1 + t), -α) - 2Ci(x * t, -α)
-            else
-                return -2Ci(x * t, -α)
-            end
-        end
-        P_restterm = ball(zero(α), E * δ1^N)
-
-        # Singular term
-        (C, e, P2, P2_E) = Ci_expansion(x * δ1, -α, M)
-        C *= x^e
-        for m = 1:M-1
-            P2[2m] *= x^(2m)
-        end
-        P2_restterm = P2_E * (x * δ1)^(2M)
-
-        # Compute the integral
-        res = zero(α)
-        # Integrate the singular term
-        # Using ∫_(1 - δ1)^1 |t - 1|^s*t^(p) dt = ∫_(1 - δ1)^1 (1 - t)^s*t^(p) dt
-        res +=
-            C * (
-                Γ(1 + e) * Γ(1 + u0.p) / Γ(2 + e + u0.p) -
-                beta_inc(1 + u0.p, 1 + e, 1 - δ1)
-            )
-
-        # Integrate the analytic part
-        # Using ∫_(1-δ1)^1 (t-1)^i*t^(p) dt = (-1)^i ∫_(1-δ1)^1 (t-1)^i*t^(p) dt
-        full_series = P + P2
-        for i = 0:N-1
-            res +=
-                full_series[i] *
-                (-1)^i *
-                (
-                    Γ(parent(α)(1 + i)) * Γ(1 + u0.p) / Γ(2 + i + u0.p) -
-                    beta_inc(1 + u0.p, parent(α)(1 + i), 1 - δ1)
-                )
-        end
-
-        # Add the error term
-        res += δ1 * (P_restterm + P2_restterm)
-
-        if use_asymptotic
-            # Handle asymptotic expansion of Ci(x*(t + 1), -α)
-            (C, e, P3, P3_E) = Ci_expansion(2π - x * (2 - δ1), -α, M)
-            P3_restterm = P2_E * (2π - x * (2 - δ1))^(2M)
-
-            # Add the singular part to the integral
-            res +=
-                C *
-                (2π - x)^(1 + u0.p + e) *
-                x^(-1 - u0.p) *
-                (
-                    beta_inc_zeroone(1 + u0.p, 1 + e, x / (2π - x)) -
-                    beta_inc_zeroone(1 + u0.p, 1 + e, (x - δ1 * x) / (2π - x))
-                )
-
-            for i = 0:2:N-1
-                # Only even terms
-                res +=
-                    P3[i] *
-                    (2π - x)^(1 + u0.p + i) *
-                    x^(-1 - u0.p) *
-                    (
-                        beta_inc_zeroone(1 + u0.p, parent(α)(1 + i), x / (2π - x)) -
-                        beta_inc_zeroone(
-                            1 + u0.p,
-                            parent(α)(1 + i),
-                            (x - δ1 * x) / (2π - x),
-                        )
-                    )
-            end
-
-            # Add error term
-            res += δ1 * P3_restterm
-        end
-
-        # Prove: that the expression inside the absolute value of the
-        # integrand is positive
-        return res * x / (parent(u0.α)(π) * u0(x))
-    end
-end
-
 function T013(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ1::Arf = Arf(1e-2),
+    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
     ϵ::Arb = Arb(1e-2),
     N::Integer = 3,
     skip_div_u0 = false,
@@ -462,17 +336,17 @@ function T013(
         use_asymptotic = π - x < ϵ
 
         # Analytic terms
-        (P, E) = taylor_with_error(one(α), union(1 - δ1, one(α)), N) do t
+        (P1, P1_E) = taylor_with_error(one(α), union(1 - δ1, one(α)), N) do t
             if !use_asymptotic
-                return Ci(x * (1 + t), -α) - 2Ci(x * t, -α)
+                return clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
             else
-                return -2Ci(x * t, -α)
+                return -2clausenc(x * t, -α)
             end
         end
-        P_restterm = Arblib.add_error!(zero(α), E * δ1^N)
+        P1_restterm = Arblib.add_error!(zero(α), P1_E * δ1^N)
 
         # Singular term
-        (C, e, P2, P2_E) = Ci_expansion(x * δ1, -α, M)
+        (C, e, P2, P2_E) = clausenc_expansion(x * δ1, -α, M)
         C *= x^e
         for m = 1:M-1
             P2[2m] *= x^(2m)
@@ -480,20 +354,21 @@ function T013(
         P2_restterm = P2_E * (x * δ1)^(2M)
 
         # Compute the integral
-        res = zero(α)
+
         # Integrate the singular term
         # Using ∫_(1 - δ1)^1 |t - 1|^s*t^(p) dt = ∫_(1 - δ1)^1 (1 - t)^s*t^(p) dt
-        res +=
+        singular_term =
             C * (
                 Γ(1 + e) * Γ(1 + u0.p) / Γ(2 + e + u0.p) -
                 beta_inc(1 + u0.p, 1 + e, 1 - δ1)
             )
 
-        # Integrate the analytic part
+        # Integrate the analytic terms
         # Using ∫_(1-δ1)^1 (t-1)^i*t^(p) dt = (-1)^i ∫_(1-δ1)^1 (t-1)^i*t^(p) dt
-        full_series = P + P2
+        analytic_term = zero(α)
+        full_series = P1 + P2
         for i = 0:N-1
-            res +=
+            analytic_term +=
                 full_series[i] *
                 (-1)^i *
                 (
@@ -502,16 +377,18 @@ function T013(
                 )
         end
 
+        res = singular_term + analytic_term
+
         # Add the error term
-        res += δ1 * (P_restterm + P2_restterm)
+        res += δ1 * (P1_restterm + P2_restterm)
 
         if use_asymptotic
-            # Handle asymptotic expansion of Ci(x*(t + 1), -α)
-            (C, e, P3, P3_E) = Ci_expansion(2π - x * (2 - δ1), -α, M)
-            P3_restterm = P2_E * (2π - x * (2 - δ1))^(2M)
+            # Handle asymptotic expansion of clausenc(x*(t + 1), -α)
+            (C, e, P3, P3_E) = clausenc_expansion(2π - x * (2 - δ1), -α, M)
+            P3_restterm = P3_E * (2π - x * (2 - δ1))^(2M)
 
             # Add the singular part to the integral
-            res +=
+            singular_term_2 =
                 C *
                 (2π - x)^(1 + u0.p + e) *
                 x^(-1 - u0.p) *
@@ -522,7 +399,7 @@ function T013(
 
             for i = 0:2:N-1
                 # Only even terms
-                res +=
+                singular_term_2 +=
                     P3[i] *
                     (2π - x)^(1 + u0.p + i) *
                     x^(-1 - u0.p) *
@@ -532,12 +409,13 @@ function T013(
                     )
             end
 
-            # Add error term
-            res += δ1 * P3_restterm
+            # Add rest term
+            singular_term_2 += δ1 * P3_restterm
+
+            # Add to res
+            res += singular_term_2
         end
 
-        # Prove: that the expression inside the absolute value of the
-        # integrand is positive
         if skip_div_u0
             return res * x / π
         else
