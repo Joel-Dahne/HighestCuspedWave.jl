@@ -70,14 +70,18 @@ function delta0(
         Arblib.ubound(Arb(π)),
         abs_value = true,
         point_value_max = estimate,
-        atol = 4Arblib.radius(estimate); # We can expect to do better than this
+        atol = 2Arblib.radius(estimate); # We can expect to do better than this
         rtol,
         degree,
         threaded,
         verbose,
     )
 
-    return max(res1, res2)
+    verbose && @show res1 res2
+
+    res = max(res1, res2)
+    # The result is always nonnegative
+    return Arblib.nonnegative_part!(res, res)
 end
 
 """
