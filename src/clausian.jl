@@ -140,7 +140,7 @@ Ci(x::acb, s::acb, β::Integer) = parent(x)(Ci(Acb(x), Acb(s), β))
 function Ci(x::Arb, s::Arb, β::Integer)
     iszero(x) && s > 1 && return zeta(s, d = β)
 
-    if false && iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
+    if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
         xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
         res = union(Ci(xₗ, s, β), Ci(xᵤ, s, β))
