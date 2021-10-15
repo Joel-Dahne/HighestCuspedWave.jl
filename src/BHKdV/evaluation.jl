@@ -146,34 +146,49 @@ The tail term is evaluated directly.
 
 To evaluate the main term, given by
 ```
-a0 * (Ci(x, 1 - α) - Ci(x, 1 - α + p0) - (zeta(1 - α) - zeta(1 - α + p0)))
+a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
 ```
 we make use of the fact that this converges to
 ```
-u0.v0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
+2 / π^2 * (Ci(x, 2, 1) - zeta(2, d = 1))
 ```
 , which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
-evaluate this function and add precomputed \$L^\\infty\$ bounds for
+evaluate this function and add error bounds for
 ```
-a0 * (Ci(x, 1 - α) - Ci(x, 1 - α + p0) - (zeta(1 - α) - zeta(1 - α + p0))) - u0.v0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
+a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) - 2 / π^2 * (Ci(x, 2, 1) - zeta(2, d = 1))
 ```
 valid for the entire range `α ∈ (-1, -1 + u0.ϵ]`.
 
-**TODO:** Compute rigorous \$L^\\infty\$ bounds for the above
-  expression. We currently use a heuristic value.
+For now we compute the value for `α = -1 + u0.ϵ` and take the union of
+this result and the one computed with the limiting expression. This
+works in practice since we have a monotone convergence.
+
+This approach also works for `ArbSeries`, though it is currently less
+clear if we have the same monotone convergence, probably we do.
+
+- **TODO:** Compute rigorous error bounds. Possibly by proving the
+    monotonicity of the error.
 """
-function (u0::BHKdVAnsatz{Arb})(x, ::Ball)
+function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
     # Main term
 
     # Approximation
     res = 2 / Arb(π)^2 * (Ci(x, 2, 1) - zeta(Arb(2), d = 1))
 
     # Add error bounds
-    @warn "L^∞ bounds not rigorously computed - using heuristic values" maxlog = 1
-    if u0.ϵ <= 0.0003
-        Arblib.add_error!(res, Mag(2e-4))
-    else
-        throw(ErrorException("no L^∞ bounds for ϵ = $ϵ"))
+    # TODO: Implement rigorous bounds
+    @warn "Non-rigorous bounds implemented for main term" maxlog = 1
+    error = let α = -1 + u0.ϵ
+        a0 = finda0(α)
+        p0 = 1 + α + (1 + α)^2 / 2
+        res2 = a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
+
+        if x isa Arb
+            res = union(res, res2)
+        elseif x isa ArbSeries
+            coefficients = union.(Arblib.coeffs(res), Arblib.coeffs(res2))
+            res = ArbSeries(coefficients)
+        end
     end
 
     # Tail term
@@ -181,7 +196,7 @@ function (u0::BHKdVAnsatz{Arb})(x, ::Ball)
     # Clausen terms
     for j = 1:u0.v0.v0.N0
         s = 1 - u0.v0.v0.α + j * u0.v0.v0.p0
-        res += u0.v0.v0.a[j] * (Ci(x, s) - zeta(s))
+        res += u0.v0.v0.a[j] * clausencmzeta(x, s)
     end
 
     # Fourier terms
