@@ -155,7 +155,7 @@ function clausens_expansion(x::Arb, s::Arb, M::Integer)
     # Analytic term
     P = ArbSeries(degree = 2M - 1, prec = precision(x))
     for m = 0:M-1
-        P[2m + 1] = (-1)^m * zeta(s - 2m - 1) / factorial(2m + 1)
+        P[2m+1] = (-1)^m * zeta(s - 2m - 1) / factorial(2m + 1)
     end
 
     # Error term
