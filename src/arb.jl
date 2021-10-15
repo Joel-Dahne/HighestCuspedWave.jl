@@ -262,6 +262,11 @@ function abspow(x::Arb, y::Arb)
     if iszero(y)
         return one(x)
     end
+    if iszero(x)
+        Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
+        Arblib.ispositive(y) && return zero(x)
+        return Arblib.unit_interval!(zero(x))
+    end
     if Arblib.contains_zero(x)
         Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
         x_upp = Arblib.abs_ubound(Arb, x)

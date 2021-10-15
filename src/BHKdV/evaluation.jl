@@ -1,78 +1,47 @@
 """
     eval_expansion(u0::BHKdVAnsatz, expansion, x)
 
-Evaluate the given expansion. It requires that `abs(x) < 1`.
+Evaluate the given expansion. It requires that `x < 1` and that `x` is
+non-negative, any negative parts of `x` are ignored.
 
 The terms are stored as `((p, q, i, j, k, l, m), y)`. The parameters `(i, j,
 k l, m)` correspond to the term
 ```
-y * abs(x)^(i * α + j * p0 - k*u0-v0.v0.α + l*u0.v0.v0.p0 + m)
+y * x^(i * α + j * p0 - k*u0-v0.v0.α + l*u0.v0.v0.p0 + m)
 ```
 where `α ∈ (-1, -1 + u0.ϵ]` and `p0 = 1 + α + (1 + α)^2 / 2`.
 
 The parameter `p` corresponds to multiplication by the factor
 ```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * abs(x)^-α
+a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
 ```
 to the power `p`, which is the part of the expansion for the main term
 which is not even powers of `x`. The parameter `q` corresponds to
 multiplication by the factor
 ```
 -a0 * (
-    gamma(2α) * sinpi((1 - 2α) / 2) * abs(x)^(-2α) -
-    gamma(2α - p0) * sinpi((1 - 2α + p0) / 2) * abs(x)^(-2α + p0) +
-    (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * abs(x)^2
+    gamma(2α) * sinpi((1 - 2α) / 2) * x^(-2α) -
+    gamma(2α - p0) * sinpi((1 - 2α + p0) / 2) * x^(-2α + p0) +
+    (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * x^2
 )
 ```
 to the power `q`, which is the part of the expansion for `H` applied
 to the main term which is not on the form `x^2m` for `m >= 2`.
 
-# Handling `p`
-As `α` goes to `-1` the factor corresponding to `p` converges to
-```
--1 / π * abs(x) * log(abs(x)) - (γ - 1) / π * abs(x)
-```
-If we let
-```
-w1 = gamma(α) * sinpi((1 - α) / 2)
-w2 = gamma(α - p0) * sinpi((1 - α + p0) / 2)
-```
-we can rewrite the factor as
-```
-a0 * (w1 - w2 * abs(x)^p0) * abs(x)^-α
-```
-We always have `-α > 1 - u0.ϵ` so we can factor out `abs(x)^(1 -
-u0.ϵ)`. We then have to bound
-```
-a0 * (w1 - w2 * abs(x)^p0) * abs(x)^(-α - 1 + u0.ϵ)
-```
-For `abs(x)^(-α - 1 + u0.ϵ)` and upper bound is given by one and a
-lower one by taking `α = -1`. For the remaining part we factor out
-`w2`, giving us
-```
-w2 * a0 * (w1 / w2 - abs(x)^p0)
-```
-An enclosure of `w2` can be computed by using that it is `-π / 2` at
-`α = -1` and increasing.
-- **PROVE:** Prove the limit for `w2` and that it is increasing
-- **TODO:** Figure out how to handle `a0 * (w1 / w2 - x^p0). It should
-  be similar to what is being done in the asymptotic `F0`.
-- Alternatively error bounds for the limit `-1 / π * x * log(x) - (γ -
-  1) / π * x` could be computed.
+# Handling of `p` and `q`
+The method currently does not support `q != 0` and only supports `p ==
+0` and `p == 1`. These cases are handled specially in [`F0`](@ref) and
+for that reason we don't bother implementing them here.
 
-# Handling `q`
-As `α` goes to `-1` the factor corresponding to `q` converges to
+As `α` goes to `-1` we have that
 ```
-u0.v0.a0 * (
-    -1 // 4 * abs(x)^2 * log(abs(x))^2 + (3 // 4 - γ / 2) * abs(x)^2 * log(abs(x))
-    - (3γ - γ^2 - 2γ₁ - 7 // 2 + π^2 / 12) / 4 * abs(x)^2
-)
+a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
 ```
-where `γ₁ = stieltjes(Arb, 1)`.
-- **TODO:** In the end we might not need this factor since it is
-    handled specially by [`F0`](@ref). But otherwise we would need to
-    compute error bounds for this factor, preferably ones that depend
-    on `x`
+converges to
+```
+(1 - γ - log(x)) / π
+```
+- **TODO:** Prove this and compute error bounds.
 """
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
@@ -80,9 +49,10 @@ function eval_expansion(
     x;
     div_a0 = false,
 )
-    @assert abs(x) < 1
+    @assert x < 1
 
-    res = zero(x)
+    # We only care about the non-negative part of x
+    x = Arblib.nonnegative_part!(zero(x), x)
 
     # Enclosure of α
     α = Arb((-1, -1 + u0.ϵ))
@@ -118,55 +88,46 @@ function eval_expansion(
     # Irrationals used
     π = Arb(Irrational{:π}())
     γ = Arb(Irrational{:γ}())
-    γ₁ = stieltjes(Arb, 1)
+
+    res = zero(x)
 
     for ((p, q, i, j, k, l, m), y) in expansion
         if !iszero(y)
-            term = y
+            # We don't support evaluation of non-zero q
+            iszero(q) || throw(ArgumentError("only q == 0 is supported, got q = $q"))
 
-            exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
+            if iszero(p)
+                exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
 
-            if !iszero(p)
-                # Factor out x^(1 - u0.ϵ) and add to exponent
-                exponent += 1 - u0.ϵ
+                term = y * abspow(x, exponent)
+            elseif isone(p)
+                # Add -α to the exponent coming from the p factor
+                exponent = exponent_α_p0_m(i - 1, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
 
-                # This currently uses the limiting expression but
-                # without adding explicit error bounds
-                if Arblib.contains_zero(x)
-                    # Use monotonicity
-                    # TODO: Determine the interval of monotonicity
-                    lower = zero(x)
-                    upper = let x = ubound(Arb, x)
-                        (-inv(π) * log(abs(x)) - (γ - 1) / π) * abspow(x, u0.ϵ)
+                # FIXME: Add error bounds for this term. Here we just
+                # use the limiting value
+
+                # Compute an enclosure using monotonicity
+                if iszero(x)
+                    term = zero(x)
+                elseif Arblib.contains_zero(x)
+                    if Arblib.ispositive(exponent)
+                        lower = zero(x)
+                    else
+                        lower = Arblib.indeterminate!(zero(x))
                     end
 
-                    factor = Arb((lower, upper))
+                    upper = let x = ubound(Arb, x)
+                        (1 - γ - log(x)) / π * abspow(x, exponent)
+                    end
+
+                    term = y * Arb((lower, upper))
                 else
-                    factor = (-inv(π) * log(abs(x)) - (γ - 1) / π) * abspow(x, u0.ϵ)
+                    term = y * (1 - γ - log(x)) / π * abspow(x, exponent)
                 end
-
-                @warn "Error term not implemented for p = $p" maxlog = 1
-
-                term *= factor^p
+            else
+                throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
             end
-
-            if !iszero(q)
-                # This currently uses the limiting expression but
-                # without adding error bounds. It is also currently
-                # not needed anywhere.
-                factor =
-                    u0.v0.a0 * (
-                        -1 // 4 * abs(x)^2 * log(abs(x))^2 +
-                        (3 // 4 - γ / 2) * abs(x)^2 * log(abs(x)) +
-                        (3γ - γ^2 - 2γ₁ - 7 // 2 + π^2 / 12) / 4 * abs(x)^2
-                    )
-
-                @warn "Error term not implemented for q = $q"
-
-                term *= factor^q
-            end
-
-            term *= abspow(x, exponent)
 
             res += term
         end
