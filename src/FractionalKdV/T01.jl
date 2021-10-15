@@ -88,7 +88,7 @@ function T01(
     # Compute c_α
 
     # Find the unique zero of the integrand on [0, 1]
-    # TODO: Prove that it is the unique one
+    # FIXME: Prove that it is the unique one
     f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
 
     roots, flags = ArbExtras.isolate_roots(f, Arf(0.01), Arf(0.99))
@@ -112,7 +112,7 @@ function T01(
 
     return x -> begin
         if p == 1
-            # TODO: Bound the tail - the terms go to zero extremely
+            # FIXME: Bound the tail - the terms go to zero extremely
             # fast so it should be negligible
             c_ϵ = zero(α)
             for m = 1:10
@@ -124,7 +124,7 @@ function T01(
             end
             c_ϵ *= 2
         else
-            # TODO: Bound the tail - the terms go to zero extremely
+            # FIXME: Bound the tail - the terms go to zero extremely
             # fast so it should be negligible
             c_ϵ = zero(α)
             for m = 1:10
