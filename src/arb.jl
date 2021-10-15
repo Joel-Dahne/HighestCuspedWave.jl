@@ -295,6 +295,8 @@ function hypgeom_2f1(a::arb, b::arb, c::arb, z::arb)
     return res
 end
 
+hypgeom_2f1(a::Arb, b::Arb, c::Arb, z::Arb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
+
 """
     taylor_with_error(f, a::Arb, X::Arb, N::Integer)
     taylor_with_error(f, a::arb, X::arb, N::Integer)

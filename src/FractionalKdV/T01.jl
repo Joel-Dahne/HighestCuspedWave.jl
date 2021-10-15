@@ -38,49 +38,76 @@ function T01(
 end
 
 """
-    T01(u0::FractionalKdVAnsatz, ::Asymptotic)
+    T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic)
+
 Returns a function such that `T01(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral T_{0,1} from the paper using an
+**upper bound** of the integral \$T_{0,1}\$ from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
 
-It splits the Clausians into the main singular part and the analytic
-expansion. The integral of the singular part is computed by finding
-where the integrand is positive respectively negative and then
+It splits the Clausen functions into the main singular part and the
+analytic expansion. The integral of the singular part is computed by
+finding where the integrand is positive respectively negative and then
 integrating explicitly. The expansion is integrated term wise and the
 resulting sum is bounded.
+
+From the singular part we get the integral
 ```
+c_α = abs(gamma(1 + α) * sinpi(α / 2)) * ∫ abs((1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)) * t^p dt
+```
+from `0` to `1`. The first step is to isolate the unique root `s` of
+```
+(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
+```
+on the interval `[0, 1]` and show that the function is negative on
+`[0, s]` and positive on `[s, 1]`.
+- **TODO:** Figure out how to prove that there are no roots close to
+    `x = 0` or `x = 1`.
+This allows us to remove the absolute value and compute the integral
+```
+∫ (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α) * t^p dt
+```
+from `0` to `s` and from `s` to `1`.
+- **TODO:** Write down the formulas used for the integration.
+
+- **TODO:** Write down the expression for the tail and the formulas used
+  for the integration. They are in the paper.
+- **TODO:** Bound the error terms for the tails.
+- **TODO:** Write down the last parts of the computations.
 """
 function T01(
-    u0::FractionalKdVAnsatz{arb},
+    u0::FractionalKdVAnsatz{Arb},
     ::Asymptotic;
     nonasymptotic_u0 = false, # Mainly for testing
 )
     @warn "T01(u0, Asymptotic()) is not yet complete - the tail of the sum is not bounded"
-    Γ = Nemo.gamma
+    gamma = SpecialFunctions.gamma
     α = u0.α
     p = u0.p
-    RR = parent(α)
-    CC = ComplexField(precision(RR))
-    π = RR(pi)
+    π = Arb(Irrational{:π}())
 
-    # Compute
-    # c_α = |Γ(1 + α)*sin(πα/2)|∫0^1 |(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
+    # Compute c_α
+
     # Find the unique zero of the integrand on [0, 1]
-    # PROVE: That there is at most one zero on [0, 1]
+    # TODO: Prove that it is the unique one
     f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
-    roots, flags =
-        isolateroots(f, parent(α)(0.1), parent(α)(0.9), refine = true, evaltype = :taylor)
-    @assert only(flags)
-    s = setunion(only(roots)...)
+
+    roots, flags = ArbExtras.isolate_roots(f, Arf(0.01), Arf(0.99))
+    only(flags) || Throw(ErrorException("could not isolate a unique root"))
+    s = ArbExtras.refine_root(f, Arb(only(roots)))
+
+    # Show that f is positive on [0, s] and negative on [s, 1] by
+    # evaluating at a point in the interval.
+    Arblib.isnegative(f(s / 2)) || error("could not show negativity on [0, s]")
+    Arblib.ispositive(f((s + 1) / 2)) || error("could not show positivity on [s, 1]")
 
     c_α =
-        abs(Γ(1 + α) * sinpi(α / 2)) * (
+        abs(gamma(1 + α) * sinpi(α / 2)) * (
             (
                 hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α)) -
                 2s^(1 + p) * hypgeom_2f1(1 + p, 1 + α, 2 + p, -s)
             ) / (1 + p) - 2beta_inc(1 + p, -α, s) +
             (2 - 4s^(p - α)) / (α - p) +
-            Γ(-α) * Γ(1 + p) / Γ(1 - α + p)
+            gamma(-α) * gamma(1 + p) / gamma(1 - α + p)
         )
 
     return x -> begin
@@ -89,10 +116,11 @@ function T01(
             # fast so it should be negligible
             c_ϵ = zero(α)
             for m = 1:10
-                m = fmpz(m)
-                c_ϵ +=
-                    (-one(α))^m / (factorial(2m)) * zeta(-α - 2m) * m * (RR(4)^m - 1) /
-                    ((m + 1) * (2m + 1)) * abspow(x, RR(2m - 2))
+                # This is fine to do in Int64, the factorial would
+                # throw an error before anything else overflows.
+                factor = (-1)^m // factorial(2m) * m * (4^m - 1) // ((m + 1) * (2m + 1))
+
+                c_ϵ += factor * zeta(-α - 2m) * abspow(x, 2m - 2)
             end
             c_ϵ *= 2
         else
@@ -100,12 +128,11 @@ function T01(
             # fast so it should be negligible
             c_ϵ = zero(α)
             for m = 1:10
-                m = fmpz(m)
                 c_ϵ +=
-                    (-one(α))^m / (factorial(2m)) *
+                    (-1)^m // factorial(2m) *
+                    sum(binomial(2m, 2k) / (2k + p + 1) for k = 0:m-1) *
                     zeta(-α - 2m) *
-                    (sum(binom(RR(2m), unsigned(2k)) / (2k + p + 1) for k = 0:Int(m)-1)) *
-                    abspow(x, RR(2m - 2))
+                    abspow(x, 2m - 2)
             end
             c_ϵ *= 2
         end
@@ -117,8 +144,9 @@ function T01(
         end
 
         res = c_α + c_ϵ * abspow(x, 3 + α)
+
         # Ball containing 1 + hat(u0)(x)
-        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x)) * abspow(x, u0.p0))
+        L = Arblib.add_error!(one(α), c(u0, Arblib.abs_ubound(Arb, x)) * abspow(x, u0.p0))
 
         return L / (π * a0(u0, 0)) * res
     end
