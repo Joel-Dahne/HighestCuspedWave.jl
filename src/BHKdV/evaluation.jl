@@ -449,19 +449,26 @@ evaluation of the expansion gives an enclosure of the result.
 
 For the main term the coefficients in front of `x^2m` is given by
 ```
-a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
+-a0 * (-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m)
 ```
 which in the limit becomes `∞ * 0`. For `m >= 2` it converges to
 ```
-u0.v0.a0 * (-1)^m * zeta(2 - 2m, d = 1) / factorial(2m)
+-u0.v0.a0 * (-1)^m * zeta(2 - 2m, d = 1) / factorial(2m)
 ```
-which is the coefficient in front of `x^2m` for the main term of
-`u0.v0`. We therefore compute the coefficients by using this
-expression and then adding an error term for it. For `m = 1` we can't
-do this, instead we include it in the remaining terms below.
-- **TODO:** What error term should we add? At the moment it is hard
-    coded.
-- **TODO:** How should we handle the error term from the expansion?
+, where `u0.v0.a0 = 2 / π^2` , which is the coefficient in front of
+`x^2m` for the main term of `u0.v0`. We therefore compute the
+coefficients by using this expression and then bounding the error for
+it. For `m = 1` we can't do this, instead we include it in the
+remaining terms below.
+
+For now we bound the error by computing the value at `α = -1 + u0.ϵ`
+and take the union of the result with the one computed with the
+limiting expression. This works in practice since we have a monotone
+convergence.
+- **TODO:** Compute rigorous bounds for the coefficients. Possibly by
+  proving the monotonicity of the error.
+- **TODO:** Compute rigorous bounds for the error term in the
+  expansion. Possibly by proving the monotonicity of it.
 
 The remaining part of the expansion of `H` applied to the main term is
 ```
@@ -471,20 +478,31 @@ The remaining part of the expansion of `H` applied to the main term is
     (zeta(1 - 2α - 2) / 2 - zeta(1 - 2α + p0 - 2) / 2) * abs(x)^2
 )
 ```
-which we don't evaluate at all yet. This we don't evaluate but instead
-store implicitly in the expansion.
+which we don't evaluate at all yet. Instead we store it implicitly in
+the expansion.
+
+For the Clausen terms just we let `α` be a ball for `j >= 2`, this
+gives good enclosures thanks to [`clausenc_expansion`](@ref). For `j =
+1` this doesn't work since `1 - α - u0.v0.v0.α + u0.v0.v0.p0` contains
+the integer `3` and the first two coefficients in the expansion blow
+up and collapse together.
+- **TODO:** Figure out how to handle the case `j = 1`. Currently we
+  just take the value at `α = -1` but this is probably not good
+  enough.
 
 For the tail term the Fourier terms are handled directly by letting
-`α` be a ball. For the Clausen terms this gives very bad enclosures.
-Instead we take `α = -1` in this case and compute error bounds.
-- **TODO:** How to compute these error bounds? Is this even the right
-    approach?
+`α` be a ball.
 
-See [`eval_expansion`](@ref) for more details.
+See [`eval_expansion`](@ref) for more details about how the
+coefficients are stored.
 """
 function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     @assert M >= 3
 
+    # Terms used when computing error bounds
+    α = -1 + u0.ϵ
+    a0 = finda0(α)
+    p0 = 1 + α + (1 + α)^2 / 2
     return x -> begin
         res = OrderedDict{NTuple{7,Int},Arb}()
 
@@ -499,9 +517,16 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         res[(0, 1, 0, 0, 0, 0, 0)] = 1
 
         # Remaining terms
-        @warn "No error bounds for coefficients of main term" maxlog = 1
+        @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
+        # TODO: Implement rigorous error bounds
         for m = 2:M-1
             coefficient = -(-1)^m * zeta(Arb(3 - 2m), d = 1) / factorial(Arb(2m)) * u0.v0.a0
+
+            # Add error bounds
+            coefficient_2 =
+                -a0 * (-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m)
+
+            coefficient = union(coefficient, coefficient_2)
 
             res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
         end
@@ -513,34 +538,51 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             2abs(zeta(Arb(3 - 2M), d = 1) / factorial(Arb(2M))) * u0.v0.a0,
         )
 
-        # Tail term
-        α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
-
         # Clausen terms
-        @warn "No error bounds for Clausen terms in tail" maxlog = 1
-        for j = 1:u0.v0.v0.N0
-            s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
-            C, _, p, E = Ci_expansion(x, s, M)
+        @warn "Clausen term with j = 1 in tail not enclosed" maxlog = 1
+        # Handle the first term manually since s is very close to 3 in
+        # this case and it is therefore very unstable
+        # TODO: Figure out how to handle this. Currently we just take
+        # α = -1.
+        if u0.v0.v0.N0 >= 1
+            let j = 1
+                s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
+                C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-            res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
-            for m = 1:M-1
-                res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
+                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+                for m = 1:M-1
+                    res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
+                end
+                Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], E)
             end
-            Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], E)
+        end
+        let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
+            for j = 2:u0.v0.v0.N0
+                s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+                C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
+
+                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+                for m = 1:M-1
+                    res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
+                end
+                Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], E)
+            end
         end
 
         # Fourier terms
-        if !iszero(u0.v0.N)
-            for m = 1:M-1
-                res[(0, 0, 0, 0, 0, 0, 2m)] -=
-                    (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
-                    factorial(Arb(2m))
+        let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
+            if !iszero(u0.v0.N)
+                for m = 1:M-1
+                    res[(0, 0, 0, 0, 0, 0, 2m)] -=
+                        (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
+                        factorial(Arb(2m))
+                end
+                Arblib.add_error!(
+                    res[(0, 0, 0, 0, 0, 0, 2M)],
+                    sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) /
+                    factorial(Arb(2M)),
+                )
             end
-            Arblib.add_error!(
-                res[(0, 0, 0, 0, 0, 0, 2M)],
-                sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) /
-                factorial(Arb(2M)),
-            )
         end
 
         return res
