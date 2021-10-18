@@ -230,21 +230,29 @@ which in the limit becomes `∞ * 0`. It converges to
 ```
 u0.v0.a0 * (-1)^m * zeta(2 - 2m, d = 1) / factorial(2m)
 ```
-which is the coefficient in front of `x^2m` for the main term of
-`u0.v0`. We therefore compute the coefficients by using this
-expression and then adding an error term for it.
-- **TODO:** What error term should we add? At the moment it is hard
-    coded.
-- **TODO:** How should we handle the error term from the expansion?
+, where `u0.v0.a0 = 2 / π^2` , which is the coefficient in front of
+`x^2m` for the main term of `u0.v0`. We therefore compute the
+coefficients by using this expression and then adding bounding the
+error for it.
+
+For now we bound the error by computing the value at `α = -1 + u0.ϵ`
+and take the union of the result with the one computed with the
+limiting expression. This works in practice since we have a monotone
+convergence.
+- **TODO:** Compute rigorous bounds for the coefficients. Possibly by
+  proving the monotonicity of the error.
+- **TODO:** Compute rigorous bounds for the error term in the
+  expansion. Possibly by proving the monotonicity of it.
 
 The only remaining part of the expansion of the main term is
 ```
 a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
 ```
-which we don't evaluate at all yet. This we don't evaluate but instead
-store implicitly in the expansion.
+which we don't evaluate at all yet. Instead store implicitly in the
+expansion.
 
-See [`eval_expansion`](@ref) for more details.
+See [`eval_expansion`](@ref) for more details about how the
+coefficients are stored.
 """
 function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @assert M >= 3
@@ -262,30 +270,35 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     res[(1, 0, 0, 0, 0, 0, 0)] = 1
 
     # x^2m terms
-    for m = 1:M-1
-        coefficient = (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(Arb(2m)) * u0.v0.a0
-        if 2m == 2
-            Arblib.add_error!(coefficient, Mag(2e-5))
-        elseif 2m == 4
-            Arblib.add_error!(coefficient, Mag(4e-8))
-        else
-            throw(ArgumentError("no error bound computed for m = $m"))
-        end
+    # TODO: Implement rigorous bounds
+    @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
+    let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
+        for m = 1:M-1
+            coefficient = u0.v0.a0 * (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(2m)
 
-        res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
+            # Add error bounds
+            coefficient_2 =
+                a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
+
+            coefficient = union(coefficient, coefficient_2)
+
+            res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
+        end
     end
 
     # Error term for main term
+    @warn "Non-rigorous error term implemented for main term" maxlog = 1
     Arblib.add_error!(
         res[(0, 0, 0, 0, 0, 0, 2M)],
-        2abs(zeta(Arb(2 - 2M), d = 1) / factorial(Arb(2M))) * u0.v0.a0,
+        2abs(zeta(Arb(2 - 2M), d = 1) / factorial(2M)) * u0.v0.a0,
     )
 
     # Tail term
 
     # Clausen terms
     for j = 1:u0.v0.v0.N0
-        C, _, p, E = Ci_expansion(x, 1 - u0.v0.v0.α + j * u0.v0.v0.p0, M)
+        C, _, p, E =
+            clausenc_expansion(x, 1 - u0.v0.v0.α + j * u0.v0.v0.p0, M, skip_constant = true)
         res[(0, 0, 0, 0, 1, j, 0)] = C * u0.v0.v0.a[j]
         for m = 1:M-1
             res[(0, 0, 0, 0, 0, 0, 2m)] += p[2m] * u0.v0.v0.a[j]
