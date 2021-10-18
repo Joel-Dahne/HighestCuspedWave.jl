@@ -366,6 +366,10 @@ and fails when it overlaps with an integer.
 For now we take the same approach as for the main term, compute with
 `α = -1 + u0.ϵ` and take the union.
 
+- **FIXME:** The monotonicity holds when computing with `Arb` but not
+    when computing with `ArbSeries` for higher order terms. At least
+    this seems to be the case. So this doesn't give a rigorous bound
+    but probably does give good bounds in practice.
 - **TODO:** Compute rigorous error bounds. Proving the monotonicity of
     the error would be great but might be hard in practice since one
     of the coefficients of `u0.v0.v0` have a sign that differs.
