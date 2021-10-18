@@ -331,21 +331,24 @@ ball arithmetic (not an asymptotic approach).
 
 The transform of the main term is given by
 ```
--a0 * (Ci(x, 1 - 2α) - Ci(x, 1 - 2α + p0) - (zeta(1 - 2α) - zeta(1 - 2α + p0)))
+-a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
 ```
 we make use of the fact that this converges to
 ```
--u0.v0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
+-2 / π^2 * (Ci(x, 3, 1) - zeta(3, d = 1))
 ```
 , which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
-evaluate this function and add precomputed \$L^\\infty\$ bounds for
-```
--a0 * (Ci(x, 1 - 2α) - Ci(x, 1 - 2α + p0) - (zeta(1 - 2α) - zeta(1 - 2α + p0))) + u0.v0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
-```
-valid for the entire range `α ∈ (-1, -1 + u0.ϵ]`.
+evaluate this function and bound the error.
 
-**TODO:** Compute rigorous \$L^\\infty\$ bounds for the above
-  expression. We currently use a heuristic value.
+For now we compute the value for `α = -1 + u0.ϵ` and take the union of
+this result and the one computed with the limiting expression. This
+works in practice since we have a monotone convergence.
+
+This approach also works for `ArbSeries`, though it is currently less
+clear if we have the same monotone convergence, probably we do.
+
+- **TODO:** Compute rigorous error bounds. Possibly by proving the
+    monotonicity of the error.
 
 For the tail term we need to make sure that we correctly handle the
 fact that the transform depends on the value of `α`.
@@ -355,59 +358,68 @@ For the Fourier terms we do this directly, the transformation takes
 be a ball containing `(-1, -1 + u0.ϵ]`.
 
 For the Clausen functions we have to be a bit more careful. The
-transformation takes `Ci(x, s)` to `-Ci(x, s - α)` but putting `α` as
-a ball doesn't give good enclosures. It gives a large overestimations,
-in particular when `s - α` is close to an integer, and fails when it
-overlaps with an integer. Instead we use the approximation given by
-taking the Hilbert transform and bounding the error. The Hilbert
-transform of `Ci(x, s)` is given by `-Ci(x, s + 1)`. For the error we
-currently use a heuristic, for `s = 2` and `ϵ = 0.0003` the error
-maximum error in `x` is around `3e-4` and for larger values of `s` we
-get a smaller error.
+transformation takes `clausenc(x, s)` to `-clausenc(x, s - α)` but
+putting `α` as a ball doesn't give good enclosures. It gives a large
+overestimations, in particular when `s - α` is close to an integer,
+and fails when it overlaps with an integer.
 
-**TODO:** How to properly bound the error when using `-Ci(x, s + 1)`
-instead of `-Ci(x, s - α)`?
+For now we take the same approach as for the main term, compute with
+`α = -1 + u0.ϵ` and take the union.
 
-**TODO:** We will probably have to improve on the enclosure to get a
-sufficiently good defect in the end.
-
+- **TODO:** Compute rigorous error bounds. Proving the monotonicity of
+    the error would be great but might be hard in practice since one
+    of the coefficients of `u0.v0.v0` have a sign that differs.
 """
 function H(u0::BHKdVAnsatz{Arb}, ::Ball)
+    # Terms used when computing error bounds
+    α = -1 + u0.ϵ
+    a0 = finda0(α)
+    p0 = 1 + α + (1 + α)^2 / 2
 
-
-    @warn "L^∞ bounds for main term not rigorously computed - using heuristic values" maxlog =
-        1
-    @warn "L^∞ bounds for Clausen tail term not rigorously computed - using heuristic values" maxlog =
-        1
-
-    return x -> begin
-
+    return x::Union{Arb,ArbSeries} -> begin
         # Main term
 
         # Approximation
-        res = -u0.v0.a0 * (Ci(x, 3, 1) - zeta(Arb(3), d = 1))
+        res = -2 / Arb(π)^2 * (Ci(x, 3, 1) - zeta(Arb(3), d = 1))
 
         # Add error bounds
-        if u0.ϵ <= 0.0003
-            Arblib.add_error!(res, Mag(1e-4))
-        else
-            throw(ErrorException("no L^∞ bounds for ϵ = $ϵ"))
+        @warn "No error bounds for main term" maxlog = 1
+        # TODO: Implement rigorous bounds
+        res2 = -a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
+        if x isa Arb
+            res = union(res, res2)
+        elseif x isa ArbSeries
+            coefficients = union.(Arblib.coeffs(res), Arblib.coeffs(res2))
+            res = ArbSeries(coefficients)
         end
 
         # Tail term
 
         # Clausen terms
+        clausen_term = zero(x)
+
+        # Approximation
         for j = 1:u0.v0.v0.N0
-            s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
-            term = Ci(x, s) - zeta(s)
-            if s >= 2 && u0.ϵ <= 0.0003
-                Arblib.add_error!(term, Mag(3e-4))
-            else
-                # Error bounds only valid for s >= 2
-                throw(ErrorException("no L^∞ bounds for s = $s and ϵ = $ϵ"))
-            end
-            res -= u0.v0.v0.a[j] * term
+            term = clausencmzeta(x, 2 - u0.v0.v0.α + j * u0.v0.v0.p0)
+            clausen_term -= u0.v0.v0.a[j] * term
         end
+
+        # Add error bounds
+        @warn "Non-rigorous bounds implemented for Clausen terms" maxlog = 1
+        # TODO: Implement rigorous bounds
+        clausen_term2 = zero(x)
+        for j = 1:u0.v0.v0.N0
+            term = clausencmzeta(x, 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0)
+            clausen_term2 -= u0.v0.v0.a[j] * term
+        end
+        if x isa Arb
+            clausen_term = union(clausen_term, clausen_term2)
+        elseif x isa ArbSeries
+            coefficients = union.(Arblib.coeffs(clausen_term), Arblib.coeffs(clausen_term2))
+            clausen_term = ArbSeries(coefficients)
+        end
+
+        res += clausen_term
 
         # Fourier terms
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
