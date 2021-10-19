@@ -70,7 +70,7 @@ function delta0(
         Arblib.ubound(Arb(π)),
         abs_value = true,
         point_value_max = estimate,
-        atol = 2Arblib.radius(estimate); # We can expect to do better than this
+        atol = 3Arblib.radius(estimate); # We can expect to do better than this
         rtol,
         degree,
         threaded,
