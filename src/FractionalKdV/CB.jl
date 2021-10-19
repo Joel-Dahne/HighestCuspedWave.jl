@@ -74,15 +74,7 @@ function CB_bounded_by(
 
 
     # Check that the bound holds on [0, ϵ]
-    asymptotic_bound = ArbExtras.bounded_by(
-        f,
-        Arf(0),
-        ϵ,
-        C,
-        degree = -1;
-        threaded,
-        verbose,
-    )
+    asymptotic_bound = ArbExtras.bounded_by(f, Arf(0), ϵ, C, degree = -1; threaded, verbose)
 
     if !asymptotic_bound
         verbose && @info "Bound doesn't hold on [0, ϵ]"

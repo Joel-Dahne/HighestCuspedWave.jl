@@ -174,7 +174,8 @@ function T02(
 
     # Compute c_α
     c_α = let
-        integral = (hypgeom_2f1(1 + α, α - p, 1 + α - p, Arb(-1)) - 2) / (α - p) +
+        integral =
+            (hypgeom_2f1(1 + α, α - p, 1 + α - p, Arb(-1)) - 2) / (α - p) +
             gamma(-α) * gamma(α - p) / gamma(-p)
 
         abs(gamma(1 + α) * sinpi(α / 2)) * integral
