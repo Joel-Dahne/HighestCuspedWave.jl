@@ -244,17 +244,17 @@ For `p = 1` we instead use the expression
 and we divide by the weight directly.
 
 If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
-expansion gives a very poor approximation for `Ci(x + y, -α)`. In this
-case we make use of the fact that it's 2π periodic and even, so that
-`Ci(x + y, -α) = Ci(x + y - 2π, -α) = Ci(2π - (x + y), -α)`, to be
-able to use the asymptotic expansion instead. That gives us the
-integral ```∫_x^a (2π - (x + y))^s*t^p dy` which is given by `(2π -
-x)^(1 + p + s)*(B(1 + p, 1 + s, a/(2π - x)) - B(1 + p, 1 + s, x/(2π -
-x)))```. The value of `x/(2π - x)` will always be less than or equal
-to 1 for `x` less than or equal to π, however due to overestimation
-the enclosing ball might contain values greater than one, we therefore
-have to use `beta_inc_zeroone` to be able to get finite results in
-that case.
+expansion gives a very poor approximation for `clausenc(x + y, -α)`.
+In this case we make use of the fact that it's 2π periodic and even,
+so that `clausenc(x + y, -α) = clausenc(x + y - 2π, -α) = clausenc(2π
+- (x + y), -α)`, to be able to use the asymptotic expansion instead.
+That gives us the integral ```∫_x^a (2π - (x + y))^s*t^p dy` which is
+given by `(2π - x)^(1 + p + s)*(B(1 + p, 1 + s, a/(2π - x)) - B(1 + p,
+1 + s, x/(2π - x)))```. The value of `x/(2π - x)` will always be less
+than or equal to 1 for `x` less than or equal to π, however due to
+overestimation the enclosing ball might contain values greater than
+one, we therefore have to use `beta_inc_zeroone` to be able to get
+finite results in that case.
 """
 T021(u0::FractionalKdVAnsatz, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
@@ -344,7 +344,7 @@ function T021(
     res += δ2 * (P1_restterm + P2_restterm)
 
     if use_asymptotic
-        # Handle asymptotic expansion of Ci(x + y, -α)
+        # Handle asymptotic expansion of clausenc(x + y, -α)
         # The furthest away from 2π we are is at y = x
         (C, e, P3, P3_E) = clausenc_expansion(2Arb(π) - 2x, -α, M)
         P3_restterm = P3_E * (2Arb(π) - 2x)^(2M)
