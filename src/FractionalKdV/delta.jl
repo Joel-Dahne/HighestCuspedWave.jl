@@ -49,7 +49,7 @@ function delta0(
     # Bound the value one [0, ϵ]
     # Estimate the value by evaluating it at ϵ
     estimate = abs(f(Arb(ϵ)))
-    res1 = ArbExtras.maximum_enclosure(
+    max_asymptotic = ArbExtras.maximum_enclosure(
         f,
         zero(ϵ),
         ϵ,
@@ -62,9 +62,11 @@ function delta0(
         verbose,
     )
 
+    verbose && @info "Bound on [0, ϵ]" max_asymptotic
+
     # Bound the value on [ϵ, π] by Ball evaluation
     estimate = maximum(abs.(g.(range(Arb(ϵ), Arblib.ubound(Arb, Arb(π)), length = 10))))
-    res2 = ArbExtras.maximum_enclosure(
+    max_nonasymptotic = ArbExtras.maximum_enclosure(
         g,
         ϵ,
         Arblib.ubound(Arb(π)),
@@ -77,9 +79,9 @@ function delta0(
         verbose,
     )
 
-    verbose && @show res1 res2
+    verbose && @info "Bound on [ϵ, π]" max_nonasymptotic
 
-    res = max(res1, res2)
+    res = max(max_asymptotic, max_nonasymptotic)
     # The result is always nonnegative
     return Arblib.nonnegative_part!(res, res)
 end

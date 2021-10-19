@@ -79,7 +79,7 @@ function T01(
     ::Asymptotic;
     nonasymptotic_u0 = false, # Mainly for testing
 )
-    @warn "T01(u0, Asymptotic()) is not yet complete - the tail of the sum is not bounded"
+    @warn "T01(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
     gamma = SpecialFunctions.gamma
     α = u0.α
     p = u0.p

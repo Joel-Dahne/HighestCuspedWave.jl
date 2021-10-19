@@ -69,7 +69,7 @@ function CB_bounded_by(
             ϵ *= 0.8
         end
 
-        verbose && @show ϵ
+        verbose && @info "ϵ for asymptotic evaluation to satisfy bound" ϵ
     end
 
 

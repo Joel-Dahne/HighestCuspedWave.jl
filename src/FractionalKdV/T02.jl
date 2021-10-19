@@ -168,7 +168,7 @@ function T02(
         end
     end
 
-    @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1 - the tail of the sum is not bounded"
+    @warn "T02(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
 
     gamma = SpecialFunctions.gamma
 
