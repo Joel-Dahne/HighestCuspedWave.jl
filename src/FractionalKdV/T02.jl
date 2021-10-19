@@ -89,41 +89,78 @@ function T02(
 end
 
 """
-    T02(u0::FractionalKdVAnsatz, ::Asymptotic)
+    T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic)
+
 Returns a function such that `T02(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral T_{0,2} from the paper using an
+**upper bound** of the integral \$T_{0,2}\$ from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
+
+It splits the Clausen functions into the main singular part and the
+analytic expansion. The integral of the singular part is computed
+directly. The expansion is integrated term wise and the resulting sum
+is bounded.
+
+For the singular part we get the integral
+```
+c_α = abs(gamma(1 + α) * sinpi(α / 2)) * ∫ abs((t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)) * t^p dt
+```
+from `1` to `∞`. The expression inside the absolute value is positive
+and after removing it we can integrate explicitly. Skipping the factor
+in front we have
+```
+∫ ((t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)) * t^p dt =
+    (hypgeom_2f1(1 + α, α - p, 1 + α - p, Arb(-1)) - 2) / (α - p) +
+    gamma(-α) * gamma(α - p) / gamma(-p)
+```
+This was computed using Mathematica with the following code
+```
+Integrate[((t - 1)^(-1 - a) + (t + 1)^(-1 - a) - 2 t^(-1 - a))*t^p, {t, 1, Infinity}, Assumptions -> -1 < a < 0]
+```
+- **FIXME:** Mathematica gives the condition `-1 < Re[p] < 0 && a >
+  Re[p]` which is not satisfied in our case. However the expression
+  seems to give the correct values so we use it for now.
+- **PROVE:** That the expression is positive.
+
+- **TODO:** Write down the expression for the tail and the formulas used
+  for the integration. They are in the paper.
+- **TODO:** Bound the error terms for the tails.
+- **TODO:** Write down the last parts of the computations.
+- **TODO:** Explain evaluation strategy for the case `p == 1`.
 """
 function T02(
-    u0::FractionalKdVAnsatz{arb},
+    u0::FractionalKdVAnsatz{Arb},
     ::Asymptotic;
-    N::Integer = 100,
     nonasymptotic_u0 = false, # Mainly for testing
 )
     α = u0.α
     p = u0.p
-    RR = parent(α)
-    π = RR(pi)
+    π = Arb(Irrational{:π}())
 
-    if p == 1
+    if isone(p)
         return x -> begin
-            (A, _, P1, E1) = Ci_expansion(x, 2 - α, 2)
-            (_, _, _, E1p) = Ci_expansion(2x, 2 - α, 2)
-            (B, _, P2, E2) = Si_expansion(x, 1 - α, 1)
-            (_, _, _, E2p) = Si_expansion(2x, 1 - α, 1)
+            (A, _, P1, E1) = clausenc_expansion(x, 2 - α, 2)
+            (_, _, _, E1p) = clausenc_expansion(2x, 2 - α, 2)
+            (B, _, P2, E2) = clausens_expansion(x, 1 - α, 1)
+            (_, _, _, E2p) = clausens_expansion(2x, 1 - α, 1)
+
             # PROVE: That P3[1] == P3[3] == 0
             (P3, E3) = taylor_with_error(π, setunion(π, π + x), 4) do y
-                return Ci(y, 2 - α)
+                return clausenc(y, 2 - α)
             end
 
-            c_α = A * (1 - parent(α)(2)^(-α)) + B * (1 - parent(α)(2)^(-α - 1))
+            c_α = A * (1 - 2^(-α)) + B * (1 - 2^(-α - 1))
+
             K = 2 / (π * a0(u0, 0))
+
             # Ball containing 1 + hat(u0)(x)
-            L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x)) * abspow(x, u0.p0))
+            L = Arblib.add_error!(
+                one(α),
+                c(u0, Arblib.abs_ubound(Arb, x)) * abspow(x, u0.p0),
+            )
 
             res = (
                 K * c_α * L +
-                K / 2 * L * (zeta(-α) - Ci(π, -α)) * abspow(x, 1 + α) +
+                K / 2 * L * (zeta(-α) - clausenc(π, -α)) * abspow(x, 1 + α) +
                 K * L * abspow(x, α + 3) * (E3 + E1 - 8 * E1p + E2 - 8 * E2p)
             )
 
@@ -132,19 +169,16 @@ function T02(
     end
 
     @warn "T02(u0, Asymptotic()) is not yet rigorous when u0.p != 1 - the tail of the sum is not bounded"
-    Γ = Nemo.gamma
-    CC = ComplexField(precision(RR))
 
-    # Compute
-    # c_α = |Γ(1 + α)*sin(πα/2)|∫₁^∞ |(t - 1)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)|tᵖ dt
-    # PROVE: That this is real
-    c_α =
-        abs(Γ(1 + α) * sinpi(α / 2)) * (
-            real(
-                CC(-1)^CC(-p) * (CC(-1)^CC(α) + CC(-1)^CC(p)) * Γ(α - p) * Γ(1 + p) /
-                Γ(1 + α) + CC(-1)^CC(α) * Γ(-α) * Γ(1 + p) / (Γ(1 - α + p)),
-            ) - 2 / (α - p) - hypgeom_2f1(1 + α, 1 + p, 2 + p, RR(-1)) / (1 + p)
-        )
+    gamma = SpecialFunctions.gamma
+
+    # Compute c_α
+    c_α = let
+        integral = (hypgeom_2f1(1 + α, α - p, 1 + α - p, Arb(-1)) - 2) / (α - p) +
+            gamma(-α) * gamma(α - p) / gamma(-p)
+
+        abs(gamma(1 + α) * sinpi(α / 2)) * integral
+    end
 
     # We evaluate the sum in the paper at x = 0, the expression
     # coming from the interior integral then simplifies a lot.
@@ -153,9 +187,11 @@ function T02(
     # PROVE: That the value at x = 0 is indeed a bound of the
     # sum. Could it be that this is not the case?
     c_ϵ = zero(α)
-    for m = 1:30
-        integral = 2 * π^(2m - 1 + p) * binom(RR(2m), unsigned(2m - 2)) / (2m - 1 + p)
-        c_ϵ += (-one(α))^m / factorial(2fmpz(m)) * zeta(-α - 2m) * integral
+    for m = 1:20
+        integral = 2 * binomial(2m, 2m - 2) * π^(2m - 1 + p) / (2m - 1 + p)
+        term = (-1)^m * zeta(-α - 2m) * integral / factorial(Arb(2m))
+
+        c_ϵ += term
     end
 
     return x -> begin
@@ -167,7 +203,9 @@ function T02(
 
         res = c_α + c_ϵ * abspow(x, 2 - p + α)
         # Ball containing 1 + hat(u0)(x)
-        L = ball(parent(α)(1), c(u0, ArbTools.abs_ubound(x)) * abspow(x, u0.p0))
+
+        L = Arblib.add_error!(one(α), c(u0, Arblib.abs_ubound(Arb, x)) * abspow(x, u0.p0))
+
         return L / (π * a0(u0, 0)) * res
     end
 end
