@@ -329,7 +329,10 @@ function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u
         #α = Arb((-1, -1 + u0.ϵ))
         α = Arb(-1)
         integrand(t) =
-            abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+            abs(
+                clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) -
+                2clausenc(x * t, -α),
+            ) *
             t *
             log(10 + inv(x * t))
 
@@ -506,10 +509,13 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
         # FIXME: Use the interval for α once this is supported by clausenc
         #α = Arb((-1, -1 + u0.ϵ))
         α = Arb(-1)
-        integral = weight_factor * (
-            (-clausens(zero(Arb), 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)) -
-            (-clausens(x * δ1, 1 - α) + clausens(x * (2 - δ1), 1 - α) - 2clausens(x * (1 - δ1), 1 - α))
-        )
+        integral =
+            weight_factor * (
+                (-clausens(zero(Arb), 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)) - (
+                    -clausens(x * δ1, 1 - α) + clausens(x * (2 - δ1), 1 - α) -
+                    2clausens(x * (1 - δ1), 1 - α)
+                )
+            )
 
         res = integral / (π * log(10 + inv(x)))
 

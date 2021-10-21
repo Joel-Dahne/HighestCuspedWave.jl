@@ -89,10 +89,12 @@ function T021(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
         # FIXME: Use the interval for α once this is supported by clausenc
         #α = Arb((-1, -1 + u0.ϵ))
         α = Arb(-1)
-        integral = weight_factor * (
-            (-clausens(x - a, 1 - α) + clausens(x + a, 1 - α) - 2clausens(a, 1 - α)) -
-            (-clausens(zero(Arb), 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α))
-        )
+        integral =
+            weight_factor * (
+                (-clausens(x - a, 1 - α) + clausens(x + a, 1 - α) - 2clausens(a, 1 - α)) - (
+                    -clausens(zero(Arb), 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)
+                )
+            )
 
         res = integral / (π * u0.w(x))
 
