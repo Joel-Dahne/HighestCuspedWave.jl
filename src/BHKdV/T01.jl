@@ -25,6 +25,285 @@ function T01(
 end
 
 """
+    T01(u0::BHKdVAnsatz, ::Asymptotic)
+
+Returns a function such that `T01(u0, Asymptotic())(x)` computes an
+**upper bound** of the integral \$T_{0,1}\$ from the paper using an
+evaluation strategy that works asymptotically as `x` goes to `0`.
+
+First of all the change of coordinates `t = y / x` leaves us with
+```
+x / (π * u0(x) * log(10 + inv(x))) *
+    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t * log(10 + inv(x * t)) dt
+```
+with the integration going from `0` to `1`.
+
+To begin with the factor
+```
+x^-α * log(x) / (π * u0(x) * log(10 + inv(x)))
+```
+is factored out from the whole expression and multiplied back in the
+end. Notice that this factor is bounded in `x`. We can bound `log(x) /
+log(10 + inv(x))` by using that it is `-1` at `x = 0` and increasing.
+To bound `x^-α / u0(x)` we compute the asymptotic expansion of `u0(x)`
+and multiply that by `x^α` and evaluate.
+- **TODO:** Deal with the fact that `u0(x) * x^α` blows up as `x ->
+    0`. It's not a problem since we divide by it, but it needs to be
+    handled.
+
+What we are left with computing is
+```
+W(x) * I
+```
+where `W(x) = x^(1 + α) / log(x)` and `I` the same integral as above.
+
+Now consider the expansions
+```
+clausenc(x * (1 - t), -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * (1 - t)^(-α - 1) + R(x * (1 - t))
+clausenc(x * (1 + t), -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
+clausenc(x * t, -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * t^(-α - 1) + R(x * t)
+```
+where the error term `R` contains one constant term and `R(x * (1 -
+t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`. Since we are
+only looking for an upper bound we can split the absolute value and we
+get the two integrals
+```
+I₁ = abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
+    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(10 + inv(x * t)) dt
+I₂ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(10 + inv(x * t)) dt
+```
+satisfying `I <= I₁ + I₂`. Furthermore we can split `log(10 + inv(x *
+t))` as
+```
+log(10 + inv(x * t)) = log((10x * t + 1) / (x * t)) = log(1 + 10x * t) - log(x) - log(t)
+```
+Which allows us to split the two above integrals into three integrals
+each.
+```
+I₁₁ = -log(x) * abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
+    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+I₁₂ = -abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
+    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+I₁₃ = abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
+    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + 10x * t) dt
+I₂₁ = -log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt
+I₂₂ = -∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
+I₂₃ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + 10x * t) dt
+```
+
+Focusing on the first three integrals the first step is to understand
+the behaviour of
+```
+gamma(1 + α) * sinpi(α / 2) * ((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1))
+```
+The factor `sinpi(α / 2)` converges to `-1` and can be enclosed
+directly, we can hence focus our attention on
+```
+gamma(1 + α) * ((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1))
+```
+As `α -> -1` this converges to
+```
+-log(1 - t) - log(1 + t) + 2log(t)
+```
+- **TODO:** Finish this.
+
+For the first integral we get
+```
+W(x) * I₁₁ = -abs(sinpi(α / 2)) *
+    ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+```
+As mentioned `abs(sinpi(α / 2))` can be enclosed directly. The
+integral doesn't depend on `x` and can be enclosed.
+- **TODO:** Enclose the integral
+  `∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt`.
+Next we have
+```
+W(x) * I₁₂ = -inv(log(x)) * abs(sinpi(α / 2)) *
+    ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+```
+where again the integral doesn't depend on `x` and can be enclosed.
+The factor `abs(sinpi(α / 2))` can be enclosed as above and
+`-inv(log(x))` can be enclosed using that it is zero at `x = 0` and
+increasing.
+- **TODO:** Enclose the integral
+  ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt.
+For the third one we have
+```
+W(x) * I₁₃ = inv(log(x)) * abs(sinpi(α / 2)) *
+    ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + 10x * t) dt
+```
+The factor outside the integral can be dealt with in the same way as
+for `W(x) * I₁₂` The factor `log(1 + 10x * t)` inside the integral can
+be enclosed using that it is zero for `x = 0` and increasing in both
+`x` and `t`. We can factor out the enclosure from the integral and the
+integral we are left with is the same as for `W(x) * I₁₁`.
+
+Now for the remaining three terms the first step is to handle the term
+`R₁(x) + R₂(x) - 2R₃(x)`. From the expansion of the Clausen functions
+we get
+```
+R₁(x) + R₂(x) - 2R₃(x) = sum(
+    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
+)
+```
+Since we are interested in an upper bound of absolute value we get
+```
+abs(R₁(x) + R₂(x) - 2R₃(x)) <= x^2 * sum(
+    abs(zeta(-α - 2m)) / factorial(2m) * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
+) <= x^2 * 2sum(
+    abs(zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf
+)
+```
+The final sum doesn't depend on `x` and can be bounded, call the bound
+`C`.
+- **TODO:** Bound the sum
+  `2sum(abs(zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf)`.
+
+Now for the integrals we get
+```
+W(x) * I₂₁ = -x^(1 + α) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt <=
+    -x^(1 + α) * x^2 * C * ∫ t dt =
+    -x^(3 + α) * C / 4  <=
+    -x^3 * C / 4
+```
+```
+W(x) * I₂₂ = -x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt <=
+    -x^(1 + α) / log(x) * x^2 * C * ∫ t * log(t) dt =
+    -x^(3 + α) / log(x) * C * ∫ t * log(t) dt <=
+    -x^3 / log(x) * C * ∫ t * log(t) dt =
+    x^3 / log(x) * C / 4
+```
+```
+W(x) * I₂₃ = x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + 10x * t) dt <=
+    x^(1 + α) / log(x) * x^2 * C * ∫ t * log(1 + 10x * t) dt <=
+    x^(3 + α) / log(x) * C * log(1 + 10x) / 2 <=
+    x^3 / log(x) * C * log(1 + 10x) / 2
+```
+where in the last step we have used that `log(1 + 10x * t) <= log(1 + 10x)`.
+- **TODO:** Take a look at the sign for these three integrals. We
+  should probably just consider the absolute value instead.
+
+"""
+function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), x * log(10 + inv(x)))
+    end
+
+    ϵ = convert(Arb, ϵ)
+    @assert ϵ < 0.5
+
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
+    u0_expansion_mul_xα = empty(u0_expansion)
+    for ((p, q, i, j, k, l, m), value) in u0_expansion
+        u0_expansion_mul_xα[(p, q, i + 1, j, k, l, m)] = value
+    end
+
+    # Enclosure of the factor
+    # x^-α * log(x) / (π * u0(x) * log(10 + inv(x)))
+    factor(x) = begin
+        # Enclosure of log(x) / log(10 + inv(x))
+        if iszero(x)
+            log_factor = -one(x)
+        elseif Arblib.contains_zero(x)
+            # Use monotonicity, it is -1 at x = 0 and increasing
+            xᵤ = ubound(Arb, x)
+            log_factor = Arb((-1, log(xᵤ) / log(10 + inv(xᵤ))))
+        else
+            log_factor = log(x) / log(10 + inv(x))
+        end
+
+        # Enclosure of u0(x) * x^α
+        if non_asymptotic_u0
+            u0_factor = u0(x) * x^Arb((-1, -1 + u0.ϵ))
+        else
+            u0_factor = eval_expansion(u0, u0_expansion_mul_xα, x)
+        end
+
+        log_factor / (π * u0_factor)
+    end
+
+    return x -> begin
+        x = convert(Arb, x)
+        @assert x <= ϵ
+
+        # Enclosure of abs(sinpi(α / 2))
+        factor_I₁ = let α = Arb((-1, -1 + u0.ϵ))
+            abs(sinpi(α / 2))
+        end
+
+        # Enclosure of inv(log(x))
+        invlogx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            xᵤ = ubound(Arb, x)
+            Arb((inv(log(xᵤ)), 0))
+        else
+            inv(log(x))
+        end
+
+        WxI₁₁ = begin
+            # Enclosure of
+            # ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+            # FIXME: Rigorously enclose this
+            integral_I₁₁ = Arb("0.6931477765876257")
+
+            -factor_I₁ * integral_I₁₁
+        end
+
+        WxI₁₂ = begin
+            if iszero(x)
+                zero(x)
+            else
+                # Enclosure of
+                # ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+                # FIXME: Rigorously enclose this
+                integral_I₁₂ = Arb("-0.46668696508451124")
+
+                -invlogx * factor_I₁ * integral_I₁₂
+            end
+        end
+
+        WxI₁₃ = begin
+            if iszero(x)
+                zero(x)
+            else
+                # The integral is the same as for WxI₁₁
+                integral_I₁₃ = integral_I₁₁
+                # Enclosure of log(1 + 10x * t) for t ∈ [0, 1]
+                factor_I₁₂ = Arb((0, log1p(10x)))
+
+                invlogx * factor_I₁ * factor_I₁₂ * integral_I₁₃
+            end
+        end
+
+        WxI₁ = WxI₁₁ + WxI₁₂ + WxI₁₃
+
+        # Bound of 2sum((zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf)
+        # FIXME: Rigorously bound this
+        C = Arb("0.1725034263261214970439543405065145523")
+
+        # Enclosure of inv(abs(gamma(1 + α) * sinpi(α / 2)))
+
+        WxI₂₁ = x^3 * C / 2
+
+        WxI₂₂ = x^3 * invlogx * C / 4
+
+        WxI₂₃ = x^3 * invlogx * C * log1p(10x) / 2
+
+        WxI₂ = WxI₂₁ + WxI₂₂ + WxI₂₃
+
+        WxI = WxI₁ + WxI₂
+
+        res = factor(x) * WxI
+
+        return res
+    end
+end
+
+"""
     T011(u0::BHKdVAnsatz; δ0)
 
 Computes the integral \$T_{0,1,1}\$ from the paper.
