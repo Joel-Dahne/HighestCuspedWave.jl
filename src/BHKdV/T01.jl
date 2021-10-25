@@ -381,77 +381,15 @@ function T012(
     return x -> begin
         x = convert(Arb, x)
 
-        # Variables for storing temporary values during integration
-        x_complex = convert(Acb, x)
-        xdiv2 = x_complex / 2
-        tmp = zero(x_complex)
-        tx = zero(x_complex)
+        # TODO: s should be union of 1 and 1 - u0.ϵ
+        s = Arb(1 - u0.ϵ)
+        #s = one(Arb)
+        integrand(t) =
+            abs(clausenc(x * (1 - t), s) + clausenc(x * (1 + t), s) - 2clausenc(x * t, s)) *
+            t *
+            log(10 + inv(t * x))
 
-        integrand!(res, t; analytic::Bool) = begin
-            # The code below is an inplace version of the following code
-            #res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)
-            #Arblib.real_abs!(res, res, analytic)
-            #weight = t * log(10 + inv(tx))
-            #return res * weight
-
-            Arblib.mul!(tx, t, x_complex)
-
-            # res = sin((1 - t) * x / 2)
-            Arblib.neg!(tmp, t)
-            Arblib.add!(tmp, tmp, 1)
-            Arblib.mul!(tmp, tmp, xdiv2)
-            Arblib.sin!(res, tmp)
-
-            # res *= sin((1 + t) * x / 2)
-            Arblib.add!(tmp, t, 1)
-            Arblib.mul!(tmp, tmp, xdiv2)
-            Arblib.sin!(tmp, tmp)
-            Arblib.mul!(res, res, tmp)
-
-            # res /= sin(t * x / 2)^2
-            Arblib.mul_2exp!(tmp, tx, -1)
-            Arblib.sin!(tmp, tmp)
-            Arblib.sqr!(tmp, tmp)
-            Arblib.div!(res, res, tmp)
-
-            Arblib.log!(res, res)
-
-            #s = Arb(1 - u0.ϵ)
-            #s = one(Arb)
-            #if isreal(t)
-            #    t_real = Arblib.realref(t)
-            #    Arblib.set!(res, clausenc(x * (1 - t_real), s) + clausenc(x * (1 + t_real), s) - 2clausenc(x * t_real, s))
-            #else
-            #    Arblib.set!(res, clausenc(x * (1 - t), s) + clausenc(x * (1 + t), s) - 2clausenc(x * t, s))
-            #end
-
-            Arblib.real_abs!(res, res, analytic)
-
-            # tmp = t * log(10 + inv(t * x))
-            Arblib.inv!(tmp, tx)
-            Arblib.add!(tmp, tmp, 10)
-            Arblib.log!(tmp, tmp)
-            Arblib.mul!(tmp, tmp, t)
-
-            Arblib.mul!(res, res, tmp)
-
-            return
-        end
-
-        res = Arblib.integrate!(
-            integrand!,
-            zero(x_complex),
-            a,
-            b,
-            check_analytic = true,
-            rtol = 1e-20,
-            atol = 1e-20,
-            warn_on_no_convergence = false,
-            opts = Arblib.calc_integrate_opt_struct(0, 10000, 0, 1, 1),
-        )
-
-        @assert !isfinite(res) || isreal(res)
-        res = real(res)
+        res = ArbExtras.integrate(integrand, a, b, atol = 1e-5, rtol = 1e-5)
 
         res = res * x / (π * log(10 + inv(x)))
 
