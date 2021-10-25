@@ -318,9 +318,9 @@ allows us to enclose the integrand on the interval which then easily
 gives an enclosure of the integral by multiplying with the size of the
 interval.
 
-- **FIXME:** Currently this uses `α = -1`, this should be changed to
-  using the interval `[1 - u0.ϵ, 1]` for `α` once [`clausenc`](@ref)
-  supports it.
+- **TODO:** This is correct except for the problem that `clausenc(x,
+  s)` currently doesn't give fully correct enclosures for `s`
+  overlapping 1. Once that is fixed this will give rigorous results.
 - **PROVE**: That the integrand indeed is increasing on the said
   interval.
 """
@@ -329,9 +329,7 @@ function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u
     return x -> begin
         x = convert(Arb, x)
 
-        # FIXME: Use the interval for s once this is supported by clausenc
-        #α = Arb((-1, -1 + u0.ϵ))
-        α = Arb(-1)
+        α = Arb((-1, -1 + u0.ϵ))
         integrand(t) =
             abs(
                 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) -
@@ -357,13 +355,16 @@ end
 Returns a function such that `T012(u0; δ0, δ1)(x)` computes the integral
 \$T_{0,1,2}\$ from the paper.
 
-**FIXME:** This currently uses `α = -1`. We need to either compute
-  with `α = [-1, -1 + u0.ϵ]` or bound the error in some other way. One
-  issue is that `clausenc` doesn't allow balls overlapping integers.
-  Another one is that we get very bad bounds if `α` is close to by not
-  equal to `-1`. This could possibly be handled by switching to an
-  integration method that only uses real values, where we have better
-  bounds.
+**FIXME:** This currently assumes that
+```
+clausenc(x * (1 - t), s) + clausenc(x * (1 + t), s) - 2clausenc(x * t, s)
+```
+and its derivatives up to the fourth one are monotonic in `s`. This is
+true for most of the interval but there are some points where it
+doesn't hold. One solution would be to prove that this only happens at
+some places, isolate them and handle them separately. This might be
+tedious though since we would have to do it for all required
+derivatives. The point where it happens does depend on `x`.
 """
 function T012(
     u0::BHKdVAnsatz,
@@ -385,13 +386,29 @@ function T012(
     return x -> begin
         x = convert(Arb, x)
 
-        # TODO: s should be union of 1 and 1 - u0.ϵ
-        s = Arb(1 - u0.ϵ)
-        #s = one(Arb)
-        integrand(t) =
-            abs(clausenc(x * (1 - t), s) + clausenc(x * (1 + t), s) - 2clausenc(x * t, s)) *
-            t *
-            log(10 + inv(t * x))
+        # FIXME: Currently we assume monotonicity in s, including for
+        # all derivatives.
+        s_l = 1 - u0.ϵ
+        s_u = one(Arb)
+        integrand(t) = begin
+            term_l = abs(
+                clausenc(x * (1 - t), s_l) + clausenc(x * (1 + t), s_l) -
+                2clausenc(x * t, s_l),
+            )
+            term_u = abs(
+                clausenc(x * (1 - t), s_u) + clausenc(x * (1 + t), s_u) -
+                2clausenc(x * t, s_u),
+            )
+
+            if t isa ArbSeries
+                coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
+                term_union = ArbSeries(coefficients)
+            else
+                term_union = union(term_l, term_u)
+            end
+
+            return term_union * t * log(10 + inv(t * x))
+        end
 
         res = ArbExtras.integrate(integrand, a, b, atol = 1e-5, rtol = 1e-5)
 
@@ -431,14 +448,31 @@ inv(x) * (
     (-clausens(x * δ1, 1 - α) + clausens(x * (2 - δ1), 1 - α) - 2clausens(x * (1 - δ1), 1 - α))
 )
 ```
-Finally the multiplication by `inv(x)` can be cancelled by the
-multiplication by `x` that is outside of the integral.
+The multiplication by `inv(x)` can be cancelled by the multiplication
+by `x` that is outside of the integral. Since `1 - α > 1` we have
+`clausens(0, 1 - α) = 0`. If we also reorder the terms to more clearly
+see which ones gives cancellations we get
+```
+clausens(x * δ1, 1 - α) +
+(clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 - α)) -
+2(clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α))
+```
 
-- **FIXME:** Currently this uses `α = -1`, this should be changed to
-  using the interval `[1 - u0.ϵ, 1]` for `α` once [`clausenc`](@ref)
-  supports it.
-- **TODO:** This doesn't work for `x` overlapping `π` because
-  `clausens` doesn't support evaluation around `2π`.
+In the case that `x` overlaps with `π` we get issues when evaluating
+`(clausens(2x, 1 - α)` since it doesn't have a good implementation in
+that case. We could subtract `2π` from the argument since it is `2π`
+periodic, but that doesn't solve the issue since `clausens` currently
+doesn't support evaluation on intervals containing zero.
+- **FIXME:** Currently we do this by assuming that `clausens` is
+  monotonic in `s`. In practice this is true for small enough
+  arguments but not in general. If `x` is sufficiently close to `π`
+  this will thus give a correct result, but it is not rigorously
+  proved.
+
+- **TODO:** Could improve enclosures by better handling cancellations
+  for `clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 - α)` and
+  `clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α)`. Though this
+  might not be needed.
 """
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     return x -> begin
@@ -448,16 +482,35 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
             -t * log(10 + inv(x * t))
         end
 
-        # FIXME: Use the interval for α once this is supported by clausenc
-        #α = Arb((-1, -1 + u0.ϵ))
-        α = Arb(-1)
-        integral =
-            weight_factor * (
-                (-clausens(zero(Arb), 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)) - (
-                    -clausens(x * δ1, 1 - α) + clausens(x * (2 - δ1), 1 - α) -
-                    2clausens(x * (1 - δ1), 1 - α)
-                )
+        # s = 1 - α
+        s = Arb((2 - u0.ϵ, 2))
+
+        integral = clausens(x * δ1, s) - 2(clausens(x, s) - clausens(x * (1 - δ1), s))
+        if Arblib.overlaps(x, Arb(π))
+            # FIXME: This assumes that clausens is monotonic on the
+            # interval. In practice this is true for small enough
+            # argument. But it is not true in general.
+
+            # Compute an enclosure of clausens(2(x - π), s) on the
+            # symmetric interval [-abs(2(x - π)), abs(2(x - π))] using
+            # the oddness and assuming that the maximum is attained at
+            # the endpoint.
+            term = Arblib.add_error!(zero(x), clausens(abs_ubound(Arb, 2(x - Arb(π))), s))
+            integral += term
+
+            # Compute an enclosure of clausens(x * (2 - δ1) - 2π, s)
+            # on the symmetric interval [-abs(x * (2 - δ1) - 2π),
+            # abs(x * (2 - δ1) - 2π)] using the oddness and assuming
+            # the maximum is attained at the endpoint.
+            term = Arblib.add_error!(
+                zero(x),
+                clausens(abs_ubound(Arb, x * (2 - δ1) - 2Arb(π)), s),
             )
+            integral -= term
+        else
+            integral += clausens(2x, s) - clausens(x * (2 - δ1), s)
+        end
+        integral *= weight_factor
 
         res = integral / (π * log(10 + inv(x)))
 
