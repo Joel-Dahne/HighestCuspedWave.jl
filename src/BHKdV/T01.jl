@@ -31,6 +31,10 @@ Returns a function such that `T01(u0, Asymptotic())(x)` computes an
 **upper bound** of the integral \$T_{0,1}\$ from the paper using an
 evaluation strategy that works asymptotically as `x` goes to `0`.
 
+It precomputes the expansions of `u0` and for that reason a number `ϵ`
+has to be given, the resulting expansion will be valid for all `x <
+ϵ`. The value of `ϵ` has to be less than `1 // 2`.
+
 First of all the change of coordinates `t = y / x` leaves us with
 ```
 x / (π * u0(x) * log(10 + inv(x))) *
@@ -38,7 +42,7 @@ x / (π * u0(x) * log(10 + inv(x))) *
 ```
 with the integration going from `0` to `1`.
 
-To begin with the factor
+Next the factor
 ```
 x^-α * log(x) / (π * u0(x) * log(10 + inv(x)))
 ```
@@ -163,8 +167,8 @@ Now for the integrals we get
 ```
 W(x) * I₂₁ = -x^(1 + α) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt <=
     -x^(1 + α) * x^2 * C * ∫ t dt =
-    -x^(3 + α) * C / 4  <=
-    -x^3 * C / 4
+    -x^(3 + α) * C / 2  <=
+    -x^3 * C / 2
 ```
 ```
 W(x) * I₂₂ = -x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt <=

@@ -5,7 +5,7 @@ integral T_{0,2} from the paper.
 
 The interval of integration is `[x, π]`. Since the integrand is
 singular at `y = x` we split the interval into two parts, `[x, a]` and
-`[a, π]`. In principle we want to take `a = x = δ2`, however this
+`[a, π]`. In principle we want to take `a = x + δ2`, however this
 gives issues if `x` is a wide ball. Instead we take `a` to always be a
 thin ball between `x` and `π`.
 
