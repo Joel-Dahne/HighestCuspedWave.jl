@@ -137,10 +137,19 @@ wide case it computes the endpoints at a reduced precision given by
 prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
 
-**TODO:** Figure out how to compute accurate bounds for `s`
-overlapping an integer or being close to an integer. The current
-approach doesn't work if `s overlaps an integer and gives terrible
-bounds for wide `s` close to an integer.
+The case when `s` is a wide ball is in general handled by the
+underlying methods [`_clausenc_polylog`](@ref) and
+[`_clausenc_zeta`](@ref). The exception is when `s` overlaps with a
+non-negative integer, in which case both the above methods give
+indeterminate results. In that case we compute at the midpoint of `s`
+and bound the error by using a bound for the derivative in `s`. For s
+> 1 the derivative in `s` is bounded by `zeta(s, d = 1)`, this can be
+seen by looking at the Fourier series for `clausenc(x, s, 1)` and
+noticing that it attains it maximum at `x = 0` where it precisely
+equals `zeta(s, d = 1)`.
+- **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
+  this case the derivative in `s` blows up at `x = 0` so we can't use
+  a uniform bound.
 """
 function clausenc(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
@@ -157,8 +166,37 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, precision(x))
     end
 
+    contains_int = s isa Arb && Arblib.contains_int(s)
+
+    # Handle the case when s contains an integer but it not exactly an
+    # integer
+    if contains_int && !iszero(Arblib.radref(s)) && !Arblib.isnegative(s)
+        if s > 1
+            # Evaluate at midpoint
+            smid = Arblib.midpoint(Arb, s)
+            res = clausenc(x, smid)
+
+            # Bound derivative in s using derivative of zeta function
+            derivative = zeta(s, d = 1)
+            error = (s - smid) * abs(derivative)
+
+            return res + error
+        end
+
+        # FIXME: For now we bound it assuming monotonicity in s, this
+        # is not true in practice. We only do this for s close to 0
+        # and 1
+        @warn "Incorrect bound for s = $s, it assumes monotonicity" maxlog = 1
+        if Arblib.radref(s) < 1e-2
+            # s is not negative and not greater than 1, since the
+            # radius is small it must therefore contain either 0 or 1.
+            sₗ, sᵤ = Arblib.getinterval(Arb, s)
+            return union(clausenc(x, sₗ), clausenc(x, sᵤ))
+        end
+    end
+
     # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
-    if s isa Arb && !Arblib.contains_int(s)
+    if s isa Arb && !contains_int
         if Arblib.ispositive(x) && x < 2Arb(π)
             return _clausenc_zeta(x, s)
         end
