@@ -85,6 +85,20 @@ reduced precision given by
 ```
 prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
+
+The case when `s` is a wide ball is in general handled by the
+underlying methods [`_clausens_polylog`](@ref) and
+[`_clausens_zeta`](@ref). The exception is when `s` overlaps with a
+non-negative integer, in which case both the above methods give
+indeterminate results. In that case we compute at the midpoint of `s`
+and bound the error by using a bound for the derivative in `s`. For s
+> 1 the derivative in `s` is bounded by `zeta(s, d = 1)`, this can be
+seen by looking at the Fourier series for `clausenc(x, s, 1)` and
+noticing that it attains it maximum at `x = 0` where it precisely
+equals `zeta(s, d = 1)`.
+- **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
+  this case the derivative in `s` blows up at `x = 0` so we can't use
+  a uniform bound.
 """
 function clausens(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
@@ -107,8 +121,28 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, orig_prec)
     end
 
-    # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
-    if s isa Arb && !Arblib.contains_int(s)
+    contains_int = s isa Arb && Arblib.contains_int(s)
+
+    # Handle the case when s contains an integer but it not exactly an
+    # integer
+    if s isa Arb && contains_int && !iszero(Arblib.radref(s)) && !Arblib.isnegative(s)
+        if s > 1
+            # Evaluate at midpoint
+            smid = Arblib.midpoint(Arb, s)
+            res = clausens(x, smid)
+
+            # Bound derivative in s using derivative of zeta function
+            derivative = zeta(s, d = 1)
+            error = (s - smid) * abs(derivative)
+
+            return res + error
+        end
+
+        # TODO: Figure out how to bound this for `s = 1` and `s = 0`.
+    end
+
+    # If s is not an integer and 0 < x < 2π call _clausens_zeta(x, s)
+    if s isa Arb && !contains_int
         if Arblib.ispositive(x) && x < 2Arb(π)
             return _clausens_zeta(x, s)
         end
