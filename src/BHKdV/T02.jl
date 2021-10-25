@@ -140,58 +140,33 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
         x = convert(Arb, x)
         a = convert(Arb, a)
 
-        # Variables for storing temporary values during integration
-        x_complex = convert(Acb, x)
-        tmp = zero(x_complex)
+        # TODO: s should be union of 1 and 1 - u0.ϵ
+        s = Arb(1 - u0.ϵ)
+        #s = one(Arb)
+        integrand(y; analytic::Bool) = begin
+            if isreal(y)
+                y = real(y)
+            else
+                y = Acb(y) # Convert from AcbRef
+            end
 
-        integrand!(res, y; analytic::Bool) = begin
-            # The code below is an inplace version of the following code
-            #res = -log(sin((y - x) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
-            #weight = y * log(10 + inv(y))
-            #return res * weight
+            res =
+                (clausenc(y - x, s) + clausenc(y + x, s) - 2clausenc(y, s)) *
+                y *
+                log(10 + inv(y))
 
-            # res = sin((y - x) / 2)
-            Arblib.sub!(tmp, y, x_complex)
-            Arblib.mul_2exp!(tmp, tmp, -1)
-            Arblib.sin!(res, tmp)
-
-            # res *= sin((x + y) / 2)
-            Arblib.add!(tmp, x_complex, y)
-            Arblib.mul_2exp!(tmp, tmp, -1)
-            Arblib.sin!(tmp, tmp)
-            Arblib.mul!(res, res, tmp)
-
-            # res /= sin(y / 2)^2
-            Arblib.mul_2exp!(tmp, y, -1)
-            Arblib.sin!(tmp, tmp)
-            Arblib.sqr!(tmp, tmp)
-            Arblib.div!(res, res, tmp)
-
-            Arblib.log!(res, res)
-
-            Arblib.neg!(res, res)
-
-            # tmp = y * log(10 + inv(y))
-            Arblib.inv!(tmp, y)
-            Arblib.add!(tmp, tmp, 10)
-            Arblib.log!(tmp, tmp)
-            Arblib.mul!(tmp, tmp, y)
-
-            Arblib.mul!(res, res, tmp)
-
-            return
+            return convert(Acb, res)
         end
 
-        res = Arblib.integrate!(
-            integrand!,
-            zero(x_complex),
+        res = Arblib.integrate(
+            integrand,
             a,
             π,
             check_analytic = true,
             rtol = 1e-10,
             atol = 1e-10,
             warn_on_no_convergence = false,
-            #opts = Arblib.calc_integrate_opt_struct(0, 0, 0, 0, 1),
+            opts = Arblib.calc_integrate_opt_struct(0, 10000, 0, 0, 0),
         )
         @assert !isfinite(res) || isreal(res)
         res = real(res)
