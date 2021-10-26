@@ -69,12 +69,29 @@ Hence the integral from `x` to `a` is
 (-clausens(x - a, 1 - α) + clausens(x + a, 1 - α) - 2clausens(a, 1 - α)) -
 (-clausens(0, 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α))
 ```
+Since `1 - α > 1` we have
+`clausens(0, 1 - α) = 0`. If we also reorder the terms to more clearly
+see which ones gives cancellations we get
+```
+-clausens(x - a, 1 - α) +
+(clausens(x + a, 1 - α) - clausens(2x, 1 - α)) -
+2(clausens(a, 1 - α) - clausens(x, 1 - α))
+```
 
-- **FIXME:** Currently this uses `α = -1`, this should be changed to
-  using the interval `[1 - u0.ϵ, 1]` for `α` once [`clausenc`](@ref)
-  supports it.
-- **TODO:** This doesn't work for `x` overlapping `π` because
-  `clausens` doesn't support evaluation around `2π`.
+In the case that `x` overlaps with `π` we get issues when evaluating
+`(clausens(2x, 1 - α)` since it doesn't have a good implementation in
+that case. We could subtract `2π` from the argument since it is `2π`
+periodic, but that doesn't solve the issue since `clausens` currently
+doesn't support evaluation on intervals containing zero.
+- **FIXME:** Currently we do this by assuming that `clausens` is
+  monotonic in `s`. In practice this is true for small enough
+  arguments but not in general. If `x` is sufficiently close to `π`
+  this will thus give a correct result, but it is not rigorously
+  proved.
+
+- **TODO:** Could improve enclosures by better handling cancellations
+  for `clausens(x + a, 1 - α) - clausens(2x, 1 - α)` and `clausens(a,
+  1 - α) - clausens(x, 1 - α)`. Though this might not be needed.
 """
 function T021(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     return (x, a = x + δ2) -> begin
@@ -86,15 +103,35 @@ function T021(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
 
         weight_factor = u0.w(interval)
 
-        # FIXME: Use the interval for α once this is supported by clausenc
-        #α = Arb((-1, -1 + u0.ϵ))
-        α = Arb(-1)
-        integral =
-            weight_factor * (
-                (-clausens(x - a, 1 - α) + clausens(x + a, 1 - α) - 2clausens(a, 1 - α)) - (
-                    -clausens(zero(Arb), 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)
-                )
+        # s = 1 - α
+        s = Arb((2 - u0.ϵ, 2))
+
+        integral = -clausens(x - a, s) - 2(clausens(a, s) - clausens(x, s))
+        if Arblib.overlaps(x, Arb(π))
+            # FIXME: This assumes that clausens is monotonic on the
+            # interval. In practice this is true for small enough
+            # argument. But it is not true in general.
+
+            # Compute an enclosure of clausens(x + a, s) on the
+            # symmetric interval [-abs(2(x - π)), abs(2(x - π))] using
+            # the oddness and assuming that the maximum is attained at
+            # the endpoint.
+            term = Arblib.add_error!(zero(x), clausens(abs_ubound(Arb, 2(x - Arb(π))), s))
+            integral += term
+
+            # Compute an enclosure of clausens(x * (2 - δ1) - 2π, s)
+            # on the symmetric interval [-abs(x * (2 - δ1) - 2π),
+            # abs(x * (2 - δ1) - 2π)] using the oddness and assuming
+            # the maximum is attained at the endpoint.
+            term = Arblib.add_error!(
+                zero(x),
+                clausens(abs_ubound(Arb, x * (2 - δ2) - 2Arb(π)), s),
             )
+            integral -= term
+        else
+            integral += clausens(x + a, s) - clausens(2x, s)
+        end
+        integral *= weight_factor
 
         res = integral / (π * u0.w(x))
 
@@ -118,15 +155,18 @@ This is done by directly computing the integral with the integrator in
 Arb.
 
 Notice that the expression inside the absolute value is always
-negative, so we can replace the absolute value with a negation.
+positive, so we can remove the absolute value.
 
-**FIXME:** This currently uses `α = -1`. We need to either compute
-  with `α = [-1, -1 + u0.ϵ]` or bound the error in some other way. One
-  issue is that `clausenc` doesn't allow balls overlapping integers.
-  Another one is that we get very bad bounds if `α` is close to by not
-  equal to `-1`. This could possibly be handled by switching to an
-  integration method that only uses real values, where we have better
-  bounds.
+**FIXME:** This currently assumes that
+```
+clausenc(y - x, s) + clausenc(y + x, s) - 2clausenc(y, s)
+```
+and its derivatives up to the fourth one are monotonic in `s`. This is
+true for most of the interval but there are some points where it
+doesn't hold. One solution would be to prove that this only happens at
+some places, isolate them and handle them separately. This might be
+tedious though since we would have to do it for all required
+derivatives. The point where it happens does depend on `x`.
 """
 function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
@@ -140,36 +180,25 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
         x = convert(Arb, x)
         a = convert(Arb, a)
 
-        # TODO: s should be union of 1 and 1 - u0.ϵ
-        s = Arb(1 - u0.ϵ)
-        #s = one(Arb)
-        integrand(y; analytic::Bool) = begin
-            if isreal(y)
-                y = real(y)
+        # FIXME: Currently we assume monotonicity in s, including for
+        # all derivatives.
+        s_l = 1 - u0.ϵ
+        s_u = one(Arb)
+        integrand(y) = begin
+            term_l = clausenc(y - x, s_l) + clausenc(y + x, s_l) - 2clausenc(y, s_l)
+            term_u = clausenc(y - x, s_u) + clausenc(y + x, s_u) - 2clausenc(y, s_u)
+
+            if y isa ArbSeries
+                coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
+                term_union = ArbSeries(coefficients)
             else
-                y = Acb(y) # Convert from AcbRef
+                term_union = union(term_l, term_u)
             end
 
-            res =
-                (clausenc(y - x, s) + clausenc(y + x, s) - 2clausenc(y, s)) *
-                y *
-                log(10 + inv(y))
-
-            return convert(Acb, res)
+            return term_union * y * log(10 + inv(y))
         end
 
-        res = Arblib.integrate(
-            integrand,
-            a,
-            π,
-            check_analytic = true,
-            rtol = 1e-10,
-            atol = 1e-10,
-            warn_on_no_convergence = false,
-            opts = Arblib.calc_integrate_opt_struct(0, 10000, 0, 0, 0),
-        )
-        @assert !isfinite(res) || isreal(res)
-        res = real(res)
+        res = ArbExtras.integrate(integrand, a, Arb(π), atol = 1e-5, rtol = 1e-5)
 
         res = res / (π * u0.w(x))
 
