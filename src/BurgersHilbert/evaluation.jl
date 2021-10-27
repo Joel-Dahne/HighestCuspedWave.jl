@@ -165,7 +165,7 @@ end
 function (u0::BHAnsatz{T})(x, ::Ball) where {T}
     conv = ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a))
 
-    res = u0.a0 * (Ci(x, 2, 1) - zeta(conv(2), d = 1))
+    res = u0.a0 * clausencmzeta(x, 2, 1)
 
     for n = 1:u0.N
         res += u0.b[n] * (cos(n * x) - 1)
@@ -199,7 +199,7 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # Error term
     res[(0, 2M, 0, 0)] = 0
 
-    # First Clausian
+    # First Clausen
     γ = Arb(Irrational{:γ}())
     res[(1, 1, 0, 0)] = -Arb(π) / 2 * u0.a0
     res[(0, 1, 0, 0)] = -(γ - 1) * Arb(π) / 2 * u0.a0
@@ -227,11 +227,11 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
         )
     end
 
-    # Clausians coming from u0.v0
+    # Clausens coming from u0.v0
     if !isnothing(u0.v0)
         let α = u0.v0.α, p0 = u0.v0.p0
             for j = 1:u0.v0.N0
-                C, _, p, E = Ci_expansion(x, 1 - α + j * p0, M)
+                C, _, p, E = clausenc_expansion(x, 1 - α + j * p0, M)
                 res[(0, 0, 1, j)] = C * u0.v0.a[j]
                 for m = 1:M-1
                     res[(0, 2m, 0, 0)] += p[2m] * u0.v0.a[j]
@@ -248,18 +248,18 @@ function H(u0::BHAnsatz{T}, ::Ball) where {T}
     conv = ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a))
 
     return x -> begin
-        res = -u0.a0 * (Ci(x, 3, 1) - zeta(conv(3), d = 1))
+        res = -u0.a0 * clausencmzeta(x, 3, 1)
 
         for n = 1:u0.N
             res -= u0.b[n] / n * (cos(n * x) - 1)
         end
 
-        # Add Clausians coming from u0.v0
+        # Add Clausens coming from u0.v0
         if !isnothing(u0.v0)
             let α = u0.v0.α, p0 = u0.v0.p0
                 for j = 1:u0.v0.N0
                     s = 2 - α + j * p0
-                    res -= u0.v0.a[j] * (Ci(x, s) - zeta(s))
+                    res -= u0.v0.a[j] * clausencmzeta(x, s)
                 end
             end
         end
@@ -296,7 +296,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         # Error term
         res[(0, 2M, 0, 0)] = 0
 
-        # First Clausian
+        # First Clausen
         res[(2, 2, 0, 0)] = -1 // 4 * u0.a0
         res[(1, 2, 0, 0)] = (3 // 4 - γ / 2) * u0.a0
         for m = 1:M-1
@@ -329,11 +329,11 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             )
         end
 
-        # Clausians coming from u0.v0
+        # Clausens coming from u0.v0
         if !isnothing(u0.v0)
             let α = u0.v0.α, p0 = u0.v0.p0
                 for j = 1:u0.v0.N0
-                    C, _, p, E = Ci_expansion(x, 2 - α + j * p0, M)
+                    C, _, p, E = clausenc_expansion(x, 2 - α + j * p0, M)
                     res[(0, 1, 1, j)] = -C * u0.v0.a[j]
                     for m = 1:M-1
                         res[(0, 2m, 0, 0)] -= p[2m] * u0.v0.a[j]
@@ -542,8 +542,8 @@ function D(u0::BHAnsatz, xs::AbstractVector)
 
     Hu0 = H(u0)
     for (i, x) in enumerate(xs)
-        u0_xs_a0_precomputed[i] = u0(x) # u0.a0 * (Ci(x, 2, 1) - zeta(2, d = 1))
-        Hu0_xs_a0_precomputed[i] = Hu0(x) # -u0.a0 * (Ci(x, 3, 1) - zeta(3, d = 1))
+        u0_xs_a0_precomputed[i] = u0(x)
+        Hu0_xs_a0_precomputed[i] = Hu0(x)
 
         for n = 1:u0.N
             u0_xs_b_precomputed[i, n] = cos(n * x) - 1
