@@ -7,13 +7,30 @@ Evaluation of the `clausenc` function through the polylog function.
 
 It uses the formula
 ```
-clausenc(x, s) = real(polylog(exp(im * x), s))
+clausenc(x, s) = real(polylog(s, exp(im * x)))
 ```
 """
 function _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
     z = exp(Acb(0, x, prec = precision(x)))
     s = s isa Integer ? s : Acb(s, prec = precision(x))
     return real(polylog(s, z))
+end
+
+"""
+    _clausenc_polylog(x::Arb, s::Arb, β::Integer)
+
+Evaluation of the `clausenc(x, s, β)` function through the polylog
+function.
+
+It uses the formula
+```
+clausenc(x, s) = real(polylog(s, exp(im * x)))
+```
+and computes the derivative with respect to `s` using `AcbSeries`.
+"""
+function _clausenc_polylog(x::Arb, s::Arb, β::Integer)
+    z = exp(Acb(0, x, prec = precision(x)))
+    return real(polylog(AcbSeries([s, 1], degree = β), z)[β]) * factorial(β)
 end
 
 """
@@ -259,6 +276,90 @@ function clausenc(x::ArbSeries, s)
 end
 
 """
+    clausenc(x, s, β)
+
+Compute \$C_s^{(β)}(x)\$, that is `clausenc(x, s)` differentiated `β`
+times w.r.t. `s`.
+
+If `x` is a wide (real) ball, as determined by `iswide(x)`, it
+computes a tighter enclosure by using the monotonicity properties of
+the function. Currently this is only implemented for `β = 1`, `0 < x <
+2π` and `s = 2` or `s = 3`. The function has a critical point at `x =
+π`, one on the interval `0 < x < π` and one (due to being even around
+`π`) on `π < x < 2π`. The extrema can occur either on one of these
+critical points or on the endpoints of the ball. For efficiency
+reasons the critical point on `0 < x < π` is precomputed for `s = 2`
+and `s = 3` (the one on `π < x < 2π` is given by symmetry). In the
+wide case it computes the endpoints at a reduced precision given by
+```
+prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+```
+- **PROVE:** That there is only once critical point.
+"""
+function clausenc(x::Arb, s::Arb, β::Integer)
+    iszero(x) && s > 1 && return zeta(s, d = β)
+
+    if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
+        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
+        res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
+        if s == 2
+            critical_point =
+                Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]"; prec)
+        elseif s == 3
+            critical_point = Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]"; prec)
+        end
+        if Arblib.overlaps(x, critical_point) ||
+           Arblib.overlaps(x, 2Arb(π) - critical_point)
+            # Depending on the precision critical_point might count as
+            # wide so we explicitly call _clausenc_zeta to avoid
+            # infinite recursion.
+            res = union(res, _clausenc_polylog(critical_point, s, β))
+        end
+
+        if Arblib.overlaps(x, Arb(π))
+            res = union(res, clausenc(Arb(π; prec), s, β))
+        end
+
+        return setprecision(res, precision(x))
+    end
+
+    return _clausenc_polylog(x, s, β)
+end
+
+clausenc(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
+    convert(float(promote_type(S, T)), clausenc(convert(Arb, x), convert(Arb, s), β))
+
+"""
+    clausenc(x::ArbSeries, s, β)
+
+Compute the Taylor series with respect to `x` of \$C_s^{(β)}(x)\$,
+that is `clausenc(x, s)` differentiated `β` times w.r.t. `s`.
+
+It's computed by directly computing the Taylor coefficients by
+differentiating \$C_s^{(\beta)}\$ and then composing with `x`.
+"""
+function clausenc(x::ArbSeries, s, β::Integer)
+    res = zero(x)
+    x₀ = x[0]
+
+    for i = 0:Arblib.degree(x)
+        if i % 2 == 0
+            res[i] = (-1)^(i ÷ 2) * Ci(x₀, s - i, β) / factorial(i)
+        else
+            res[i] = -(-1)^(i ÷ 2) * Si(x₀, s - i, β) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the Clausian with that of the
+    # input
+    x_tmp = copy(x)
+    x_tmp[0] = 0
+
+    return Arblib.compose(res, x_tmp)
+end
+
+"""
     clausenc_expansion(x, s, M::Integer)
 
 Compute the asymptotic expansion of `clausenc(x, s)` at zero up to
@@ -441,4 +542,24 @@ clausencmzeta(x::ArbSeries, s) = clausenc(x, s) - zeta(Arb(s, prec = precision(x
 function clausencmzeta(x, s)
     x, s = promote(x, s)
     return clausenc(x, s) - zeta(s)
+end
+
+"""
+    clausencmzeta(x, s, β)
+
+Compute `clausenc(x, s, β) - clausenc(0, s, β)`. Notice that
+`clausenc(0, s, β)` is given by `zeta(s)` differentiated `β` times
+with respect to `s`.
+
+This method just calls [`clausenc`](@ref) and [`zeta`](@ref) directly
+and gives no direct benefit other than converting `x` and `s` to the
+same type to begin with.
+"""
+clausencmzeta(x::Union{Arb,ArbSeries}, s, β) =
+    clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+
+function clausencmzeta(x, s, β)
+    x, s = promote(x, s)
+    res = clausenc(x, s, β)
+    return res - convert(typeof(res), zeta(ArbSeries([s, 1], degree = β))[β]) * factorial(β)
 end

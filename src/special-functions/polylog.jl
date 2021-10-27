@@ -59,3 +59,5 @@ function polylog(s::Union{Acb,Integer}, z::Acb)
 
     return Arblib.polylog!(zero(z), s, z)
 end
+
+polylog(s::AcbSeries, z::Acb) = Arblib.polylog_series!(zero(s), s, z, length(s))

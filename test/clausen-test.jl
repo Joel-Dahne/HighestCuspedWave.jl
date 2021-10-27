@@ -50,10 +50,18 @@
         @test clausenc(2, 2) == Float64(clausenc(Arb(2), 2))
 
         # TODO: Add tests for wide values of s
+
+        # TODO: Add tests for clausenc(x, s, β)
     end
 
     @testset "clausenc_expansion" begin
-        # TODO
+        s = Arb(0.5)
+        for M in [3, 6]
+            for x in range(Arb(0), 2Arb(π), length = 100)
+                C, e, P, E = HighestCuspedWave.clausenc_expansion(x, s, M)
+                @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^2M, clausenc(x, s))
+            end
+        end
     end
 
     @testset "clausencmzeta" begin

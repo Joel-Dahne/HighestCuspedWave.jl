@@ -7,13 +7,30 @@ Evaluation of the `clausens` function through the polylog function.
 
 It uses the formula
 ```
-clausens(x, s) = imag(polylog(exp(im * x), s))
+clausens(x, s) = imag(polylog(s, exp(im * x)))
 ```
 """
 function _clausens_polylog(x::Arb, s::Union{Arb,Integer})
     z = exp(Acb(0, x, prec = precision(x)))
     s = s isa Integer ? s : Acb(s, prec = precision(x))
     return imag(polylog(s, z))
+end
+
+"""
+    _clausenc_polylog(x::Arb, s::Arb, β::Integer)
+
+Evaluation of the `clausens(x, s, β)` function through the polylog
+function.
+
+It uses the formula
+```
+clausens(x, s) = imag(polylog(s, exp(im * x)))
+```
+and computes the derivative with respect to `s` using `AcbSeries`.
+"""
+function _clausens_polylog(x::Arb, s::Arb, β::Integer)
+    z = exp(Acb(0, x, prec = precision(x)))
+    return imag(polylog(AcbSeries([s, 1], degree = β), z)[β]) * factorial(β)
 end
 
 """
@@ -157,6 +174,19 @@ clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
     float(promote_type(S, T)),
     clausens(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
 )
+
+"""
+    clausens(x, s, β)
+
+Compute \$S_s^{(β)}(x)\$, that is `clausens(x, s)` differentiated `β`
+times w.r.t. `s`.
+
+- **TODO**: Handle wide (real) balls better, similar to how `Si(x, s)` does
+"""
+clausens(x::Arb, s::Arb, β::Integer) = _clausens_polylog(x, s, β)
+
+clausens(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
+    convert(float(promote_type(S, T)), clausens(convert(Arb, x), convert(Arb, s), β))
 
 """
     clausens_expansion(x, s, M::Integer)
