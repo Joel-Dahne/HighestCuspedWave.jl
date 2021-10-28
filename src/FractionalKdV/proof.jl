@@ -1,97 +1,99 @@
-function prove(u0::FractionalKdVAnsatz{arb}; verbose = false)
+"""
+    prove(u0::FractionalKdVAnsatz{Arb}; M = 3, , only_estimate_CB = false, return_values = false, threaded = true, verbose = false, extra_verbose = false)
 
-    α₀ = alpha0(u0)
-    δ₀ = delta0(u0)
+Attempts to prove that the ansatz `u0` satisfies the requirements, that is
+```
+δ₀ <= 1 / (4α₀ * β^2)
+```
+with `β = inv(1 - C_B)` and `α₀` is given by [`alpha0`](@ref), `δ₀` by
+[`delta0`](@ref) and `C_B` by [`CB`](@ref).
+
+The most expensive part is the computation of `C_B`. Therefore it
+first computes enclosures of `α₀` and `δ₀` but only an estimate of
+`C_B` and checks if the condition holds. If the condition holds it
+tries to prove that `C_B` is bounded by
+```
+1 - 2sqrt(α₀ * δ₀)
+```
+which is equivalent to the former inequality.
+
+If `only_estimate_CB = true` it doesn't attempt to prove the bound on
+`C_B` but only uses the estimate. This doesn't give a rigorous proof
+but is useful if you only want to determine of the bound seems to
+hold.
+
+If `return_values = true` it returns the value of `δ₀` and the lower
+bound of `1 / (4α₀ * β^2)` that is proved. If `only_estimate_CB =
+true` it instead returns the estimate of it.
+
+If `threaded = true` it uses threading to speed up the computations.
+
+If `verbose = true` it prints information about the progress. For even
+more information `extra_verbose` can also be set to be true.
+"""
+function prove(
+    u0::FractionalKdVAnsatz{Arb};
+    M = 5,
+    only_estimate_CB = false,
+    return_values = false,
+    threaded = true,
+    verbose = false,
+    extra_verbose = false,
+)
+
+    # We don't wont to have to go further than a too large depth when
+    # bounding C_B. Therefore we want to check the C_B values using x
+    # values with a radius similar to that we would have at a depth we
+    # are comfortable going to. Typically we have to go to around
+    # depth = 12 but we could go a bit longer than that without
+    # issues. So we take it to be 15.
+    x_error = Arblib.mul_2exp!(zero(Arb), Arb(π), -15)
 
     if verbose
-        @show α₀ δ₀
-    end
+        @time α₀ = alpha0(u0, verbose = extra_verbose; threaded)
+        @show α₀
 
-    C_B = CB_estimate(u0)
+        @time δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
+        @show δ₀
+
+        @time C_B = CB_estimate(u0; x_error, threaded)
+        @show C_B
+    else
+        α₀ = alpha0(u0; threaded)
+        δ₀ = delta0(u0; M, threaded)
+        C_B = CB_estimate(u0; x_error, threaded)
+    end
 
     β = 1 / (1 - C_B)
     C = 1 / (4α₀ * β^2)
-    D = 1 - 2sqrt(α₀ * δ₀)
+    D = 1 - 2Arblib.sqrtpos!(zero(C), α₀ * δ₀)
 
     if verbose
-        @show C_B C
-        println("Must have C_B ≤ 1 - 2√(α₀δ₀) = $D")
+        @info "Must have δ₀ ≤ 1 / (4α₀ * β^2) = C" δ₀ lbound(C) δ₀ < C
+        @info "Alternatively C_B ≤ 1 - 2√(α₀δ₀) = D" C_B lbound(D) C_B < D
     end
 
     if !(δ₀ < C)
-        return false
-    end
-
-    res, CB_bound = CB_bounded_by(u0, D, show_trace = true)
-    CB_bound = ArbTools.ubound(CB_bound)
-    β_bound = 1 / (1 - CB_bound)
-    C_bound = 1 / (4α₀ * β_bound^2)
-    @show C_bound
-
-    return res, CB_bound
-end
-
-function prove2(α::arb; verbose = false)
-    @time u0 = FractionalKdVAnsatz(α)
-
-    # Enclose α₀
-    @time α₀ = alpha0(u0)
-
-    # Approximate δ₀
-    @time δ₀_low = delta0(update_alpha(u0, ArbTools.lbound(α)))
-    @time δ₀_mid = delta0(update_alpha(u0, midpoint(α))) # We don't need this in the end
-    @time δ₀_upp = delta0(update_alpha(u0, ArbTools.ubound(α)))
-
-    # See if it looks like we can prove it
-    CB_est = CB_estimate(u0)
-    D_est = 1 - 2sqrt(α₀ * max(δ₀_low, δ₀_upp))
-
-    if !(CB_est < D_est)
-        @error "bound doesn't hold, we don't have $CB_est < $D_est"
-        return false, ArbTools.ubound(α₀), parent(α)(NaN), parent(α)(NaN)
-    end
-
-    # Bound and enclose CB
-    p = 0.8 # This is an optimization parameter, p ∈ [0, 1] with p = 0
-    # best for δ₀ and p = 1 best for CB
-    D = ArbTools.ubound(CB_est) + p * (D_est - ArbTools.ubound(CB_est))
-    @show ArbTools.lbound(CB_est) ArbTools.lbound(D_est) ArbTools.lbound(D)
-    @time res, CB = CB_bounded_by(u0, D, show_trace = verbose)
-    @show CB
-
-    if !res
-        @error "failed to prove bound for CB"
-        return false, ArbTools.ubound(α₀), parent(α)(NaN), parent(α)(NaN)
-    end
-
-    # Bound and enclose δ₀
-    # We need to beat whatever we get as the upper bound for CB
-    β = 1 / (1 - ArbTools.ubound(CB))
-    @show β (4α₀ * β^2)
-    C = 1 / (4α₀ * β^2)
-
-    @show max(δ₀_low, δ₀_upp) ArbTools.lbound(C)
-    @assert max(δ₀_low, δ₀_upp) < C
-    # TODO: We will have to bisect α to be able to bound this
-    αs = mince(α, 10)
-    δ₀s = similar(αs)
-    δ₀ = parent(α)(-Inf)
-    for i in eachindex(αs)
-        @time res, δ₀s[i] =
-            delta0_bounded_by(update_alpha(u0, αs[i]), C, show_trace = verbose)
-        δ₀ = max(δ₀, δ₀s[i])
-        if !res
-            @error "failed to prove bound for δ₀ on α = $(αs[i])"
-            return false, ArbTools.ubound(α₀), parent(α)(NaN), ArbTools.ubound(CB)
+        if return_values
+            return false, δ₀, C
+        else
+            return false
         end
     end
 
-    α₀_ubound = ArbTools.ubound(α₀)
-    δ₀_ubound = ArbTools.ubound(δ₀)
-    CB_ubound = ArbTools.ubound(CB)
+    if only_estimate_CB
+        return true, δ₀, C
+    end
 
-    @show δ₀_ubound (1 - CB_ubound)^2 / (4α₀_ubound)
-    @assert δ₀_ubound < (1 - CB_ubound)^2 / (4α₀_ubound)
+    if verbose
+        @time res = CB_bounded_by(u0, lbound(D); threaded, verbose)
+    else
+        res = CB_bounded_by(u0, lbound(D); threaded, verbose)
+    end
 
-    return true, α₀_ubound, δ₀_ubound, CB_ubound
+    C_B_bound = lbound(D)
+    β_bound = 1 / (1 - C_B_bound)
+    C_bound = 1 / (4α₀ * β_bound^2)
+
+    return res, δ₀, C_bound
 end
