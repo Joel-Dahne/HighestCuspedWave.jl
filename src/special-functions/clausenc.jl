@@ -75,7 +75,7 @@ function _clausenc_zeta(x::Arb, s::Arb)
     end
 
     f(v) =
-        SpecialFunctions.gamma(v) *
+        gamma(v) *
         inv2pi^v *
         cospi(v / 2) *
         (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi))
@@ -128,7 +128,7 @@ function _clausenc_zeta(x::Acb, s::Arb)
     end
 
     f(v) =
-        SpecialFunctions.gamma(v) *
+        gamma(v) *
         inv2pi^v *
         cospi(v / 2) *
         (
@@ -393,13 +393,13 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
         if iswide(s)
             C = Arb(
                 ArbExtras.extrema_series(
-                    s -> SpecialFunctions.gamma(1 - s) * sinpi(s / 2),
+                    s -> gamma(1 - s) * sinpi(s / 2),
                     Arblib.getinterval(s)...,
                     degree = 2,
                 )[1:2],
             )
         else
-            C = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
+            C = gamma(1 - s) * sinpi(s / 2)
         end
     end
     e = s - 1
@@ -461,7 +461,7 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
     v = onem(s)
 
     f(v) =
-        SpecialFunctions.gamma(v) *
+        gamma(v) *
         inv2pi^v *
         cospi(v / 2) *
         (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi)) -

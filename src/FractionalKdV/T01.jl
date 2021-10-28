@@ -80,7 +80,6 @@ function T01(
     nonasymptotic_u0 = false, # Mainly for testing
 )
     @warn "T01(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
-    gamma = SpecialFunctions.gamma
     α = u0.α
     p = u0.p
     π = Arb(Irrational{:π}())
@@ -189,7 +188,7 @@ function T011(
     N::Integer = 3,
     skip_div_u0 = false,
 )
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
     α = u0.α
     δ0 = Arb(δ0)
 
@@ -351,7 +350,7 @@ function T013(
     N::Integer = 3,
     skip_div_u0 = false,
 )
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
     α = u0.α
     δ1 = Arb(δ1)
     π = Arb(pi)

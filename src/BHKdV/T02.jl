@@ -499,9 +499,9 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
         factor_I₂ = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
             if Arblib.contains_zero(x)
                 xᵤ = ubound(Arb, x)
-                Arb((-xᵤ^(1 + α) / (SpecialFunctions.gamma(1 + α) * (1 - xᵤ^p0)), 0))
+                Arb((-xᵤ^(1 + α) / (gamma(1 + α) * (1 - xᵤ^p0)), 0))
             else
-                -x^(1 + α) / (SpecialFunctions.gamma(1 + α) * (1 - x^p0))
+                -x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
             end
         end
 

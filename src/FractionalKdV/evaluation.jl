@@ -306,7 +306,7 @@ TODO: Check that we do not encounter the error terms. This should
 hopefully be fine with M = 5 though.
 """
 function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
 
     # Precompute for u0
     u0_precomputed = OrderedDict{NTuple{3,Int},OrderedDict{Int,T}}()

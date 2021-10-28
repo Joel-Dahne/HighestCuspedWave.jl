@@ -75,7 +75,7 @@ function _clausens_zeta(x::Arb, s::Arb)
     end
 
     f(v) =
-        SpecialFunctions.gamma(v) *
+        gamma(v) *
         inv2pi^v *
         sinpi(v / 2) *
         (SpecialFunctions.zeta(v, xinv2pi) - SpecialFunctions.zeta(v, onemxinv2pi))
@@ -214,7 +214,7 @@ function clausens_expansion(x::Arb, s::Arb, M::Integer)
     π = oftype(x, pi)
 
     # Non-analytic term
-    C = SpecialFunctions.gamma(1 - s) * cospi(s / 2)
+    C = gamma(1 - s) * cospi(s / 2)
     e = s - 1
 
     # Analytic term

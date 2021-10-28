@@ -170,8 +170,6 @@ function T02(
 
     @warn "T02(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
 
-    gamma = SpecialFunctions.gamma
-
     # Compute c_α
     c_α = let
         integral =
@@ -285,7 +283,7 @@ function T021(
     N::Integer = 3,
     skip_div_u0 = false,
 )
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
     α = u0.α
     δ2 = a - x
 

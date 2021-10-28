@@ -10,7 +10,7 @@ is equal to zero.
 We use, but don't have to prove, that `p0 < 1.5(α + 1)`.
 """
 function findp0(α)
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
     f(p) = begin
         cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) -
         2Γ(2α)cospi(α) / (Γ(α)cospi(α / 2))
@@ -37,7 +37,7 @@ function findp0(α::Arb)
 
     α = setprecision(α, 2precision(α))
 
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
     C = 2Γ(2α) * cospi(α) / (Γ(α) * cospi(α / 2))
     f(p) = begin
         cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) - C
@@ -96,7 +96,7 @@ function finda0(α)
         α_low, α_upp = Arblib.getinterval(Arb, α)
         return Arb((finda0(α_low), finda0(α_upp)))
     end
-    Γ = SpecialFunctions.gamma
+    Γ = gamma
     return 2Γ(2α) * cospi(α) / (Γ(α)^2 * cospi(α / 2)^2)
 end
 

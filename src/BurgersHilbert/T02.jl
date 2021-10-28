@@ -437,10 +437,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
                     if x < 0.1
                         xᵤ = ubound(Arb, x)
                         xfactor = Arb((
-                            (
-                                sqrt(-log(2xᵤ)) -
-                                sqrt(2π) * xᵤ^2 * SpecialFunctions.erfi(sqrt(-log(4xᵤ^2)))
-                            ) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
+                            (sqrt(-log(2xᵤ)) - sqrt(2π) * xᵤ^2 * erfi(sqrt(-log(4xᵤ^2)))) / (log(xᵤ) * sqrt(log((xᵤ + 1) / xᵤ))),
                             0,
                         ))
                     else
@@ -448,10 +445,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
                     end
                 else
                     xfactor =
-                        (
-                            sqrt(-log(2x)) -
-                            sqrt(2π) * x^2 * SpecialFunctions.erfi(sqrt(-log(4x^2)))
-                        ) / (log(x) * sqrt(log((x + 1) / x)))
+                        (sqrt(-log(2x)) - sqrt(2π) * x^2 * erfi(sqrt(-log(4x^2)))) / (log(x) * sqrt(log((x + 1) / x)))
                 end
 
                 C₂ / 8 * xfactor

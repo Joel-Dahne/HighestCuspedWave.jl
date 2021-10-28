@@ -7,7 +7,7 @@ Compute \$a_j^0\$ from Lemma 3.2.
 """
 function a0(u0::FractionalKdVAnsatz, j::Integer)
     s = 1 - u0.α + j * u0.p0
-    f(s) = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
+    f(s) = gamma(1 - s) * sinpi(s / 2)
 
     if iswide(s)
         return u0.a[j] *
@@ -73,7 +73,7 @@ Compute \$A_j^0\$ from Lemma 3.2.
 function A0(u0::FractionalKdVAnsatz, j::Integer)
     s = 1 - 2u0.α + j * u0.p0
 
-    f(s) = SpecialFunctions.gamma(1 - s) * sinpi(s / 2)
+    f(s) = gamma(1 - s) * sinpi(s / 2)
 
     if iswide(s)
         return u0.a[j] *
