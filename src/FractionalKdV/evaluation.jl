@@ -73,7 +73,7 @@ function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) 
         expansion[(0, 0, 2m)] = termK0(u0, m)
     end
 
-    if T == arb || T == Arb
+    if T == Arb
         expansion[(0, 0, 2M)] = E(u0, M)(x)
     end
 
@@ -90,7 +90,7 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
         end
 
         for n = 1:u0.N1
-            res -= u0.b[n] * (n * one(u0.α))^u0.α * (cos(n * x) - 1)
+            res -= u0.b[n] * n^u0.α * (cos(n * x) - 1)
         end
 
         return res
@@ -115,7 +115,7 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
             expansion[(0, 0, 2m)] = -termL0(u0, m)
         end
 
-        if T == arb || T == Arb
+        if T == Arb
             expansion[(0, 0, 2M)] = EH(u0, M)(x)
         end
 
@@ -167,29 +167,19 @@ function D(
 end
 
 function F0(
-    u0::FractionalKdVAnsatz{T},
+    u0::FractionalKdVAnsatz{Arb},
     ::Asymptotic;
     M::Integer = 3,
-) where {T<:Union{arb,Arb}}
+)
     f = D(u0, AsymptoticExpansion(); M)
     return x -> begin
         expansion = f(x)
 
         res = eval_expansion(u0, expansion, x, offset = -u0.p, offset_i = -1)
 
-        if x isa arb
-            ϵ = ArbTools.abs_ubound(x)
-        elseif x isa Arb
-            ϵ = abs_ubound(Arb, x)
-        else
-            ϵ = x
-        end
+        ϵ = abs_ubound(Arb, x)
 
-        if T == arb
-            res *= ball(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
-        else
-            res *= Arblib.add_error!(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
-        end
+        res *= Arblib.add_error!(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
 
         return res
     end
@@ -203,11 +193,15 @@ The terms in the dictionary should be interpreted as `((i, j, m), y) →
 y⋅x^(-iα + jp₀ + m - p)`, which is different from most other methods.
 """
 function F0(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
+    # Is this method used anywhere? It is not properly implemented for
+    # Arb so probably not.
+    error("this method is not implemented properly")
     return x -> begin
         expansion = D(u0, AsymptoticExpansion(); M)(x)
         res = empty(expansion)
 
-        ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
+        #ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
+        ϵ = x
         C = ball(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
 
         for ((i, j, m), y) in expansion
@@ -232,7 +226,7 @@ end
     c(u0::FractionalKdVAnsatz{T}, ϵ)
 Compute the constant c_{ϵ,û₀} from Lemma 3.3.
 """
-function c(u0::FractionalKdVAnsatz{T}, ϵ; M::Integer = 3) where {T<:Union{arb,Arb}}
+function c(u0::FractionalKdVAnsatz{Arb}, ϵ; M::Integer = 3)
     if iszero(ϵ)
         return zero(u0.α)
     end
@@ -248,11 +242,7 @@ function c(u0::FractionalKdVAnsatz{T}, ϵ; M::Integer = 3) where {T<:Union{arb,A
         numerator += abs(termK0(u0, m)) * abs(ϵ)^(2m + u0.α - u0.p0)
     end
 
-    if T == arb
-        E_lower, E_upper = ArbTools.getinterval(abs(E(u0, M)(ϵ) * ϵ^(2M)))
-    else
-        E_lower, E_upper = Arblib.getinterval(Arb, abs(E(u0, M)(ϵ) * ϵ^(2M)))
-    end
+    E_lower, E_upper = Arblib.getinterval(Arb, abs(E(u0, M)(ϵ) * ϵ^(2M)))
 
     numerator += E_upper * abs(ϵ)^(u0.α - u0.p0)
 
@@ -295,7 +285,7 @@ function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
         end
         for n = 1:u0.N1
             u0_xs_b_precomputed[i, n] = cos(n * x) - 1
-            Hu0_xs_b_precomputed[i, n] = -parent(u0.α)(n)^u0.α * (cos(n * x) - 1)
+            Hu0_xs_b_precomputed[i, n] = -n^u0.α * (cos(n * x) - 1)
         end
     end
 
@@ -320,7 +310,7 @@ TODO: Check that we do not encounter the error terms. This should
 hopefully be fine with M = 5 though.
 """
 function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
-    Γ = ifelse(T == arb, Nemo.gamma, SpecialFunctions.gamma)
+    Γ = SpecialFunctions.gamma
 
     # Precompute for u0
     u0_precomputed = OrderedDict{NTuple{3,Int},OrderedDict{Int,T}}()
@@ -395,6 +385,12 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
     end
 end
 
+"""
+    print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
+
+Debug method for printing an asymptotic expansion in a human readable
+way.
+"""
 function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
     get_exponent(i, j, m) = -i * u0.α + j * u0.p0 + m
     expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
@@ -405,6 +401,12 @@ function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
     return expansion
 end
 
+"""
+    print_asymptotic_expansion_F0(u0::FractionalKdVAnsatz, expansion)
+
+Debug method for printing an asymptotic expansion in a human readable
+way.
+"""
 function print_asymptotic_expansion_F0(u0::FractionalKdVAnsatz, expansion)
     get_exponent(i, j, m) = -i * u0.α + j * u0.p0 + m - u0.p
     expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))

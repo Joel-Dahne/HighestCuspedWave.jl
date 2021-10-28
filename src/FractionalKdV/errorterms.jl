@@ -5,8 +5,7 @@
 Compute an enclosure of E_{u_0}(x) from the paper, skipping the x^(2M) factor.
 """
 function E(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
-    conv = T == arb ? parent(u0.α) : a -> convert(T, a)
-    π = conv(pi)
+    π = convert(T, pi)
 
     return x -> begin
         # Compute error bounds for the Clausians
@@ -19,13 +18,11 @@ function E(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
         # Compute error bounds for the Fourier terms
         E_bound2 = zero(u0.α)
         for n = 1:u0.N1
-            E_bound2 += conv(n)^(2M) * abs(u0.b[n])
+            E_bound2 += convert(T, n)^(2M) * abs(u0.b[n])
         end
         E_bound2 /= factorial(fmpz(2M))
 
-        if T == arb
-            return ball(zero(u0.α), E_bound1 + E_bound2)
-        elseif T == Arb
+        if T == Arb
             return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
         else
             return E_bound1 + E_bound2
@@ -39,8 +36,7 @@ Compute an enclosure of E_{H^{-\alpha}u_0}(x) from the paper, skipping
 the x^(2M) factor.
 """
 function EH(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
-    conv = T == arb ? parent(u0.α) : a -> convert(T, a)
-    π = conv(pi)
+    π = convert(T, pi)
 
     return x -> begin
         # Compute error bounds for the Clausians
@@ -53,13 +49,11 @@ function EH(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
         # Compute error bounds for the Fourier terms
         E_bound2 = zero(u0.α)
         for n = 1:u0.N1
-            E_bound2 += conv(n)^(2M + u0.α) * abs(u0.b[n])
+            E_bound2 += n^(2M + u0.α) * abs(u0.b[n])
         end
         E_bound2 /= factorial(fmpz(2M))
 
-        if T == arb
-            return ball(zero(u0.α), E_bound1 + E_bound2)
-        elseif T == Arb
+        if T == Arb
             return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
         else
             return E_bound1 + E_bound2
