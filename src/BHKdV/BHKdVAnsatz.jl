@@ -10,7 +10,7 @@ and a different weight.
 
 The main term depends on `α` and is given by
 ```
-a0 * (Ci(x, 1 - α) - Ci(x, 1 - α + p0) - (zeta(1 - α) - zeta(1 - α + p0)))
+a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
 ```
 where both `a0` and `p0` depend on `α`. The expression for `a0` is
 that given by `finda0(α)`. The expression for `p0` is **not completely

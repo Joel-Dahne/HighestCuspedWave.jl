@@ -150,12 +150,12 @@ a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
 ```
 we make use of the fact that this converges to
 ```
-2 / π^2 * (Ci(x, 2, 1) - zeta(2, d = 1))
+2 / π^2 * clausencmzeta(x, 2, 1)
 ```
 , which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
 evaluate this function and add error bounds for
 ```
-a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) - 2 / π^2 * (Ci(x, 2, 1) - zeta(2, d = 1))
+a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) - 2 / π^2 * clausencmzeta(x, 2, 1)
 ```
 valid for the entire range `α ∈ (-1, -1 + u0.ϵ]`.
 
@@ -173,7 +173,7 @@ function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
     # Main term
 
     # Approximation
-    res = 2 / Arb(π)^2 * (Ci(x, 2, 1) - zeta(Arb(2), d = 1))
+    res = 2 / Arb(π)^2 * clausencmzeta(x, 2, 1)
 
     # Add error bounds
     # TODO: Implement rigorous bounds
@@ -335,7 +335,7 @@ The transform of the main term is given by
 ```
 we make use of the fact that this converges to
 ```
--2 / π^2 * (Ci(x, 3, 1) - zeta(3, d = 1))
+-2 / π^2 * clausencmzeta(x, 3, 1)
 ```
 , which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
 evaluate this function and bound the error.
@@ -384,7 +384,7 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
         # Main term
 
         # Approximation
-        res = -2 / Arb(π)^2 * (Ci(x, 3, 1) - zeta(Arb(3), d = 1))
+        res = -2 / Arb(π)^2 * clausencmzeta(x, 3, 1)
 
         # Add error bounds
         @warn "No error bounds for main term" maxlog = 1
