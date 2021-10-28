@@ -1,72 +1,10 @@
 export iswide
 
-# For conversion from arb to Arb
-function Arblib.set!(res::Arb, x::arb)
-    ccall(Arblib.@libarb("arb_set"), Cvoid, (Ref{Arblib.arb_struct}, Ref{Nemo.arb}), res, x)
-    return res
-end
-
-# For conversion from acb to Acb
-Arblib.Acb(x::acb; prec::Integer = precision(parent(x))) = Arblib.set!(Acb(prec = prec), x)
-function Arblib.set!(res::Acb, x::acb)
-    ccall(Arblib.@libarb("acb_set"), Cvoid, (Ref{Arblib.acb_struct}, Ref{Nemo.acb}), res, x)
-    return res
-end
-
-# For conversion from Arb to arb
-function (r::ArbField)(x::Arb)
-    z = arb(fmpz(0), r.prec)
-    ccall(Arblib.@libarb("arb_set"), Cvoid, (Ref{Nemo.arb}, Ref{Arblib.arb_struct}), z, x)
-    z.parent = r
-    return z
-end
-
-# For conversion from Acb to acb
-function (r::AcbField)(x::Acb)
-    z = acb(fmpz(0), r.prec)
-    ccall(Arblib.@libarb("acb_set"), Cvoid, (Ref{Nemo.acb}, Ref{Arblib.acb_struct}), z, x)
-    z.parent = r
-    return z
-end
-
-# Arb / fmpz
-function Base.:/(x::Arblib.ArbOrRef, y::fmpz)
-    res = zero(x)
-    ccall(
-        Arblib.@libarb("arb_div_fmpz"),
-        Cvoid,
-        (Ref{Arblib.arb_struct}, Ref{Arblib.arb_struct}, Ref{fmpz}, Int),
-        res,
-        x,
-        y,
-        precision(res),
-    )
-    return res
-end
-
 """
-    mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
-Return a vector with `n` balls covering the interval `[xₗ, xᵤ]`.
+    mince(x::Arb, n::Integer)
 
-If `split` is true then returns the intervals as tuples and not balls.
+Return a vector with `n` balls covering the ball `x`.
 """
-function mince(xₗ::arb, xᵤ::arb, n::Integer; split = false)
-    intervals = Vector{ifelse(split, NTuple{2,arb}, arb)}(undef, n)
-    dx = (xᵤ - xₗ) / n
-    for i in eachindex(intervals)
-        yₗ = xₗ + (i - 1) * dx
-        yᵤ = xₗ + i * dx
-        if split
-            intervals[i] = (yₗ, yᵤ)
-        else
-            intervals[i] = setunion(yₗ, yᵤ)
-        end
-    end
-    return intervals
-end
-
-mince(x::arb, n::Integer; split = false) = mince(getinterval(x)..., n; split)
-
 function mince(x::Arb, n::Integer)
     balls = Vector{Arb}(undef, n)
     xₗ, xᵤ = Arblib.getinterval(Arb, x)
@@ -82,21 +20,12 @@ end
 
 """
     iswide(x; cutoff = 10)
+
 Return true if `x` is wide in the meaning that the effective relative
 accuracy of `x` measured in bits is more than `cutoff` lower than it's
-precision.
+precision. For `x` not of type `Arb` or `Acb` this always return
+`false`.
 """
-function iswide(x::arb; cutoff = 10)
-    return ArbTools.rel_accuracy_bits(x) < precision(parent(x)) - cutoff
-end
-
-function iswide(x::acb; cutoff = 10)
-    # TODO: Arb implements this as well, slightly different, but it
-    # has to be implemented in ArbTools first
-    return min(ArbTools.rel_accuracy_bits(real(x)), ArbTools.rel_accuracy_bits(imag(x))) <
-           precision(parent(x)) - cutoff
-end
-
 iswide(x::Union{Arb,Acb}; cutoff = 10) = Arblib.rel_accuracy_bits(x) < precision(x) - cutoff
 
 iswide(::Number; cutoff = 10) = false
@@ -104,51 +33,34 @@ iswide(::Number; cutoff = 10) = false
 function zeta(s::Arb; d::Integer = 0)
     iszero(d) && return SpecialFunctions.zeta(s)
 
-    s_series = ArbSeries([s, one(s)], degree = d)
+    s_series = ArbSeries([s, 1], degree = d)
     return SpecialFunctions.zeta(s_series, one(s))[d] *
            factorial(Arb(d, prec = precision(s)))
 end
 
-zeta(s::arb; d::Integer = 0) = parent(s)(zeta(Arb(s); d))
 zeta(s; d::Integer = 0) =
     iszero(d) ? SpecialFunctions.zeta(s) : convert(float(typeof(s)), (zeta(Arb(s); d)))
 
-function stieltjes(type, n::Integer)
-    CC = ComplexField(precision(BigFloat))
-    res = zero(CC)
-    a = one(CC)
-
-    ccall(
-        (:acb_dirichlet_stieltjes, Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{fmpz}, Ref{acb}, Clong),
-        res,
-        fmpz(n),
-        a,
-        CC.prec,
-    )
-
-    convert(type, real(res))
-end
 function stieltjes(::Type{Arb}, n::Integer)
     res = zero(Acb)
     a = one(Acb)
 
+    # This call uses fmpz, this is the one reason we need to keep the
+    # Nemo dependency for now.
     ccall(
         (:acb_dirichlet_stieltjes, Arblib.libarb),
         Cvoid,
         (Ref{Arblib.acb_struct}, Ref{fmpz}, Ref{Arblib.acb_struct}, Clong),
         res,
-        fmpz(n),
+        convert(Nemo.fmpz, n),
         a,
         precision(res),
     )
 
     return real(res)
 end
-function stieltjes(n::Integer)
-    stieltjes(Float64, n)
-end
+
+stieltjes(type, n::Integer) = convert(type, stieltjes(Arb, n))
 
 """
     contains_pi(x1, x2)
@@ -208,11 +120,10 @@ function contains_pi(x1::Arb, x2::Arb)
     end
 end
 
-contains_pi(x1::arb, x2::arb) = contains_pi(Arb(x1), Arb(x2))
-
 """
     beta_inc(a, b, z)
-Compute the (not regularised) incomplete beta function B(a, b; z).
+
+Compute the (not regularised) incomplete beta function \$B(a, b; z)\$.
 
 Note that this method is different than
 [`SpecialFunctions.beta_inc`](@ref) both in that it returns the
@@ -221,16 +132,14 @@ non-regularised value and that it only returns one value.
 beta_inc(a::Acb, b::Acb, z::Acb) = Arblib.hypgeom_beta_lower!(zero(z), a, b, z, 0)
 beta_inc(a::Arb, b::Arb, z::Arb) = Arblib.hypgeom_beta_lower!(zero(z), a, b, z, 0)
 
-beta_inc(a::acb, b::acb, z::acb) = parent(a)(beta_inc(Acb(a), Acb(b), Acb(z)))
-beta_inc(a::arb, b::arb, z::arb) = parent(a)(beta_inc(Arb(a), Arb(b), Arb(z)))
-
 """
     beta_inc_zeroone(a, b, z)
-Compute the (not regularised) incomplete beta function B(a, b; z)
+
+Compute the (not regularised) incomplete beta function \$B(a, b; z)\$
 assuming that `0 <= z <= 1`, discarding any other numbers in the
 interval.
 
-PROVE: That it's monotonically increasing in `z`.
+**PROVE:** That it's monotonically increasing in `z`.
 """
 function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
     z_lower = Arblib.ispositive(z) ? lbound(Arb, z) : zero(z)
@@ -238,35 +147,20 @@ function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
     return Arb((beta_inc(a, b, z_lower), beta_inc(a, b, z_upper)))
 end
 
-beta_inc_zeroone(a::arb, b::arb, z::arb) =
-    parent(a)(beta_inc_zeroone(Arb(a), Arb(b), Arb(z)))
-
 """
-    powpos(x, y)
-Compute |x|^y in a way that works if x contains negative numbers.
+    abspow(x, y)
+
+Compute `|x|^y `in a way that works if `x` contains negative numbers.
 """
-function abspow(x::arb, y::arb)
-    if iszero(y)
-        return one(x)
-    end
-    if contains_zero(x)
-        contains_negative(y) && return parent(x)(NaN)
-        x_upp = ArbTools.abs_ubound(x)
-        return ArbTools.setunion(zero(x), x_upp^y)
-    end
-
-    return abs(x)^y
-end
-
 function abspow(x::Arb, y::Arb)
-    if iszero(y)
-        return one(x)
-    end
+    iszero(y) && return one(x)
+
     if iszero(x)
         Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
         Arblib.ispositive(y) && return zero(x)
         return Arblib.unit_interval!(zero(x))
     end
+
     if Arblib.contains_zero(x)
         Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
         x_upp = Arblib.abs_ubound(Arb, x)
@@ -278,35 +172,12 @@ end
 
 abspow(x, y) = abs(x)^y
 
-"""
-    hypgeom_2f1(a, b, c, z)
-Compute the (not regularised) Gauss hypergeometric function
-₂F₁(a,b,c,z).
-"""
-function hypgeom_2f1(a::arb, b::arb, c::arb, z::arb)
-    res = parent(z)()
-    ccall(
-        ("arb_hypgeom_2f1", Nemo.libarb),
-        Cvoid,
-        (Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Ref{arb}, Cint, Clong),
-        res,
-        a,
-        b,
-        c,
-        z,
-        0,
-        precision(parent(z)),
-    )
-    return res
-end
-
 hypgeom_2f1(a::Arb, b::Arb, c::Arb, z::Arb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
 
 hypgeom_2f1(a::Acb, b::Acb, c::Acb, z::Acb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
 
 """
     taylor_with_error(f, a::Arb, X::Arb, N::Integer)
-    taylor_with_error(f, a::arb, X::arb, N::Integer)
 
 Compute the Taylor expansion `P` of `f` of degree `N - 1` (i.e. `N`
 terms) at the point `a` and bound the error term on `X`.
@@ -327,38 +198,9 @@ function taylor_with_error(f, a::Arb, X::Arb, N::Integer)
     return P, E
 end
 
-function taylor_with_error(f, a::arb, X::arb, N::Integer)
-    @assert contains(X, a)
-    PP = ArbPolyRing(parent(a), :x)
-
-    P = f(arb_series(PP([a, one(a)]), N))
-
-    E = f(arb_series(PP([X, one(a)]), N + 1))[N]
-
-    return (P, E)
-end
-
-"""
-    abs(x::arb_series, n::Integer = length(x))
-Compute the absolute value of `x`.
-
-If `x[0]` contains zero then all non-constant terms are set to `NaN`,
-otherwise either `-x` or `x` is returned depending on the sign of x.
-"""
-function Base.abs(x::arb_series, n::Integer = length(x))
-    if contains_zero(x[0])
-        return arb_series(
-            parent(x.poly)([abs(x[0]); fill(base_ring(parent(x.poly))(NaN), n - 1)]),
-        )
-    elseif x[0] < 0
-        return -x
-    else
-        return x
-    end
-end
-
 """
     abs(x::ArbSeries)
+
 Compute the absolute value of `x`.
 
 If `x[0]` contains zero then all non-constant terms are set to `NaN`,
@@ -372,232 +214,4 @@ function Base.abs(x::ArbSeries)
     else
         return x
     end
-end
-
-"""
-    expint(s::acb, z::acb)
-Compute the generalised exponential integral Eₛ(z).
-"""
-function expint(s::acb, z::acb)
-    res = parent(s)()
-    ccall(
-        ("acb_hypgeom_expint", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Int),
-        res,
-        s,
-        z,
-        precision(parent(z)),
-    )
-    return res
-end
-
-"""
-    cosint(a::arb, z::arb)
-Compute the generalised cosine integral Ciₐ(z).
-
-It tries to give better enclosures by evaluating it at higher
-precision if required.
-"""
-function cosint(a::arb, z::arb)
-    RR = parent(z)
-    CC = ComplexField(precision(RR))
-    res = CC()
-    ccall(
-        ("acb_hypgeom_gamma_upper", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-        res,
-        CC(a),
-        CC(zero(z), z),
-        0,
-        precision(RR),
-    )
-
-    if iswide(res)
-        res2 = CC()
-        ccall(
-            ("acb_hypgeom_gamma_upper", Nemo.libarb),
-            Cvoid,
-            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-            res2,
-            CC(a),
-            CC(zero(z), z),
-            0,
-            4precision(RR),
-        )
-        res = CC(
-            setintersection(real(res), real(res2)),
-            setintersection(imag(res), imag(res2)),
-        )
-        if iswide(res, cutoff = 20)
-            @warn "Wide enclosure when computing cosint res = $res"
-        end
-    end
-
-    return real(exp(CC(zero(a), -RR(π) * a / 2)) * res)
-end
-
-"""
-    cosintpi(a::arb, z)
-Compute the generalised cosine integral Ciₐ(πz).
-
-It tries to give better enclosures by evaluating it at higher
-precision if required.
-"""
-function cosintpi(a::arb, z)
-    RR = parent(a)
-    CC = ComplexField(precision(RR))
-    res = CC()
-    ccall(
-        ("acb_hypgeom_gamma_upper", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-        res,
-        CC(a),
-        CC(zero(z), RR(π) * z),
-        0,
-        precision(RR),
-    )
-
-    if iswide(res)
-        RR2 = RealField(8precision(RR))
-        CC2 = ComplexField(precision(RR2))
-        res2 = CC2()
-        ccall(
-            ("acb_hypgeom_gamma_upper", Nemo.libarb),
-            Cvoid,
-            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-            res2,
-            CC2(a),
-            CC2(zero(a), RR2(π) * RR2(z)),
-            0,
-            precision(RR2),
-        )
-        res = CC(
-            setintersection(real(res), real(res2)),
-            setintersection(imag(res), imag(res2)),
-        )
-        if iswide(res, cutoff = 20)
-            @warn "Wide enclosure when computing cosintpi res = $res"
-        end
-    end
-
-    return real(exp(CC(zero(a), -RR(π) * a / 2)) * res)
-end
-
-"""
-    cosint_javi(x::arb)
-Method that Javi used to compute cosint for some parameters that Arb
-didn't handle well. To me it doesn't seem to perform much better
-though.
-"""
-function cosint_javi(x::arb)
-    # Good for some parameters
-    res1 = -cosint(zero(x), x)
-
-    s, c = sincos(x)
-    lb = (s - (c + 1) / x) / x
-    ub = (s - (c - 1) / x) / x
-    res2 = setunion(lb, ub)
-
-    if isfinite(res1)
-        return setintersection(res1, res2)
-    else
-        return res2
-    end
-end
-
-"""
-    sinint(a::arb, z::arb)
-Compute the generalised sine integral Siₐ(z).
-
-It tries to give better enclosures by evaluating it at higher
-precision if required.
-"""
-function sinint(a::arb, z::arb)
-    RR = parent(z)
-    CC = ComplexField(precision(RR))
-    res = CC()
-    ccall(
-        ("acb_hypgeom_gamma_upper", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-        res,
-        CC(a),
-        CC(zero(z), z),
-        0,
-        precision(RR),
-    )
-
-    if iswide(res)
-        res2 = CC()
-        ccall(
-            ("acb_hypgeom_gamma_upper", Nemo.libarb),
-            Cvoid,
-            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-            res2,
-            CC(a),
-            CC(zero(z), z),
-            0,
-            4precision(RR),
-        )
-        res = CC(
-            setintersection(real(res), real(res2)),
-            setintersection(imag(res), imag(res2)),
-        )
-        if iswide(res, cutoff = 20)
-            @warn "Wide enclosure when computing sinint res = $res"
-        end
-    end
-
-    return -imag(exp(CC(zero(a), -RR(π) * a / 2)) * res)
-end
-
-"""
-    sinintpi(a::arb, z)
-Compute the generalised sinine integral Siₐ(πz).
-
-It tries to give better enclosures by evaluating it at higher
-precision if required.
-"""
-function sinintpi(a::arb, z)
-    RR = parent(a)
-    CC = ComplexField(precision(RR))
-    res = CC()
-    ccall(
-        ("acb_hypgeom_gamma_upper", Nemo.libarb),
-        Cvoid,
-        (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-        res,
-        CC(a),
-        CC(zero(z), RR(π) * z),
-        0,
-        precision(RR),
-    )
-
-    if iswide(res)
-        RR2 = RealField(8precision(RR))
-        CC2 = ComplexField(precision(RR2))
-        res2 = CC2()
-        ccall(
-            ("acb_hypgeom_gamma_upper", Nemo.libarb),
-            Cvoid,
-            (Ref{acb}, Ref{acb}, Ref{acb}, Int, Int),
-            res2,
-            CC2(a),
-            CC2(zero(a), RR2(π) * RR2(z)),
-            0,
-            precision(RR2),
-        )
-        res = CC(
-            setintersection(real(res), real(res2)),
-            setintersection(imag(res), imag(res2)),
-        )
-        if iswide(res, cutoff = 20)
-            @warn "Wide enclosure when computing sinintpi res = $res"
-        end
-    end
-
-    return -imag(exp(CC(zero(a), -RR(π) * a / 2)) * res)
 end
