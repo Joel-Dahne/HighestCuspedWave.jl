@@ -198,8 +198,6 @@ function findas!(u0::FractionalKdVAnsatz{T}; use_midpoint = true) where {T}
                 # TODO: Check if it would maybe still be more beneficial
                 # to use the midpoint instead
                 push!(u0.zeroterms, (0, 0, 1))
-            elseif use_midpoint && T == arb
-                u0.a[1] = midpoint(u0.a[1])
             elseif use_midpoint && T == Arb
                 u0.a[1] = Arblib.midpoint(Arb, u0.a[1])
             end

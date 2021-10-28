@@ -23,12 +23,13 @@ end
 
 """
     FractionalKdVAnsatz(α::T, N0, N1, p = one(α); kwargs...)
-Construct a FractionalKdVAnsatz with the given `α` value and `N0` aⱼ's
-and `N1` bₙ's. It sets the weight to be used to |x|^p.
 
-If `use_midpoint` is true then and `T` is `arb` then use only the
-midpoint values of `p0`, `a`, `b` and `p` with the exception of `a[0]`
-for which the proper enclosure is used.
+Construct a `FractionalKdVAnsatz` with the given `α` value and `N0`
+aⱼ's and `N1` bₙ's. It sets the weight to be used to `|x|^p`.
+
+If `use_midpoint` is true and `T` is `Arb` then use only the midpoint
+values of `p0`, `a`, `b` and `p` with the exception of `a[0]` for
+which the proper enclosure is used.
 
 If `initial_a` or `initial_b` is given then use these as initial
 values for `a` and `b` when solving the system giving the
@@ -36,7 +37,6 @@ coefficients. For `a` you should have `initial_a = [a1, a2, …]` and
 skip the first `a0`. For `b` you give all of them. It still respects
 the values of `N0` and `N1` so it either uses only some of the
 coefficients or fills up with zeros.
-
 """
 function FractionalKdVAnsatz(
     α::T,
@@ -47,7 +47,7 @@ function FractionalKdVAnsatz(
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
 ) where {T}
-    # Using the midpoint only makes sense for T == arb
+    # Using the midpoint only makes sense for T == Arb
     use_midpoint = use_midpoint && T == Arb
 
     if use_midpoint
@@ -204,14 +204,6 @@ function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{T}) where
     print(io, "α = $(u0.α), p = $(u0.p)")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{arb})
-    println(
-        io,
-        "FractionalKdVAnsatz{arb} N₀ = $(u0.N0), N₁ = $(u0.N1), prec = $(precision(parent(u0.α)))",
-    )
-    print(io, "α = $(u0.α), p = $(u0.p)")
-end
-
 function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) where {T}
     return FractionalKdVAnsatz{T}(
         convert(T, u0.α),
@@ -219,18 +211,6 @@ function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) w
         convert.(T, u0.a),
         convert(Vector{T}, u0.b),
         convert(T, u0.p),
-        copy(u0.zeroterms),
-    )
-end
-
-function Base.convert(::Type{FractionalKdVAnsatz{arb}}, u0::FractionalKdVAnsatz)
-    RR = RealField(precision(BigFloat))
-    return FractionalKdVAnsatz{arb}(
-        RR(u0.α),
-        RR(u0.p0),
-        RR.(u0.a),
-        RR.(u0.b),
-        RR(u0.p),
         copy(u0.zeroterms),
     )
 end
