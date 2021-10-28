@@ -45,12 +45,11 @@ function stieltjes(::Type{Arb}, n::Integer)
     res = zero(Acb)
     a = one(Acb)
 
-    # This call uses fmpz, this is the one reason we need to keep the
-    # Nemo dependency for now.
+    # This call uses fmpz from Nemo
     ccall(
         (:acb_dirichlet_stieltjes, Arblib.libarb),
         Cvoid,
-        (Ref{Arblib.acb_struct}, Ref{fmpz}, Ref{Arblib.acb_struct}, Clong),
+        (Ref{Arblib.acb_struct}, Ref{Nemo.fmpz}, Ref{Arblib.acb_struct}, Clong),
         res,
         convert(Nemo.fmpz, n),
         a,
@@ -72,10 +71,23 @@ on the form `(2k+ 1)π`. If they are true it means they might contain
 such a point. This is used to determine where the extrema of `Ci([x1,
 x2])` can occur.
 
-TODO: This is (hopefully) correct but not optimal.
+**TODO:** This is (hopefully) correct but not optimal.
 """
 function contains_pi(x1::Arb, x2::Arb)
     @assert !(x1 > x2)
+
+    function unique_integer(x::Arb)
+        # This call uses fmpz from Nemo
+        res = Nemo.fmpz()
+        unique = ccall(
+            Arblib.@libarb(arb_get_unique_fmpz),
+            Int,
+            (Ref{Nemo.fmpz}, Ref{Arblib.arb_struct}),
+            res,
+            x,
+        )
+        return !iszero(unique), Int(res)
+    end
 
     # x1 or x2 equal to zero are the only cases when the division by π
     # can be exact, in which case it has to be handled differently.
@@ -84,23 +96,16 @@ function contains_pi(x1::Arb, x2::Arb)
 
     # We have k1ₗπ ≤ xₗ < (k1ᵤ + 1)π
     k1 = Arblib.floor!(zero(x1), x1 / π)
-    # TODO: Implement unique_integer for Arb
-    unique1ₗ, k1ₗ = unique_integer(
-        ArbField(precision(k1))(Arblib.ceil!(zero(k1), Arblib.lbound(Arb, k1))),
-    )
-    unique1ᵤ, k1ᵤ = unique_integer(
-        ArbField(precision(k1))(Arblib.floor!(zero(k1), Arblib.ubound(Arb, k1))),
-    )
+
+    unique1ₗ, k1ₗ = unique_integer(Arblib.ceil!(zero(k1), Arblib.lbound(Arb, k1)))
+    unique1ᵤ, k1ᵤ = unique_integer(Arblib.floor!(zero(k1), Arblib.ubound(Arb, k1)))
     k1ₗ, k1ᵤ = Int(k1ₗ), Int(k1ᵤ)
     @assert unique1ₗ && unique1ᵤ && k1ₗ * Arb(π) ≤ x1 < (k1ᵤ + 1) * Arb(π)
+
     # We have k2ₗπ ≤ xₗ < (k2ᵤ + 1)π
     k2 = Arblib.floor!(zero(x2), x2 / π)
-    (unique2ₗ, k2ₗ) = unique_integer(
-        ArbField(precision(k2))(Arblib.ceil!(zero(k2), Arblib.lbound(Arb, k2))),
-    )
-    (unique2ᵤ, k2ᵤ) = unique_integer(
-        ArbField(precision(k2))(Arblib.floor!(zero(k2), Arblib.ubound(Arb, k2))),
-    )
+    unique2ₗ, k2ₗ = unique_integer(Arblib.ceil!(zero(k2), Arblib.lbound(Arb, k2)))
+    unique2ᵤ, k2ᵤ = unique_integer(Arblib.floor!(zero(k2), Arblib.ubound(Arb, k2)))
     k2ₗ, k2ᵤ = Int(k2ₗ), Int(k2ᵤ)
     @assert unique2ₗ && unique2ᵤ && k2ₗ * Arb(π) ≤ x2 < (k2ᵤ + 1) * Arb(π)
 
