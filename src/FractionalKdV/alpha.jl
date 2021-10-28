@@ -1,5 +1,5 @@
 """
-    alpha0(u0::FractionalKdVAnsatz; M::Integer = 3, rtol::arb = 1e-5, threaded = true)
+    alpha0(u0::FractionalKdVAnsatz; M::Integer, rtol, threaded, verbose)
 
 Enclose the value of `α₀` from the paper.
 

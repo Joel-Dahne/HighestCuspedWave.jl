@@ -1,43 +1,4 @@
 """
-    CB(u0::FractionalKdVAnsatz{arb}; ϵ::arb = parent(u0.α)(0.1))
-Upper bound the value of C_B from the paper. TODO: Uses an asymptotic
-expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
-"""
-function CB(
-    u0::FractionalKdVAnsatz{arb};
-    ϵ::arb = parent(u0.α)(0.1),
-    rtol::arb = parent(u0.α)(1e-2),
-    show_trace = false,
-)
-    # Bound the value one [0, ϵ]
-    # TODO: Implement this
-    n1 = enclosemaximum(
-        T0(u0, Asymptotic()),
-        parent(u0.α)(0),
-        ϵ,
-        rtol = rtol,
-        absmax = true,
-        maxevals = 10^3,
-        show_trace = show_trace,
-    )
-
-    # Bound the value one [ϵ, π]
-    # TODO: This does not fully work yet
-    tol = 1e-4 * Float64(rtol)
-    n2 = enclosemaximum(
-        T0(u0, Ball(), rtol = tol, atol = tol),
-        ϵ,
-        parent(u0.α)(π),
-        rtol = rtol,
-        absmax = true,
-        maxevals = 10^3,
-        show_trace = show_trace,
-    )
-
-    return max(n1, n2)
-end
-
-"""
     CB_bounded_by(u0::AbstractAnsatz{Arb}, C::Arf; ϵ = 0, ...)
 
 Attempt to prove that \$C_B\$ is bounded by `C`. Returns `true` on
