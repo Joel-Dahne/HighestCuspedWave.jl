@@ -1,26 +1,19 @@
 module HighestCuspedWave
 
-using ArbTools
-using NLsolve
-using Nemo
-using OffsetArrays
-using Printf
-using OrderedCollections
-using Arblib
 using ArbExtras
+using Arblib
+using NLsolve
+using OffsetArrays
+using OrderedCollections
+using SpecialFunctions
 
-import SpecialFunctions
-
-import ArbTools: getinterval
-import Nemo: midpoint, radius
+import Nemo
 
 include("arb.jl")
-include("clausian.jl")
 include("special-functions/polylog.jl")
 include("special-functions/clausenc.jl")
 include("special-functions/clausens.jl")
 include("types.jl")
-include("bounded_by.jl")
 include("evaluation.jl")
 
 include("alpha.jl")
