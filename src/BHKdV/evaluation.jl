@@ -228,7 +228,7 @@ a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
 ```
 which in the limit becomes `∞ * 0`. It converges to
 ```
-u0.v0.a0 * (-1)^m * zeta(2 - 2m, d = 1) / factorial(2m)
+u0.v0.a0 * (-1)^m * dzeta(2 - 2m) / factorial(2m)
 ```
 , where `u0.v0.a0 = 2 / π^2` , which is the coefficient in front of
 `x^2m` for the main term of `u0.v0`. We therefore compute the
@@ -274,7 +274,7 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
     let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
         for m = 1:M-1
-            coefficient = u0.v0.a0 * (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(2m)
+            coefficient = u0.v0.a0 * (-1)^m * dzeta(Arb(2 - 2m)) / factorial(2m)
 
             # Add error bounds
             coefficient_2 =
@@ -290,7 +290,7 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @warn "Non-rigorous error term implemented for main term" maxlog = 1
     Arblib.add_error!(
         res[(0, 0, 0, 0, 0, 0, 2M)],
-        2abs(zeta(Arb(2 - 2M), d = 1) / factorial(2M)) * u0.v0.a0,
+        2abs(dzeta(Arb(2 - 2M)) / factorial(2M)) * u0.v0.a0,
     )
 
     # Tail term
@@ -457,7 +457,7 @@ For the main term the coefficients in front of `x^2m` is given by
 ```
 which in the limit becomes `∞ * 0`. For `m >= 2` it converges to
 ```
--u0.v0.a0 * (-1)^m * zeta(2 - 2m, d = 1) / factorial(2m)
+-u0.v0.a0 * (-1)^m * dzeta(2 - 2m) / factorial(2m)
 ```
 , where `u0.v0.a0 = 2 / π^2` , which is the coefficient in front of
 `x^2m` for the main term of `u0.v0`. We therefore compute the
@@ -524,7 +524,7 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
         # TODO: Implement rigorous error bounds
         for m = 2:M-1
-            coefficient = -(-1)^m * zeta(Arb(3 - 2m), d = 1) / factorial(Arb(2m)) * u0.v0.a0
+            coefficient = -(-1)^m * dzeta(Arb(3 - 2m)) / factorial(Arb(2m)) * u0.v0.a0
 
             # Add error bounds
             coefficient_2 =
@@ -539,7 +539,7 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         @warn "No error bounds for error term of main term" maxlog = 1
         Arblib.add_error!(
             res[(0, 0, 0, 0, 0, 0, 2M)],
-            2abs(zeta(Arb(3 - 2M), d = 1) / factorial(Arb(2M))) * u0.v0.a0,
+            2abs(dzeta(Arb(3 - 2M)) / factorial(Arb(2M))) * u0.v0.a0,
         )
 
         # Clausen terms

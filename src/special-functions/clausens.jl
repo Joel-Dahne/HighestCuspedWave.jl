@@ -74,11 +74,7 @@ function _clausens_zeta(x::Arb, s::Arb)
         Arblib.add!(v, v, 1)
     end
 
-    f(v) =
-        gamma(v) *
-        inv2pi^v *
-        sinpi(v / 2) *
-        (SpecialFunctions.zeta(v, xinv2pi) - SpecialFunctions.zeta(v, onemxinv2pi))
+    f(v) = gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
 
     if iswide(s)
         res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
@@ -109,10 +105,10 @@ underlying methods [`_clausens_polylog`](@ref) and
 non-negative integer, in which case both the above methods give
 indeterminate results. In that case we compute at the midpoint of `s`
 and bound the error by using a bound for the derivative in `s`. For s
-> 1 the derivative in `s` is bounded by `zeta(s, d = 1)`, this can be
+> 1 the derivative in `s` is bounded by `dzeta(s)`, this can be
 seen by looking at the Fourier series for `clausenc(x, s, 1)` and
 noticing that it attains it maximum at `x = 0` where it precisely
-equals `zeta(s, d = 1)`.
+equals `dzeta(s)`.
 - **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
   this case the derivative in `s` blows up at `x = 0` so we can't use
   a uniform bound.
@@ -149,7 +145,7 @@ function clausens(x::Arb, s::Union{Arb,Integer})
             res = clausens(x, smid)
 
             # Bound derivative in s using derivative of zeta function
-            derivative = zeta(s, d = 1)
+            derivative = dzeta(s)
             error = (s - smid) * abs(derivative)
 
             return res + error

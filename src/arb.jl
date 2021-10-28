@@ -30,16 +30,13 @@ iswide(x::Union{Arb,Acb}; cutoff = 10) = Arblib.rel_accuracy_bits(x) < precision
 
 iswide(::Number; cutoff = 10) = false
 
-function zeta(s::Arb; d::Integer = 0)
-    iszero(d) && return SpecialFunctions.zeta(s)
+"""
+    dzeta(s)
 
-    s_series = ArbSeries([s, 1], degree = d)
-    return SpecialFunctions.zeta(s_series, one(s))[d] *
-           factorial(Arb(d, prec = precision(s)))
-end
-
-zeta(s; d::Integer = 0) =
-    iszero(d) ? SpecialFunctions.zeta(s) : convert(float(typeof(s)), (zeta(Arb(s); d)))
+Compute the Zeta function differentiated once with respect to `s`.
+"""
+dzeta(s::Arb) = zeta(ArbSeries([s, 1]), one(s))[1]
+dzeta(s) = convert(float(typeof(s)), (zeta(Arb(s))))
 
 function stieltjes(::Type{Arb}, n::Integer)
     res = zero(Acb)

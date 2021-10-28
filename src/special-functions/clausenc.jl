@@ -74,11 +74,7 @@ function _clausenc_zeta(x::Arb, s::Arb)
         Arblib.add!(v, v, 1)
     end
 
-    f(v) =
-        gamma(v) *
-        inv2pi^v *
-        cospi(v / 2) *
-        (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi))
+    f(v) = gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
 
     if iswide(s)
         res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
@@ -131,10 +127,7 @@ function _clausenc_zeta(x::Acb, s::Arb)
         gamma(v) *
         inv2pi^v *
         cospi(v / 2) *
-        (
-            SpecialFunctions.zeta(Acb(v), xinv2pi) +
-            SpecialFunctions.zeta(Acb(v), onemxinv2pi)
-        )
+        (zeta(Acb(v), xinv2pi) + zeta(Acb(v), onemxinv2pi))
 
     return f(v)
 end
@@ -160,10 +153,10 @@ underlying methods [`_clausenc_polylog`](@ref) and
 non-negative integer, in which case both the above methods give
 indeterminate results. In that case we compute at the midpoint of `s`
 and bound the error by using a bound for the derivative in `s`. For s
-> 1 the derivative in `s` is bounded by `zeta(s, d = 1)`, this can be
+> 1 the derivative in `s` is bounded by `dzeta(s)`, this can be
 seen by looking at the Fourier series for `clausenc(x, s, 1)` and
 noticing that it attains it maximum at `x = 0` where it precisely
-equals `zeta(s, d = 1)`.
+equals `dzeta(s)`.
 - **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
   this case the derivative in `s` blows up at `x = 0` so we can't use
   a uniform bound.
@@ -194,7 +187,7 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
             res = clausenc(x, smid)
 
             # Bound derivative in s using derivative of zeta function
-            derivative = zeta(s, d = 1)
+            derivative = dzeta(sg)
             error = (s - smid) * abs(derivative)
 
             return res + error
@@ -296,7 +289,11 @@ prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 - **PROVE:** That there is only once critical point.
 """
 function clausenc(x::Arb, s::Arb, β::Integer)
-    iszero(x) && s > 1 && return zeta(s, d = β)
+    if iszero(x) && s > 1
+        isone(β) && return dzeta(s)
+        s_series = ArbSeries([s, 1], degree = β)
+        return zeta(s_series, one(s))[β] * factorial(β)
+    end
 
     if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
@@ -461,10 +458,7 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
     v = onem(s)
 
     f(v) =
-        gamma(v) *
-        inv2pi^v *
-        cospi(v / 2) *
-        (SpecialFunctions.zeta(v, xinv2pi) + SpecialFunctions.zeta(v, onemxinv2pi)) -
+        gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi)) -
         zeta(onem(v))
 
     if iswide(s)

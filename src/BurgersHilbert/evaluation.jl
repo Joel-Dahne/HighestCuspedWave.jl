@@ -204,7 +204,7 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     res[(1, 1, 0, 0)] = -Arb(π) / 2 * u0.a0
     res[(0, 1, 0, 0)] = -(γ - 1) * Arb(π) / 2 * u0.a0
     for m = 1:M-1
-        res[(0, 2m, 0, 0)] = (-1)^m * zeta(Arb(2 - 2m), d = 1) / factorial(Arb(2m)) * u0.a0
+        res[(0, 2m, 0, 0)] = (-1)^m * dzeta(Arb(2 - 2m)) / factorial(Arb(2m)) * u0.a0
     end
     # TODO: Give an expression for the error term. The one we use
     # here is twice the coefficient for x^2M which should be
@@ -212,7 +212,7 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # value for M should also be checked in relation to this.
     Arblib.add_error!(
         res[(0, 2M, 0, 0)],
-        2abs(zeta(Arb(2 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
+        2abs(dzeta(Arb(2 - 2M)) / factorial(Arb(2M))) * u0.a0,
     )
 
     # Fourier terms
@@ -303,7 +303,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             if m == 1
                 term = (3γ - γ^2 - 2γ₁ - 7 // 2 + (π^2) / 12) / 2
             else
-                term = zeta(Arb(3 - 2m), d = 1)
+                term = dzeta(Arb(3 - 2m))
             end
             res[(0, 2m, 0, 0)] = -(-1)^m * term * u0.a0 / factorial(Arb(2m))
         end
@@ -313,7 +313,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         # value for M should also be checked in relation to this.
         Arblib.add_error!(
             res[(0, 2M, 0, 0)],
-            2abs(zeta(Arb(3 - 2M), d = 1) / factorial(Arb(2M))) * u0.a0,
+            2abs(dzeta(Arb(3 - 2M)) / factorial(Arb(2M))) * u0.a0,
         )
 
         # Fourier terms
