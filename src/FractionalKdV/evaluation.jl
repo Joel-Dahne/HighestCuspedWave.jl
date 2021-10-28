@@ -166,11 +166,7 @@ function D(
     end
 end
 
-function F0(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Asymptotic;
-    M::Integer = 3,
-)
+function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3)
     f = D(u0, AsymptoticExpansion(); M)
     return x -> begin
         expansion = f(x)
