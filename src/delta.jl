@@ -1,24 +1,17 @@
-export delta0, delta0_bounded_by, delta0_estimate
+export delta0, delta0_estimate
 
 """
-    delta0(u0::FractionalKdVAnsatz; ϵ::arb = 0, M::Integer = 3, n::Integer = 6)
+    delta0(u0::AbstractAnsatz{Arb})
+
 Upper bound the value of `δ₀` from the paper.
 
-Specialized for different types of ansatz.
+Specialized for different types of `AbstractAnsatz`.
 """
 delta0
 
 """
-    delta0_bounded_by(u0::AbstractAnsatz{arb}, C::arb; ϵ::arb = u0.parent(0.1))
-Return true if `δ₀` is bounded by `C` together with an enclosure of
-the maximum.
-
-Specialized for different types of ansatz.
-"""
-delta0_bounded_by
-
-"""
     delta0_estimate(u0::AbstractAnsatz; ϵ = 0, n::Integer = 100, return_values = false)
+
 Estimate the value of `δ₀` from the paper.
 
 Does this by evaluating `F0` it on `n` linearly spaced points on the
@@ -35,13 +28,7 @@ function delta0_estimate(
     n::Integer = 100,
     return_values = false,
 ) where {T}
-    xs = range(0, stop = π, length = n + 1)[2:end]
-    if T == arb
-        xs = u0.parent.(xs)
-    else
-        xs = convert.(T, xs)
-    end
-
+    xs = range(zero(T), π, length = n + 1)[2:end]
     res = similar(xs)
 
     # Asymptotic version might not be defined
@@ -56,13 +43,11 @@ function delta0_estimate(
         end
     end
 
-    m = zero(xs[1])
-    for r in res
-        m = max(m, abs(r))
-    end
+    m = maximum(abs.(res))
 
     if return_values
         return m, xs, res
     end
+
     return m
 end
