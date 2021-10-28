@@ -1,14 +1,16 @@
 # Contains error terms used in the asymptotic expansions
 
 """
-    E(u0::FractionalKdVAnsatz{T}, M::Integer)
-Compute an enclosure of E_{u_0}(x) from the paper, skipping the x^(2M) factor.
-"""
-function E(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
-    π = convert(T, pi)
+    E(u0::FractionalKdVAnsatz{Arb}, M::Integer)
 
-    return x -> begin
-        # Compute error bounds for the Clausians
+Compute an enclosure of \$E_{u_0}(x)\$ from the paper, skipping the
+`x^2M` factor.
+"""
+function E(u0::FractionalKdVAnsatz{Arb}, M::Integer)
+    π = convert(Arb, pi)
+
+    return x::Arb -> begin
+        # Compute error bounds for the Clausen functions
         E_bound1 = zero(u0.α)
         for j = 0:u0.N0
             E_bound1 += (2π)^(j * u0.p0) * abs(zeta(2M + u0.α - j * u0.p0) * u0.a[j])
@@ -18,25 +20,22 @@ function E(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
         # Compute error bounds for the Fourier terms
         E_bound2 = zero(u0.α)
         for n = 1:u0.N1
-            E_bound2 += convert(T, n)^(2M) * abs(u0.b[n])
+            E_bound2 += Arb(n)^(2M) * abs(u0.b[n])
         end
-        E_bound2 /= factorial(fmpz(2M))
+        E_bound2 /= factorial(Arb(2M))
 
-        if T == Arb
-            return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
-        else
-            return E_bound1 + E_bound2
-        end
+        return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
     end
 end
 
 """
-    EH(u0::FractionalKdVAnsatz{T}, M::Integer)
-Compute an enclosure of E_{H^{-\alpha}u_0}(x) from the paper, skipping
-the x^(2M) factor.
+    EH(u0::FractionalKdVAnsatz{Arb}, M::Integer)
+
+Compute an enclosure of \$E_{H^{-\alpha}u_0}(x)\$ from the paper,
+skipping the `x^2M` factor.
 """
-function EH(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
-    π = convert(T, pi)
+function EH(u0::FractionalKdVAnsatz{Arb}, M::Integer)
+    π = convert(Arb, pi)
 
     return x -> begin
         # Compute error bounds for the Clausians
@@ -51,12 +50,8 @@ function EH(u0::FractionalKdVAnsatz{T}, M::Integer) where {T}
         for n = 1:u0.N1
             E_bound2 += n^(2M + u0.α) * abs(u0.b[n])
         end
-        E_bound2 /= factorial(fmpz(2M))
+        E_bound2 /= factorial(Arb(2M))
 
-        if T == Arb
-            return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
-        else
-            return E_bound1 + E_bound2
-        end
+        return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
     end
 end
