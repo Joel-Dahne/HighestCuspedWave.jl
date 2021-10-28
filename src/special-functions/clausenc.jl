@@ -345,9 +345,9 @@ function clausenc(x::ArbSeries, s, β::Integer)
 
     for i = 0:Arblib.degree(x)
         if i % 2 == 0
-            res[i] = (-1)^(i ÷ 2) * Ci(x₀, s - i, β) / factorial(i)
+            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i, β) / factorial(i)
         else
-            res[i] = -(-1)^(i ÷ 2) * Si(x₀, s - i, β) / factorial(i)
+            res[i] = -(-1)^(i ÷ 2) * clausens(x₀, s - i, β) / factorial(i)
         end
     end
 

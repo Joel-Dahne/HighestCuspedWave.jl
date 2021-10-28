@@ -181,7 +181,8 @@ clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
 Compute \$S_s^{(β)}(x)\$, that is `clausens(x, s)` differentiated `β`
 times w.r.t. `s`.
 
-- **TODO**: Handle wide (real) balls better, similar to how `Si(x, s)` does
+- **TODO**: Handle wide (real) balls better, similar to how
+  `clausens(x, s)` does
 """
 clausens(x::Arb, s::Arb, β::Integer) = _clausens_polylog(x, s, β)
 
