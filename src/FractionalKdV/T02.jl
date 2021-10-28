@@ -248,13 +248,19 @@ expansion gives a very poor approximation for `clausenc(x + y, -α)`.
 In this case we make use of the fact that it's 2π periodic and even,
 so that `clausenc(x + y, -α) = clausenc(x + y - 2π, -α) = clausenc(2π
 - (x + y), -α)`, to be able to use the asymptotic expansion instead.
-That gives us the integral ```∫_x^a (2π - (x + y))^s*t^p dy` which is
-given by `(2π - x)^(1 + p + s)*(B(1 + p, 1 + s, a/(2π - x)) - B(1 + p,
-1 + s, x/(2π - x)))```. The value of `x/(2π - x)` will always be less
-than or equal to 1 for `x` less than or equal to π, however due to
-overestimation the enclosing ball might contain values greater than
-one, we therefore have to use `beta_inc_zeroone` to be able to get
-finite results in that case.
+That gives us the integral
+```
+∫_x^a (2π - (x + y))^s*t^p dy
+```
+which is given by
+```
+(2π - x)^(1 + p + s)*(B(1 + p, 1 + s, a/(2π - x)) - B(1 + p, 1 + s, x/(2π - x)))
+```
+The value of `x/(2π - x)` will always be less than or equal to 1 for
+`x` less than or equal to π, however due to overestimation the
+enclosing ball might contain values greater than one, we therefore
+have to use `beta_inc_zeroone` to be able to get finite results in
+that case.
 """
 T021(u0::FractionalKdVAnsatz, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
 
