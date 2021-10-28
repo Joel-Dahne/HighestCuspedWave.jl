@@ -268,11 +268,10 @@ function clausenc(x::ArbSeries, s)
     end
 
     # Compose the Taylor series for the result with that of the input
-    x[0] = 0
-    Arblib.compose_series!(res, res, x, Arblib.degree(res) + 1)
-    x[0] = x₀
+    x_tmp = copy(x)
+    x_tmp[0] = 0
 
-    return res
+    return Arblib.compose(res, x_tmp)
 end
 
 """
@@ -530,11 +529,10 @@ function clausencmzeta(x::ArbSeries, s::Arb)
     end
 
     # Compose the Taylor series for the result with that of the input
-    x[0] = 0
-    Arblib.compose_series!(res, res, x, Arblib.degree(res) + 1)
-    x[0] = x₀
+    x_tmp = copy(x)
+    x_tmp[0] = 0
 
-    return res
+    return Arblib.compose(res, x_tmp)
 end
 
 clausencmzeta(x::ArbSeries, s) = clausenc(x, s) - zeta(Arb(s, prec = precision(x)))
