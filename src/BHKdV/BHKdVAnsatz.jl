@@ -49,7 +49,7 @@ struct BHKdVAnsatz{T} <: AbstractAnsatz{T}
 
     function BHKdVAnsatz{T}(ϵ::T, v0::BHAnsatz{T}) where {T}
         @assert ϵ > 0
-        if T == arb
+        if T == Arb
             @assert Arblib.overlaps(v0.a0, 2 / convert(T, π)^2)
         end
 
