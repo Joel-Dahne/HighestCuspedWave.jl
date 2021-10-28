@@ -485,16 +485,34 @@ Typically this method just calls [`clausenc`](@ref) and [`zeta`](@ref)
 directly and gives no direct benefit.
 
 However, if `s` is a wide ball it can better handle the cancellations
-between the two terms by computing them correctly. This is handled by
-the method [`_clausencmzeta_zeta`](@ref). Since this method only
-supports `0 < x < π` and `s` not overlapping an integer we fall back
-to calling the methods directly if this is not satisfied.
+between the two terms by computing them together.
+
+If `s > 1` it uses that the function is non-decreasing in `s`. That
+this is the case can be checked by looking at the Fourier series of
+the `clausenc` and the series for `zeta` and check that all terms in
+their difference are non-negative.
+
+For `s <= 1` this is no longer the case. Instead it uses Taylor
+expansions to compute accurate bounds, this is implemented in
+[`_clausencmzeta_zeta`](@ref). Since this method only supports `0 < x
+< 2π` and `s` not overlapping an integer we fall back to calling the
+methods directly if this is not satisfied.
+- **TODO:** Better handle this case? For example we can call
+  `_clausenc_zeta` for `s` overlapping negative integers. This case
+  might not occur at all in the code though.
 
 Otherwise it behaves like `clausenc(x, s) - zeta(s)` with the only
 difference being that it converts `x` and `s` to the same type to
 begin with.
 """
 function clausencmzeta(x::Arb, s::Arb)
+    if iswide(s) && s > 1
+        # Use that the function is non-decreasing in s to compute at
+        # lower and upper bound of s
+        sₗ, sᵤ = Arblib.getinterval(Arb, s)
+        return Arb((clausencmzeta(x, sₗ), clausencmzeta(x, sᵤ)))
+    end
+
     if !iswide(s) || Arblib.contains_int(s) || !Arblib.ispositive(x) || !(x < 2Arb(π))
         # If s is not wide or we are in a case which
         # _clausencmzeta_zeta doesn't support, call the clausenc and
