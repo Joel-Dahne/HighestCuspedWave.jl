@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.15.1
+# v0.17.0
 
 using Markdown
 using InteractiveUtils
@@ -13,23 +13,58 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ 33607830-bf41-4b47-9b16-dda692fe8fd2
-using Pkg, Revise
+# ╔═╡ a0ab3d57-b420-43c2-b69b-c403dde1f3ad
+begin
+    using Pkg, Revise
+    Pkg.activate("../")
+    using Arblib, ArbExtras, HighestCuspedWave, Plots, PlutoUI
 
-# ╔═╡ 174f3e1f-6c16-49d6-90ed-31ced01412e7
-Pkg.activate("../")
+    setprecision(Arb, 100)
 
-# ╔═╡ 11203d3d-9a80-4d5f-b0a0-8131d442a571
-using Arblib, ArbExtras, HighestCuspedWave, Plots, PlutoUI
+    nothing
+end
 
 # ╔═╡ 3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
-md"# Burger Hilberts Equation"
+md"""
+# Burger Hilberts Equation
+This notebook contains the computer assisted part of the proof for the existence of a highest cusped traveling wave for the Burger Hilberts equation. The Equation is given by
 
-# ╔═╡ 8e762d14-f260-433a-974d-bee30b58ec2b
-setprecision(Arb, 128)
+$u_t + \left(\frac{u}{2}\right)_x = H[u]$
+
+where $H[u]$ is the Hilbert transform of $u$. For the details of the proof see the paper, this notebook focuses on the computer assisted parts.
+
+The wave in question looks roughtly as this
+"""
+
+# ╔═╡ 6c2a16c7-2bcf-4a2b-9466-38309a36b937
+md"""
+What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like 
+
+$u(x) = |x|\log(|x|) + \mathcal{O}(|x|\log(|x|)^{1/2}).$
+
+The general idea is to construct an approximate solution, $u_0$, of the equation and then prove that there is a true solution
+
+$u(x) = u_0(x) + |x|\log\left(\frac{|x| + 1}{|x|}\right)^{1/2}u_e(x)$
+
+where $u_e \in L^\infty(\mathbb{T})$ is an error term which is bounded on the interval. To do this we use a fixed point argument and for it to go through we need to control three different values that depend on the choice of $u_0$.
+- $\alpha_0 = \sup_{x \in \mathbb{T}} \left|\frac{w(x)}{2u_0(x)}\right|;$
+- The defect, $\delta_0$, how far our approximate solution is from satisfying the differential equation;
+- A number $C_B$ which depends on the norm of an operator that occurs in the fixed point equation.
+They need to satisfy the **inequality**
+
+$\delta \leq \frac{1}{4\alpha_0 \beta^2}$
+
+where $\beta = \frac{1}{1 - C_B}$ and we require that $C_B < 1$.
+
+The construction of an approximate solution with the right asymptotic behaviour is one of the most complicated parts of the work. It relies heavily on the so called Clausen functions
+
+$C_s(x) = \sum_{n = 1}^\infty \frac{\cos(nx)}{n^s},\ S_s(x) = \sum_{n = 1}^\infty \frac{\sin(nx)}{n^s}$
+
+and there derivatives with respect to the order $s$.
+"""
 
 # ╔═╡ 66888021-535e-4f26-86c0-0db989a84be1
-md"The first step is to compute the solution. The ansatz consists of three parts
+md"The first step is to compute the approximate solution $u_0$. The ansatz consists of three parts
 - the leading Clausian
 - the tail of a solution computed with `α` very close to `-1`
 - a few Fourier modes
@@ -48,6 +83,20 @@ md"The we construct the solution using `v0` and 16 Fourier modes."
 
 # ╔═╡ a063a9a2-c2c2-4c99-9df1-9fce888baad2
 u0 = BHAnsatz{Arb}(16; v0)
+
+# ╔═╡ 73ae2ee7-d722-4ad8-8fc7-a57781180d35
+let xs = Arb.(range(-4, 4, length = 101))
+    ys = similar(xs)
+    Threads.@threads for i in eachindex(xs)
+        if abs(xs[i]) < 0.1
+            ys[i] = u0(xs[i], Asymptotic())
+        else
+            ys[i] = u0(xs[i])
+        end
+    end
+    ys = u0(zero(Arb), Asymptotic()) .- ys
+    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "", linewidth = 2)
+end
 
 # ╔═╡ 0a7c70da-f6d6-4484-baf5-0ae51ef3e349
 md"We can plot the solution on `[0, π]`."
@@ -105,7 +154,7 @@ end
 
 # ╔═╡ 61151255-15d4-45ec-a3ad-573c46d34d93
 α0 = if use_rigorous_bounds_α0
-    alpha0(u0, verbose = true)
+    @time alpha0(u0, verbose = true)
 else
     maximum(α0_ys)
 end
@@ -131,7 +180,7 @@ end
 
 # ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 C_B = if use_rigorous_bounds_C_B
-    CB(u0, verbose = true)
+    @time CB(u0, verbose = true)
 else
     maximum(C_B_ys)
 end
@@ -165,7 +214,7 @@ We can now plot the defect on the interval `[0, π]`. We do three different plot
 """
 
 # ╔═╡ b8c5ba34-748e-4c4b-be9c-135240287351
-δ0_xs, δ0_ys = let xs = range(Arb(1e-2), Arb(π), length = 100)
+δ0_xs, δ0_ys = let xs = range(Arb(1e-3), Arb(π), length = 100)
     ys = similar(xs)
     f = F0(u0)
     Threads.@threads for i in eachindex(xs)
@@ -198,7 +247,7 @@ end
 
 # ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
 δ0 = if use_rigorous_bounds_δ0
-    delta0(u0, verbose = true)
+    @time delta0(u0, verbose = true)
 else
     max(maximum(abs.(δ0_ys)), maximum(abs.(δ0_asym_ys)), maximum(abs.(δ0_very_asym_ys)))
 end
@@ -257,17 +306,16 @@ let pl = plot()
 end
 
 # ╔═╡ Cell order:
+# ╟─a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 # ╟─3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
-# ╠═33607830-bf41-4b47-9b16-dda692fe8fd2
-# ╠═174f3e1f-6c16-49d6-90ed-31ced01412e7
-# ╠═11203d3d-9a80-4d5f-b0a0-8131d442a571
-# ╠═8e762d14-f260-433a-974d-bee30b58ec2b
+# ╟─73ae2ee7-d722-4ad8-8fc7-a57781180d35
+# ╟─6c2a16c7-2bcf-4a2b-9466-38309a36b937
 # ╟─66888021-535e-4f26-86c0-0db989a84be1
 # ╠═69dde124-8988-4f70-837d-01e940d199e4
 # ╟─028b15a1-402d-40f3-85db-b27672ff9d73
 # ╠═a063a9a2-c2c2-4c99-9df1-9fce888baad2
 # ╟─0a7c70da-f6d6-4484-baf5-0ae51ef3e349
-# ╟─1b9e2283-03f9-4f5a-9143-85984586d77c
+# ╠═1b9e2283-03f9-4f5a-9143-85984586d77c
 # ╟─43ff127c-f7fa-4ff0-9827-36fc9507fb0b
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─3e6b7582-bb9f-46be-84de-f568dec6780e
