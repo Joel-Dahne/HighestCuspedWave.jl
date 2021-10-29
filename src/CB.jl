@@ -2,8 +2,6 @@ export CB, CB_bounded_by, CB_estimate
 
 """
     CB(u0::AbstractAnsatz; ϵ = 0.1)
-Upper bound the value of C_B from the paper. TODO: Uses an asymptotic
-expansion on the interval [0, ϵ] and ball arithmetic on [ϵ, π].
 
 Specialized for different types of ansatz.
 """
