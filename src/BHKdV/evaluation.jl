@@ -943,3 +943,174 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
         return (res1 + res2) * weight(x)
     end
 end
+
+"""
+    F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
+
+Returns a function such that an **upper bound** of `F0(u0)(x)` is
+computed accurately for small values of `x`. It assumes that `x < 1`.
+
+This method is intended for the case when `x` doesn't overlap with
+zero, in practice we use it for the interval `[1e-200000, 1e-5]`.
+
+This method assumes that the value for `p0` is taken to be
+```
+p0 = 1 + α + (1 + α)^2 / 2
+```
+
+Recall that the expression we are interested in bounding is
+```
+abs((u0(x)^2 + H(u0)(x)) / (u0(x) * log(10 + inv(x))))
+```
+
+# Split into two factors
+As a first step we split the expression into two factors which are
+both bounded as `x -> 0` that we bound separately.
+
+The first one is given by
+```
+F1 = abs(log(x) / log(10 + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+```
+Notice that `log(x) / log(10 + inv(x))` is easily seen to be bounded
+and as we will see later so is `gamma(1 + α) * x^-α * (1 - x^p0) /
+u0(x)`
+
+The second one is given by
+```
+F2 = abs((u0(x)^2 + H(u0)(x)) / (log(x) * gamma(1 + α) * x^-α * (1 - x^p0)))
+```
+which we will also see is bounded.
+
+# Bounding `F1`
+We split `F1` into the two factors
+```
+F11 = abs(log(x) / log(10 + inv(x)))
+F12 = abs(gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+```
+
+For `F11` we can easily compute an accurate enclosure by direct
+evaluation.
+- **IMPROVE:** We could also compute an enclosure for `x` overlapping
+  zero by using the monotonicity.
+
+For `F12` we compute the asymptotic expansion of `u0`. We then split
+the expansion into the leading term and a tail. In practice both the
+leading term and the tail are positive and the tail is much smaller
+than the leading term. Since we are only interested in an upper bound
+we can thus just skip the tail. For this to be valid we must ensure
+that both the leading term and the tail are positive. For the tail
+this is checked explicitly by computing it. For the leading term this
+is done by checking that the end result is positive (it is easily seen
+that the numerator is positive in our case)
+- **IMPROVE:** We could also prove the positivity of the tail by
+  inspecting the coefficients. This has the benefit that it works also
+  for wide values of `x` and `x` overlapping zero.
+
+What remains is to handle the leading term, it is given by
+```
+a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
+```
+Since we are interested in `gamma(1 + α) * x^-α * (1 - x^p0)` divided
+by this we get
+```
+gamma(1 + α) * (1 - x^p0) /
+    (a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0))
+```
+Numerically we can see that this term converges to `π` as `α -> -1`
+and `x -> 0`. We can also see that it is decreasing in both `α` and
+`x`. We would therefore expect to be able to compute a rather accurate
+enclosure. We don't use these observations directly though, instead we
+proceed as follows. We can split this further into the two factors
+```
+F121 = gamma(1 + α) / a0
+F122 = (1 - x^p0) /
+    (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
+```
+
+For `F121` we can get an enclosure using that it converges to `-π^2 /
+2` as `α -> -1` and is increasing in `α`.
+- **PROVE:** That `gamma(1 + α) / a0` converges to `-π^2 / 2` as `α ->
+  -1` and is increasing in `α`.
+
+For `F122` we let `c(a) = gamma(a) * sinpi((1 - a) / 2)` and then
+factor it out, giving us
+```
+inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+```
+We can enclose `c(α)` using that it converges to `-π / 2` as `α -> -1`
+and is decreasing in `α`.
+- **PROVE:** That `c(α)` converges to `-π / 2` as `α -> -1` and is
+  decreasing in `α`.
+
+For the remaining part we notice that `c(α - p0) / c(α)` converges to
+`1` as `α -> -1` and is decreasing in `α`. An upper bound for `(1 -
+x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is hence given by `1` (for `α =
+-1`) and a lower bound can be computed by evaluating it at `α = -1 +
+u0.ϵ`
+- **PROVE:** That `c(α - p0) / c(α)` converges to `1` as `α -> -1` and is
+  decreasing in `α`
+
+# Bounding `F2`
+
+"""
+function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(0.5))
+    @assert ϵ < 1
+
+    u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
+
+    # Remove the leading term from the expansion, this is handled
+    # separately.
+    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
+
+    return x -> begin
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && x[0] <= ϵ)
+
+        # Compute an upper bound of F1
+        F1 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
+            # Enclosure of abs(log(x) / log(10 + inv(x)))
+            F11 = abs(log(x) / log(10 + inv(x)))
+
+            # Ensure that the sum of the remaining terms in the
+            # expansion of u0 is positive. If this is not the case we
+            # just return NaN.
+            if !Arblib.ispositive(eval_expansion(u0, u0_expansion, x))
+                return Arblib.indeterminate!(zero(x))
+            end
+
+            # Enclose F12
+            F121_lower = -Arb(π)^2 / 2
+            F122_upper = let α = -1 + u0.ϵ
+                gamma(1 + α) / finda0(α)
+            end
+            F121 = Arb((F121_lower, F122_upper))
+
+            c(a) = gamma(a) * sinpi((1 - a) / 2)
+
+            # Upper and lower bound of
+            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+            F122_lower = let α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
+                (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+            end
+            F122_upper = one(Arb)
+            # Combine upper and lower bound and multiply with
+            # enclosure of inv(c(α)) to get an upper bound for F122.
+            F122 = inv(Arb((c(-1 + u0.ϵ), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
+
+            F12 = F121 * F122
+
+            if !Arblib.ispositive(F12)
+                @warn "Leading term is not positive, this should not happen"
+                return Arblib.indeterminate!(zero(x))
+            end
+
+            F11 * F12
+        end
+
+        # Compute an enclosure of F2
+        F2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
+            #(u0x^2 + Hu0x) / (log(x) * gamma(1 + α) * x^-α * (1 - x^p0))
+        end
+
+        return F1, F2
+    end
+end
