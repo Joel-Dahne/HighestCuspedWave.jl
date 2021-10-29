@@ -137,6 +137,80 @@ function eval_expansion(
 end
 
 """
+    expansion_ispositive(u0::BHKdVAnsatz, expansion, ϵ)
+
+Attempt to prove that the given expansion is positive on the interval
+`(0, ϵ]`. Returns true on success and false on failure. It requires
+that `0 < ϵ < 1`
+
+The method can only handle expansions on certain simple forms. More
+precisely it requires that all terms have a key of the form
+```
+(0, 0, 0, 0, 1, l, 0)
+```
+or
+```
+(0, 0, 0, 0, 0, 0, m)
+```
+with `l >= 1` and `m >= 2`
+
+It first considers all keys of the form `(0, 0, 0, 0, 1, l, 0)`, they
+correspond to terms of the form
+```
+y * x^^(-u0-v0.v0.α + l*u0.v0.v0.p0)
+```
+Let `y₁` be the coefficient for `l = 1` and `S` be the sum of the
+coefficients with `l > 1`. It checks that `S` is negative and that `y₁
++ S > 0`, ensuring us that this sum is positive for all `0 < x < 1`
+and a lower bound is given by `(y₁ + S) * x^(-u0.v0.v0.α +
+u0.v0.v0.p0)` for all `0 < x < 1`.
+
+The next step is to prove that the sum of the terms with `m > 0` are
+smaller than (y₁ + S) * x^(-u0.v0.v0.α + u0.v0.v0.p0)`. This is done
+by noting that it's enough to check it for `x = ϵ`
+
+**TODO:** Check that this is correct.
+"""
+function expansion_ispositive(
+    u0::BHKdVAnsatz{Arb},
+    expansion::AbstractDict{NTuple{7,Int},Arb},
+    ϵ::Arb,
+)
+    @assert 0 < ϵ < 1
+    @assert 0 < -u0.v0.v0.α + u0.v0.v0.p0 < 2
+
+    # Isolate all keys of the from (0, 0, 0, 0, 1, l, 0)
+    expansion_1 = filter(expansion) do ((p, q, i, j, k, l, m), y)
+        p == q == i == j == m == 0 && k == 1 && l >= 1
+    end
+
+    # Isolate all keys of the from (0, 0, 0, 0, 0, 0, m)
+    expansion_2 = filter(expansion) do ((p, q, i, j, k, l, m), y)
+        p == q == i == j == k == l == 0 && m >= 2
+    end
+
+    # Check that this was all keys
+    @assert length(expansion) == length(expansion_1) + length(expansion_2)
+
+    y₁ = expansion_1[(0, 0, 0, 0, 1, 1, 0)]
+    # Remove they key (0, 0, 0, 0, 1, 1, 0) from the expansion and sum
+    # the rest of the values.
+    delete!(expansion_1, (0, 0, 0, 0, 1, 1, 0))
+    S = sum(values(expansion_1))
+
+    S < 0 || return false
+    y₁ + S > 0 || return false
+
+    a = (y₁ + S) * ϵ^(-u0.v0.v0.α + u0.v0.v0.p0)
+    b = eval_expansion(u0, expansion_2, ϵ)
+
+    a > b || return false
+
+    return true
+end
+
+
+"""
     (u0::BHKdVAnsatz)(x, ::Ball)
 
 Evaluate the ansatz `u0` at the point `x` using direct ball arithmetic
@@ -982,16 +1056,19 @@ F2 = abs((u0(x)^2 + H(u0)(x)) / (log(x) * gamma(1 + α) * x^-α * (1 - x^p0)))
 which we will also see is bounded.
 
 # Bounding `F1`
-We split `F1` into the two factors
+For `F1` we give bounds which work for `x` overlapping zero as well,
+the reason for this is that the same expression comes up in other
+estimates where we don need that. We split `F1` into the two factors
 ```
 F11 = abs(log(x) / log(10 + inv(x)))
 F12 = abs(gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
 
 For `F11` we can easily compute an accurate enclosure by direct
-evaluation.
-- **IMPROVE:** We could also compute an enclosure for `x` overlapping
-  zero by using the monotonicity.
+evaluation if `x` doesn't overlap with zero. If `x` does overlap with
+zero we compute an enclosure by using that `log(x) / log(10 + inv(x))`
+converges to `-1` as `x -> 0` and is increasing in `x`.
+- **PROVE:** That `log(x) / log(10 + inv(x))` is increasing in `x`.
 
 For `F12` we compute the asymptotic expansion of `u0`. We then split
 the expansion into the leading term and a tail. In practice both the
@@ -999,12 +1076,9 @@ leading term and the tail are positive and the tail is much smaller
 than the leading term. Since we are only interested in an upper bound
 we can thus just skip the tail. For this to be valid we must ensure
 that both the leading term and the tail are positive. For the tail
-this is checked explicitly by computing it. For the leading term this
-is done by checking that the end result is positive (it is easily seen
-that the numerator is positive in our case)
-- **IMPROVE:** We could also prove the positivity of the tail by
-  inspecting the coefficients. This has the benefit that it works also
-  for wide values of `x` and `x` overlapping zero.
+this is checked using [`expansion_ispositive`](@ref). For the leading
+term this is done by checking that the end result is positive (it is
+easily seen that the numerator is positive in our case)
 
 What remains is to handle the leading term, it is given by
 ```
@@ -1046,9 +1120,9 @@ For the remaining part we notice that `c(α - p0) / c(α)` converges to
 `1` as `α -> -1` and is decreasing in `α`. An upper bound for `(1 -
 x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is hence given by `1` (for `α =
 -1`) and a lower bound can be computed by evaluating it at `α = -1 +
-u0.ϵ`
+u0.ϵ` and an upper bound for `x`
 - **PROVE:** That `c(α - p0) / c(α)` converges to `1` as `α -> -1` and is
-  decreasing in `α`
+  decreasing in `α` and `x`.
 
 # Bounding `F2`
 
@@ -1056,52 +1130,54 @@ u0.ϵ`
 function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(0.5))
     @assert ϵ < 1
 
+    # Compute the expansion of u0 and remove the leading term, which
+    # is handled separately.
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
-
-    # Remove the leading term from the expansion, this is handled
-    # separately.
     delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
+
+    # Ensure that the tail of the expansion of u0 is positive, so that
+    # we can remove it from the denominator of F1 and still get an
+    # upper bound.
+    expansion_ispositive(u0, u0_expansion, ϵ) ||
+        error("expansion of u0 not prove to be positive, this should not happen")
 
     return x -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && x[0] <= ϵ)
 
         # Compute an upper bound of F1
-        F1 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
-            # Enclosure of abs(log(x) / log(10 + inv(x)))
-            F11 = abs(log(x) / log(10 + inv(x)))
+        F1 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
+            # Note that inside this statement α refers to -1 + u0.ϵ
+            # and p0 to the corresponding p0 value.
 
-            # Ensure that the sum of the remaining terms in the
-            # expansion of u0 is positive. If this is not the case we
-            # just return NaN.
-            if !Arblib.ispositive(eval_expansion(u0, u0_expansion, x))
-                return Arblib.indeterminate!(zero(x))
+            # Enclosure of abs(log(x) / log(10 + inv(x))), either by
+            # direct evaluation or using monotonicity.
+            F11 = if iszero(x)
+                one(Arb)
+            elseif Arblib.contains_zero(x)
+                abs(Arb((-1, log(xᵤ) / log(10 + inv(xᵤ)))))
+            else
+                abs(log(x) / log(10 + inv(x)))
             end
 
             # Enclose F12
             F121_lower = -Arb(π)^2 / 2
-            F122_upper = let α = -1 + u0.ϵ
-                gamma(1 + α) / finda0(α)
-            end
+            F122_upper = gamma(1 + α) / finda0(α)
             F121 = Arb((F121_lower, F122_upper))
 
             c(a) = gamma(a) * sinpi((1 - a) / 2)
 
             # Upper and lower bound of
             # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-            F122_lower = let α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
-                (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-            end
+            F122_lower = (1 - xᵤ^p0) / (1 - c(α - p0) / c(α) * xᵤ^p0)
             F122_upper = one(Arb)
             # Combine upper and lower bound and multiply with
             # enclosure of inv(c(α)) to get an upper bound for F122.
-            F122 = inv(Arb((c(-1 + u0.ϵ), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
+            F122 = inv(Arb((c(α), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
 
             F12 = F121 * F122
 
-            if !Arblib.ispositive(F12)
-                @warn "Leading term is not positive, this should not happen"
-                return Arblib.indeterminate!(zero(x))
-            end
+            Arblib.ispositive(F12) ||
+                error("leading term of u0 is not positive, this should not happen")
 
             F11 * F12
         end
