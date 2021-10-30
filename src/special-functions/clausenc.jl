@@ -47,8 +47,8 @@ end
 Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
 periodic zeta function and then taking the real part.
 
-It currently only handles `0 < x < 2π` and `s` not overlapping any
-integer.
+It currently only handles `0 < x < 2π`. If `s` overlaps with any
+non-negative integer the result will be indeterminate.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure using a Taylor expansion in `s`.
@@ -77,7 +77,7 @@ function _clausenc_zeta(x::Arb, s::Arb)
     f(v) = gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
 
     if iswide(s)
-        res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
+        res = ArbExtras.extrema_series(f, getinterval(v)..., degree = 2)[1:2]
         return Arb(res)
     end
 
@@ -91,15 +91,15 @@ Evaluation of the `clausenc` function through the zeta function.
 
 This uses the same formula as the method with `x::Arb`.
 
-It currently only handles `0 < real(x) < 2π` and `s` not overlapping
-any integer.
+It currently only handles `0 < real(x) < 2π`. If `s` overlaps with any
+non-negative integer the result will be indeterminate.
 
 Not that this does **not** handle wide values of `s` in any special
 way. This method is currently only used in the integration for
 bounding the error term and in that case getting the most accurate
 bound is not important. It could be something to consider later on.
 
-- *TODO:* Check if this formula holds for complex `x`, it seems to
+- **TODO:** Check if this formula holds for complex `x`, it seems to
    give correct results at least.
 """
 function _clausenc_zeta(x::Acb, s::Arb)
@@ -159,12 +159,13 @@ noticing that it attains it maximum at `x = 0` where it precisely
 equals `dzeta(s)`.
 - **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
   this case the derivative in `s` blows up at `x = 0` so we can't use
-  a uniform bound.
+  a uniform bound. For now we compute a bound assuming monotonicity in
+  `s`, which is not true.
 """
 function clausenc(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
-        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
+        xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
         (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
         res = union(clausenc(xₗ, s), clausenc(xᵤ, s))
         if include_zero
@@ -176,14 +177,14 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, precision(x))
     end
 
-    contains_int = s isa Arb && Arblib.contains_int(s)
+    contains_nonnegative_int = s isa Arb && Arblib.contains_int(s) && !Arblib.isnegative(s)
 
-    # Handle the case when s contains an integer but it not exactly an
-    # integer
-    if contains_int && !iszero(Arblib.radref(s)) && !Arblib.isnegative(s)
+    # Handle the case when s contains a non-negative integer but it
+    # not exactly an integer
+    if contains_nonnegative_int && !iszero(Arblib.radref(s))
         if s > 1
             # Evaluate at midpoint
-            smid = Arblib.midpoint(Arb, s)
+            smid = midpoint(Arb, s)
             res = clausenc(x, smid)
 
             # Bound derivative in s using derivative of zeta function
@@ -200,13 +201,14 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         if Arblib.radref(s) < 1e-2
             # s is not negative and not greater than 1, since the
             # radius is small it must therefore contain either 0 or 1.
-            sₗ, sᵤ = Arblib.getinterval(Arb, s)
+            sₗ, sᵤ = getinterval(Arb, s)
             return union(clausenc(x, sₗ), clausenc(x, sᵤ))
         end
     end
 
-    # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
-    if s isa Arb && !contains_int
+    # If s is not a non-negative integer and 0 < x < 2π call
+    # _clausenc_zeta(x, s)
+    if s isa Arb && !contains_nonnegative_int
         if Arblib.ispositive(x) && x < 2Arb(π)
             return _clausenc_zeta(x, s)
         end
@@ -216,8 +218,9 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
 end
 
 function clausenc(x::Acb, s::Arb)
-    # If s is not an integer and 0 < x < 2π call _clausenc_zeta(x, s)
-    if s isa Arb && !Arblib.contains_int(s)
+    # If s is not a non-negative integer and 0 < real(x) < 2π call
+    # _clausenc_zeta(x, s)
+    if Arblib.contains_int(s) && !Arblib.isnegative(s)
         if Arblib.ispositive(Arblib.realref(x)) && Arblib.realref(x) < 2Arb(π)
             return _clausenc_zeta(x, s)
         end
@@ -297,7 +300,7 @@ function clausenc(x::Arb, s::Arb, β::Integer)
 
     if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
-        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
+        xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
         res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
         if s == 2
             critical_point =
@@ -378,7 +381,6 @@ enclosure of the coefficients using a Taylor expansion in `s`.
 """
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
-    # TODO: Check this
     M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2"))
 
     π = oftype(x, pi)
@@ -391,7 +393,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
             C = Arb(
                 ArbExtras.extrema_series(
                     s -> gamma(1 - s) * sinpi(s / 2),
-                    Arblib.getinterval(s)...,
+                    getinterval(s)...,
                     degree = 2,
                 )[1:2],
             )
@@ -406,9 +408,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     start = skip_constant ? 1 : 0
     for m = start:M-1
         if iswide(s)
-            z = Arb(
-                ArbExtras.extrema_series(s -> zeta(s - 2m), Arblib.getinterval(s)...)[1:2],
-            )
+            z = Arb(ArbExtras.extrema_series(s -> zeta(s - 2m), getinterval(s)...)[1:2])
         else
             z = zeta(s - 2m)
         end
@@ -462,7 +462,7 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
         zeta(onem(v))
 
     if iswide(s)
-        res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
+        res = ArbExtras.extrema_series(f, getinterval(v)..., degree = 2)[1:2]
         return Arb(res)
     end
 
@@ -489,11 +489,11 @@ their difference are non-negative.
 For `s <= 1` this is no longer the case. Instead it uses Taylor
 expansions to compute accurate bounds, this is implemented in
 [`_clausencmzeta_zeta`](@ref). Since this method only supports `0 < x
-< 2π` and `s` not overlapping an integer we fall back to calling the
-methods directly if this is not satisfied.
-- **TODO:** Better handle this case? For example we can call
-  `_clausenc_zeta` for `s` overlapping negative integers. This case
-  might not occur at all in the code though.
+< 2π` and `s` not overlapping a non-negative integer we fall back to
+calling the methods directly if this is not satisfied.
+- **IMPROVE:** Better handle this case? This case might not occur at
+  all in the code though since the case `s < 1` mostly appears as
+  derivatives w.r.t. `x` and then the `mzeta` part is not relevant.
 
 Otherwise it behaves like `clausenc(x, s) - zeta(s)` with the only
 difference being that it converts `x` and `s` to the same type to
@@ -503,11 +503,13 @@ function clausencmzeta(x::Arb, s::Arb)
     if iswide(s) && s > 1
         # Use that the function is non-decreasing in s to compute at
         # lower and upper bound of s
-        sₗ, sᵤ = Arblib.getinterval(Arb, s)
+        sₗ, sᵤ = getinterval(Arb, s)
         return Arb((clausencmzeta(x, sₗ), clausencmzeta(x, sᵤ)))
     end
 
-    if !iswide(s) || Arblib.contains_int(s) || !Arblib.ispositive(x) || !(x < 2Arb(π))
+    if !iswide(s) ||
+       (Arblib.contains_int(s) && !Arblib.isnegative(s)) ||
+       !(Arblib.ispositive(x) && x < 2Arb(π))
         # If s is not wide or we are in a case which
         # _clausencmzeta_zeta doesn't support, call the clausenc and
         # zeta functions directly.
@@ -516,10 +518,15 @@ function clausencmzeta(x::Arb, s::Arb)
 
     if iswide(x)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
-        xₗ, xᵤ = Arblib.getinterval(Arb, setprecision(x, prec))
-        # We know that 0 < x < π so it is always monotonically
-        # decreasing
+        xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
+
         res = Arb((clausencmzeta(xᵤ, s), clausencmzeta(xₗ, s)))
+
+        # We know that 0 < x < 2π so the only possible critical point
+        # is π
+        if Arblib.overlaps(x, Arb(π))
+            res = union(res, clausencmzeta(Arb(π; prec), s))
+        end
 
         return setprecision(res, precision(x))
     end
@@ -565,11 +572,19 @@ This method just calls [`clausenc`](@ref) and [`zeta`](@ref) directly
 and gives no direct benefit other than converting `x` and `s` to the
 same type to begin with.
 """
-clausencmzeta(x::Union{Arb,ArbSeries}, s, β) =
-    clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+clausencmzeta(x::Union{Arb,ArbSeries}, s, β::Integer) =
+    if isone(β)
+        clausenc(x, s, β) - dzeta(s)
+    else
+        clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+    end
 
 function clausencmzeta(x, s, β)
     x, s = promote(x, s)
     res = clausenc(x, s, β)
-    return res - convert(typeof(res), zeta(ArbSeries([s, 1], degree = β))[β]) * factorial(β)
+    if isone(β)
+        return res - dzeta(s)
+    else
+        res - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+    end
 end
