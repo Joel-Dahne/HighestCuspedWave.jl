@@ -106,12 +106,12 @@ non-negative integer, in which case both the above methods give
 indeterminate results. In that case we compute at the midpoint of `s`
 and bound the error by using a bound for the derivative in `s`. For s
 > 1 the derivative in `s` is bounded by `dzeta(s)`, this can be
-seen by looking at the Fourier series for `clausenc(x, s, 1)` and
-noticing that it attains it maximum at `x = 0` where it precisely
-equals `dzeta(s)`.
+seen by looking at the Fourier series for `clausens(x, s, 1)` and
+noticing that it is always bounded by `dzeta(s)`.
 - **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
   this case the derivative in `s` blows up at `x = 0` so we can't use
-  a uniform bound.
+  a uniform bound. For now we compute a bound assuming monotonicity in
+  `s`, which is not true.
 """
 function clausens(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
@@ -134,11 +134,11 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, orig_prec)
     end
 
-    contains_int = s isa Arb && Arblib.contains_int(s)
+    contains_nonnegative_int = s isa Arb && Arblib.contains_int(s) && !Arblib.isnegative(s)
 
-    # Handle the case when s contains an integer but it not exactly an
-    # integer
-    if s isa Arb && contains_int && !iszero(Arblib.radref(s)) && !Arblib.isnegative(s)
+    # Handle the case when s contains a non-negative integer but it
+    # not exactly an integer
+    if contains_nonnegative_int && !iszero(Arblib.radref(s))
         if s > 1
             # Evaluate at midpoint
             smid = Arblib.midpoint(Arb, s)
@@ -151,11 +151,22 @@ function clausens(x::Arb, s::Union{Arb,Integer})
             return res + error
         end
 
-        # TODO: Figure out how to bound this for `s = 1` and `s = 0`.
+        # FIXME: For now we bound it assuming monotonicity in s, this
+        # is not true in practice. We only do this for s close to 0
+        # and 1
+        @warn "Incorrect bound for clausens with s = $s, it assumes monotonicity" maxlog =
+            100
+        if Arblib.radref(s) < 1e-2
+            # s is not negative and not greater than 1, since the
+            # radius is small it must therefore contain either 0 or 1.
+            sₗ, sᵤ = getinterval(Arb, s)
+            return union(clausens(x, sₗ), clausens(x, sᵤ))
+        end
     end
 
-    # If s is not an integer and 0 < x < 2π call _clausens_zeta(x, s)
-    if s isa Arb && !contains_int
+    # If s is not a non-integer and 0 < x < 2π call _clausens_zeta(x,
+    # s)
+    if s isa Arb && !contains_nonnegative_int
         if Arblib.ispositive(x) && x < 2Arb(π)
             return _clausens_zeta(x, s)
         end
@@ -177,8 +188,8 @@ clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
 Compute \$S_s^{(β)}(x)\$, that is `clausens(x, s)` differentiated `β`
 times w.r.t. `s`.
 
-- **TODO**: Handle wide (real) balls better, similar to how
-  `clausens(x, s)` does
+- **IMPROVE**: Handle wide (real) balls better, similar to how
+  `clausens(x, s)` does it.
 """
 clausens(x::Arb, s::Arb, β::Integer) = _clausens_polylog(x, s, β)
 
@@ -196,7 +207,7 @@ non-analytic term, the analytic terms as a `ArbSeries` `P` and the
 error term `E`. The `M` is the same as in Lemma 2.1 in
 enciso18:convex_whith.
 
-It satisfies that `clausens(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for
+It satisfies that `clausens(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M + 1)` for
 all `|y| <= |x|`.
 
 Note that this method doesn't handle wide values of `s` in any special
@@ -204,7 +215,6 @@ way. This has not been needed anywhere so far.
 """
 function clausens_expansion(x::Arb, s::Arb, M::Integer)
     Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
-    # TODO: Check this
     M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2"))
 
     π = oftype(x, pi)
