@@ -188,7 +188,7 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
             res = clausenc(x, smid)
 
             # Bound derivative in s using derivative of zeta function
-            derivative = dzeta(sg)
+            derivative = dzeta(s)
             error = (s - smid) * abs(derivative)
 
             return res + error
@@ -197,7 +197,8 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         # FIXME: For now we bound it assuming monotonicity in s, this
         # is not true in practice. We only do this for s close to 0
         # and 1
-        @warn "Incorrect bound for s = $s, it assumes monotonicity" maxlog = 1
+        @warn "Incorrect bound for clausenc with s = $s, it assumes monotonicity" maxlog =
+            100
         if Arblib.radref(s) < 1e-2
             # s is not negative and not greater than 1, since the
             # radius is small it must therefore contain either 0 or 1.
