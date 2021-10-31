@@ -368,7 +368,7 @@ order `2M - 2`, meaning that the error term is of order `2M`.
 It returns four things, the coefficient `C` and exponent `e` for the
 non-analytic term, the analytic terms as a `ArbSeries` `P` and the
 error term `E`. The `M` is the same as in Lemma 2.1 in
-enciso18:convex_whith.
+arXiv:1810.10935.
 
 It satisfies that `clausenc(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for
 all `|y| <= |x|`.

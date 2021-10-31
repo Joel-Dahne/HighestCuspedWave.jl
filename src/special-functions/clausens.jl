@@ -200,12 +200,12 @@ clausens(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
     clausens_expansion(x, s, M::Integer)
 
 Compute the asymptotic expansion of `clausens(x, s)` at zero up to
-order `2M - 1`, meaning that the error term is of order `2M`.
+order `2M - 1`, meaning that the error term is of order `2M + 1`.
 
 It returns four things, the coefficient `C` and exponent `e` for the
 non-analytic term, the analytic terms as a `ArbSeries` `P` and the
 error term `E`. The `M` is the same as in Lemma 2.1 in
-enciso18:convex_whith.
+arXiv:1810.10935.
 
 It satisfies that `clausens(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M + 1)` for
 all `|y| <= |x|`.
