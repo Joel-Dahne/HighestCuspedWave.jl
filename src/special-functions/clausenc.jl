@@ -573,12 +573,13 @@ This method just calls [`clausenc`](@ref) and [`zeta`](@ref) directly
 and gives no direct benefit other than converting `x` and `s` to the
 same type to begin with.
 """
-clausencmzeta(x::Union{Arb,ArbSeries}, s, β::Integer) =
+function clausencmzeta(x::Union{Arb,ArbSeries}, s, β::Integer)
     if isone(β)
-        clausenc(x, s, β) - dzeta(s)
+        return clausenc(x, s, β) - dzeta(Arb(s))
     else
-        clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+        return clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
     end
+end
 
 function clausencmzeta(x, s, β)
     x, s = promote(x, s)

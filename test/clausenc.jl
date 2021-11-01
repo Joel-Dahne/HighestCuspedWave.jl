@@ -113,4 +113,11 @@ end
     # TODO: Add tests for ArbSeries
 
     # TODO: Add tests for clausenc(x, s, β)
+    for s = 2:3
+        for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
+            res1 = clausencmzeta(x, s, 1)
+            res2 = clausenc(x, s, 1) - HighestCuspedWave.dzeta(Arb(s))
+            @test Arblib.overlaps(res1, res2)
+        end
+    end
 end

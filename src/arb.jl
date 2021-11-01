@@ -35,8 +35,8 @@ iswide(::Number; cutoff = 10) = false
 
 Compute the Zeta function differentiated once with respect to `s`.
 """
-dzeta(s::Arb) = zeta(ArbSeries([s, 1]), one(s))[1]
-dzeta(s) = convert(float(typeof(s)), (zeta(Arb(s))))
+dzeta(s::Arb) = zeta(ArbSeries([s, 1]))[1]
+dzeta(s) = convert(float(typeof(s)), dzeta(Arb(s)))
 
 function stieltjes(::Type{Arb}, n::Integer)
     res = zero(Acb)
