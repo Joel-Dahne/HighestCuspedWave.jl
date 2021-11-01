@@ -8,6 +8,9 @@ cos(π(2α - p0)/2)*Γ(2α -p0)/(cos(π(α - p0)/2)) - Γ(1 + 2α)cos(πα)/(α*
 is equal to zero.
 
 We use, but don't have to prove, that `p0 < 1.5(α + 1)`.
+
+- **TODO:** Do we need to prove that `p0` is the smallest root in the
+  interval?
 """
 function findp0(α)
     Γ = gamma
@@ -120,8 +123,8 @@ end
 """
     findas(u0)
 
-Find `a[j]` for `j > 0` that makes the coefficients of the leading
-terms in the asymptotic expansion of the defect zero.
+Find values for `u0.a[j]` for `j > 0` that makes the coefficients of
+the leading terms in the asymptotic expansion of the defect zero.
 
 This is done by solving the corresponding non-linear system.
 
@@ -155,92 +158,32 @@ function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
 end
 
 function findas(u0::FractionalKdVAnsatz{Arb})
-    return convert.(Arb, findas(convert(FractionalKdVAnsatz{Float64}, u0)))
+    u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
+
+    return convert(Vector{Arb}, findas(u0_float))
 end
-
-function findas!(u0::FractionalKdVAnsatz{T}; use_midpoint = true) where {T}
-    if u0.N0 >= 0
-        u0.a[0] = finda0(u0.α)
-    end
-    # This makes the term (2, 0, 0) equal to zero
-    push!(u0.zeroterms, (2, 0, 0))
-
-    if u0.N0 == 1 && u0.N1 == 0
-        # When we only have one extra Clausian and no Fourier terms we
-        # can do some special things.
-
-        if u0.α < -0.9
-            # If we are close to α = -1 we take a[1] so that the sum
-            # of the first and second term converge towards the
-            # leading Clausian for α = -1.
-            u0.a[1] = -u0.a[0]
-        else
-            # This corresponds to the I_3 case
-
-            # The choice of p0 makes also the term (2, 1, 0), given by a0(u0,
-            # 0)a0(u0, 1) - A0(u0, 0), equal to zero.
-            if !use_midpoint
-                if T == Arb
-                    @assert Arblib.contains_zero(a0(u0, 0)a0(u0, 1) - A0(u0, 1))
-                else
-                    @assert a0(u0, 0)a0(u0, 1) - A0(u0, 1) ≈ 0.0
-                end
-                push!(u0.zeroterms, (2, 1, 0))
-            end
-
-            # Compute a[1] such that L0(u0, 1) is zero.
-            # TODO: Possibly make use of the monotinicity to get good
-            # enclosures for wide balls.
-            u0.a[1] = -u0.a[0] * zeta(-1 - 2u0.α) / zeta(-1 - 2u0.α + u0.p0)
-
-            # This makes the term (0, 0, 1) equal to zero.
-            if !use_midpoint
-                # TODO: Check if it would maybe still be more beneficial
-                # to use the midpoint instead
-                push!(u0.zeroterms, (0, 0, 1))
-            elseif use_midpoint && T == Arb
-                u0.a[1] = Arblib.midpoint(Arb, u0.a[1])
-            end
-        end
-    else
-        a = findas(u0)
-        u0.a[1:end] .= a
-    end
-
-    return u0
-end
-
-
 
 """
-    findbs!(u0)
+    findbs(u0, initial)
 
-Find values of `b[n]` to minimize the defect `D(u0)`.
+Find values of `u0.b[n]` to minimize the defect `D(u0)`.
 
 This is done by solving the non-linear system given by requiring that
-`D(u0)` evaluates to zero on `N1` collocation points.
+`D(u0)` evaluates to zero on `u0.N1` collocation points.
 
 It uses [`nlsolve`](@ref) to find the zero, however `nlsolve` doesn't
 support `Arb` so this is always done in `Float64`.
 """
-function findbs!(u0::FractionalKdVAnsatz)
+function findbs(u0::FractionalKdVAnsatz{T}) where {T}
     if u0.N1 == 0
-        return u0
+        return T[]
     end
-    #n = u0.N1 - 1
+
     n = u0.N1
     xs = π * (1:2:2n-1) / 2n
 
     f = D(u0, xs)
-    g(b) = begin
-        #term = zero(u0.α)
-        #for n in 1:u0.N1
-        #    term += n^(2 + u0.α)*b[n]
-        #end
-
-        #[0*L0(u0, 1) - term/2; f(u0.a.parent, b)]
-        f(u0.a.parent, b)
-    end
+    g(b) = f(u0.a.parent, b)
 
     initial = u0.b
     sol = nlsolve(g, initial, autodiff = :forward)
@@ -250,17 +193,11 @@ function findbs!(u0::FractionalKdVAnsatz)
         @warn sol
     end
 
-    copy!(u0.b, sol.zero)
-
-    return u0
+    return sol.zero
 end
 
-function findbs!(u0::FractionalKdVAnsatz{Arb})
+function findbs(u0::FractionalKdVAnsatz{Arb})
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
-    findbs!(u0_float)
-
-    u0.b .= convert.(Arb, u0_float.b)
-
-    return u0
+    return convert(Vector{Arb}, findbs(u0_float))
 end
