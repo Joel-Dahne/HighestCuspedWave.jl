@@ -220,7 +220,13 @@ end
 
 """
     c(u0::FractionalKdVAnsatz{T}, ϵ)
-Compute the constant c_{ϵ,û₀} from Lemma 3.3.
+
+Compute the constant \$c_{\\epsilon,\\hat{u}_0}\$ from Lemma 3.3.
+
+This constant satisfies that for all `abs(x) < ϵ` we have
+```
+abs(hat(u0))(x) <= c(u0, ϵ) * abs(x)^u0.p0
+```
 """
 function c(u0::FractionalKdVAnsatz{Arb}, ϵ; M::Integer = 3)
     if iszero(ϵ)
