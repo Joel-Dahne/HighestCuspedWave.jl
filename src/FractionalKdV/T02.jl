@@ -406,7 +406,8 @@ On this interval
 clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)
 ```
 is positive so we can skip the absolute value.
-- **PROVE:** That this is positive.
+- **PROVE:** That `clausenc(y - x, -α) + clausenc(y + x, -α) -
+  2clausenc(y, -α)` is positive on the interval `[x, π]`.
 """
 T022(u0::FractionalKdVAnsatz, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 
@@ -414,24 +415,30 @@ function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 
     mα = -u0.α
     cp = Acb(u0.p)
 
-    f(y; analytic = false) = begin
+    integrand(y) = begin
+        # The integrand is singular at y = x so check that the real
+        # part of y is greater than x or return an indeterminate
+        # result. This also ensures that y^u0.p is analytic on all of
+        # y.
+        x < Arblib.realref(y) || return Arblib.indeterminate!(zero(y))
+
         if isreal(y)
-            ry = real(y)
-            res = Acb(clausenc(ry - x, mα) + clausenc(x + ry, mα) - 2clausenc(ry, mα))
+            y = real(y)
+            return Acb(
+                (clausenc(y - x, mα) + clausenc(x + y, mα) - 2clausenc(y, mα)) * y^u0.p,
+            )
         else
             y = Acb(y)
-            res = clausenc(x - y, mα) + clausenc(x + y, mα) - 2clausenc(y, mα)
+            return (clausenc(x - y, mα) + clausenc(x + y, mα) - 2clausenc(y, mα)) * y^cp
         end
-
-        return res * Arblib.pow_analytic!(zero(y), y, cp, analytic)
     end
 
     res = real(
         Arblib.integrate(
-            f,
+            integrand,
             a,
             π,
-            check_analytic = true,
+            check_analytic = false,
             rtol = 1e-5,
             atol = 1e-5,
             warn_on_no_convergence = false,
