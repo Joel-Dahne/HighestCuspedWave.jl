@@ -60,24 +60,38 @@ end
 (u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 3) =
     eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 
-function (u0::FractionalKdVAnsatz{T})(x, ::AsymptoticExpansion; M::Integer = 3) where {T}
-    @assert M >= 1 - (u0.α + u0.N0 * u0.p0) / 2
+function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
+    res = OrderedDict{NTuple{3,Int},Arb}()
 
-    expansion = OrderedDict{NTuple{3,Int},T}()
+    # Initiate even powers of x
+    for m = 1:M
+        res[(0, 0, 2m)] = 0
+    end
 
+    # Clausen terms
     for j = 0:u0.N0
-        expansion[(1, j, 0)] = a0(u0, j)
+        s = 1 - u0.α + j * u0.p0
+        C, _, p, E = clausenc_expansion(x, s, M)
+        res[(1, j, 0)] = C * u0.a[j]
+        for m = 1:M-1
+            res[(0, 0, 2m)] += p[2m] * u0.a[j]
+        end
+        Arblib.add_error!(res[(0, 0, 2M)], E)
     end
 
-    for m = 1:M-1
-        expansion[(0, 0, 2m)] = termK0(u0, m)
+    # Fourier terms
+    if !iszero(u0.N1)
+        for m = 1:M-1
+            res[(0, 0, 2m)] +=
+                (-1)^m * sum(Arb(n)^(2m) * u0.b[n] for n = 1:u0.N1) / factorial(2m)
+        end
+        Arblib.add_error!(
+            res[(0, 0, 2M)],
+            sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N1) / factorial(2M),
+        )
     end
 
-    if T == Arb
-        expansion[(0, 0, 2M)] = E(u0, M)(x)
-    end
-
-    return expansion
+    return res
 end
 
 function H(u0::FractionalKdVAnsatz, ::Ball)
@@ -103,23 +117,38 @@ function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 3)
 end
 
 function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
-    @assert M >= 1 - u0.α + u0.N0 * u0.p0 / 2
     return x -> begin
-        expansion = OrderedDict{NTuple{3,Int},T}()
+        res = OrderedDict{NTuple{3,Int},Arb}()
 
+        # Initiate even powers of x
+        for m = 1:M
+            res[(0, 0, 2m)] = 0
+        end
+
+        # Clausen terms
         for j = 0:u0.N0
-            expansion[(2, j, 0)] = -A0(u0, j)
+            s = 1 - 2u0.α + j * u0.p0
+            C, _, p, E = clausenc_expansion(x, s, M)
+            res[(2, j, 0)] = -C * u0.a[j]
+            for m = 1:M-1
+                res[(0, 0, 2m)] -= p[2m] * u0.a[j]
+            end
+            res[(0, 0, 2M)] += E * u0.a[j]
         end
 
-        for m = 1:M-1
-            expansion[(0, 0, 2m)] = -termL0(u0, m)
+        # Fourier terms
+        if !iszero(u0.N1)
+            for m = 1:M-1
+                res[(0, 0, 2m)] -=
+                    (-1)^m * sum(Arb(n)^(2m + u0.α) * u0.b[n] for n = 1:u0.N1) / factorial(2m)
+            end
+            Arblib.add_error!(
+                res[(0, 0, 2M)],
+                sum(Arb(n)^(2M + u0.α) * abs(u0.b[n]) for n = 1:u0.N1) / factorial(2M),
+            )
         end
 
-        if T == Arb
-            expansion[(0, 0, 2M)] = EH(u0, M)(x)
-        end
-
-        return expansion
+        return res
     end
 end
 
@@ -225,44 +254,83 @@ Compute the constant \$c_{\\epsilon,\\hat{u}_0}\$ from Lemma 3.3.
 
 This constant satisfies that for all `abs(x) < ϵ` we have
 ```
-abs(hat(u0))(x) <= c(u0, ϵ) * abs(x)^u0.p0
+abs(hat(u0)(x)) <= c(u0, ϵ) * abs(x)^u0.p0
 ```
+where
+```
+hat(u0)(x) = (a0(u0, 0) * abs(x)^-u0.α - u0(x)) / u0(x)
+```
+
+To compute `c` we first compute the asymptotic expansion of `u0` and
+from this we compute an asymptotic expansion for the numerator and
+denominator respectively. More precisely we rewrite it as
+```
+((a0(u0, 0) * abs(x)^-u0.α - u0(x)) / abs(x)^(-u0.α + u0.p0)) / (u0(x) / abs(x)^-u0.α) * abs(x)^u0.p0
+```
+and it's enough that we compute an upper bound for
+```
+(a0(u0, 0) * abs(x)^-u0.α - u0(x)) / abs(x)^(-u0.α + u0.p0)
+```
+and a lower bound for
+```
+u0(x) / abs(x)^-u0.α
+```
+to get `c`.
+
+We can compute the expansion for
+```
+(a0(u0, 0) * abs(x)^-u0.α - u0(x)) / abs(x)^(-u0.α + u0.p0)
+```
+by taking the expansion of `u0`, removing the term `(1, 0, 0)`
+corresponding to `a0(u0, 0) * abs(x)^-u0.α` subtracting `-u0.α +
+u0.p0` from the exponents and negating all of them. To get an upper
+bound we can take the absolute value of all coefficients. The
+resulting expansion gives an upper bound and is increasing for `x > 0`
+so can be bounded on `[-ϵ, ϵ]` by evaluating it at `x = ϵ`.
+
+To get the expansion of
+```
+u0(x) / abs(x)^-u0.α
+```
+we only have to subtract `-u0.α` from all the exponents. To get a
+lower bound we notice that the leading term is a constant. By taking
+the absolute value of the leading term and minus the absolute value of
+all the other terms we get something which gives a lower bound and is
+decreasing for `x > 0` so can be lower bounded on `[-ϵ, ϵ]` by
+evaluating it at `x = ϵ`.
 """
-function c(u0::FractionalKdVAnsatz{Arb}, ϵ; M::Integer = 3)
-    if iszero(ϵ)
-        return zero(u0.α)
-    end
+function c(u0::FractionalKdVAnsatz{Arb}, ϵ::Arb; M::Integer = 3)
+    iszero(ϵ) && return zero(ϵ)
+
     @assert ϵ > 0
-    @assert M >= 1 - (u0.α + u0.N0 * u0.p0) / 2
 
-    numerator = zero(u0.α)
-    for j = 1:u0.N0
-        numerator += abs(a0(u0, j)) * abs(ϵ)^((j - 1) * u0.p0)
+    expansion = u0(ϵ, AsymptoticExpansion())
+
+    # Set up expansion for numerator. Skip the term (1, 0, 0) and for
+    # the other terms subtract -α + p0 from the exponent (by
+    # subtracting 1 from i and j) and take the absolute value of y.
+    expansion_numerator = empty(expansion)
+    for ((i, j, m), y) in expansion
+        (i, j, m) == (1, 0, 0) && continue
+        expansion_numerator[(i - 1, j - 1, m)] = abs(y)
     end
 
-    for m = 1:M-1
-        numerator += abs(termK0(u0, m)) * abs(ϵ)^(2m + u0.α - u0.p0)
+    # Set up the expansion for the numerator. Subtract -α from the
+    # exponent (by subtracting 1 from i) and set the coefficients to
+    # minus the absolute value except for the constant term (0, 0, 0)
+    # which is set to the absolute value.
+    expansion_denominator = empty(expansion)
+    for ((i, j, m), y) in expansion
+        expansion_denominator[(i - 1, j, m)] = -abs(y)
     end
+    expansion_denominator[(0, 0, 0)] = abs(expansion_denominator[(0, 0, 0)])
 
-    E_lower, E_upper = Arblib.getinterval(Arb, abs(E(u0, M)(ϵ) * ϵ^(2M)))
+    # Evaluate the expansion at x = ϵ
+    numerator = eval_expansion(u0, expansion_numerator, ϵ)
+    denominator = eval_expansion(u0, expansion_denominator, ϵ)
 
-    numerator += E_upper * abs(ϵ)^(u0.α - u0.p0)
-
-    denominator = abs(a0(u0, 0))
-    for j = 1:u0.N0
-        denominator -= abs(a0(u0, j)) * abs(ϵ)^(j * u0.p0)
-    end
-
-    for m = 1:M-1
-        denominator -= abs(termK0(u0, m)) * abs(ϵ)^(2m + u0.α)
-    end
-
-    denominator -= E_upper * abs(ϵ)^(u0.α)
-
-    # TODO: Check this check
-    if denominator < 0
-        return parent(u0.α)(NaN)
-    end
+    Arblib.isnegative(denominator) &&
+        error("didn't expected denominator to be negative, got $denominator")
 
     return numerator / denominator
 end
