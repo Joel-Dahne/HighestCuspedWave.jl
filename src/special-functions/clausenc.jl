@@ -197,8 +197,7 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         # FIXME: For now we bound it assuming monotonicity in s, this
         # is not true in practice. We only do this for s close to 0
         # and 1
-        @warn "Incorrect bound for clausenc with s = $s, it assumes monotonicity" maxlog =
-            100
+        @warn "Incorrect bound for clausenc with s = $s, it assumes monotonicity" maxlog = 1
         if Arblib.radref(s) < 1e-2
             # s is not negative and not greater than 1, since the
             # radius is small it must therefore contain either 0 or 1.
@@ -433,7 +432,9 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     start = skip_constant ? 1 : 0
     for m = start:M-1
         if iswide(s)
-            z = Arb(ArbExtras.extrema_series(s -> zeta(s - 2m), getinterval(s)..., degree = 2)[1:2])
+            z = Arb(
+                ArbExtras.extrema_series(s -> zeta(s - 2m), getinterval(s)..., degree = 2)[1:2],
+            )
             if !isfinite(z)
                 # TODO: In some cases, when s overlaps zero (but not
                 # always), the above returns NaN but the evaluation

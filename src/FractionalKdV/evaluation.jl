@@ -140,7 +140,8 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
         if !iszero(u0.N1)
             for m = 1:M-1
                 res[(0, 0, 2m)] -=
-                    (-1)^m * sum(Arb(n)^(2m + u0.α) * u0.b[n] for n = 1:u0.N1) / factorial(2m)
+                    (-1)^m * sum(Arb(n)^(2m + u0.α) * u0.b[n] for n = 1:u0.N1) /
+                    factorial(2m)
             end
             Arblib.add_error!(
                 res[(0, 0, 2M)],
