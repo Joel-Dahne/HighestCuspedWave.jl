@@ -379,6 +379,13 @@ expansion. This is useful if you want to compute the expansion for
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure of the coefficients using a Taylor expansion in `s`.
+
+- **TODO:** Handle the case when `s` overlaps an even integer. In that
+  `gamma(1 - s) * sinpi(s / 2)` has a removable singularity.
+- **TODO:** Handle the case when `s` overlaps an odd integer. In that
+  case the non-analytic term coincides with one of the analytic
+  terms. Their coefficients blow up in different directions. We
+  might just not handle this case?
 """
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
@@ -390,16 +397,33 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     if s == 2
         C = -π / 2
     else
-        if iswide(s)
-            C = Arb(
-                ArbExtras.extrema_series(
-                    s -> gamma(1 - s) * sinpi(s / 2),
-                    getinterval(s)...,
-                    degree = 2,
-                )[1:2],
-            )
+        contains_int, n = unique_integer(s)
+
+        if !contains_int
+            if iswide(s)
+                C = Arb(
+                    ArbExtras.extrema_series(
+                        s -> gamma(1 - s) * sinpi(s / 2),
+                        getinterval(s)...,
+                        degree = 2,
+                    )[1:2],
+                )
+            else
+                C = gamma(1 - s) * sinpi(s / 2)
+            end
         else
-            C = gamma(1 - s) * sinpi(s / 2)
+            if iseven(n)
+                # FIXME: This assumes monotonicity with respect to
+                # `s`. In practice this is true close to even
+                # integers, but it is not always true
+                @warn "Incorrect bound for leading term for Clausen with s = $s, it assumes monotonicity" maxlog =
+                    1
+                sₗ, sᵤ = getinterval(Arb, s)
+                C = union(gamma(1 - sₗ) * sinpi(sₗ / 2), gamma(1 - sᵤ) * sinpi(sᵤ / 2))
+            else
+                # TODO: How should we handle this case? Just return NaN?
+                C = Arblib.indeterminate!(zero(s))
+            end
         end
     end
     e = s - 1
@@ -409,7 +433,13 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     start = skip_constant ? 1 : 0
     for m = start:M-1
         if iswide(s)
-            z = Arb(ArbExtras.extrema_series(s -> zeta(s - 2m), getinterval(s)...)[1:2])
+            z = Arb(ArbExtras.extrema_series(s -> zeta(s - 2m), getinterval(s)..., degree = 2)[1:2])
+            if !isfinite(z)
+                # TODO: In some cases, when s overlaps zero (but not
+                # always), the above returns NaN but the evaluation
+                # below works. Take a look at this.
+                z = zeta(s - 2m)
+            end
         else
             z = zeta(s - 2m)
         end

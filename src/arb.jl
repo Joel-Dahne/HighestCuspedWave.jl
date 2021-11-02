@@ -59,6 +59,27 @@ end
 stieltjes(type, n::Integer) = convert(type, stieltjes(Arb, n))
 
 """
+    unique_integer(x::Arb)
+
+If `x` contains a unique integer return `true, n` where `n` is the
+integer. Otherwise return `false, 0`
+
+"""
+function unique_integer(x::Arb)
+    # This call uses fmpz from Nemo
+    res = Nemo.fmpz()
+    unique = ccall(
+        Arblib.@libarb(arb_get_unique_fmpz),
+        Int,
+        (Ref{Nemo.fmpz}, Ref{Arblib.arb_struct}),
+        res,
+        x,
+    )
+
+    return !iszero(unique), Int(res)
+end
+
+"""
     contains_pi(x1, x2)
 
 Checks the interval `[x1, x2]` if it contains points of the form `kπ`.
@@ -72,19 +93,6 @@ x2])` can occur.
 """
 function contains_pi(x1::Arb, x2::Arb)
     @assert !(x1 > x2)
-
-    function unique_integer(x::Arb)
-        # This call uses fmpz from Nemo
-        res = Nemo.fmpz()
-        unique = ccall(
-            Arblib.@libarb(arb_get_unique_fmpz),
-            Int,
-            (Ref{Nemo.fmpz}, Ref{Arblib.arb_struct}),
-            res,
-            x,
-        )
-        return !iszero(unique), Int(res)
-    end
 
     # x1 or x2 equal to zero are the only cases when the division by π
     # can be exact, in which case it has to be handled differently.
