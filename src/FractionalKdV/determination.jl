@@ -38,6 +38,15 @@ function findp0(α::Arb)
         return union(findp0(α_low), findp0(α_upp))
     end
 
+    if Float64(α) == -0.5
+        # There is a removable singularity at α = -0.5 so evaluation
+        # at exactly that point fails. We handle this by creating a
+        # small ball around α and use the monotonicity. This is mostly
+        # meant for testing, where -0.5 tends to come up frequently...
+        α = Arblib.add_error!(copy(α), Arb(1e-15))
+        return findp0(α)
+    end
+
     α = setprecision(α, 2precision(α))
 
     Γ = gamma
