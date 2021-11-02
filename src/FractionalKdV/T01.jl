@@ -243,6 +243,21 @@ integral \$T_{0,1,2}\$ from the paper. This is the integral
 x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^p dt
 ```
 from `δ0` to `1 - δ1`.
+
+To speed up the integration we want to avoid the absolute value inside
+the integrand. The expression inside the absolute value is given by
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+and it has a unique root on the interval `[δ0, 1 - δ1]`. We therefore
+isolate this root and then integrate from `δ0` to a lower bound for
+this root and from an upper bound for the root to `1 - δ1` separately.
+For these parts we can skip the absolute value inside the integral
+(since the integrand has a constant sign) and instead we take the
+absolute value of the result. For the part enclosing the root we
+integrate keeping the absolute value. Notice that the way we do this
+we do **not** have to prove that there is a unique zero.
+- **IMPROVE:** This explanation is poorly written...
 """
 function T012(
     u0::FractionalKdVAnsatz{Arb},
@@ -259,8 +274,13 @@ function T012(
 
     return x -> begin
         integrand(t; analytic) = begin
+            # Check that the real part of t is strictly between 0 and
+            # 1 or return an indeterminate result
+            Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
+            return Arblib.indeterminate!(zero(t))
+
             if isreal(t)
-                rt = real(t)
+                rt = Arblib.realref(t)
 
                 res = Acb(
                     clausenc(x * (1 - rt), mα) + clausenc(x * (1 + rt), mα) -
@@ -272,22 +292,113 @@ function T012(
                     2clausenc(x * t, mα)
             end
 
-            return Arblib.real_abs!(res, res, analytic) *
-                   Arblib.pow_analytic!(zero(t), t, cp, analytic)
+            return Arblib.real_abs!(res, res, analytic) * t^cp
         end
 
-        res = real(
-            Arblib.integrate(
-                integrand,
-                a,
-                b,
-                check_analytic = true,
-                rtol = 1e-5,
-                atol = 1e-5,
-                warn_on_no_convergence = false,
-                opts = Arblib.calc_integrate_opt_struct(0, 5_000, 0, 0, 0),
+        # The same integrand as above but without the absolute value.
+        # It is used for the parts of the interval where the integrand
+        # is known to be non-zero.
+        integrand_no_abs(t) = begin
+            # Check that the real part of t is strictly between 0 and
+            # 1 or return an indeterminate result
+            Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
+            return Arblib.indeterminate!(zero(t))
+
+            if isreal(t)
+                rt = Arblib.realref(t)
+
+                return Acb(
+                    (
+                        clausenc(x * (1 - rt), mα) + clausenc(x * (1 + rt), mα) -
+                        2clausenc(x * rt, mα)
+                    ) * rt^u0.p,
+                )
+
+            else
+                return (
+                    clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) -
+                    2clausenc(x * t, mα)
+                ) * t^cp
+            end
+        end
+
+        # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
+        # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
+        f(t) =
+            clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
+
+        roots, flags = ArbExtras.isolate_roots(f, ubound(real(a)), lbound(real(b)))
+
+        if length(flags) == 1 && flags[1]
+            # Refine the unique root
+            root = ArbExtras.refine_root(f, Arb(only(roots)))
+            # Get lower and upper bounds for the root
+            root_lower, root_upper = getinterval(root)
+
+            isolated_root = true
+        else
+            # Get lower and upper bounds for possible roots
+            root_lower = roots[1][1]
+            root_upper = roots[end][2]
+
+            isolated_root = false
+        end
+
+        #root_lower, root_upper = a, b
+
+        #@show Arb((root_lower, root_upper))
+        res1 = abs(
+            real(
+                Arblib.integrate(
+                    integrand_no_abs,
+                    a,
+                    root_lower,
+                    check_analytic = false,
+                    rtol = 2e-5,
+                    atol = 2e-5,
+                    warn_on_no_convergence = false,
+                    opts = Arblib.calc_integrate_opt_struct(0, 2_000, 0, 0, 0),
+                ),
             ),
         )
+
+
+        res2 = real(
+            Arblib.integrate(
+                integrand,
+                root_lower,
+                root_upper,
+                check_analytic = true,
+                rtol = 2e-5,
+                atol = 2e-5,
+                warn_on_no_convergence = false,
+                opts = Arblib.calc_integrate_opt_struct(
+                    0,
+                    ifelse(isolated_root, 100, 2_000),
+                    0,
+                    0,
+                    0,
+                ),
+            ),
+        )
+
+
+        res3 = abs(
+            real(
+                Arblib.integrate(
+                    integrand_no_abs,
+                    root_upper,
+                    b,
+                    check_analytic = false,
+                    rtol = 2e-5,
+                    atol = 2e-5,
+                    warn_on_no_convergence = false,
+                    opts = Arblib.calc_integrate_opt_struct(0, 2_000, 0, 0, 0),
+                ),
+            ),
+        )
+
+        res = res1 + res2 + res3
 
         if skip_div_u0
             return res * x / π
