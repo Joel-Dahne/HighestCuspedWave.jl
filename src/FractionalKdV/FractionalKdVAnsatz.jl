@@ -140,85 +140,48 @@ end
 
 """
     FractionalKdVAnsatz(α::T)
-Construct a FractionalKdVAnsatz using a heuristic choice of
-parameters.
+
+Construct a `FractionalKdVAnsatz` with the given `α` value using a
+heuristic choice of parameters.
+
+This method is meant for the bulk of the interval and not for handling
+the asymptotic cases when `α` is very close to `-1` or `0`.
+
+- **TODO:** Add heuristic parameters for `α` closer to `-1`.
+- **TODO:** Improve heuristic parameters for `α` closer to `0`.
 """
 function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
-    ϵ1 = 0.09
-    ϵ2 = 0.09
+    # Store heuristic parameters, they are stored as
+    # (upper, N0, N1, p)
+    # where upper is an upper bound for the α to use these values for
+    # and N0, N1 and p are the corresponding parameters for the
+    # ansatz.
+    parameters = [
+        (-0.885, 11, 512, (1 - α) / 2),
+        (-0.87, 10, 512, (1 - α) / 2),
+        (-0.848, 9, 512, (1 - α) / 2),
+        (-0.825, 8, 512, (1 - α) / 2),
+        (-0.8, 7, 256, (1 - α) / 2),
+        (-0.75, 6, 128, (1 - α) / 2),
+        (-0.61, 5, 64, (1 - α) / 2),
+        (-0.36, 4, 16, (1 - α) / 2),
+        (-0.2, 3, 8, (1 - α) / 2),
+        (0, 3, 8, (2 - α) / 2),
+    ]
 
-    if α < -1 + ϵ1
-        # α ∈ I_1
+    # Find the last element in parameters for which we have an upper
+    # bound for α.
+    i = findlast(value -> α <= value[1], parameters)
 
-        u0 = FractionalKdVAnsatz(
-            α,
-            12,
-            512,
-            ifelse(isnothing(pp), (1 - α) / 2, pp),
-            use_midpoint = true,
-        )
-    elseif α < -ϵ2
-        # α ∈ I_2
+    _, N0, N1, p = parameters[i]
 
-        if α <= -0.885
-            N0 = 11
-            N1 = 512
-            p = (1 - α) / 2
-        elseif α <= -0.87
-            N0 = 10
-            N1 = 512
-            p = (1 - α) / 2
-        elseif α <= -0.848
-            N0 = 9
-            N1 = 512
-            p = (1 - α) / 2
-        elseif α <= -0.825
-            N0 = 8
-            N1 = 512
-            p = (1 - α) / 2
-        elseif α <= -0.8
-            N0 = 7
-            N1 = 256
-            p = (1 - α) / 2
-        elseif α <= -0.75
-            N0 = 6
-            N1 = 128
-            p = (1 - α) / 2
-        elseif α <= -0.61
-            N0 = 5
-            N1 = 64
-            p = (1 - α) / 2
-        elseif α <= -0.36
-            N0 = 4
-            N1 = 16
-            p = (1 - α) / 2
-        elseif α <= -0.2
-            N0 = 3
-            N1 = 8
-            p = (1 - α) / 2
-        else
-            N0 = 3
-            N1 = 8
-            p = (2 - α) / 3
-        end
-
-        u0 = FractionalKdVAnsatz(
-            α,
-            N0,
-            N1,
-            ifelse(isnothing(pp), p, pp),
-            use_midpoint = true,
-        )
-    else
-        # α ∈ I_3
-        u0 = FractionalKdVAnsatz(
-            α,
-            1,
-            0,
-            ifelse(isnothing(pp), one(α), pp),
-            use_midpoint = false,
-        )
-    end
+    u0 = FractionalKdVAnsatz(
+        α,
+        N0,
+        N1,
+        ifelse(isnothing(pp), p, pp),
+        use_midpoint = true,
+    )
 
     return u0
 end
