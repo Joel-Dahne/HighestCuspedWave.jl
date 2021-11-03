@@ -7,7 +7,7 @@ non-negative, any negative parts of `x` are ignored.
 The terms are stored as `((p, q, i, j, k, l, m), y)`. The parameters `(i, j,
 k l, m)` correspond to the term
 ```
-y * x^(i * α + j * p0 - k*u0-v0.v0.α + l*u0.v0.v0.p0 + m)
+y * x^(i * α + j * p0 - k*u0.v0.v0.α + l*u0.v0.v0.p0 + m)
 ```
 where `α ∈ (-1, -1 + u0.ϵ]` and `p0 = 1 + α + (1 + α)^2 / 2`.
 
@@ -377,7 +377,7 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
         for m = 1:M-1
             res[(0, 0, 0, 0, 0, 0, 2m)] += p[2m] * u0.v0.v0.a[j]
         end
-        Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], E)
+        res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
     end
 
     # Fourier terms
@@ -627,7 +627,7 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
                 s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+                res[(0, 0, -1, 0, 2, j, 0)] = -C * u0.v0.v0.a[j]
                 for m = 1:M-1
                     res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
                 end
@@ -639,11 +639,11 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
                 s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+                res[(0, 0, -1, 0, 2, j, 0)] = -C * u0.v0.v0.a[j]
                 for m = 1:M-1
                     res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
                 end
-                Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], E)
+                res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
             end
         end
 
