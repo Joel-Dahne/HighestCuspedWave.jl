@@ -214,8 +214,8 @@ Note that this method doesn't handle wide values of `s` in any special
 way. This has not been needed anywhere so far.
 """
 function clausens_expansion(x::Arb, s::Arb, M::Integer)
-    Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
-    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2"))
+    Arblib.ispositive(s) || throw(ArgumentError("s must be positive, got s = $s"))
+    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
 
     π = oftype(x, pi)
 

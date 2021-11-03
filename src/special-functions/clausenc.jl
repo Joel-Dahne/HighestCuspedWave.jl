@@ -387,8 +387,8 @@ enclosure of the coefficients using a Taylor expansion in `s`.
   might just not handle this case?
 """
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
-    Arblib.ispositive(s) || throw(ArgumentError("s must be positive"))
-    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2"))
+    Arblib.ispositive(s) || throw(ArgumentError("s must be positive, got s = $s"))
+    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
 
     π = oftype(x, pi)
 
