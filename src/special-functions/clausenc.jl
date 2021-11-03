@@ -453,6 +453,112 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     return (C, e, P, E)
 end
 
+"""
+    clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, e::Arb)
+
+Return a value `C` such that for all `y` in the interval `[0, ϵ]` we
+have that the sum of the
+
+For `s` overlapping an odd positive integer `2k + 1` the exponents for
+the two terms `x^(s - 1)` and `x^2k` in the expansion overlap and
+their coefficients blow up. This method returns `C` such that `C *
+x^e` gives an enclosure for the sum of these two terms for all `x` in
+the interval `[0, ϵ]`.
+
+It requires that that `k` is at least `1` and that `0 < e < s - 1`. It
+also assumes that `0 <= ϵ < π`, any negative parts of `ϵ` are ignored.
+
+For now it only implements `s` overlapping `3`. This seems to be the
+only case we actually need. Everything below assumes that `s` overlaps
+with `3`, i.e. `k = 1`.
+
+In this case the sum of the two terms we are interested in are
+```
+gamma(1 - s) * sinpi(s / 2) * x^(s - 1) - zeta(s - 2) / 2 * x^2
+```
+Expanding at `s = 3` we have
+```
+(-3 // 4 + log(x) / 2) * x^2 + O(s - 3)
+```
+Ignoring the `O(s - 3)` term for now we can factor out `x^e`, giving
+us
+```
+x^e * ((-3 // 4 + log(x) / 2) * x^(2 - e))
+```
+We are therefore left computing an enclosure for
+```
+((-3 // 4 + log(x) / 2) * x^(2 - e))
+```
+on the interval `[0, ϵ]`. Splitting it into two terms we have
+```
+-3 // 4 * x^(2 - e)
+```
+Since `e < s - 1` and `s` overlaps `3` we have `2 - e > 0` so this is
+zero at `x = 0` and decreasing in `x`, allowing us to compute an
+enclosure. The term
+```
+log(x) / 2 * x^(2 - e)
+```
+is also zero for `x = 0`. The derivative is given by
+```
+x^(1 - e) / 2 + (2 - e) * log(x) / 2 * x^(1 - e) = (1 + (2 - e) * log(x)) * x^(1 - e) / 2
+```
+which has the unique zero
+```
+x = exp(1 / (e - 2))
+```
+so we can enclose it by evaluating it at `x = 0`, `x = ϵ` and also `x
+= exp(1 / (e - 2))` if this falls in the interval `[0, ϵ]`.
+- **TODO:** Handle the remainder terms from `O(s - 3)` which we ignore
+  for now.
+"""
+function clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, e::Arb)
+    # Check requirement on e
+    0 < e < s - 1 ||
+        throw(ArgumentError("expected e < s - 1, got e = $e, s - 1 = $(s - 1)"))
+
+    # Compute the integer k
+    contains_int, n = unique_integer(s)
+
+    contains_int || throw(ArgumentError("expected s overlapping integer, got s = $s"))
+
+    isodd(n) || throw(ArgumentError("expected s overlapping odd integer, got s = $s"))
+
+    n == 3 ||
+        throw(ArgumentError("method currently only supports s overlapping 3, got s = $s"))
+
+    iszero(ϵ) && return zero(ϵ)
+
+    # It's enough to work with the upper bound of ϵ
+    ϵ = ubound(Arb, ϵ)
+
+    0 < ϵ < π || throw(DomainError(ϵ, "method only supports ϵ on the interval [0, π)"))
+
+    # We assume n = 3 from here
+
+    # Enclosure of -3 // 4 * x^(2 - e)
+    term1_zero = zero(ϵ)
+    term1_ϵ = -3 // 4 * ϵ^(2 - e)
+
+    term1 = union(term1_zero, term1_ϵ)
+
+    # Enclosure of log(x) / 2 * x^(2 - e)
+    term2_zero = zero(ϵ)
+    term2_ϵ = log(ϵ) / 2 * ϵ^(2 - e)
+
+    term2 = union(term2_zero, term2_ϵ)
+
+    critical_point = exp(1 / (e - 2))
+    if !(ϵ < critical_point)
+        term2_critical_point = log(critical_point) / 2 * critical_point^(e - 2)
+        term2 = union(term2, term2_critical_point)
+    end
+
+    C = term1 + term2
+
+    return C
+end
+
 ###
 ### clausencmzeta
 ###
