@@ -49,10 +49,10 @@ function alpha0(
     # abs(x)^p/u0(x) = (1 + hat(u0)(x))/a0(u0, 0)*abs(x)^(u0.p + u0.α)
     # <= (1 + c(u0, ϵ)*abs(x)^u0.p0/a0(u0, 0)*abs(x)^(u0.p + u0.α)
     # Which attains its maximum value at x = ϵ
-    m2 = (1 + c(u0, ϵ) * abs(ϵ)^u0.p0) / a0(u0, 0) * abs(ϵ)^(u0.p + u0.α)
+    m2 = (1 + c(u0, ϵ; M) * abs(ϵ)^u0.p0) / a0(u0, 0) * abs(ϵ)^(u0.p + u0.α)
     while !(m2 < m1) && ϵ > 1e-10
         ϵ /= 2
-        m2 = (1 + c(u0, ϵ) * abs(ϵ)^u0.p0) / a0(u0, 0) * abs(ϵ)^(u0.p + u0.α)
+        m2 = (1 + c(u0, ϵ; M) * abs(ϵ)^u0.p0) / a0(u0, 0) * abs(ϵ)^(u0.p + u0.α)
     end
 
     verbose && @info "ϵ value for getting smaller value than at π" ϵ

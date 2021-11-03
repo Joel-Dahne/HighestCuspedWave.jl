@@ -351,7 +351,7 @@ function c(u0::FractionalKdVAnsatz{Arb}, ϵ::Arb; M::Integer = 3)
 
     @assert ϵ > 0
 
-    expansion = u0(ϵ, AsymptoticExpansion())
+    expansion = u0(ϵ, AsymptoticExpansion(); M)
 
     # Set up expansion for numerator. Skip the term (1, 0, 0) and for
     # the other terms subtract -α + p0 from the exponent (by

@@ -50,7 +50,7 @@ function prove(
     x_error = Arblib.mul_2exp!(zero(Arb), Arb(π), -15)
 
     if verbose
-        @time α₀ = alpha0(u0, verbose = extra_verbose; threaded)
+        @time α₀ = alpha0(u0, verbose = extra_verbose; M, threaded)
         @show α₀
 
         @time δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
@@ -59,7 +59,7 @@ function prove(
         @time C_B = CB_estimate(u0; x_error, threaded)
         @show C_B
     else
-        α₀ = alpha0(u0; threaded)
+        α₀ = alpha0(u0; M, threaded)
         δ₀ = delta0(u0; M, threaded)
         C_B = CB_estimate(u0; x_error, threaded)
     end
