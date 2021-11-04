@@ -64,23 +64,19 @@ interval and the absolute value can hence be removed.
 
 Next the factor
 ```
-inv(π) * log(x) / log(10 + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)
+F = abs(inv(π) * log(x) / log(10 + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
-is factored out from the whole expression and multiplied back in the
-end. This factor is chosen such that both `log(x) / log(10 + inv(x))`
-and `gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)` converge to non-zero
-numbers and the whole factor is thus bounded. We can bound `log(x) /
-log(10 + inv(x))` by using that it is `-1` at `x = 0` and increasing.
-To bound `gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)` we compute the
-asymptotic expansion of `u0(x)` and ...
-- **TODO:** Finish bounding `gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)`
+is factored out. Except for the addition of `inv(π)` this is the same
+as the factor `F1` in [`F0_nonzer`](@ref) and we compute an enclosure
+following the same procedure as described there.
 
 What we are left with computing is
 ```
-W(x) * I
+abs(W(x) * I)
 ```
 where `W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(x))` and
-`I` the same integral as above (but without the absolute value).
+`I` the same integral as above (but without the absolute value in the
+integrand).
 
 Now consider the expansions
 ```
@@ -115,9 +111,12 @@ I₂₂ = -∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
 I₂₃ = ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + 10x * t) dt
 ```
 
+# Computation of `W(x) * I₁`
+
+## `W(x) * I₁₁`
 For the first integral we get
 ```
-W(x) * I₁₁ = - inv(1 - x^p0) * sinpi(α / 2) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+W(x) * I₁₁ = -inv(1 - x^p0) * sinpi(α / 2) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
 ```
 where the integral is taken from `1` to `π / x`. The factor `sinpi(α /
 2)` converges to `-1` and can be enclosed directly. A primitive
@@ -188,6 +187,7 @@ in `x = 0` and `α = -1` directly, and is increasing in both `x` and
 - **PROVE:** The it is increasing in `x` and `α`
 - **TODO:** That the limit is 1 could be proved better.
 
+## `W(x) * I₁₂`
 For the second term we have
 ```
 W(x) * I₁₂ = -inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
@@ -377,20 +377,58 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     ϵ = convert(Arb, ϵ)
     @assert ϵ < 0.5
 
+    # Setup for enclosing F
+
+    # Compute the expansion of u0 and remove the leading term, which
+    # is handled separately.
     u0_expansion = u0(ϵ, AsymptoticExpansion())
-    u0_expansion_mul_xα = empty(u0_expansion)
-    for ((p, q, i, j, k, l, m), value) in u0_expansion
-        u0_expansion_mul_xα[(p, q, i + 1, j, k, l, m)] = value
-    end
+    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
 
-    # Enclosure of the factor
-    # FIXME: Implement this
-    factor(x) = begin
-        one(x)
-    end
+    # Ensure that the tail of the expansion of u0 is positive, so that
+    # we can remove it from the denominator of F1 and still get an
+    # upper bound.
+    expansion_ispositive(u0, u0_expansion, ϵ) ||
+        error("expansion of u0 not proven to be positive, this should not happen")
 
-    return x -> begin
-        x = convert(Arb, x)
+    F(x) =
+        let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
+            # Note that inside this statement α refers to -1 + u0.ϵ
+            # and p0 to the corresponding p0 value.
+
+            # Enclosure of abs(log(x) / log(10 + inv(x))), either by
+            # direct evaluation or using monotonicity.
+            F11 = if iszero(x)
+                one(Arb)
+            elseif Arblib.contains_zero(x)
+                abs(Arb((-1, log(xᵤ) / log(10 + inv(xᵤ)))))
+            else
+                abs(log(x) / log(10 + inv(x)))
+            end
+
+            # Enclose F12
+            F121_lower = -Arb(π)^2 / 2
+            F122_upper = gamma(1 + α) / finda0(α)
+            F121 = Arb((F121_lower, F122_upper))
+
+            c(a) = gamma(a) * sinpi((1 - a) / 2)
+
+            # Upper and lower bound of
+            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+            F122_lower = (1 - xᵤ^p0) / (1 - c(α - p0) / c(α) * xᵤ^p0)
+            F122_upper = one(Arb)
+            # Combine upper and lower bound and multiply with
+            # enclosure of inv(c(α)) to get an upper bound for F122.
+            F122 = inv(Arb((c(α), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
+
+            F12 = F121 * F122
+
+            Arblib.ispositive(F12) ||
+                error("leading term of u0 is not positive, this should not happen")
+
+            inv(π) * F11 * F12
+        end
+
+    return x::Arb -> begin
         @assert x <= ϵ
 
         # Enclosure of sinpi(α / 2)
@@ -412,12 +450,13 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             # are some O(x^2) terms left to handle.
             integral_I₁₁ =
                 let xᵤ = ubound(Arb, x), α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
+
                     # We use that it is 1 for α = -1, x = 0 and
                     # increasing in both variables. Notice that we
                     # always enclose it for x on the interval [0, xᵤ]
                     # even if x doesn't touch zero. This could
                     # possibly be improved but might not be needed.
-                    lower = Arb(1)
+                    lower = one(x)
                     upper =
                         (
                             xᵤ^(1 + α) * π^(-1 - α) * (2 - α * (1 + α)) / (α - 1) -
@@ -492,6 +531,8 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             invlogx * factor_I₁₂ * WxI₁₁
         end
 
+        WxI₁ = WxI₁₁ + WxI₁₂ + WxI₁₃
+
         # Enclosure of -x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
         # FIXME: This currently computes with `α = -1 + u0.ϵ`
         # which doesn't given an upper bound, though it gives a
@@ -557,9 +598,11 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             invlogx * factor_I₂ * factor_I₂₃ * Σ₂₁
         end
 
+        WxI₂ = WxI₂₁ + WxI₂₂ + WxI₂₃
+
         @show WxI₁₁ WxI₁₂ WxI₁₃ WxI₂₁ WxI₂₂ WxI₂₃
 
-        return
+        return F(x) * (WxI₁ + WxI₂)
     end
 end
 
