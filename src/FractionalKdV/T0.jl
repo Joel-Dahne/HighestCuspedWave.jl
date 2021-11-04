@@ -168,11 +168,7 @@ the root. The enclosure is then be refined using
 - **IMPROVE:** We could possibly get better enclosures for the root
   for wide values of `x`.
 """
-function T0_p_one(
-    u0::FractionalKdVAnsatz,
-    evaltype::Ball = Ball();
-    skip_div_u0 = false,
-)
+function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 = false)
     @assert isone(u0.p)
 
     α = u0.α
@@ -180,8 +176,7 @@ function T0_p_one(
     return x::Arb -> begin
         # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
         # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
-        f(t) =
-            clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+        f(t) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 
         # The root is lower bounded by 1 / 2
         root_lower = Arf(0.5)
@@ -210,7 +205,7 @@ function T0_p_one(
             # Check that the real part of t is strictly between 0 and
             # 1 or return an indeterminate result
             Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
-                return Arblib.indeterminate!(zero(t))
+            return Arblib.indeterminate!(zero(t))
 
             if isreal(t)
                 rt = Arblib.realref(t)
@@ -228,19 +223,19 @@ function T0_p_one(
             return Arblib.real_abs!(res, res, analytic) * t
         end
 
-        primitive(t) =
-            (clausenc(x * (1 - t), 2 - α) / x^2 - t * clausens(x * (1 - t), 1 - α) / x) + (
-                clausenc(x * (1 + t), 2 - α) / x^2 + t * clausens(x * (1 + t), 1 - α) / x
-            ) - 2(clausenc(x * t, 2 - α) / x^2 + t * clausens(x * t, 1 - α) / x)
-
         primitive_mul_x(t) =
-            (clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) - 2clausenc(x * t, 2 - α)) / x +
-            t * (-clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α))
+            (
+                clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
+                2clausenc(x * t, 2 - α)
+            ) / x +
+            t * (
+                -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
+                2clausens(x * t, 1 - α)
+            )
 
         #@assert Arblib.overlaps(x * primitive(Arb(0.5)), primitive_mul_x(Arb(0.5)))
 
         # primitive(0)
-        primitive_zero = 2clausencmzeta(x, 2 - α) / x^2
         primitive_mul_x_zero = 2clausencmzeta(x, 2 - α) / x
 
         # primitive(π / x)
@@ -259,23 +254,19 @@ function T0_p_one(
             clausenc_x_plus_pi = clausenc(x + π, 2 - α)
         end
         # eta is only implemented for Acb in Arblib
-        primitive_pi_div_x = 2(clausenc_x_plus_pi + real(eta(Acb(2 - α)))) / x^2
         primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi + real(eta(Acb(2 - α)))) / x
 
-        #@assert Arblib.overlaps(primitive(zero(x)), primitive_zero)
-        #@assert Arblib.overlaps(primitive_mul_x(zero(x)), primitive_mul_x_zero)
-        #@assert Arblib.overlaps(primitive(π / x), primitive_pi_div_x)
-        #@assert Arblib.overlaps(primitive_mul_x(π / x), primitive_mul_x_pi_div_x)
-
-        I12 = real(Arblib.integrate(
-            integrand,
-            root_lower,
-            root_upper,
-            check_analytic = true,
-            rtol = 1e-5,
-            atol = 1e-5,
-            opts = Arblib.calc_integrate_opt_struct(0, 1_000, 0, 0, 0),
-        ))
+        I12 = real(
+            Arblib.integrate(
+                integrand,
+                root_lower,
+                root_upper,
+                check_analytic = true,
+                rtol = 1e-5,
+                atol = 1e-5,
+                opts = Arblib.calc_integrate_opt_struct(0, 1_000, 0, 0, 0),
+            ),
+        )
 
         I_mul_x = (
             primitive_mul_x_zero - primitive_mul_x(root_lower) + x * I12 -

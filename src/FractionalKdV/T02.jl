@@ -35,15 +35,8 @@ function T02(
         # Compute with the asymptotic expansion on the whole interval
         res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π), skip_div_u0 = true)
 
-        res_asymptotic_alternative =
-            T021_alternative(u0, skip_div_u0 = true)(x, Arb(π))
-
         if !(π < a || π - x < ϵ)
             part1 = T021(u0, Ball(), a, x, skip_div_u0 = true; ϵ)
-
-            parta = T021_alternative(u0, skip_div_u0 = true)(x, a)
-
-            #@show part1 parta
 
             part2 = T022(u0, Ball(), a, x, skip_div_u0 = true)
 
@@ -51,8 +44,6 @@ function T02(
         else
             res = res_asymptotic
         end
-
-        #@show res_asymptotic res_asymptotic_alternative res
 
         if skip_div_u0
             return res
