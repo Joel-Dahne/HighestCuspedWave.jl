@@ -4,10 +4,6 @@
 Returns a function such that `T02(u0; δ2, ϵ)(x)` computes the integral
 \$T_{0,2}\$ from the paper.
 
-If `u0.p == 1` it uses a closed form expression for the integral.
-Otherwise it computes the integral directly for most of the interval
-and uses and asymptotic expansion for `y < x + δ2`.
-
 If `x` is close to π (`π - x < ϵ`) then use only the asymptotic
 expansion for the full integral.
 
@@ -33,57 +29,35 @@ function T02(
     ϵ::Arb = 1 + u0.α,
     skip_div_u0 = false,
 )
-    if isone(u0.p)
-        # Use the closed form expression
-        α = u0.α
-        p = u0.p
-        return x -> begin
-            # TODO: Handle the case when x contains π. Then
-            # clausens(2x, 1 - α) evaluates to NaN. clausens has
-            # issues as soon as the argument is a ball containing a
-            # multiple of 2π.
-            res =
-                clausenc(x + π, 2 - α) - clausenc(Arb(π), 2 - α) + clausenc(x, 2 - α) -
-                (clausenc(2x, 2 - α) + zeta(2 - α)) / 2 + x * clausens(x, 1 - α)
-            if π - x < 1e-4
-                # When 2x is close to 2π direct evaluation of clausens
-                # fails. Use that clausens(2x, 1 - α) = clausens(2x -
-                # 2π, 1 - α) and the asymptotic expansion.
-                y = 2x - 2Arb(π)
-                M = 3
-                C, e, P, E = clausens_expansion(y, 1 - α, M)
-                res -= x / 2 * (-C * abspow(y, e) + P(y) + E * abs(y)^(2M + 1))
-            else
-                res -= x / 2 * clausens(2x, 1 - α)
-            end
+    return x -> begin
+        a = Arblib.ubound(Arb, x + δ2)
 
-            if skip_div_u0
-                return 2res / (π * u0.w(x))
-            else
-                return 2res / (π * u0.w(x) * u0(x))
-            end
-        end
-    else
-        return x -> begin
-            a = Arblib.ubound(Arb, x + δ2)
+        # Compute with the asymptotic expansion on the whole interval
+        res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π), skip_div_u0 = true)
 
-            # Compute with the asymptotic expansion on the whole interval
-            res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π), skip_div_u0 = true)
+        res_asymptotic_alternative =
+            T021_alternative(u0, skip_div_u0 = true)(x, Arb(π))
 
-            if π < a || π - x < ϵ
-                return res_asymptotic
-            end
-
+        if !(π < a || π - x < ϵ)
             part1 = T021(u0, Ball(), a, x, skip_div_u0 = true; ϵ)
+
+            parta = T021_alternative(u0, skip_div_u0 = true)(x, a)
+
+            #@show part1 parta
 
             part2 = T022(u0, Ball(), a, x, skip_div_u0 = true)
 
             res = intersect(part1 + part2, res_asymptotic)
-            if skip_div_u0
-                return res
-            else
-                return res / u0(x)
-            end
+        else
+            res = res_asymptotic
+        end
+
+        #@show res_asymptotic res_asymptotic_alternative res
+
+        if skip_div_u0
+            return res
+        else
+            return res / u0(x)
         end
     end
 end
