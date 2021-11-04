@@ -103,15 +103,13 @@ function T02(
 
     if isone(p)
         return x -> begin
-            (A, _, P1, E1) = clausenc_expansion(x, 2 - α, 2)
-            (_, _, _, E1p) = clausenc_expansion(2x, 2 - α, 2)
-            (B, _, P2, E2) = clausens_expansion(x, 1 - α, 1)
-            (_, _, _, E2p) = clausens_expansion(2x, 1 - α, 1)
+            (A, _, P1, E1) = clausenc_expansion(x, 2 - α, 3)
+            (_, _, _, E1p) = clausenc_expansion(2x, 2 - α, 3)
+            (B, _, P2, E2) = clausens_expansion(x, 1 - α, 3)
+            (_, _, _, E2p) = clausens_expansion(2x, 1 - α, 3)
 
-            # PROVE: That P3[1] == P3[3] == 0
-            (P3, E3) = taylor_with_error(π, setunion(π, π + x), 4) do y
-                return clausenc(y, 2 - α)
-            end
+            # We have P3[1] == P3[3] == 0 since clausenc is even around π
+            (P3, E3) = taylor_with_error(y -> clausenc(y, 2 - α), π, union(π, π + x), 4)
 
             c_α = A * (1 - 2^(-α)) + B * (1 - 2^(-α - 1))
 
@@ -124,8 +122,8 @@ function T02(
             )
 
             res = (
-                K * c_α * L +
-                K / 2 * L * (zeta(-α) - clausenc(π, -α)) * abspow(x, 1 + α) +
+                K * c_α * L -
+                K / 2 * L * (clausencmzeta(π, -α)) * abspow(x, 1 + α) +
                 K * L * abspow(x, α + 3) * (E3 + E1 - 8 * E1p + E2 - 8 * E2p)
             )
 

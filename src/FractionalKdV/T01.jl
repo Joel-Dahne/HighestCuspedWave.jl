@@ -79,7 +79,7 @@ function T01(
     ::Asymptotic;
     nonasymptotic_u0 = false, # Mainly for testing
 )
-    @warn "T01(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
+    #@warn "T01(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
     α = u0.α
     p = u0.p
     π = Arb(Irrational{:π}())
@@ -110,7 +110,7 @@ function T01(
         )
 
     return x -> begin
-        if p == 1
+        if isone(p)
             # FIXME: Bound the tail - the terms go to zero extremely
             # fast so it should be negligible
             c_ϵ = zero(α)
