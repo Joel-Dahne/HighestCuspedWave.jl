@@ -1034,7 +1034,7 @@ p0 = 1 + α + (1 + α)^2 / 2
 
 Recall that the expression we are interested in bounding is
 ```
-abs((u0(x)^2 + H(u0)(x)) / (u0(x) * log(10 + inv(x))))
+abs((u0(x)^2 + H(u0)(x)) / (u0(x) * x * log(10 + inv(x))))
 ```
 
 # Split into two factors
@@ -1051,7 +1051,7 @@ u0(x)`
 
 The second one is given by
 ```
-F2 = abs((u0(x)^2 + H(u0)(x)) / (log(x) * gamma(1 + α) * x^-α * (1 - x^p0)))
+F2 = abs((u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0)))
 ```
 which we will also see is bounded.
 
@@ -1125,7 +1125,80 @@ u0.ϵ` and an upper bound for `x`
   decreasing in `α` and `x`.
 
 # Bounding `F2`
+Getting an accurate bound for `F2` requires some work since it's not
+enough to only consider the leading term, we have to account for the
+cancellation between the terms even for very small values of `x` (of
+the order `1e-10000` or even smaller).
 
+Recall that we are interested in bounding
+```
+F2 = abs((u0(x)^2 + H(u0)(x)) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0)))
+```
+
+As a first step we compute the asymptotic expansion of `u0(x)^2 +
+H(u0)(x)`. We then take out the two leading terms with keys `(2, 0, 0,
+0, 0, 0, 0)` and `(0, 1, 0, 0, 0, 0, 0)` which we call `P` and `Q`
+respectively.
+
+# Handling `P` and `Q`
+The terms `P` and `Q` are given by
+```
+P = a0^2 / 2 * (c(α)^2 - 2c(α) * c(α - p0) * x^p0 + c(α - p0)^2 * x^2p0) * x^-2α
+```
+and
+```
+Q = -a0 * ((c(2α) - c(2α - p0) * x^p0) * x^-2α - (zeta(-2α - 1) / 2 - zeta(-2α + p0 - 1) / 2) * x^2)
+```
+where `c(a) = gamma(a) * sinpi((1 - a) / 2)` as above.
+- **TODO:** Check expression for P and Q
+
+By construction `a0` is such that the terms with exponent `x^-2α`
+cancel out. This leaves us with
+```
+P + Q = a0 * (
+    (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^(-2α + p0) +
+    (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^2 +
+    a0 * c(α - p0)^2 / 2 * x^(-2α + 2p0)
+)
+```
+where we can note that `-2α + p0 < 2 < -2α + 2p0`. We are now
+interested in bounding
+```
+(P + Q) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+```
+If we cancel the exponents and reorder the factors slightly we get
+```
+a0 / gamma(1 + α) * (
+    (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0)) +
+    (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0)) +
+    a0 * c(α - p0)^2 / 2 * x^(-α + 2p0 - 1) / (log(x) * (1 - x^p0))
+)
+```
+The factor `a0 / gamma(1 + α)` can be enclosed using that it converges
+to `-2 / π^2` and is decreasing in `α`
+- **PROVE:** That `a0 / gamma(1 + α)` converges to `-2 / π^2` and is decreasing.
+First we focus on the term
+```
+F21 = (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
+```
+This term is small and fairly stable in `α` (negative and decreasing).
+For now we compute it by letting `α = -1 + u0.ϵ`
+- **TODO:** Figure out how to bound this rigorously for the full range of `α`.
+We then consider the two remaining terms together since they mostly
+cancel out.
+```
+F22 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0)) +
+    a0 * c(α - p0)^2 / 2 * x^(-α + 2p0 - 1) / (log(x) * (1 - x^p0))
+    =
+    ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
+    a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
+```
+- **TODO:** Figure out how to bound this rigorously for the full range of `α`
+
+# Handling the remaining terms
+**TODO:** For now we enclose them directly using
+[`eval_expansion`](@ref) but it is likely that this will need to be
+improved.
 """
 function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(0.5))
     @assert ϵ < 1
@@ -1141,8 +1214,16 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
     expansion_ispositive(u0, u0_expansion, ϵ) ||
         error("expansion of u0 not prove to be positive, this should not happen")
 
-    return x -> begin
-        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && x[0] <= ϵ)
+    # Compute the expansion of D(u0) and remove the two leading term, which
+    # is handled separately.
+    Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
+    delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
+
+    c(a) = gamma(a) * sinpi((1 - a) / 2)
+
+    return x::Arb -> begin
+        @assert x <= ϵ
 
         # Compute an upper bound of F1
         F1 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
@@ -1164,8 +1245,6 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
             F122_upper = gamma(1 + α) / finda0(α)
             F121 = Arb((F121_lower, F122_upper))
 
-            c(a) = gamma(a) * sinpi((1 - a) / 2)
-
             # Upper and lower bound of
             # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
             F122_lower = (1 - xᵤ^p0) / (1 - c(α - p0) / c(α) * xᵤ^p0)
@@ -1183,10 +1262,54 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
         end
 
         # Compute an enclosure of F2
-        F2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
-            #(u0x^2 + Hu0x) / (log(x) * gamma(1 + α) * x^-α * (1 - x^p0))
+        F2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+            # Temporary function to compute exponents for terms in the
+            # expansion
+            exponent =
+                ((p, q, i, j, k, l, m),) -> (
+                    -p * α - q * 2α + i * α + j * p0 - k * u0.v0.v0.α + l * u0.v0.v0.p0 + m
+                )
+
+            #ks = collect(keys(Du0_expansion))
+            #return collect(zip(ks, map(exponent, ks), values(Du0_expansion)))
+
+            # Enclosure of a0 / gamma(1 + α)
+            a0gamma = Arb((finda0(α) / gamma(1 + α), -2 / Arb(π)^2))
+
+            # Compute an enclosure of F21
+            # FIXME: Compute a rigorous enclosure, this only computes
+            # it for α = -1 + u0.ϵ. Though it seems to be quite stable.
+            F21 =
+                (finda0(α) * c(α) * c(α - p0) - c(2α - p0)) * x^(-α + p0 - 1) /
+                (log(x) * (1 - x^p0))
+
+            # Compute an enclosure of F22
+            # FIXME: Compute a rigorous enclosure, this only computes
+            # it for α = -1 + u0.ϵ. The value grows as α -> -1 so this
+            # doesn't tell the full story.
+            F22 =
+                (
+                    (zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
+                    finda0(α) * c(α - p0)^2 * x^(-2α + 2p0 - 2)
+                ) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
+
+
+            # The enclosure of the terms coming from P + Q in the expansion
+            P_plus_Q = a0gamma * F21 * F22
+
+            # Enclosure of the remaining terms in the expansion
+            # TODO: This will likely have to be improved to get good
+            # enough enclosures.
+            # FIXME: The division by needs to be handled for the full
+            # range of α
+            remainder =
+                eval_expansion(u0, Du0_expansion, x) /
+                (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+
+            #(u0x^2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
+            P_plus_Q + remainder
         end
 
-        return F1, F2
+        return F1 * F2
     end
 end
