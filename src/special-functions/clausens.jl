@@ -215,7 +215,8 @@ way. This has not been needed anywhere so far.
 """
 function clausens_expansion(x::Arb, s::Arb, M::Integer)
     Arblib.ispositive(s) || throw(ArgumentError("s must be positive, got s = $s"))
-    M > (s + 1) / 2 || throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
+    M > (s + 1) / 2 ||
+        throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
 
     π = oftype(x, pi)
 
