@@ -177,13 +177,7 @@ function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
 
     _, N0, N1, p = parameters[i]
 
-    u0 = FractionalKdVAnsatz(
-        α,
-        N0,
-        N1,
-        ifelse(isnothing(pp), p, pp),
-        use_midpoint = true,
-    )
+    u0 = FractionalKdVAnsatz(α, N0, N1, ifelse(isnothing(pp), p, pp), use_midpoint = true)
 
     return u0
 end
