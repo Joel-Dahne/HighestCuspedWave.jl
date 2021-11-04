@@ -58,7 +58,9 @@ struct BHKdVAnsatz{T} <: AbstractAnsatz{T}
             v0v0.a[0] = 0
             v0 = BHAnsatz{T}(v0.a0, copy(v0.b), v0v0)
         else
-            v0 = deepcopy(v0)
+            # FIXME: This should be a deepcopy of v0 once Arblib
+            # implements that.
+            v0 = v0
         end
 
         return new{T}(ϵ, v0)
