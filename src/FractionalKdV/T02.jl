@@ -122,8 +122,7 @@ function T02(
             )
 
             res = (
-                K * c_α * L -
-                K / 2 * L * (clausencmzeta(π, -α)) * abspow(x, 1 + α) +
+                K * c_α * L - K / 2 * L * (clausencmzeta(π, -α)) * abspow(x, 1 + α) +
                 K * L * abspow(x, α + 3) * (E3 + E1 - 8 * E1p + E2 - 8 * E2p)
             )
 
