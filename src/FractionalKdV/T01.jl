@@ -247,17 +247,29 @@ from `δ0` to `1 - δ1`.
 To speed up the integration we want to avoid the absolute value inside
 the integrand. The expression inside the absolute value is given by
 ```
-clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+f(t) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-and it has a unique root on the interval `[δ0, 1 - δ1]`. We therefore
-isolate this root and then integrate from `δ0` to a lower bound for
-this root and from an upper bound for the root to `1 - δ1` separately.
-For these parts we can skip the absolute value inside the integral
-(since the integrand has a constant sign) and instead we take the
-absolute value of the result. For the part enclosing the root we
-integrate keeping the absolute value. Notice that the way we do this
-we do **not** have to prove that there is a unique zero.
-- **IMPROVE:** This explanation is poorly written...
+and it has a unique root on the interval `[0, 1]`. By isolating this
+root we can skip the absolute value for the parts of the interval
+where there is no roots. For the part enclosing the root we keep the
+absolute value.
+
+# Isolating the root
+For isolating the root on `[0, 1]` we make use of the fact that `f` is
+increasing on the interval
+ - **PROVE:** That `f` is increasing on the interval `[0, 1]`.
+
+Further we notice that for `t = 1 / 2` we have
+```
+f(1 / 2) = clausenc(x / 2, -α) + clausenc(3x / 2, -α) - 2clausenc(x / 2, -α) =
+    clausenc(3x / 2, -α) - clausenc(x / 2, -α)
+```
+which is negative for all `0 < x < π`.
+- **PROVE:** Prove the above using the monotonicity of `clausenc`, it
+    is straight forward.
+It follows that the root is lower bounded by `1 / 2`. An enclosure of
+the root is then computed using [`ArbExtras.isolate_roots`](@ref) and
+[`ArbExtras.refine_root`](@ref).
 """
 function T012(
     u0::FractionalKdVAnsatz{Arb},
@@ -323,11 +335,12 @@ function T012(
         end
 
         # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
-        # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
+        # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα) using that
+        # it is lower bounded by 0.5.
         f(t) =
             clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
 
-        roots, flags = ArbExtras.isolate_roots(f, ubound(real(a)), lbound(real(b)))
+        roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), ubound(real(b)))
 
         if length(flags) == 1 && flags[1]
             # Refine the unique root
@@ -344,9 +357,6 @@ function T012(
             isolated_root = false
         end
 
-        #root_lower, root_upper = a, b
-
-        #@show Arb((root_lower, root_upper))
         res1 = abs(
             real(
                 Arblib.integrate(
@@ -361,7 +371,6 @@ function T012(
                 ),
             ),
         )
-
 
         res2 = real(
             Arblib.integrate(
@@ -381,7 +390,6 @@ function T012(
                 ),
             ),
         )
-
 
         res3 = abs(
             real(
