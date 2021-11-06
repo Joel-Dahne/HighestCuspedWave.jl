@@ -86,7 +86,7 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
         degree = -1,
         abs_value = true,
         point_value_max = estimate,
-        depth_start = 2,
+        depth_start = 3,
         threaded = true;
         atol,
         verbose,

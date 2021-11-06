@@ -434,6 +434,13 @@ function T012(
             #weight = t * Arblib.sqrt_analytic!(zero(t), log((t * x + 1) / (t * x)), analytic)
             #return res * weight
 
+            # Check that the real part of t is strictly between 0 and
+            # 1 or return an indeterminate result
+            if !(Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1)
+                Arblib.indeterminate!(res)
+                return
+            end
+
             Arblib.mul!(tx, t, x_complex)
 
             # res = sin((1 - t) * x / 2)
@@ -479,6 +486,7 @@ function T012(
             rtol = 1e-10,
             atol = 1e-10,
             warn_on_no_convergence = false,
+            opts = Arblib.calc_integrate_opt_struct(0, 10_000, 0, 0, 0),
         )
 
         @assert !isfinite(res) || isreal(res)
