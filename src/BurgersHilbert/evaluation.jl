@@ -236,7 +236,7 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
                 for m = 1:M-1
                     res[(0, 2m, 0, 0)] += p[2m] * u0.v0.a[j]
                 end
-                Arblib.add_error!(res[(0, 2M, 0, 0)], E)
+                res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
             end
         end
     end
@@ -338,7 +338,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
                     for m = 1:M-1
                         res[(0, 2m, 0, 0)] -= p[2m] * u0.v0.a[j]
                     end
-                    Arblib.add_error!(res[(0, 2M, 0, 0)], E)
+                    res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
                 end
             end
         end
