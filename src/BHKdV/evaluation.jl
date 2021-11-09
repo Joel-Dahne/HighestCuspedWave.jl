@@ -1137,7 +1137,7 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
 
                 inv(w1) * (main_term + remainder_term)
             end
-            #@show part1 part2
+
             part1 + part2
         end
 
