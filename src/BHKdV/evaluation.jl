@@ -1397,6 +1397,13 @@ function F0_nonzero(
 )
     @assert ϵ < 1
 
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), x * log(10 + inv(x)))
+    end
+
     # Compute the expansion of u0 and remove the leading term, which
     # is handled separately.
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)

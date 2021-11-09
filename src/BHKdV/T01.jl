@@ -326,6 +326,13 @@ interval.
 """
 function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u0 = false)
     δ0 < 0.05 || Throw(ArgumentError("δ0 must be less than 0.05, got $δ0"))
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * log(10 + inv(x)))
+    end
+
     return x -> begin
         x = convert(Arb, x)
 
@@ -475,6 +482,13 @@ doesn't support evaluation on intervals containing zero.
   might not be needed.
 """
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
+    # This uses a hard coded version of the weight so just as an extra
+    # precaution we check that it seems to be the same as the one
+    # used.
+    let x = Arb(0.5)
+        @assert isequal(u0.w(x), abs(x) * log(10 + inv(x)))
+    end
+
     return x -> begin
         x = convert(Arb, x)
 
