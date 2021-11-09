@@ -1172,7 +1172,7 @@ p0 = 1 + α + (1 + α)^2 / 2
 
 Recall that the expression we are interested in bounding is
 ```
-abs((u0(x)^2 + H(u0)(x)) / (u0(x) * x * log(10 + inv(x))))
+abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * x * log(10 + inv(x))))
 ```
 
 # Split into two factors
@@ -1196,7 +1196,9 @@ which we will also see is bounded.
 # Bounding `F1`
 For `F1` we give bounds which work for `x` overlapping zero as well,
 the reason for this is that the same expression comes up in other
-estimates where we don need that. We split `F1` into the two factors
+estimates where we do need that. The bound we give is only an upper
+bound and not an enclosure, the smaller the value of `x` the tighter
+it will be in general. We split `F1` into the two factors
 ```
 F11 = abs(log(x) / log(10 + inv(x)))
 F12 = abs(gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
@@ -1262,6 +1264,17 @@ u0.ϵ` and an upper bound for `x`
 - **PROVE:** That `c(α - p0) / c(α)` converges to `1` as `α -> -1` and is
   decreasing in `α` and `x`.
 
+**IMPROVE:** WE could improve the enclosure we get by incorporating
+some of the terms in the tail of `u0`. For very small `x` this would
+be negligible but for `x` around say `1e-10` this would slightly
+improve the values. It seems to be able to give a factor of around
+`0.5` for `x` close to `0.1` but only a factor `0.85` around `x =
+1e-10` (checked by plotting the value for `F1` used in this method and
+comparing it to the non-asymptotic version of it). Since this is not a
+big improvement and for `x` values this large we can use the
+non-asymptotic version anyway it is probably not worth it to implement
+though.
+
 # Bounding `F2`
 Getting an accurate bound for `F2` requires some work since it's not
 enough to only consider the leading term, we have to account for the
@@ -1270,10 +1283,10 @@ the order `1e-10000` or even smaller).
 
 Recall that we are interested in bounding
 ```
-F2 = abs((u0(x)^2 + H(u0)(x)) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0)))
+F2 = abs((u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0)))
 ```
 
-As a first step we compute the asymptotic expansion of `u0(x)^2 +
+As a first step we compute the asymptotic expansion of `u0(x)^2 / 2 +
 H(u0)(x)`. We then take out the two leading terms with keys `(2, 0, 0,
 0, 0, 0, 0)` and `(0, 1, 0, 0, 0, 0, 0)` which we call `P` and `Q`
 respectively.
@@ -1294,7 +1307,7 @@ By construction `a0` is such that the terms with exponent `x^-2α`
 cancel out. This leaves us with
 ```
 P + Q = a0 * (
-    (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^(-2α + p0) +
+    (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-2α + p0) +
     (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^2 +
     a0 * c(α - p0)^2 / 2 * x^(-2α + 2p0)
 )
@@ -1307,7 +1320,7 @@ interested in bounding
 If we cancel the exponents and reorder the factors slightly we get
 ```
 a0 / gamma(1 + α) * (
-    (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0)) +
+    (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0)) +
     (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0)) +
     a0 * c(α - p0)^2 / 2 * x^(-α + 2p0 - 1) / (log(x) * (1 - x^p0))
 )
@@ -1317,9 +1330,9 @@ to `-2 / π^2` and is decreasing in `α`
 - **PROVE:** That `a0 / gamma(1 + α)` converges to `-2 / π^2` and is decreasing.
 First we focus on the term
 ```
-F21 = (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
+F21 = (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
 ```
-This term is small and fairly stable in `α` (negative and decreasing).
+This term is small and fairly stable in `α` (positive and increasing).
 For now we compute it by letting `α = -1 + u0.ϵ`
 - **TODO:** Figure out how to bound this rigorously for the full range of `α`.
 We then consider the two remaining terms together since they mostly
@@ -1334,11 +1347,54 @@ F22 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x
 - **TODO:** Figure out how to bound this rigorously for the full range of `α`
 
 # Handling the remaining terms
-**TODO:** For now we enclose them directly using
-[`eval_expansion`](@ref) but it is likely that this will need to be
-improved.
+Once the terms `P` and `Q` have been taken out from the expansion it
+is possible to enclose the remaining ones directly. However this gives
+very bad enclosures, in particular for some of the terms which have
+large cancellations. To handle this we extract some of the terms and
+handle them explicitly as well.
+
+The first step is to separately handle the terms in `H(u0)` coming
+from `clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)`. There
+are two main reasons to handle this term separately, that the
+parameter overlaps with `3` so it needs to be handled specially and
+that it is the second leading term after `Q`.
+
+The rest of the terms we enclose directly using
+[`eval_expansion`](@ref).
+- **TODO:** We might need to handle more of the terms in the expansion
+  separately. It depends on how good he enclosures are.
+
+## Handling `clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)`
+We are interested in bounding
+```
+-u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+```
+Notice the minus sign coming from the Hilbert transform. Let `r =
+-u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and it is very small,
+around `1e-8` or so depending on the precise choice of `u0.v0.v0`. We
+have `1 - α - u0.v0.v0.α + u0.v0.v0.p0 = 2 - α + r` and the asymptotic
+expansion of the Clausen term can then be written
+```
+clausenc(x, 2 - α - r) = gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^(1 - α + r) -
+    zeta(-α + r) / 2 * x^2 +
+    O(x^4)
+```
+    Ignoring the `O(x^4)` term for now and dividing by `x`(1 - α)` gives us
+```
+gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)
+```
+Notice that the order of the terms depends on the value of `α`, in
+some cases `x`r` is leading and in some cases `x^(1 - α)`.
+- **TODO:** Finish computing a rigorous enclosure of this.
+
 """
-function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(0.5))
+function F0_nonzero(
+    u0::BHKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 3,
+    ϵ::Arb = Arb(0.5),
+    alpha_interval = :full,
+)
     @assert ϵ < 1
 
     # Compute the expansion of u0 and remove the leading term, which
@@ -1352,9 +1408,10 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
     expansion_ispositive(u0, u0_expansion, ϵ) ||
         error("expansion of u0 not prove to be positive, this should not happen")
 
-    # Compute the expansion of D(u0) and remove the two leading term, which
-    # is handled separately.
-    Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    # Compute the expansion of D(u0), skipping the Clausen term in the
+    # tail corresponding to j = 1 and also remove the two leading
+    # term, the three terms are handled separately.
+    Du0_expansion = D(u0, AsymptoticExpansion(), skip_j_one = true; M, alpha_interval)(ϵ)
     delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
     delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
 
@@ -1401,15 +1458,7 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
 
         # Compute an enclosure of F2
         F2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-            # Temporary function to compute exponents for terms in the
-            # expansion
-            exponent =
-                ((p, q, i, j, k, l, m),) -> (
-                    -p * α - q * 2α + i * α + j * p0 - k * u0.v0.v0.α + l * u0.v0.v0.p0 + m
-                )
-
-            #ks = collect(keys(Du0_expansion))
-            #return collect(zip(ks, map(exponent, ks), values(Du0_expansion)))
+            # Start by handling the terms P and Q
 
             # Enclosure of a0 / gamma(1 + α)
             a0gamma = Arb((finda0(α) / gamma(1 + α), -2 / Arb(π)^2))
@@ -1418,7 +1467,7 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
             # FIXME: Compute a rigorous enclosure, this only computes
             # it for α = -1 + u0.ϵ. Though it seems to be quite stable.
             F21 =
-                (finda0(α) * c(α) * c(α - p0) - c(2α - p0)) * x^(-α + p0 - 1) /
+                (c(2α - p0) - finda0(α) * c(α) * c(α - p0)) * x^(-α + p0 - 1) /
                 (log(x) * (1 - x^p0))
 
             # Compute an enclosure of F22
@@ -1431,9 +1480,30 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
                     finda0(α) * c(α - p0)^2 * x^(-2α + 2p0 - 2)
                 ) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
 
-
             # The enclosure of the terms coming from P + Q in the expansion
-            P_plus_Q = a0gamma * F21 * F22
+            P_plus_Q = a0gamma * (F21 + F22)
+
+            # Handle the term clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
+            if u0.v0.v0.N0 > 0
+                clausen_j_one = let r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
+                    s = 2 - α + r
+                    term =
+                        gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^r -
+                        zeta(-α + r) / 2 * x^(1 + α)
+                    term /= gamma(1 + α) * log(x) * (1 - x^p0)
+
+                    M = 3
+                    _, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
+
+                    p[2] = 0
+                    remainder =
+                        (p(x) + E * x^2M) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+
+                    -u0.v0.v0.a[1] * (term + remainder)
+                end
+            else
+                clausen_j_one = zero(x)
+            end
 
             # Enclosure of the remaining terms in the expansion
             # TODO: This will likely have to be improved to get good
@@ -1444,8 +1514,8 @@ function F0_nonzero(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
                 eval_expansion(u0, Du0_expansion, x) /
                 (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
 
-            #(u0x^2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
-            P_plus_Q + remainder
+            #(u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
+            P_plus_Q + clausen_j_one + remainder
         end
 
         return F1 * F2
