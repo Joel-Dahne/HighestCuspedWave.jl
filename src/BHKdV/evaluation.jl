@@ -1360,14 +1360,15 @@ parameter overlaps with `3` so it needs to be handled specially and
 that it is the second leading term after `Q`.
 
 The rest of the terms we enclose directly using
-[`eval_expansion`](@ref).
-- **TODO:** We might need to handle more of the terms in the expansion
-  separately. It depends on how good he enclosures are.
+[`eval_expansion`](@ref). If `u0.ϵ` is small this gives good enough
+enclosures so that we don't have to handle it in any more
+sophisticated way.
 
 ## Handling `clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)`
 We are interested in bounding
 ```
--u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+-u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) /
+    (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
 ```
 Notice the minus sign coming from the Hilbert transform. Let `r =
 -u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and it is very small,
@@ -1379,14 +1380,13 @@ clausenc(x, 2 - α - r) = gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^(1 - �
     zeta(-α + r) / 2 * x^2 +
     O(x^4)
 ```
-    Ignoring the `O(x^4)` term for now and dividing by `x`(1 - α)` gives us
+Ignoring the `O(x^4)` term for now and dividing by `x`(1 - α)` gives us
 ```
 gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)
 ```
 Notice that the order of the terms depends on the value of `α`, in
 some cases `x`r` is leading and in some cases `x^(1 - α)`.
 - **TODO:** Finish computing a rigorous enclosure of this.
-
 """
 function F0_nonzero(
     u0::BHKdVAnsatz{Arb},
@@ -1484,6 +1484,8 @@ function F0_nonzero(
             P_plus_Q = a0gamma * (F21 + F22)
 
             # Handle the term clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
+            # FIXME: Compute a rigorous enclosure, this only computes
+            # it for α = -1 + u0.ϵ.
             if u0.v0.v0.N0 > 0
                 clausen_j_one = let r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
                     s = 2 - α + r
@@ -1506,8 +1508,6 @@ function F0_nonzero(
             end
 
             # Enclosure of the remaining terms in the expansion
-            # TODO: This will likely have to be improved to get good
-            # enough enclosures.
             # FIXME: The division by needs to be handled for the full
             # range of α
             remainder =
