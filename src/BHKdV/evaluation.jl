@@ -410,8 +410,8 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
 
     # Clausen terms
     for j = 1:u0.v0.v0.N0
-        C, _, p, E =
-            clausenc_expansion(x, 1 - u0.v0.v0.α + j * u0.v0.v0.p0, M, skip_constant = true)
+        s = 1 - u0.v0.v0.α + j * u0.v0.v0.p0
+        C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
         res[(0, 0, 0, 0, 1, j, 0)] = C * u0.v0.v0.a[j]
         for m = 1:M-1
             res[(0, 0, 0, 0, 0, 0, 2m)] += p[2m] * u0.v0.v0.a[j]
@@ -549,14 +549,14 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
     end
 end
 
-function H(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3)
-    f = H(u0, AsymptoticExpansion(); M)
+function H(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_j_one = false)
+    f = H(u0, AsymptoticExpansion(); M, skip_j_one)
 
     return x -> eval_expansion(u0, f(x), x)
 end
 
 """
-    H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3)
+    H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_j_one = false)
 
 Return a dictionary containing the terms in the asymptotic expansion
 of `u0` which can then be evaluated with [`eval_expansion`](@ref).
@@ -610,10 +610,18 @@ up and collapse together.
 For the tail term the Fourier terms are handled directly by letting
 `α` be a ball.
 
+If `skip_j_one` is true then skip the Clausen term corresponding to `j
+= 1`. This is used in `F0` where this term is treated separately.
+
 See [`eval_expansion`](@ref) for more details about how the
 coefficients are stored.
 """
-function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
+function H(
+    u0::BHKdVAnsatz{Arb},
+    ::AsymptoticExpansion;
+    M::Integer = 3,
+    skip_j_one::Bool = false,
+)
     @assert M >= 3
 
     # Terms used when computing error bounds
@@ -656,29 +664,32 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         )
 
         # Clausen terms
-        @warn "Clausen term with j = 1 in tail not enclosed" maxlog = 1
+
         # Handle the first term manually since s is very close to 3 in
         # this case and it is therefore very unstable
-        # TODO: Figure out how to handle this. Currently we just take
-        # α = -1.
-        if u0.v0.v0.N0 >= 1
+        if u0.v0.v0.N0 >= 1 && !skip_j_one
             let j = 1
+                # TODO: Figure out how to handle this. Currently we just take
+                # α = -1.
+                @warn "Clausen term with j = $j in tail not enclosed" maxlog = 1
                 s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-                res[(0, 0, -1, 0, 2, j, 0)] = -C * u0.v0.v0.a[j]
+                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
                 for m = 1:M-1
                     res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
                 end
-                Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], E)
+                res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
             end
         end
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
             for j = 2:u0.v0.v0.N0
                 s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+                #s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
+                #s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-                res[(0, 0, -1, 0, 2, j, 0)] = -C * u0.v0.v0.a[j]
+                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
                 for m = 1:M-1
                     res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
                 end
@@ -706,15 +717,20 @@ function H(u0::BHKdVAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     end
 end
 
-function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3)
-    f = D(u0, AsymptoticExpansion(); M)
+function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_j_one = false)
+    f = D(u0, AsymptoticExpansion(); M, skip_j_one)
 
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function D(u0::BHKdVAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
+function D(
+    u0::BHKdVAnsatz,
+    evaltype::AsymptoticExpansion;
+    M::Integer = 3,
+    skip_j_one = false,
+)
     f = x -> u0(x, evaltype; M)
-    g = H(u0, evaltype; M)
+    g = H(u0, evaltype; M, skip_j_one)
 
     return x -> begin
         expansion1 = f(x)
