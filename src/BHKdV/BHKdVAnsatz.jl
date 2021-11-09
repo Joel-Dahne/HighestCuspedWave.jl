@@ -33,9 +33,9 @@ leading Clausen function, i.e. `v0.a0 = 2 / π^2`.
 
 The weight is fixed to be given by
 ```
-u0.w(x) = abs(x) * log(10 + inv(abs(x)))
+u0.w(x) = abs(x) * log(ℯ + inv(abs(x)))
 ```
-The reason for the `10` inside the `log` is to make sure that the
+The reason for the `ℯ` inside the `log` is to make sure that the
 non-asymptotic value of the norm is sufficiently low.
 
 If `isnothing(v0.v0)` then an empty `v0.v0` is created for the tail
@@ -71,7 +71,7 @@ BHKdVAnsatz(ϵ::T, v0::BHAnsatz{T}) where {T} = BHKdVAnsatz{T}(ϵ, v0)
 
 function Base.getproperty(u0::BHKdVAnsatz, name::Symbol)
     if name == :w
-        return x -> abs(x) * log(10 + inv(abs(x)))
+        return x -> abs(x) * log(ℯ + inv(abs(x)))
     else
         return getfield(u0, name)
     end

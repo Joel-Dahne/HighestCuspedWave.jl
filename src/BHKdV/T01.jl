@@ -37,18 +37,18 @@ has to be given, the resulting expansion will be valid for all `x <
 
 First of all the change of coordinates `t = y / x` leaves us with
 ```
-x / (π * u0(x) * log(10 + inv(x))) *
-    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t * log(10 + inv(x * t)) dt
+x / (π * u0(x) * log(ℯ + inv(x))) *
+    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t * log(ℯ + inv(x * t)) dt
 ```
 with the integration going from `0` to `1`.
 
 Next the factor
 ```
-x^-α * log(x) / (π * u0(x) * log(10 + inv(x)))
+x^-α * log(x) / (π * u0(x) * log(ℯ + inv(x)))
 ```
 is factored out from the whole expression and multiplied back in the
 end. Notice that this factor is bounded in `x`. We can bound `log(x) /
-log(10 + inv(x))` by using that it is `-1` at `x = 0` and increasing.
+log(ℯ + inv(x))` by using that it is `-1` at `x = 0` and increasing.
 To bound `x^-α / u0(x)` we compute the asymptotic expansion of `u0(x)`
 and multiply that by `x^α` and evaluate.
 - **TODO:** Deal with the fact that `u0(x) * x^α` blows up as `x ->
@@ -73,13 +73,13 @@ only looking for an upper bound we can split the absolute value and we
 get the two integrals
 ```
 I₁ = abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
-    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(10 + inv(x * t)) dt
-I₂ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(10 + inv(x * t)) dt
+    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(ℯ + inv(x * t)) dt
+I₂ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(ℯ + inv(x * t)) dt
 ```
-satisfying `I <= I₁ + I₂`. Furthermore we can split `log(10 + inv(x *
+satisfying `I <= I₁ + I₂`. Furthermore we can split `log(ℯ + inv(x *
 t))` as
 ```
-log(10 + inv(x * t)) = log((10x * t + 1) / (x * t)) = log(1 + 10x * t) - log(x) - log(t)
+log(ℯ + inv(x * t)) = log((ℯ * x * t + 1) / (x * t)) = log(1 + ℯ * x * t) - log(x) - log(t)
 ```
 Which allows us to split the two above integrals into three integrals
 each.
@@ -89,10 +89,10 @@ I₁₁ = -log(x) * abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
 I₁₂ = -abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
     ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
 I₁₃ = abs(gamma(1 + α) * sinpi(α / 2)) * x^(-α - 1) *
-    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + 10x * t) dt
+    ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + ℯ * x * t) dt
 I₂₁ = -log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt
 I₂₂ = -∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
-I₂₃ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + 10x * t) dt
+I₂₃ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + ℯ * x * t) dt
 ```
 
 Focusing on the first three integrals the first step is to understand
@@ -134,10 +134,10 @@ increasing.
 For the third one we have
 ```
 W(x) * I₁₃ = inv(log(x)) * abs(sinpi(α / 2)) *
-    ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + 10x * t) dt
+    ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + ℯ * x * t) dt
 ```
 The factor outside the integral can be dealt with in the same way as
-for `W(x) * I₁₂` The factor `log(1 + 10x * t)` inside the integral can
+for `W(x) * I₁₂` The factor `log(1 + ℯ * x * t)` inside the integral can
 be enclosed using that it is zero for `x = 0` and increasing in both
 `x` and `t`. We can factor out the enclosure from the integral and the
 integral we are left with is the same as for `W(x) * I₁₁`.
@@ -178,12 +178,12 @@ W(x) * I₂₂ = -x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) 
     x^3 / log(x) * C / 4
 ```
 ```
-W(x) * I₂₃ = x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + 10x * t) dt <=
-    x^(1 + α) / log(x) * x^2 * C * ∫ t * log(1 + 10x * t) dt <=
-    x^(3 + α) / log(x) * C * log(1 + 10x) / 2 <=
-    x^3 / log(x) * C * log(1 + 10x) / 2
+W(x) * I₂₃ = x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + ℯ * x * t) dt <=
+    x^(1 + α) / log(x) * x^2 * C * ∫ t * log(1 + ℯ * x * t) dt <=
+    x^(3 + α) / log(x) * C * log(1 + ℯ * x) / 2 <=
+    x^3 / log(x) * C * log(1 + ℯ * x) / 2
 ```
-where in the last step we have used that `log(1 + 10x * t) <= log(1 + 10x)`.
+where in the last step we have used that `log(1 + ℯ * x * t) <= log(1 + ℯ * x)`.
 - **TODO:** Take a look at the sign for these three integrals. We
   should probably just consider the absolute value instead.
 
@@ -193,7 +193,7 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), x * log(10 + inv(x)))
+        @assert isequal(u0.w(x), x * log(ℯ + inv(x)))
     end
 
     ϵ = convert(Arb, ϵ)
@@ -206,17 +206,17 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     end
 
     # Enclosure of the factor
-    # x^-α * log(x) / (π * u0(x) * log(10 + inv(x)))
+    # x^-α * log(x) / (π * u0(x) * log(ℯ + inv(x)))
     factor(x) = begin
-        # Enclosure of log(x) / log(10 + inv(x))
+        # Enclosure of log(x) / log(ℯ + inv(x))
         if iszero(x)
             log_factor = -one(x)
         elseif Arblib.contains_zero(x)
             # Use monotonicity, it is -1 at x = 0 and increasing
             xᵤ = ubound(Arb, x)
-            log_factor = Arb((-1, log(xᵤ) / log(10 + inv(xᵤ))))
+            log_factor = Arb((-1, log(xᵤ) / log(ℯ + inv(xᵤ))))
         else
-            log_factor = log(x) / log(10 + inv(x))
+            log_factor = log(x) / log(ℯ + inv(x))
         end
 
         # Enclosure of u0(x) * x^α
@@ -276,8 +276,8 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             else
                 # The integral is the same as for WxI₁₁
                 integral_I₁₃ = integral_I₁₁
-                # Enclosure of log(1 + 10x * t) for t ∈ [0, 1]
-                factor_I₁₂ = Arb((0, log1p(10x)))
+                # Enclosure of log(1 + ℯx * t) for t ∈ [0, 1]
+                factor_I₁₂ = Arb((0, log1p(ℯ * x)))
 
                 invlogx * factor_I₁ * factor_I₁₂ * integral_I₁₃
             end
@@ -295,7 +295,7 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
 
         WxI₂₂ = x^3 * invlogx * C / 4
 
-        WxI₂₃ = x^3 * invlogx * C * log1p(10x) / 2
+        WxI₂₃ = x^3 * invlogx * C * log1p(ℯ * x) / 2
 
         WxI₂ = WxI₂₁ + WxI₂₂ + WxI₂₃
 
@@ -330,7 +330,7 @@ function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(10 + inv(x)))
+        @assert isequal(u0.w(x), abs(x) * log(ℯ + inv(x)))
     end
 
     return x -> begin
@@ -343,11 +343,11 @@ function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u
                 2clausenc(x * t, -α),
             ) *
             t *
-            log(10 + inv(x * t))
+            log(ℯ + inv(x * t))
 
         integral = δ0 * Arb((0, integrand(δ0)))
 
-        res = integral * x / (π * log(10 + inv(x)))
+        res = integral * x / (π * log(ℯ + inv(x)))
         if skip_div_u0
             return res
         else
@@ -384,7 +384,7 @@ function T012(
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(10 + inv(x)))
+        @assert isequal(u0.w(x), abs(x) * log(ℯ + inv(x)))
     end
 
     a = δ0
@@ -414,12 +414,12 @@ function T012(
                 term_union = union(term_l, term_u)
             end
 
-            return term_union * t * log(10 + inv(t * x))
+            return term_union * t * log(ℯ + inv(t * x))
         end
 
         res = ArbExtras.integrate(integrand, a, b, atol = 1e-5, rtol = 1e-5)
 
-        res = res * x / (π * log(10 + inv(x)))
+        res = res * x / (π * log(ℯ + inv(x)))
 
         if skip_div_u0
             return res
@@ -486,14 +486,14 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(10 + inv(x)))
+        @assert isequal(u0.w(x), abs(x) * log(ℯ + inv(x)))
     end
 
     return x -> begin
         x = convert(Arb, x)
 
         weight_factor = let t = Arb((1 - δ1, 1))
-            -t * log(10 + inv(x * t))
+            -t * log(ℯ + inv(x * t))
         end
 
         # s = 1 - α
@@ -526,7 +526,7 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
         end
         integral *= weight_factor
 
-        res = integral / (π * log(10 + inv(x)))
+        res = integral / (π * log(ℯ + inv(x)))
 
         if skip_div_u0
             return res
