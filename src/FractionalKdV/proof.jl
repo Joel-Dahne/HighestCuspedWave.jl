@@ -22,9 +22,9 @@ If `only_estimate_CB = true` it doesn't attempt to prove the bound on
 but is useful if you only want to determine of the bound seems to
 hold.
 
-If `return_values = true` it returns the value of `δ₀` and the lower
-bound of `1 / (4α₀ * β^2)` that is proved. If `only_estimate_CB =
-true` it instead returns the estimate of it.
+If `return_values = true` it returns the enclosure of `α₀`, `δ₀` an
+upper bound of `C_B` (or an estimate if `only_estimate_CB = true`) and
+an enclosure of `1 / (4α₀ * β^2)`.
 
 If `threaded = true` it uses threading to speed up the computations.
 
@@ -75,25 +75,33 @@ function prove(
 
     if !(δ₀ < C)
         if return_values
-            return false, δ₀, C
+            return false, α₀, δ₀, C_B, C
         else
             return false
         end
     end
 
     if only_estimate_CB
-        return true, δ₀, C
+        if return_values
+            return true, α₀, δ₀, C_B, C
+        else
+            return true
+        end
     end
 
     if verbose
         @time res = CB_bounded_by(u0, lbound(D); threaded, verbose)
     else
-        res = CB_bounded_by(u0, lbound(D); threaded, verbose)
+        res = CB_bounded_by(u0, lbound(D); threaded)
     end
 
     C_B_bound = lbound(D)
     β_bound = 1 / (1 - C_B_bound)
     C_bound = 1 / (4α₀ * β_bound^2)
 
-    return res, δ₀, C_bound
+    if return_values
+        return res, α₀, δ₀, C_B_bound, C_bound
+    else
+        return res
+    end
 end
