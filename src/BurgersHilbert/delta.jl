@@ -23,6 +23,11 @@ larger than or equal to `1e-4`, which with the standard choice of `u0`
 skips all but 5 terms. The value of `ϵ3` is taken sufficiently small
 to be able to neglect all terms with an exponent larger than or equal
 to `1 // 4`. On the interval `[ϵ3, ϵ]` we keep all the exponent.
+
+**IMRPOVE:** We could do the asymptotic part of the calculations at a
+reduced precision. However this seems to only give a marginal
+improvement. It would be more important to reduce the number of
+allocations in that case.
 """
 function delta0(
     u0::BHAnsatz{Arb};
@@ -57,7 +62,7 @@ function delta0(
         ϵ2,
         abs_value = true,
         log_bisection = true,
-        depth_start = 23,
+        depth_start = 24,
         threaded = true,
         maxevals = typemax(Int),
         depth = typemax(Int);
@@ -71,8 +76,8 @@ function delta0(
         ϵ2,
         ϵ3,
         abs_value = true,
-        depth_start = 17,
         log_bisection = true,
+        depth_start = 17,
         threaded = true,
         maxevals = typemax(Int),
         depth = typemax(Int);

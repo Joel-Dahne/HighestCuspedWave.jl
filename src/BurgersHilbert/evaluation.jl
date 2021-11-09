@@ -80,7 +80,7 @@ function eval_expansion(
 end
 
 """
-    _eval_expansion!(u0::BHAnsatz, expansion, x)
+    _eval_expansion!(u0::BHAnsatz, expansion, x, invlogx = inv(log(x)))
 
 Fast, inplace version of [`eval_expansion`](@ref).
 
@@ -89,7 +89,14 @@ vector instead of a dictionary and assumes that the `exponent`
 occurring in [`eval_expansion`](@ref) is precomputed and added to the
 vector instead of `(m, k, l)`.
 
-It assumes that `x >= 0` an any negative parts of the ball `x` are
+It also optionally takes the argument `invlogx` which should be a
+precomputed value of `inv(log(x))`. Notice that if `x` overlaps with
+zero then care needs to be taken so that this is a finite enclosure,
+to not have to implement that logic outside of this method it checks
+if `invlogx` is finite in the case when `x` overlaps with zero and
+otherwise it computes it.
+
+It assumes that `x >= 0` and any negative parts of the ball `x` are
 ignored. The case when `x` contains zero is only supported for the
 type `Arb` and not for `ArbSeries`, for `ArbSeries` is just returns
 `NaN` in that case.
@@ -99,13 +106,23 @@ function _eval_expansion!(
     u0::BHAnsatz{Arb},
     expansion::Vector{Tuple{Int,Arb,Arb}},
     x::T,
+    invlogx::T = inv(log(x)),
 ) where {T<:Union{Arb,ArbSeries}}
     if T == Arb && Arblib.contains_nonpositive(x)
         iszero(x) && return Arblib.zero!(res)
-        # Use the upper bound of x
-        x = Arblib.ubound(Arb, x)
+        if !isfinite(invlogx)
+            # Compute an enclosure of inv(log(x)) using that it is
+            # zero at x = 0 and decreasing. We don't expect this case
+            # to be important for the performance.
+            invlogx = Arb((inv(log(ubound(Arb, x))), 0))
+        end
+        # We do the computations with the upper bound of x. For each
+        # non-constant term in the expansion we then take the union
+        # with zero.
+        x = ubound(Arb, x)
         contained_zero = true
-    elseif T == ArbSeries && Arblib.contains_nonpositive(x[0])
+        z = zero(x) # Used when taking the union with zero
+    elseif T == ArbSeries && Arblib.contains_nonpositive(Arblib.ref(x, 0))
         for i = 0:Arblib.degree(res)
             res[i] = NaN
         end
@@ -119,11 +136,23 @@ function _eval_expansion!(
     len = length(x)
     term = zero(x)
 
-    logx = log(x)
-    invlogx = inv(logx)
-    z = zero(x)
-
     for (i, exponent, y) in expansion
+        # Handle the constant term directly
+        if iszero(i) && iszero(exponent)
+            if T == Arb
+                Arblib.add!(res, res, y)
+            elseif T == ArbSeries
+                if iszero(res)
+                    Arblib.set_coeff!(res, 0, y)
+                else
+                    res0 = Arblib.ref(res, 0)
+                    Arblib.add!(res0, res0, y)
+                    Arblib.normalise!(res)
+                end
+            end
+            continue
+        end
+
         # term = x^exponent
         if T == Arb
             Arblib.pow!(term, x, exponent)
@@ -146,8 +175,9 @@ function _eval_expansion!(
         Arblib.mul!(term, term, y)
 
         # Use that each term is monotonically increasing and zero at x
-        # = 0, except the constant term
-        if contained_zero && !(iszero(i) && iszero(exponent))
+        # = 0. This doesn't hold for the constant term but this case
+        # we have already handled above.
+        if contained_zero
             Arblib.union!(term, term, z)
         end
 
@@ -495,7 +525,21 @@ function F0(
     end
 
     # The function inv(sqrt(log((abs(x) + 1) / abs(x))))
-    w!(res, x) = Arblib.set!(res, inv(sqrt(log((x + 1) / x))))
+    w!(res::Arb, x::Arb) = begin
+        Arblib.add!(res, x, 1)
+        Arblib.div!(res, res, x)
+        Arblib.log!(res, res)
+        Arblib.sqrt!(res, res)
+        return Arblib.inv!(res, res)
+    end
+    w!(res::ArbSeries, x::ArbSeries) = begin
+        len = length(x)
+        Arblib.add!(res, x, 1)
+        Arblib.div_series!(res, res, x, len)
+        Arblib.log_series!(res, res, len)
+        Arblib.sqrt_series!(res, res, len)
+        return Arblib.inv_series!(res, res, len)
+    end
 
     # Version of w! that also handles x overlapping 0
     # PROVE: That w! is monotonically increasing on [0, ∞]
@@ -510,14 +554,48 @@ function F0(
         return w!(res, x)
     end
 
-    return x -> begin
-        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && x[0] <= ϵ)
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
         res = weight!(zero(x), x)
 
-        res /= _eval_expansion!(zero(x), u0, u0_expansion_div_xlogx, x)
+        tmp = zero(x)
 
-        res *= _eval_expansion!(zero(x), u0, Du0_expansion_div_x2logx, x)
+        if x isa Arb
+            # invlogx = inv(log(x))
+            invlogx = log(x)
+            invlogx = Arblib.inv!(invlogx, invlogx)
+
+            Arblib.div!(
+                res,
+                res,
+                _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx),
+            )
+            Arblib.mul!(
+                res,
+                res,
+                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx),
+            )
+        elseif x isa ArbSeries
+            len = length(res)
+
+            # invlogx = inv(log(x))
+            invlogx = log(x)
+            invlogx = Arblib.inv_series!(invlogx, invlogx, len)
+
+            Arblib.div_series!(
+                res,
+                res,
+                _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx),
+                len,
+            )
+            Arblib.mullow!(
+                res,
+                res,
+                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx),
+                len,
+            )
+        end
 
         return res
     end
