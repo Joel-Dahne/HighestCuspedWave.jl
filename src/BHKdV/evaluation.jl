@@ -549,10 +549,16 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
     end
 end
 
-function H(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_j_one = false)
+function H(
+    u0::BHKdVAnsatz,
+    ::Asymptotic;
+    M::Integer = 3,
+    skip_j_one = false,
+    use_approx_p_and_q = false,
+)
     f = H(u0, AsymptoticExpansion(); M, skip_j_one)
 
-    return x -> eval_expansion(u0, f(x), x)
+    return x -> eval_expansion(u0, f(x), x; use_approx_p_and_q)
 end
 
 """
@@ -621,6 +627,7 @@ function H(
     ::AsymptoticExpansion;
     M::Integer = 3,
     skip_j_one::Bool = false,
+    alpha_interval = :full,
 )
     @assert M >= 3
 
@@ -684,9 +691,12 @@ function H(
         end
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
             for j = 2:u0.v0.v0.N0
-                s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+                if alpha_interval == :full
+                    s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+                elseif alpha_interval == :endpoint
+                    s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
+                end
                 #s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
-                #s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
                 res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
@@ -728,9 +738,10 @@ function D(
     evaltype::AsymptoticExpansion;
     M::Integer = 3,
     skip_j_one = false,
+    alpha_interval = :full,
 )
     f = x -> u0(x, evaltype; M)
-    g = H(u0, evaltype; M, skip_j_one)
+    g = H(u0, evaltype; M, skip_j_one, alpha_interval)
 
     return x -> begin
         expansion1 = f(x)
