@@ -42,12 +42,17 @@ converges to
 (1 - γ - log(x)) / π
 ```
 - **TODO:** Prove this and compute error bounds.
+
+The arguments `use_approx_p_and_q` and `alpha_interval` are used for
+computing approximate values and is mainly intended for testing.
 """
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
     expansion::AbstractDict{NTuple{7,Int},Arb},
     x;
     div_a0 = false,
+    use_approx_p_and_q = false,
+    alpha_interval = :full,
 )
     @assert x < 1
 
@@ -55,7 +60,13 @@ function eval_expansion(
     x = Arblib.nonnegative_part!(zero(x), x)
 
     # Enclosure of α
-    α = Arb((-1, -1 + u0.ϵ))
+    if alpha_interval == :full
+        α = Arb((-1, -1 + u0.ϵ))
+    elseif alpha_interval == :endpoint
+        α = -1 + u0.ϵ
+    else
+        throw(ArgumentError("unexpected value alpha_interval = $alpha_interval"))
+    end
 
     # Compute i * α + j * p0 + m in a way that accounts for dependence
     # between α and p0 and computes more accurate enclosures in some
@@ -93,9 +104,6 @@ function eval_expansion(
 
     for ((p, q, i, j, k, l, m), y) in expansion
         if !iszero(y)
-            # We don't support evaluation of non-zero q
-            iszero(q) || throw(ArgumentError("only q == 0 is supported, got q = $q"))
-
             if iszero(p)
                 exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
 
@@ -126,7 +134,38 @@ function eval_expansion(
                     term = y * (1 - γ - log(x)) / π * abspow(x, exponent)
                 end
             else
-                throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
+                use_approx_p_and_q ||
+                    throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
+
+                exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
+
+                term = y * abspow(x, exponent)
+
+                let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+                    p_factor =
+                        a0 *
+                        (
+                            gamma(α) * sinpi((1 - α) / 2) -
+                            gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0
+                        ) *
+                        x^-α
+                    term *= p_factor^p
+                end
+            end
+
+            # We don't support evaluation of non-zero q
+            if !iszero(q)
+                use_approx_p_and_q ||
+                    throw(ArgumentError("only q == 0 is supported, got q = $q"))
+                let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+                    q_factor =
+                        -a0 * (
+                            gamma(2α) * sinpi((1 - 2α) / 2) * x^(-2α) -
+                            gamma(2α - p0) * sinpi((1 - 2α + p0) / 2) * x^(-2α + p0) +
+                            (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * x^2
+                        )
+                    term *= q_factor^q
+                end
             end
 
             res += term
