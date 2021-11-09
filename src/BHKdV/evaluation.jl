@@ -798,7 +798,7 @@ bounded by `inv(log(10 + inv(x))). For a lower bound we use that
 -1 - α + p0 = (1 + α)^2 / 2 < u0.ϵ^2 / 2
 ```
 
-# Simplify numerator
+# Simplify denominator
 We can still not evaluate `u0(x) / x^-α` and `D(u0)(x) / x^(-2α + p0)`
 directly since both of them diverge. As a first step we extract the
 leading part of the expansion of `u0(x) / x^-α`, corresponding to the
@@ -820,11 +820,17 @@ it is therefore enough to consider
 (D(u0)(x) / x^(-2α + p0)) / (a0 * (w1 - w2 * x^p0))
 ```
 
+- **TODO:** Consider keeping the tail to get better bounds.
+
 # Split numerator
 The next step is to split `D(u0)(x) / x^(-2α + p0)` into three parts,
 the term corresponding to `(2, 0, 2, -1, 0, 0, 0)`. which we will call
 `P`, the term corresponding to `(0, 1, 2, -1, 0, 0, 0)`, which we will
 call `Q`, and the remaining terms, which we will call `R`.
+
+- **TODO:** Is this splitting good enough? Or do we need to take into
+  account the terms in the tail as well? In particular the leading
+  term in the tail might be useful to handle separately.
 
 # Handle the terms `P` and `Q`
 The two terms `P` and `Q` we have to treat together to account for the
@@ -854,6 +860,7 @@ P + Q = a0 * (
     a0 / 2 * (gamma(α - p0) * sinpi((1 - α + p0) / 2))^2 * x^p0
 )
 ```
+
 We are now interested in bounding `(P + Q) / (a0 * (w1 - w2 * x^p0))`.
 Cancelling the `a0` factor we have
 ```
@@ -863,6 +870,8 @@ However both the numerator and denominator tend to zero and we run
 into problems bounding it. A more delicate approach is therefore
 required to deal with it. We split `P + Q` into the part which is
 constant in `x` and the rest and bound them separately.
+
+- **TODO:** Take into account the absolute value!
 
 ## Handle the constant part of `P + Q`
 For the constant part we are interested in bounding
@@ -903,25 +912,70 @@ Let
 v1 = a0 / 2 * (gamma(α - p0) * sinpi((1 - α + p0) / 2))^2
 v2 = -(zeta(-2α - 1) / 2 - zeta(-2α + p0 - 1) / 2)
 ```
-Factoring out `v2 * x^(2 + 2α - p0)` from the numerator and `w2` from
-the denominator we get
+This gives us
 ```
-v2 / w2 * x^(2 + 2α - p0) * (v1 / v2 - x^(-2 - 2α + 2p0)) / (w1 / w2 - x^p0)
+(v1 * x^p0 - v2 * x^(2 + 2α - p0)) / (w1 - w2 * x^p0)
 ```
-**FIXME:** For now we assume that this is contained in the interval
-`[0, inv(2π)]` which can be checked numerically to be the case.
-However I don't know how to prove this as of yet. I started doing the
-following but it **doesn't work due to the fact that `v2 / w2`
-diverges**. We could notice that
-1. `w1 / w2 -> 1` from above
-2. `v2 / v1` -> 1` from above
-3. `w1 / w2 > v2 / v1`
-4. `0 < -2 - 2α + 2p0 < p0`
-All of this combined allows us to conclude that
+Since `abs(w1) > abs(w2)` and they have the same sign we can get an
+upper bound by replacing `w2` with `w1` and then factoring it out,
+giving us
 ```
-0 < (v2 / v1 - x^(-2 - 2α + 2p0)) / (w1 / w2 - x^p0) < 1
+inv(w1) * (v1 * x^p0 - v2 * x^(2 + 2α - p0)) / (1 - x^p0)
 ```
-for all values of `α` and `x`. But `v2 / w2` still diverges :(
+An enclosure of `inv(w1)` is easily computed and we are left with
+bounding the remaining quotient.
+
+Expanding `v1` and `v2` at `α = -1` gives us
+```
+v1 = -1 / 4(α + 1) + O(1)
+v2 = -1 / 4(α + 1) + O(1)
+```
+and we can hence rewrite the quotient as
+```
+((-1 / 4(α + 1) + v1 + 1 / 4(α + 1)) * x^p0 - (-1 / 4(α + 1) + v2 + 1 / 4(α + 1)) * x^(2 + 2α - p0)) / (1 - x^p0)
+```
+which splits into two parts, the first one being
+```
+-1 // 4 * (x^p0 - x^(2 + α - p0)) / ((α + 1) * (1 - x^p0))
+```
+- **PROVE:** That `(x^p0 - x^(2 + α - p0)) / ((α + 1) * (1 - x^p0))`
+    is contained in the interval `[-1, 0]`
+
+The second one is
+```
+((v1 + 1 / 4(α + 1)) * x^p0 - (v2 + 1 / 4(α + 1)) * x^(2 + 2α - p0)) / (1 - x^p0)
+```
+Letting
+```
+a = (v1 + 1 / 4(α + 1))
+b = (v2 + 1 / 4(α + 1))
+```
+and factoring out `-a * x^(2 + 2α - p0)` gives
+```
+-a * x^(2 + 2α - p0) * (b / a - x^(-2 - 2α + 2p0)) / (1 - x^p0)
+```
+An enclosure of `a` can be computed using that it is `-1 // 4` at `α =
+-1` and increasing in `α`. The factor `x^(2 + 2α - p0)` we can upper
+bound by `1`.
+- **PROVE:** That `a` is `-1 // 4` at `α = 1` and increasing in `α`.
+Focusing on the quotient we can rewrite it as
+```
+((1 - x^(-2 - 2α + 2p0)) + (b / a - 1)) / (1 - x^p0)
+```
+where
+```
+(1 - x^(-2 - 2α + 2p0)) / (1 - x^p0)
+```
+can be bounded by `1` since `-2 - 2α + 2p0 = (1 + α)^2 < p0`. We are
+left bounding
+```
+A = (b / a - 1) / (1 - x^p0)
+```
+- **TODO:** Compute an enclosure/upper bound of `A`
+Finally an upper for the whole expression is hence given by
+```
+-a * (1 + A)
+```
 
 # Handle rest of numerator
 Finally we need to bound what we get with the terms remaining in the
@@ -958,8 +1012,6 @@ which we can evaluate at `ubound(x)`.
     the bound.
 """
 function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e-2))
-    gamma = SpecialFunctions.gamma
-
     @assert ϵ < 1
 
     # This uses a hard coded version of the weight so just as an extra
@@ -1029,6 +1081,16 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
     return x -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && x[0] <= ϵ)
 
+        # Compute an enclosure of w1 using the limiting value at α
+        # = -1 being -π / 2 and the monotonicity in α
+        # PROVE: The monotonicity in α and the limit
+        w1 = let α = -1 + u0.ϵ
+            lower = gamma(α) * sinpi((1 - α) / 2)
+            upper = -Arb(π) / 2
+
+            Arb((lower, upper))
+        end
+
         # TODO: Prove that u0_expansion_div_xmα is non-negative, so
         # that we can neglect it.
 
@@ -1036,11 +1098,9 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
         res1 = begin
             # Upper bound of the constant part, consisting of the
             # first term
-            part1 = let α = -1 + u0.ϵ
+            part1 = let α = -1 + u0.ϵ, w1 = gamma(α) * sinpi((1 - α) / 2)
                 a0 = finda0(α)
                 p0 = 1 + α + (1 + α)^2 / 2
-
-                w1 = gamma(α) * sinpi((1 - α) / 2)
 
                 (
                     a0 *
@@ -1054,24 +1114,36 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
 
             # Upper bound of the other part, consisting of the remaining two terms
             # FIXME: Compute a rigorous upper bound.
-            part2 = Arb((0, inv(2Arb(π))))
 
+            part2 = begin
+                main_term = -1 // 4 * Arb((-1, 0))
+
+                # Compute an enclosure of a using the limit -1 // 4 at
+                # -1 and that it is increasing.
+                # PROVE: That this holds.
+                a = let α = -1 + u0.ϵ
+                    a0 = finda0(α)
+                    p0 = 1 + α + (1 + α)^2 / 2
+
+                    lower = -1 // 4
+                    upper =
+                        a0 / 2 * (gamma(α - p0) * sinpi((1 - α + p0) / 2))^2 + 1 / 4(α + 1)
+
+                    Arb((lower, upper))
+                end
+
+                A = zero(x) # TODO: Compute an enclosure of A
+                remainder_term = -a * (1 + A)
+
+                inv(w1) * (main_term + remainder_term)
+            end
+            #@show part1 part2
             part1 + part2
         end
 
         # Upper bound of the remaining part
         res2 = begin
             numerator = eval_expansion(u0, R, x)
-
-            # Compute an enclosure of w1 using the limiting value at α
-            # = -1 being -π / 2 and the monotonicity in α
-            # PROVE: The monotonicity in α
-            w1 = let α = -1 + u0.ϵ
-                lower = gamma(α) * sinpi((1 - α) / 2)
-                upper = -Arb(π) / 2
-
-                Arb((lower, upper))
-            end
 
             # TODO: Lower bound of w1 * a0 * (1 / x^p0 - 1). This is an
             # approximation but we need to bound the error terms.
