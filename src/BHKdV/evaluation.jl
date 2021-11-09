@@ -670,9 +670,9 @@ function H(
         if u0.v0.v0.N0 >= 1 && !skip_j_one
             let j = 1
                 # TODO: Figure out how to handle this. Currently we just take
-                # α = -1.
+                # α = -1 + u0.ϵ.
                 @warn "Clausen term with j = $j in tail not enclosed" maxlog = 1
-                s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
+                s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
                 res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
