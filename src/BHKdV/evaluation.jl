@@ -553,16 +553,16 @@ function H(
     u0::BHKdVAnsatz,
     ::Asymptotic;
     M::Integer = 3,
-    skip_j_one = false,
+    skip_j_one_singular = false,
     use_approx_p_and_q = false,
 )
-    f = H(u0, AsymptoticExpansion(); M, skip_j_one)
+    f = H(u0, AsymptoticExpansion(); M, skip_j_one_singular)
 
     return x -> eval_expansion(u0, f(x), x; use_approx_p_and_q)
 end
 
 """
-    H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_j_one = false)
+    H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_j_one_singular = false)
 
 Return a dictionary containing the terms in the asymptotic expansion
 of `u0` which can then be evaluated with [`eval_expansion`](@ref).
@@ -604,20 +604,21 @@ The remaining part of the expansion of `H` applied to the main term is
 which we don't evaluate at all yet. Instead we store it implicitly in
 the expansion.
 
-For the Clausen terms just we let `α` be a ball for `j >= 2`, this
-gives good enclosures thanks to [`clausenc_expansion`](@ref). For `j =
-1` this doesn't work since `1 - α - u0.v0.v0.α + u0.v0.v0.p0` contains
-the integer `3` and the first two coefficients in the expansion blow
-up and collapse together.
-- **TODO:** Figure out how to handle the case `j = 1`. Currently we
-  just take the value at `α = -1` but this is probably not good
-  enough.
+For both the Clausen terms and the Fourier terms we let `α` be a ball.
+This gives good enclosures for the Fourier terms and decent enclosures
+for the Clausen terms for `j >= 2`. For `j = 1` the parameter `s`
+overlaps with 3 and the two leading terms in the expansion become
+singular are need to be handled separately.
 
-For the tail term the Fourier terms are handled directly by letting
-`α` be a ball.
+For now we only compute an approximation of the two singular terms by
+using `α = -1 + u0.ϵ`.
+- **TODO:** Compute a rigorous enclosure of the two singular terms. In
+  the end we might not need this though since `F0` uses
+  `skip_j_one_singular = true`.
 
-If `skip_j_one` is true then skip the Clausen term corresponding to `j
-= 1`. This is used in `F0` where this term is treated separately.
+If `skip_j_one_singular` is true then don't include the two singular
+terms from the Clausen term in the tail corresponding to `j = 1`. This
+is used in `F0` where these two terms are treated separately.
 
 See [`eval_expansion`](@ref) for more details about how the
 coefficients are stored.
@@ -626,15 +627,20 @@ function H(
     u0::BHKdVAnsatz{Arb},
     ::AsymptoticExpansion;
     M::Integer = 3,
-    skip_j_one::Bool = false,
+    skip_j_one_singular::Bool = false,
     alpha_interval = :full,
 )
     @assert M >= 3
 
-    # Terms used when computing error bounds
-    α = -1 + u0.ϵ
-    a0 = finda0(α)
-    p0 = 1 + α + (1 + α)^2 / 2
+    # Enclosure of α
+    if alpha_interval == :full
+        α = Arb((-1, -1 + u0.ϵ))
+    elseif alpha_interval == :endpoint
+        α = -1 + u0.ϵ
+    else
+        throw(ArgumentError("unexpected value alpha_interval = $alpha_interval"))
+    end
+
     return x -> begin
         res = OrderedDict{NTuple{7,Int},Arb}()
 
@@ -650,13 +656,17 @@ function H(
 
         # Remaining terms
         @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
-        # TODO: Implement rigorous error bounds
+        # TODO:
         for m = 2:M-1
-            coefficient = -(-1)^m * dzeta(Arb(3 - 2m)) / factorial(Arb(2m)) * u0.v0.a0
+            coefficient = -(-1)^m * dzeta(Arb(3 - 2m)) / factorial(2m) * u0.v0.a0
 
             # Add error bounds
+            # FIXME: Implement rigorous error bounds. Currently we
+            # just compute with α = -1 + u0.ϵ.
             coefficient_2 =
-                -a0 * (-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m)
+                let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
+                    -(-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m) * a0
+                end
 
             coefficient = union(coefficient, coefficient_2)
 
@@ -665,70 +675,72 @@ function H(
 
         # Error term for main term
         @warn "No error bounds for error term of main term" maxlog = 1
+        # FIXME: Add error bounds for error term. Currently we don't do anything
         Arblib.add_error!(
             res[(0, 0, 0, 0, 0, 0, 2M)],
-            2abs(dzeta(Arb(3 - 2M)) / factorial(Arb(2M))) * u0.v0.a0,
+            2abs(dzeta(Arb(3 - 2M)) / factorial(2M)) * u0.v0.a0,
         )
 
         # Clausen terms
 
-        # Handle the first term manually since s is very close to 3 in
+        # Handle the first term separately since we  since s is very close to 3 in
         # this case and it is therefore very unstable
-        if u0.v0.v0.N0 >= 1 && !skip_j_one
+        if u0.v0.v0.N0 >= 1
             let j = 1
-                # TODO: Figure out how to handle this. Currently we just take
-                # α = -1 + u0.ϵ.
-                @warn "Clausen term with j = $j in tail not enclosed" maxlog = 1
                 s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
                 C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
-                for m = 1:M-1
+                # Only add these terms if skip_j_one_singular is not true
+                if !skip_j_one_singular
+                    @warn "Using non-rigorous terms for first Clausen in tail" maxlog = 1
+                    # FIXME: Compute a rigorous enclosure. In the end
+                    # we might not need to use this though.
+                    C2, _, p2, _ =
+                        let s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
+                            clausenc_expansion(x, s, M, skip_constant = true)
+                        end
+
+                    res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.v0.a[j]
+                    res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.v0.a[j]
+                end
+
+                for m = 2:M-1
                     res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
                 end
                 res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
             end
         end
-        let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
-            for j = 2:u0.v0.v0.N0
-                if alpha_interval == :full
-                    s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
-                elseif alpha_interval == :endpoint
-                    s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
-                end
-                #s = 2 - u0.v0.v0.α + j * u0.v0.v0.p0
-                C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
+        for j = 2:u0.v0.v0.N0
+            s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+            C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
-                for m = 1:M-1
-                    res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
-                end
-                res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
+            res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+            for m = 1:M-1
+                res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
             end
+            res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
         end
 
         # Fourier terms
-        let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
-            if !iszero(u0.v0.N)
-                for m = 1:M-1
-                    res[(0, 0, 0, 0, 0, 0, 2m)] -=
-                        (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
-                        factorial(Arb(2m))
-                end
-                Arblib.add_error!(
-                    res[(0, 0, 0, 0, 0, 0, 2M)],
-                    sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) /
-                    factorial(Arb(2M)),
-                )
+        if !iszero(u0.v0.N)
+            for m = 1:M-1
+                res[(0, 0, 0, 0, 0, 0, 2m)] -=
+                    (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
+                    factorial(Arb(2m))
             end
+            Arblib.add_error!(
+                res[(0, 0, 0, 0, 0, 0, 2M)],
+                sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) /
+                factorial(Arb(2M)),
+            )
         end
 
         return res
     end
 end
 
-function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_j_one = false)
-    f = D(u0, AsymptoticExpansion(); M, skip_j_one)
+function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_j_one_singular = false)
+    f = D(u0, AsymptoticExpansion(); M, skip_j_one_singular)
 
     return x -> eval_expansion(u0, f(x), x)
 end
@@ -737,11 +749,11 @@ function D(
     u0::BHKdVAnsatz,
     evaltype::AsymptoticExpansion;
     M::Integer = 3,
-    skip_j_one = false,
+    skip_j_one_singular = false,
     alpha_interval = :full,
 )
     f = x -> u0(x, evaltype; M)
-    g = H(u0, evaltype; M, skip_j_one, alpha_interval)
+    g = H(u0, evaltype; M, skip_j_one_singular, alpha_interval)
 
     return x -> begin
         expansion1 = f(x)
@@ -1348,39 +1360,56 @@ F22 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x
 
 # Handling the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
-is possible to enclose the remaining ones directly. However this gives
-very bad enclosures, in particular for some of the terms which have
-large cancellations. To handle this we extract some of the terms and
-handle them explicitly as well.
+is possible to enclose the remaining ones directly. However the
+expansion for the first Clausen function in the tail has very large
+cancellations between the first two terms in the expansion and they
+are therefore handled separately. The rest of the terms we enclose
+directly by using [`eval_expansion`](@ref). If `u0.ϵ` is small this
+gives good enough enclosures so that we don't have to handle it in any
+more sophisticated way.
 
-The first step is to separately handle the terms in `H(u0)` coming
-from `clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)`. There
-are two main reasons to handle this term separately, that the
-parameter overlaps with `3` so it needs to be handled specially and
-that it is the second leading term after `Q`.
+Recall that all terms are supposed to be divided by `(gamma(1 + α) *
+log(x) * x^(1 - α) * (1 - x^p0))`. The `x^(1 - α)` factor will be
+cancelled explicitly. For the remaining part we compute an enclosure.
+We are therefore interested in computing an enclosure of
+```
+inv(log(x) * gamma(1 + α) * (1 - x^p0))
+```
 
-The rest of the terms we enclose directly using
-[`eval_expansion`](@ref). If `u0.ϵ` is small this gives good enough
-enclosures so that we don't have to handle it in any more
-sophisticated way.
+## Enclosing `inv(log(x) * gamma(1 + α) * (1 - x^p0))`
+We begin by noticing that `inv(log(x))` can be enclosed directly. In
+the case that `x` overlaps with zero we use the monotonicity together
+with that the limit is zero for `x = 0`.
 
-## Handling `clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)`
-We are interested in bounding
+We are left enclosing `inv(gamma(1 + α) * (1 - x^p0)))`. For fixed `x`
+this converges to `-inv(log(x))` and is increasing in `α`. To get an
+enclosure it is therefore enough to compute the value of the limit as
+well as the value at `α = -1 + u0.ϵ`.
+- **PROVE:** That `inv(gamma(1 + α) * (1 - x^p0)))` converges to
+  `-inv(log(x))` and is increasing in `α`.
+To get an enclosure in the case that `x` contains zero it is enough to
+notice that the lower bound is zero and that it is increasing in `x`,
+which is easy to see.
+
+## Handling the first Clausen function in the tail
+We are interested in bounding the first two terms in the expansion of
 ```
 -u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) /
     (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
 ```
-Notice the minus sign coming from the Hilbert transform. Let `r =
--u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and it is very small,
-around `1e-8` or so depending on the precise choice of `u0.v0.v0`. We
-have `1 - α - u0.v0.v0.α + u0.v0.v0.p0 = 2 - α + r` and the asymptotic
-expansion of the Clausen term can then be written
+We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` as
+explained above. We are therefore interested in enclosing the rest.
+
+Let `r = -u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and is very
+small, around `1e-8` or so depending on the precise choice of
+`u0.v0.v0`. We have `1 - α - u0.v0.v0.α + u0.v0.v0.p0 = 2 - α + r`.
+The sum of the first two terms in the asymptotic expansion of the
+Clausen is then given by
 ```
-clausenc(x, 2 - α - r) = gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^(1 - α + r) -
-    zeta(-α + r) / 2 * x^2 +
-    O(x^4)
+gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^(1 - α + r) -
+    zeta(-α + r) / 2 * x^2
 ```
-Ignoring the `O(x^4)` term for now and dividing by `x`(1 - α)` gives us
+Dividing by `x`(1 - α)` gives us
 ```
 gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)
 ```
@@ -1412,16 +1441,23 @@ function F0_nonzero(
     # Ensure that the tail of the expansion of u0 is positive, so that
     # we can remove it from the denominator of F1 and still get an
     # upper bound.
-    expansion_ispositive(u0, u0_expansion, ϵ) ||
-        error("expansion of u0 not prove to be positive, this should not happen")
+    #expansion_ispositive(u0, u0_expansion, ϵ) ||
+    #    error("expansion of u0 not prove to be positive, this should not happen")
 
     # Compute the expansion of D(u0), skipping the Clausen term in the
     # tail corresponding to j = 1 and also remove the two leading
     # term, the three terms are handled separately.
-    Du0_expansion = D(u0, AsymptoticExpansion(), skip_j_one = true; M, alpha_interval)(ϵ)
+    Du0_expansion =
+        D(u0, AsymptoticExpansion(), skip_j_one_singular = true; M, alpha_interval)(ϵ)
     delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
     delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
 
+    # Divide the expansion of D(u0) by x^(1 - α)
+    Du0_expansion_div_x_onemα = empty(Du0_expansion)
+    for ((p, q, i, j, k, l, m), y) in Du0_expansion
+        Du0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
+    end
+    #return Du0_expansion_div_x_onemα
     c(a) = gamma(a) * sinpi((1 - a) / 2)
 
     return x::Arb -> begin
@@ -1490,6 +1526,21 @@ function F0_nonzero(
             # The enclosure of the terms coming from P + Q in the expansion
             P_plus_Q = a0gamma * (F21 + F22)
 
+            # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
+            invgamma1mxp0 = if iszero(x)
+                lower = zero(x)
+                upper = inv(gamma(1 + α))
+                Arb((lower, upper))
+            elseif Arblib.contains_zero(x)
+                lower = zero(x)
+                upper = inv(gamma(1 + α) * (1 - ubound(Arb, x)^p0))
+                Arb((lower, upper))
+            else
+                lower = -inv(log(x))
+                upper = inv(gamma(1 + α) * (1 - x^p0))
+                Arb((lower, upper))
+            end
+
             # Handle the term clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
             # FIXME: Compute a rigorous enclosure, this only computes
             # it for α = -1 + u0.ϵ.
@@ -1499,27 +1550,31 @@ function F0_nonzero(
                     term =
                         gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^r -
                         zeta(-α + r) / 2 * x^(1 + α)
-                    term /= gamma(1 + α) * log(x) * (1 - x^p0)
 
-                    M = 3
-                    _, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
+                    term *= invgamma1mxp0 / log(x)
+                    #term /= gamma(1 + α) * log(x) * (1 - x^p0)
 
-                    p[2] = 0
-                    remainder =
-                        (p(x) + E * x^2M) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
-
-                    -u0.v0.v0.a[1] * (term + remainder)
+                    -u0.v0.v0.a[1] * term
                 end
             else
                 clausen_j_one = zero(x)
             end
 
             # Enclosure of the remaining terms in the expansion
-            # FIXME: The division by needs to be handled for the full
-            # range of α
+
+            # Enclosure of inv(log(x))
+            invlogx = if iszero(x)
+                zero(x)
+            elseif Arblib.contains_zero(x)
+                xᵤ = ubound(Arb, x)
+                Arb((inv(log(xᵤ)), 0))
+            else
+                inv(log(x))
+            end
+
             remainder =
-                eval_expansion(u0, Du0_expansion, x) /
-                (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+                eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
+
 
             #(u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
             P_plus_Q + clausen_j_one + remainder
