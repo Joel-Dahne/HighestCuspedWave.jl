@@ -55,8 +55,8 @@ has to be given, the resulting expansion will be valid for all `x <
 
 First of all the change of coordinates `t = y / x` leaves us with
 ```
-x / (π * u0(x) * log(ℯ + inv(x))) *
-    ∫ abs(clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t * log(ℯ + inv(x * t)) dt
+x / (π * u0(x) * log(u0.c + inv(x))) *
+    ∫ abs(clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t * log(u0.c + inv(x * t)) dt
 ```
 with the integration going from `1` to `π / x`. Further we can notice
 that the expression inside the absolute value is positive on the whole
@@ -64,7 +64,7 @@ interval and the absolute value can hence be removed.
 
 Next the factor
 ```
-F = abs(inv(π) * log(x) / log(ℯ + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+F = abs(inv(π) * log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
 is factored out. Except for the addition of `inv(π)` this is the same
 as the factor `F1` in [`F0_nonzer`](@ref) and we compute an enclosure
@@ -89,13 +89,13 @@ t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`. We can split
 the integral into the two integrals
 ```
 I₁ = gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
-    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(ℯ + inv(x * t)) dt
-I₂ = ∫ (R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(ℯ + inv(x * t)) dt
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(u0.c + inv(x * t)) dt
+I₂ = ∫ (R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(u0.c + inv(x * t)) dt
 ```
-satisfying `I = I₁ + I₂`. Furthermore we can split `log(ℯ + inv(x *
+satisfying `I = I₁ + I₂`. Furthermore we can split `log(u0.c + inv(x *
 t))` as
 ```
-log(ℯ + inv(x * t)) = log((ℯ * x * t + 1) / (x * t)) = log(1 + ℯ * x * t) - log(x) - log(t)
+log(u0.c + inv(x * t)) = log((u0.c * x * t + 1) / (x * t)) = log(1 + u0.c * x * t) - log(x) - log(t)
 ```
 Which allows us to split the two above integrals into three integrals
 each.
@@ -105,10 +105,10 @@ I₁₁ = -log(x) * gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
 I₁₂ = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
     ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
 I₁₃ = gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
-    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + ℯ * x * t) dt
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + u0.c * x * t) dt
 I₂₁ = -log(x) * ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t dt
 I₂₂ = -∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
-I₂₃ = ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + ℯ * x * t) dt
+I₂₃ = ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt
 ```
 
 # Computation of `W(x) * I₁`
@@ -236,14 +236,14 @@ W(x) * I₁₂ =
 For the third term we have
 ```
 W(x) * I₁₃ = inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
-    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + ℯ * x * t) dt
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + u0.c * x * t) dt
 ```
-The factor `log(1 + ℯ * x * t)` inside the integral can be enclosed
+The factor `log(1 + u0.c * x * t)` inside the integral can be enclosed
 using that it is zero for `x = 0` and increasing in both `x` and `t`.
 We can factor out the enclosure from the integral and the integral we
 are left with is the same as for `W(x) * I₁₁`. In the end we thus get
 ```
-W(x) * I₁₃ = -inv(log(x)) * log(1 + ℯ * x * [0, 1]) * W(x) * I₁₁
+W(x) * I₁₃ = -inv(log(x)) * log(1 + u0.c * x * [0, 1]) * W(x) * I₁₁
 ```
 where the minus sign is added to cancel the one from `W(x) * I₁₁`.
 
@@ -355,15 +355,15 @@ easily computed by rewriting it as `log(π) / log(x) - 1`.
 Finally for the last integral we have
 ```
 W(x) * I₂₃ = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(x)) *
-    ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + ℯ * x * t) dt
+    ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt
 ```
 We can compute an enclosure of `x^(1 + α) / (gamma(1 + α) * (1 - x^p0)
 * log(x))` as above. Similarly to for `I₁₃` we can factor out an
-enclosure of `log(1 + ℯ * x * t)` from the integral, leaving us with the
+enclosure of `log(1 + u0.c * x * t)` from the integral, leaving us with the
 same integral as for `I₂₁`, that is
 ```
 W(x) * I₂₃ = inv(log(x)) * x^(1 + α) / (gamma(1 + α) * (1 - x^p0)) *
-    log(1 + ℯ * x * [0, 1]) * Σ₂₁
+    log(1 + u0.c * x * [0, 1]) * Σ₂₁
 ```
 """
 function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
@@ -371,7 +371,7 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), x * log(ℯ + inv(x)))
+        @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
     end
 
     ϵ = convert(Arb, ϵ)
@@ -395,14 +395,14 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             # Note that inside this statement α refers to -1 + u0.ϵ
             # and p0 to the corresponding p0 value.
 
-            # Enclosure of abs(log(x) / log(ℯ + inv(x))), either by
+            # Enclosure of abs(log(x) / log(u0.c + inv(x))), either by
             # direct evaluation or using monotonicity.
             F11 = if iszero(x)
                 one(Arb)
             elseif Arblib.contains_zero(x)
-                abs(Arb((-1, log(xᵤ) / log(ℯ + inv(xᵤ)))))
+                abs(Arb((-1, log(xᵤ) / log(u0.c + inv(xᵤ)))))
             else
-                abs(log(x) / log(ℯ + inv(x)))
+                abs(log(x) / log(u0.c + inv(x)))
             end
 
             # Enclose F12
@@ -525,8 +525,8 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
         end
 
         WxI₁₃ = begin
-            # Enclosure of log(1 + ℯ * x * t) for t ∈ [0, 1]
-            factor_I₁₂ = Arb((0, log1p(ℯ * x)))
+            # Enclosure of log(1 + u0.c * x * t) for t ∈ [0, 1]
+            factor_I₁₂ = Arb((0, log1p(u0.c * x)))
 
             invlogx * factor_I₁₂ * WxI₁₁
         end
@@ -592,15 +592,15 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
         end
 
         WxI₂₃ = begin
-            # Enclosure of log(1 + ℯ * x * t) for t ∈ [0, 1]
-            factor_I₂₃ = Arb((0, log1p(ℯ * x)))
+            # Enclosure of log(1 + u0.c * x * t) for t ∈ [0, 1]
+            factor_I₂₃ = Arb((0, log1p(u0.c * x)))
 
             invlogx * factor_I₂ * factor_I₂₃ * Σ₂₁
         end
 
         WxI₂ = WxI₂₁ + WxI₂₂ + WxI₂₃
 
-        @show WxI₁₁ WxI₁₂ WxI₁₃ WxI₂₁ WxI₂₂ WxI₂₃
+        #@show WxI₁₁ WxI₁₂ WxI₁₃ WxI₂₁ WxI₂₂ WxI₂₃
 
         return F(x) * (WxI₁ + WxI₂)
     end
@@ -737,7 +737,7 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(ℯ + inv(x)))
+        @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
     end
 
     return (x, a = x + δ2) -> begin
@@ -759,7 +759,7 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
                 term_union = union(term_l, term_u)
             end
 
-            return term_union * y * log(ℯ + inv(y))
+            return term_union * y * log(u0.c + inv(y))
         end
 
         res = ArbExtras.integrate(integrand, a, Arb(π), atol = 1e-5, rtol = 1e-5)

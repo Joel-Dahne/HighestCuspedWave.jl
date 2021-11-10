@@ -787,13 +787,13 @@ leaves us with the factor
 ```
 x^(-2α + p0) / (u0.w(x) * x^-α)
 ```
-that we have to handle. With `u0.w(x) = x * log(ℯ + inv(x))` this
+that we have to handle. With `u0.w(x) = x * log(u0.c + inv(x))` this
 simplifies to
 ```
-x^(-1 - α + p0) / log(ℯ + inv(x))
+x^(-1 - α + p0) / log(u0.c + inv(x))
 ```
 Since `-1 - α + p0 > 0` for all values of `α` this can be upper
-bounded by `inv(log(ℯ + inv(x))). For a lower bound we use that
+bounded by `inv(log(u0.c + inv(x))). For a lower bound we use that
 ```
 -1 - α + p0 = (1 + α)^2 / 2 < u0.ϵ^2 / 2
 ```
@@ -1018,7 +1018,7 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), x * log(ℯ + inv(x)))
+        @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
     end
 
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
@@ -1052,7 +1052,7 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
     #return u0_expansion_div_xmα
     #return R
 
-    # x^(-2α + p0) / (u0.w(x) * x^-α) = x^(-1 - α + p0) / log(ℯ + inv(x))
+    # x^(-2α + p0) / (u0.w(x) * x^-α) = x^(-1 - α + p0) / log(u0.c + inv(x))
     weight(x) = begin
         iszero(x) && return zero(x)
 
@@ -1063,17 +1063,17 @@ function F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1e
             # Lower bound is zero
             lower = zero(x)
 
-            # Upper bound is inv(log(ℯ + inv(x))) evaluated at upper
+            # Upper bound is inv(log(u0.c + inv(x))) evaluated at upper
             # bound for x
-            upper = inv(log(ℯ + inv(ubound(Arb, x))))
+            upper = inv(log(u0.c + inv(ubound(Arb, x))))
 
             return Arb((lower, upper))
         end
 
         # (-1 - α + p0) is upper bounded by u0.ϵ^2 / 2
-        lower = x^(u0.ϵ^2 / 2) / log(ℯ + inv(x))
+        lower = x^(u0.ϵ^2 / 2) / log(u0.c + inv(x))
 
-        upper = inv(log(ℯ + inv(x)))
+        upper = inv(log(u0.c + inv(x)))
 
         return Arb((lower, upper))
     end
@@ -1172,7 +1172,7 @@ p0 = 1 + α + (1 + α)^2 / 2
 
 Recall that the expression we are interested in bounding is
 ```
-abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * x * log(ℯ + inv(x))))
+abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * x * log(u0.c + inv(x))))
 ```
 
 # Split into two factors
@@ -1181,9 +1181,9 @@ both bounded as `x -> 0` that we bound separately.
 
 The first one is given by
 ```
-F1 = abs(log(x) / log(ℯ + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+F1 = abs(log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
-Notice that `log(x) / log(ℯ + inv(x))` is easily seen to be bounded
+Notice that `log(x) / log(u0.c + inv(x))` is easily seen to be bounded
 and as we will see later so is `gamma(1 + α) * x^-α * (1 - x^p0) /
 u0(x)`
 
@@ -1200,15 +1200,15 @@ estimates where we do need that. The bound we give is only an upper
 bound and not an enclosure, the smaller the value of `x` the tighter
 it will be in general. We split `F1` into the two factors
 ```
-F11 = abs(log(x) / log(ℯ + inv(x)))
+F11 = abs(log(x) / log(u0.c + inv(x)))
 F12 = abs(gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
 
 For `F11` we can easily compute an accurate enclosure by direct
 evaluation if `x` doesn't overlap with zero. If `x` does overlap with
-zero we compute an enclosure by using that `log(x) / log(ℯ + inv(x))`
+zero we compute an enclosure by using that `log(x) / log(u0.c + inv(x))`
 converges to `-1` as `x -> 0` and is increasing in `x`.
-- **PROVE:** That `log(x) / log(ℯ + inv(x))` is increasing in `x`.
+- **PROVE:** That `log(x) / log(u0.c + inv(x))` is increasing in `x`.
 
 For `F12` we compute the asymptotic expansion of `u0`. We then split
 the expansion into the leading term and a tail. In practice both the
@@ -1401,7 +1401,7 @@ function F0_nonzero(
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), x * log(ℯ + inv(x)))
+        @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
     end
 
     # Compute the expansion of u0 and remove the leading term, which
@@ -1432,14 +1432,14 @@ function F0_nonzero(
             # Note that inside this statement α refers to -1 + u0.ϵ
             # and p0 to the corresponding p0 value.
 
-            # Enclosure of abs(log(x) / log(ℯ + inv(x))), either by
+            # Enclosure of abs(log(x) / log(u0.c + inv(x))), either by
             # direct evaluation or using monotonicity.
             F11 = if iszero(x)
                 one(Arb)
             elseif Arblib.contains_zero(x)
-                abs(Arb((-1, log(xᵤ) / log(ℯ + inv(xᵤ)))))
+                abs(Arb((-1, log(xᵤ) / log(u0.c + inv(xᵤ)))))
             else
-                abs(log(x) / log(ℯ + inv(x)))
+                abs(log(x) / log(u0.c + inv(x)))
             end
 
             # Enclose F12
