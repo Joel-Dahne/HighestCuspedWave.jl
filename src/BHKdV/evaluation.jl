@@ -1345,8 +1345,21 @@ First we focus on the term
 F21 = (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
 ```
 This term is small and fairly stable in `α` (positive and increasing).
-For now we compute it by letting `α = -1 + u0.ϵ`
-- **TODO:** Figure out how to bound this rigorously for the full range of `α`.
+To compute an enclosure we split it into two factors
+```
+F211 = x^(-α + p0 - 1) / log(x)
+```
+and
+```
+F212 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 - x^p0)
+```
+For the first one we can directly get an enclosure using that
+```
+-α + p0 - 1 = -α + (1 + α + (1 + α)^2 / 2) - 1 = (1 + α)^2 / 2
+```
+- **TODO:** Figure out how to bound `F212` rigorously for the full
+  range of `α`. For now we compute it at `α = -1 + u0.ϵ`.
+
 We then consider the two remaining terms together since they mostly
 cancel out.
 ```
@@ -1356,7 +1369,14 @@ F22 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x
     ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
     a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
 ```
-- **TODO:** Figure out how to bound this rigorously for the full range of `α`
+We split this into the factor `F221 = x^(1 + α) / 2`, which we can
+enclose directly, and
+```
+F222 = ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
+    a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) / (log(x) * (1 - x^p0))
+```
+- **TODO:** Figure out how to bound `F222` rigorously for the full
+  range of `α`. For now we compute it at `α = -1 + u0.ϵ`.
 
 # Handling the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
@@ -1406,16 +1426,62 @@ small, around `1e-8` or so depending on the precise choice of
 The sum of the first two terms in the asymptotic expansion of the
 Clausen is then given by
 ```
-gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^(1 - α + r) -
+gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^(1 - α + r) -
     zeta(-α + r) / 2 * x^2
 ```
-Dividing by `x`(1 - α)` gives us
+Dividing by `log(x) * x^(1 - α)` gives us
 ```
-gamma(α - 1 + r) * sinpi((2 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)
+(gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)) / log(x)
 ```
 Notice that the order of the terms depends on the value of `α`, in
-some cases `x`r` is leading and in some cases `x^(1 - α)`.
-- **TODO:** Finish computing a rigorous enclosure of this.
+some cases `x`r` is leading and in some cases `x^(1 - α)`. Adding and
+subtracting `zeta(-α + r) / 2 * x^r` we can rewrite this as
+```
+(gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x) +
+zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
+```
+For the first term we can note that
+```
+gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2
+```
+is bounded for in `α` and decreasing, so we can get an enclosures by
+evaluating it at the endpoints.
+- **PROVE:** That `gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α
+  + r) / 2` is decreasing in `α`.
+Denoting this enclosure by `C` we get `C * x^r / log(x)` for the first
+term, which is easily enclosed.
+
+For the second term we have to compute an enclosure of
+```
+zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
+```
+From the Laurent series of the zeta function we have
+```
+zeta(-α + r) = zeta(1 + (-α + r - 1)) = inv(-α + r - 1) +
+    sum((-1)^n / factorial(n) * γₙ * (-α + r - 1)^n for n = 1:Inf)
+```
+where `γₙ` is the nth Stieltjes constant. Calling the sum `S` we can
+thus rewrite the above as
+```
+(x^r - x^(1 + α)) / (-α + r - 1) / 2log(x) + S * (x^r - x^(1 + α)) / 2log(x)
+```
+Now `S` is bounded and increasing in `α` so we can compute an
+enclosure of the second term directly. Factoring out `x^r` from the
+other term now we are left handling
+```
+-x^r * (1 - x^(1 + α - r)) / (2(1 + α - r) * log(x))
+```
+Computing the Taylor series of `1 - x^(1 + α - r)` we have
+```
+1 - x^(1 + α - r) = -sum((t * log(x))^n / factorial(n) for n = 1:Inf)
+```
+Inserting this into the above expression we have
+```
+x^r / 2 * sum((t * log(x))^(n - 1) / factorial(n) for n = 1:Inf) =
+    x^r / 2 + x^r / 2 * sum((t * log(x))^(n - 1) / factorial(n) for n = 2:Inf)
+```
+- **TODO:** Finish enclosing this. For now we skip the sum and only
+  use the term `x^r / 2`.
 """
 function F0_nonzero(
     u0::BHKdVAnsatz{Arb},
@@ -1500,68 +1566,7 @@ function F0_nonzero(
         end
 
         # Compute an enclosure of F2
-        F2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-            # Start by handling the terms P and Q
-
-            # Enclosure of a0 / gamma(1 + α)
-            a0gamma = Arb((finda0(α) / gamma(1 + α), -2 / Arb(π)^2))
-
-            # Compute an enclosure of F21
-            # FIXME: Compute a rigorous enclosure, this only computes
-            # it for α = -1 + u0.ϵ. Though it seems to be quite stable.
-            F21 =
-                (c(2α - p0) - finda0(α) * c(α) * c(α - p0)) * x^(-α + p0 - 1) /
-                (log(x) * (1 - x^p0))
-
-            # Compute an enclosure of F22
-            # FIXME: Compute a rigorous enclosure, this only computes
-            # it for α = -1 + u0.ϵ. The value grows as α -> -1 so this
-            # doesn't tell the full story.
-            F22 =
-                (
-                    (zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
-                    finda0(α) * c(α - p0)^2 * x^(-2α + 2p0 - 2)
-                ) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
-
-            # The enclosure of the terms coming from P + Q in the expansion
-            P_plus_Q = a0gamma * (F21 + F22)
-
-            # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
-            invgamma1mxp0 = if iszero(x)
-                lower = zero(x)
-                upper = inv(gamma(1 + α))
-                Arb((lower, upper))
-            elseif Arblib.contains_zero(x)
-                lower = zero(x)
-                upper = inv(gamma(1 + α) * (1 - ubound(Arb, x)^p0))
-                Arb((lower, upper))
-            else
-                lower = -inv(log(x))
-                upper = inv(gamma(1 + α) * (1 - x^p0))
-                Arb((lower, upper))
-            end
-
-            # Handle the term clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
-            # FIXME: Compute a rigorous enclosure, this only computes
-            # it for α = -1 + u0.ϵ.
-            if u0.v0.v0.N0 > 0
-                clausen_j_one = let r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
-                    s = 2 - α + r
-                    term =
-                        gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^r -
-                        zeta(-α + r) / 2 * x^(1 + α)
-
-                    term *= invgamma1mxp0 / log(x)
-                    #term /= gamma(1 + α) * log(x) * (1 - x^p0)
-
-                    -u0.v0.v0.a[1] * term
-                end
-            else
-                clausen_j_one = zero(x)
-            end
-
-            # Enclosure of the remaining terms in the expansion
-
+        F2 = let α = Arb((-1, -1 + u0.ϵ))
             # Enclosure of inv(log(x))
             invlogx = if iszero(x)
                 zero(x)
@@ -1572,9 +1577,106 @@ function F0_nonzero(
                 inv(log(x))
             end
 
+            # Start by handling the terms P and Q
+
+            # Enclosure of a0 / gamma(1 + α)
+            a0gamma = let α = -1 + u0.ϵ
+                Arb((finda0(α) / gamma(1 + α), -2 / Arb(π)^2))
+            end
+
+            # Compute an enclosure of F21
+            F211 = abspow(x, Arblib.nonnegative_part!(zero(x), (1 + α)^2 / 2)) * invlogx
+            # FIXME: Compute a rigorous enclosure of F212, this only computes
+            # it for α = -1 + u0.ϵ.
+            F212 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+                (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 - x^p0)
+            end
+
+            F21 = F211 * F212
+
+            # Compute an enclosure of F22
+            F221 = abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2
+            # FIXME: Compute a rigorous enclosure of F222, this only computes
+            # it for α = -1 + u0.ϵ.
+            F222 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+                (
+                    (zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
+                    finda0(α) * c(α - p0)^2 * x^(-2α + 2p0 - 2)
+                ) / (log(x) * (1 - x^p0))
+            end
+
+            F22 = F221 * F222
+
+            # The enclosure of the terms coming from P + Q in the expansion
+            P_plus_Q = a0gamma * (F21 + F22)
+
+            # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
+
+            invgamma1mxp0 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
+                if iszero(x)
+                    lower = zero(x)
+                    upper = inv(gamma(1 + α))
+                    Arb((lower, upper))
+                elseif Arblib.contains_zero(x)
+                    lower = zero(x)
+                    upper = inv(gamma(1 + α) * (1 - ubound(Arb, x)^p0))
+                    Arb((lower, upper))
+                else
+                    lower = -inv(log(x))
+                    upper = inv(gamma(1 + α) * (1 - x^p0))
+                    Arb((lower, upper))
+                end
+            end
+
+            # Handle the two singular terms in the expansion of
+            # clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
+            if u0.v0.v0.N0 > 0
+                clausen_j_one = let α = Arb((-1, -1 + u0.ϵ)), r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
+                    # Enclosure of
+                    # gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2
+                    C_lower = let α = -1 + u0.ϵ
+                        (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
+                    end
+                    C_upper = let α = Arb(-1)
+                        (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
+                    end
+                    C = Arb((C_lower, C_upper))
+
+                    # Enclosure of C * x^r / log(x)
+                    term1 = C * abspow(x, r) * invlogx
+
+                    # Enclosure of zeta(-α + r) - inv(α + r - 1)
+                    S_lower = let α = -1 + u0.ϵ
+                        zeta(-α + r) - inv(-α + r - 1)
+                    end
+                    S_upper = let α = Arb(-1)
+                        zeta(-α + r) - inv(-α + r - 1)
+                    end
+                    S = Arb((S_lower, S_upper))
+
+                    # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
+                    # FIXME: Compute a rigorous enclosure of it, for
+                    # now we use a limiting value.
+                    term2 = abspow(x, r) / 2
+
+                    # Enclosure of S * (x^r - x^(1 + α)) / 2log(x)
+                    term3 = let onepα = Arblib.nonnegative_part!(zero(x), 1 + α)
+                        S * (abspow(x, r) - abspow(x, onepα)) * invlogx / 2
+                    end
+
+                    term = term1 + term2 + term3
+
+                    term *= invgamma1mxp0
+
+                    -u0.v0.v0.a[1] * term
+                end
+            else
+                clausen_j_one = zero(x)
+            end
+
+            # Enclosure of the remaining terms in the expansion
             remainder =
                 eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
-
 
             #(u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
             P_plus_Q + clausen_j_one + remainder
