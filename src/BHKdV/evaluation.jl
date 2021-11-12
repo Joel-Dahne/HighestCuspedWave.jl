@@ -951,20 +951,54 @@ First we focus on the term
 F21 = (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
 ```
 This term is small and fairly stable in `α` (positive and increasing).
-To compute an enclosure we split it into two factors
+To compute an enclosure we split it into three factors
 ```
 F211 = x^(-α + p0 - 1) / log(x)
-```
-and
-```
-F212 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 - x^p0)
+F212 = (1 + α) / (1 - x^p0)
+F213 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 + α)
 ```
 For the first one we can directly get an enclosure using that
 ```
 -α + p0 - 1 = -α + (1 + α + (1 + α)^2 / 2) - 1 = (1 + α)^2 / 2
 ```
-- **TODO:** Figure out how to bound `F212` rigorously for the full
-  range of `α`. For now we compute it at `α = -1 + u0.ϵ`.
+For the second term, `F212`, we write `t = 1 + α` giving us
+```
+F212 = t / (1 - x^(t + t^2 / 2))
+```
+This is increasing in `t` so we only need to evaluate it at `t = 0`
+and `t = u0.ϵ`. For `t = 0` it converges to `-inv(log(x))`. For `t =
+u0.ϵ` we can evaluate it directly. To see that it converges to
+`-inv(log(x))` for `t -> 0` we can rewrite it as
+```
+- t / (exp((t + t^2 / 2) * log(x)) - 1)
+```
+L'Hôpital gives us
+```
+- 1 / (log(x) * (1 + t) * exp((t + t^2 / 2) * log(x)))
+```
+and inserting `t = 0` immediately gives the limit `-inv(log(x))`.
+- **PROVE:** That `t / (1 - x^(t + t^2 / 2))` is increasing in `t`.
+  Possibly by multiplying with `log(x)` to get something similar to `u
+  / expm1(u)`.
+
+For the third term, `F213`, we note that `a0` can be written as
+```
+a0 = 2c(2α) / c(α)^2
+```
+which allows us to simplify it to
+```
+F213 = (c(2α - p0) - 2c(2α) * c(α - p0) / c(α)) / (1 + α)
+```
+For `α = -1` this converges to `3 // 4 - π^2 / 12`. For `α`
+sufficiently close to `-1` it is also decreasing, allowing us to
+compute an enclosure.
+- **PROVE:** That `F213` converges to `3 // 4 - π^2 / 12` as `α ->
+  -1`. Note that even though `c(α - p0) / c(α)` converges to `1` it is
+  important for the asymptotics and cannot be ignored.
+- **PROVE:** That `F213` is decreasing in `α` on some fixed interval
+  which contains our `α`. Not that as `α` around `-0.6` it starts to
+  be increasing instead, so we have to used the specified interval we
+  work on.
 
 We then consider the two remaining terms together since they mostly
 cancel out.
@@ -975,14 +1009,66 @@ F22 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x
     ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
     a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
 ```
-We split this into the factor `F221 = x^(1 + α) / 2`, which we can
-enclose directly, and
+We treat this in a very similar way as `F21`, by splitting it into
+three factors.
 ```
-F222 = ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
-    a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) / (log(x) * (1 - x^p0))
+F221 = x^(1 + α) / 2
+F222 = (1 + α) / (1 - x^p0)
+F223 = ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) + a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) /
+    ((1 + α) * log(x))
 ```
-- **TODO:** Figure out how to bound `F222` rigorously for the full
-  range of `α`. For now we compute it at `α = -1 + u0.ϵ`.
+The factor `F221` we can enclose directly. The factor `F222` is the
+same as the factor `F212` above. We are hence left enclosing `F223`.
+To do that we split it into two terms, letting
+```
+w1 = zeta(-2α - 1) - zeta(-2α + p0 - 1)
+w2 = -a0 * c(α - p0)^2
+```
+and noticing that `-2α + 2p0 - 2 = (1 + α)^2` we can write
+```
+F223 = (w1 - w2 * x^((1 + α)^2)) / ((1 + α) * log(x))
+```
+Adding and subtracting `w2` in the numerator we can split this into
+two terms
+```
+F2231 = (w1 - w2) / ((1 + α) * log(x))
+F2232 = w2 * (1 - x^((1 + α)^2)) / ((1 + α) * log(x))
+```
+For `F2231` it enough to compute an enclosure of `(w1 - w2) / (1 + α)`
+and then multiply by an enclosure of `inv(log(x))`. To get an
+enclosure of `(w1 - w2) / (1 + α)` we note that it is increasing in
+`α` and the limit as `α` goes to `-1` is
+```
+(π^2 + 8γ₁ - 4γ - 2) / 8
+```
+where `γᵢ` is the `i`th Stieltjes constant and `γ = γ0`.
+- **PROVE:** That `(w1 - w2) / (1 + α)` converges to `(π^2 + 8γ₁ - 4γ
+  - 2) / 8` and is increasing in `α`.
+
+For `F2232` we can rewrite it as
+```
+F2232 = w2 * (1 + α) * (1 - x^((1 + α)^2)) / ((1 + α)^2 * log(x))
+```
+We can compute an enclosure of
+```
+(1 - x^((1 + α)^2) / ((1 + α)^2 * log(x)) =
+    -(exp((1 + α)^2 * log(x)) - 1) / ((1 + α)^2 * log(x))
+```
+By letting `t = (1 + α)^2 * log(x)` and noticing that the function
+`(exp(t) - 1) / t` is zero at `t = -Inf`, one at `t = 0` and
+increasing in `t`. This is similar to how we do it for the first
+Clausen term in the tail below. We are left enclosing
+```
+w2 * (1 + α) = -a0 * c(α - p0)^2 * (1 + α)
+```
+We can get an enclosure of `c(α - p0)` by using that it converges to
+`-π / 2` as `α -> -1` and is increasing in `α`. We can enclose `a0 *
+(1 + α)` using that it converges to `-2 / π^2` and is decreasing in
+`α`
+- **PROVE:** That `c(α - p0)` converges to `-π / 2` and is increasing
+  in `α`.
+- **PROVE:** That `a0 * (1 + α)` converges to `-2 / π^2` and is
+  decreasing in `α`.
 
 # Handling the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
@@ -1007,11 +1093,11 @@ We begin by noticing that `inv(log(x))` can be enclosed directly. In
 the case that `x` overlaps with zero we use the monotonicity together
 with that the limit is zero for `x = 0`.
 
-We are left enclosing `inv(gamma(1 + α) * (1 - x^p0)))`. For fixed `x`
+We are left enclosing `inv(gamma(1 + α) * (1 - x^p0))`. For fixed `x`
 this converges to `-inv(log(x))` and is increasing in `α`. To get an
 enclosure it is therefore enough to compute the value of the limit as
 well as the value at `α = -1 + u0.ϵ`.
-- **PROVE:** That `inv(gamma(1 + α) * (1 - x^p0)))` converges to
+- **PROVE:** That `inv(gamma(1 + α) * (1 - x^p0))` converges to
   `-inv(log(x))` and is increasing in `α`.
 To get an enclosure in the case that `x` contains zero it is enough to
 notice that the lower bound is zero and that it is increasing in `x`,
@@ -1212,27 +1298,83 @@ function F0(
             end
 
             # Compute an enclosure of F21
+
+            # Enclosure of F211 = x^(-α + p0 - 1) / log(x) using that
+            # -α + p0 - 1 = (1 + α)^2 / 2
             F211 = abspow(x, Arblib.nonnegative_part!(zero(x), (1 + α)^2 / 2)) * invlogx
-            # FIXME: Compute a rigorous enclosure of F212, this only computes
-            # it for α = -1 + u0.ϵ.
-            F212 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-                (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 - x^p0)
+
+            # Enclosure of F212 = (1 + α) / (1 - x^p0) using t = 1 + α
+            F212 = let
+                lower = -invlogx
+                upper = let t = u0.ϵ
+                    t / (1 - abspow(x, t + t^2 / 2))
+                end
+
+                Arb((lower, upper))
             end
 
-            F21 = F211 * F212
+            # Enclosure of F213 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 + α)
+            F213 = let
+                lower = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
+                    (c(2α - p0) - 2c(2α) * c(α - p0) / c(α)) / (1 + α)
+                end
+                upper = 3 // 4 - Arb(π)^2 / 12
+
+                Arb((lower, upper))
+            end
+
+            F21 = F211 * F212 * F213
 
             # Compute an enclosure of F22
+
+            # Enclosure of F221 = x^(1 + α) / 2
             F221 = abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2
-            # FIXME: Compute a rigorous enclosure of F222, this only computes
-            # it for α = -1 + u0.ϵ.
-            F222 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-                (
-                    (zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
-                    finda0(α) * c(α - p0)^2 * x^(-2α + 2p0 - 2)
-                ) / (log(x) * (1 - x^p0))
+
+            # Enclosure of F222, which is the same as F212
+            F222 = F212
+
+            F223 = let
+                F2231 = let
+                    # Lower and upper bound of (w1 - w2) / (1 + α)
+                    lower = (Arb(π)^2 + 8stieltjes(Arb, 1) - 4stieltjes(Arb, 0) - 2) / 8
+                    upper = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+                        w1 = zeta(-2α - 1) - zeta(-2α + p0 - 1)
+                        w2 = -a0 * c(α - p0)^2
+
+                        (w1 - w2) / (1 + α)
+                    end
+
+                    Arb((lower, upper)) * invlogx
+                end
+
+                F2232 = let
+                    # Enclosure of (1 - x^((1 + α)^2) / ((1 + α)^2 * log(x))
+                    F2232 = if Arblib.contains_zero(x)
+                        Arblib.unit_interval!(zero(x))
+                    else
+                        # We compute a lower bound of t = (1 + α)^2 * log(x)
+                        t_lower = lbound(Arb, Arblib.nonnegative_part!(zero(x), (1 + α)^2) * log(x))
+
+                        -Arb((expm1(t_lower) / t_lower, 1))
+                    end
+
+                    # Multiply by enclosure of c(α - p0)^2
+                    F2232 *= let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
+                        Arb((-Arb(π) / 2, c(α - p0)))^2
+                    end
+
+                    # Multiply by enclosure of a0 * (1 + α)
+                    F2232 *= let α = -1 + u0.ϵ
+                        Arb((finda0(α) * (1 + α), -2 / Arb(π)^2))
+                    end
+
+                    -F2232
+                end
+
+                F2231 + F2232
             end
 
-            F22 = F221 * F222
+            F22 = F221 * F222 * F223
 
             # The enclosure of the terms coming from P + Q in the expansion
             P_plus_Q = a0gamma * (F21 + F22)
