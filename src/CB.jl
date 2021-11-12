@@ -10,8 +10,6 @@ CB
 """
     CB_bounded_by(u0::AbstractAnsatz, C; ϵ = 0.1, ...)
 
-TODO: Implement this
-
 Specialized for different types of ansatz
 """
 CB_bounded_by
@@ -39,8 +37,6 @@ If `include_zero = true` then also evaluate the integral at `x = 0`
 using the asymptotic expansion.
 
 If `threaded = true` computes the evaluations in parallel.
-
-TODO: Use the asymptotic version close to zero.
 """
 function CB_estimate(
     u0::AbstractAnsatz{T};
