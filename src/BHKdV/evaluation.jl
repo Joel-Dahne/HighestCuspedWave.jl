@@ -1072,22 +1072,43 @@ thus rewrite the above as
 (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x) + S * (x^r - x^(1 + α)) / 2log(x)
 ```
 Now `S` is bounded and increasing in `α` so we can compute an
-enclosure of the second term directly. Factoring out `x^r` from the
-other term now we are left handling
+enclosure of the second term directly. Factoring
+- **PROVE:** That `S` is increasing in `α`
+The remaining term to handle is, after slightly rewriting it,
 ```
--x^r * (1 - x^(1 + α - r)) / (2(1 + α - r) * log(x))
+(x^r - x^(1 + α)) / (2(r - (1 + α)) * log(x))
 ```
-Computing the Taylor series of `1 - x^(1 + α - r)` we have
+We split this into two cases, when `r >= 1 + α` and when `r < 1 + α`.
+In the first case we factor out `x^(1 + α)`, giving us
 ```
-1 - x^(1 + α - r) = -sum((t * log(x))^n / factorial(n) for n = 1:Inf)
+x^(1 + α) / 2 * (x^(r - (1 + α)) - 1) / ((r - (1 + α)) * log(x)) =
+    x^(1 + α) / 2 * (exp((r - (1 + α)) * log(x)) - 1) / ((r - (1 + α)) * log(x)) =
 ```
-Inserting this into the above expression we have
+Here we notice that since `r - (1 + α) >= 0` and `log(x) < 0` we have
 ```
-x^r / 2 * sum((t * log(x))^(n - 1) / factorial(n) for n = 1:Inf) =
-    x^r / 2 + x^r / 2 * sum((t * log(x))^(n - 1) / factorial(n) for n = 2:Inf)
+(r - (1 + α)) * log(x) <= 0
 ```
-- **TODO:** Finish enclosing this. For now we skip the sum and only
-  use the term `x^r / 2`.
+Furthermore the function `(exp(t) - 1) / t` is zero at `t = -Inf`, one
+at `t = 0` and increasing in `t`. Using this we can compute an
+enclosure of
+```
+(exp((1 + α - r) * log(x)) - 1) / ((1 + α - r) * log(x))
+```
+The second case, when `r < 1 + α`, doesn't always occur, it depends on
+the value of `u0.ϵ`. We first check if `1 + α - r` contain any
+positive numbers, if that is the case we proceed similar to for the
+first case. We factor out `x^r`, giving us
+```
+x^r / 2 * (1 - x^(1 + α - r)) / ((r - (1 + α)) * log(x)) =
+    x^r / 2 * (x^(1 + α - r) - 1) / ((1 + α - r) * log(x)) =
+    x^r / 2 * (exp((1 + α - r) * log(x)) - 1) / (((1 + α) - r) * log(x))
+```
+And in this case `1 + α -r > 0` and `log(x) < 0` so we have
+```
+(1 + α - r) * log(x) < 0
+```
+This allows us to compute an enclosure similar to how we did it in the
+first case.
 """
 function F0(
     u0::BHKdVAnsatz{Arb},
@@ -1237,45 +1258,97 @@ function F0(
             # Handle the two singular terms in the expansion of
             # clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
             if u0.v0.v0.N0 > 0
-                clausen_j_one = let α = Arb((-1, -1 + u0.ϵ)), r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
-                    # Enclosure of
-                    # gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2
-                    C_lower = let α = -1 + u0.ϵ
-                        (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
+                clausen_j_one =
+                    let α = Arb((-1, -1 + u0.ϵ)), r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
+                        # Enclosure of
+                        # gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2
+                        C_lower = let α = -1 + u0.ϵ
+                            (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
+                        end
+                        C_upper = let α = Arb(-1)
+                            (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
+                        end
+                        C = Arb((C_lower, C_upper))
+
+                        # Enclosure of C * x^r / log(x)
+                        term1 = C * abspow(x, r) * invlogx
+
+                        # Enclosure of zeta(-α + r) - inv(α + r - 1)
+                        S_lower = let α = -1 + u0.ϵ
+                            zeta(-α + r) - inv(-α + r - 1)
+                        end
+                        S_upper = let α = Arb(-1)
+                            zeta(-α + r) - inv(-α + r - 1)
+                        end
+                        S = Arb((S_lower, S_upper))
+
+                        # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
+                        term2 = let
+                            # Handle the case r > 1 + α
+
+                            # Enclosure of (exp(t) - 1) / t with
+                            # t = (r - (1 + α)) * log(x)
+                            factor1 = if Arblib.contains_zero(x)
+                                # We have t = (r - (1 + α)) * log(x) in interval [-Inf, 0]
+                                Arblib.unit_interval!(zero(x))
+                            else
+                                # We compute a lower bound of t = (r - (1 + α)) * log(x)
+
+                                # First we let s be the non-negative part
+                                # of r - (1 + α), since we are assuming that
+                                # r >= 1 + α.
+                                s = Arblib.nonnegative_part!(zero(x), r - (1 + α))
+
+                                # Then we take the lower bound of s * log(x)
+                                t_lower = lbound(Arb, s * log(x))
+
+                                Arb((expm1(t_lower) / t_lower, 1))
+                            end
+
+                            # Enclosure of x^(1 + α) /2 * factor1
+                            term2 =
+                                abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2 * factor1
+
+                            # Handle the case r < 1 + α if it occurs
+                            if Arblib.contains_positive(1 + α - r)
+                                # Enclosure of (exp(t) - 1) / t with
+                                # t = (1 + α - r) * log(x)
+                                factor2 = if Arblib.contains_zero(x)
+                                    # We have t = (1 + α - r) * log(x) in interval [-Inf, 0]
+                                    Arblib.unit_interval!(zero(x))
+                                else
+                                    # We compute a lower bound of t = (1 + α - r) * log(x)
+
+                                    # First we let s be the non-negative part
+                                    # of 1 + α - r, since we are assuming that
+                                    # r < 1 + α.
+                                    s = Arblib.nonnegative_part!(zero(x), 1 + α - r)
+
+                                    # Then we take the lower bound of s * log(x)
+                                    t_lower = lbound(Arb, s * log(x))
+
+                                    Arb((expm1(t_lower) / t_lower, 1))
+                                end
+
+                                # Set result to union of the above case
+                                # and this case which is given by x^r / 2 * factor2
+                                term2 = union(term2, abspow(x, r) / 2 * factor2)
+                            end
+
+                            term2
+                        end
+
+                        # Enclosure of S * (x^r - x^(1 + α)) / 2log(x)
+                        term3 = let onepα = Arblib.nonnegative_part!(zero(x), 1 + α)
+                            S * (abspow(x, r) - abspow(x, onepα)) * invlogx / 2
+                        end
+
+                        term = term1 + term2 + term3
+
+                        term *= invgamma1mxp0
+
+                        -u0.v0.v0.a[1] * term
                     end
-                    C_upper = let α = Arb(-1)
-                        (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
-                    end
-                    C = Arb((C_lower, C_upper))
-
-                    # Enclosure of C * x^r / log(x)
-                    term1 = C * abspow(x, r) * invlogx
-
-                    # Enclosure of zeta(-α + r) - inv(α + r - 1)
-                    S_lower = let α = -1 + u0.ϵ
-                        zeta(-α + r) - inv(-α + r - 1)
-                    end
-                    S_upper = let α = Arb(-1)
-                        zeta(-α + r) - inv(-α + r - 1)
-                    end
-                    S = Arb((S_lower, S_upper))
-
-                    # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
-                    # FIXME: Compute a rigorous enclosure of it, for
-                    # now we use a limiting value.
-                    term2 = abspow(x, r) / 2
-
-                    # Enclosure of S * (x^r - x^(1 + α)) / 2log(x)
-                    term3 = let onepα = Arblib.nonnegative_part!(zero(x), 1 + α)
-                        S * (abspow(x, r) - abspow(x, onepα)) * invlogx / 2
-                    end
-
-                    term = term1 + term2 + term3
-
-                    term *= invgamma1mxp0
-
-                    -u0.v0.v0.a[1] * term
-                end
             else
                 clausen_j_one = zero(x)
             end
