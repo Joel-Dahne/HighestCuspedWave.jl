@@ -149,7 +149,12 @@ Compute the (not regularised) incomplete beta function \$B(a, b; z)\$
 assuming that `0 <= z <= 1`, discarding any other numbers in the
 interval.
 
-**PROVE:** That it's monotonically increasing in `z`.
+It uses the monotonicity in `z` to only have to compute the values at
+the endpoint. That the function is increasing in `z` on `[0, 1]` is
+easily seen from the integral representation
+```
+∫_0^z t^(a - 1) (1 - t)^(b - 1) dt
+```
 """
 function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
     z_lower = Arblib.ispositive(z) ? lbound(Arb, z) : zero(z)
