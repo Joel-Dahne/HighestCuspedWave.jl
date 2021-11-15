@@ -67,7 +67,7 @@ Next the factor
 F = abs(inv(π) * log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
 is factored out. Except for the addition of `inv(π)` this is the same
-as the factor `F1` in [`F0_nonzer`](@ref) and we compute an enclosure
+as the factor `F1` in [`F0`](@ref) and we compute an upper bound
 following the same procedure as described there.
 
 What we are left with computing is
@@ -390,6 +390,7 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     expansion_ispositive(u0, u0_expansion, ϵ) ||
         error("expansion of u0 not proven to be positive, this should not happen")
 
+    # Function for computing an upper bound of F
     F(x) =
         let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
             # Note that inside this statement α refers to -1 + u0.ϵ
@@ -425,7 +426,7 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             Arblib.ispositive(F12) ||
                 error("leading term of u0 is not positive, this should not happen")
 
-            inv(π) * F11 * F12
+            return inv(π) * F11 * F12
         end
 
     return x::Arb -> begin
