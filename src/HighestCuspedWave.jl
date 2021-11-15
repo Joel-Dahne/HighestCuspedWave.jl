@@ -46,6 +46,7 @@ include("BurgersHilbert/CB.jl")
 
 include("BHKdV/BHKdVAnsatz.jl")
 include("BHKdV/evaluation.jl")
+include("BHKdV/delta.jl")
 include("BHKdV/T0.jl")
 include("BHKdV/T01.jl")
 include("BHKdV/T02.jl")
