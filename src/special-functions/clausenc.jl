@@ -457,9 +457,6 @@ end
 """
     clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, e::Arb)
 
-Return a value `C` such that for all `y` in the interval `[0, ϵ]` we
-have that the sum of the
-
 For `s` overlapping an odd positive integer `2k + 1` the exponents for
 the two terms `x^(s - 1)` and `x^2k` in the expansion overlap and
 their coefficients blow up. This method returns `C` such that `C *
