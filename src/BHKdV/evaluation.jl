@@ -49,8 +49,7 @@ computing approximate values and is mainly intended for testing.
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
     expansion::AbstractDict{NTuple{7,Int},Arb},
-    x;
-    div_a0 = false,
+    x::Arb;
     use_approx_p_and_q = false,
     alpha_interval = :full,
 )
@@ -68,49 +67,74 @@ function eval_expansion(
         throw(ArgumentError("unexpected value alpha_interval = $alpha_interval"))
     end
 
-    # Compute i * α + j * p0 + m in a way that accounts for dependence
-    # between α and p0 and computes more accurate enclosures in some
-    # special cases. We use p0 = 1 + α + (1 + α)^2 / 2
-    exponent_α_p0_m(i, j, m; verbose = false) = begin
+    # In-place method for computing the exponent i * α + j * p0 -
+    # k*u0.v0.v0.α + l*u0.v0.v0.p0 + m in a way that also accounts for
+    # the dependence between α and p0
+    exponent = zero(α)
+
+    # Precomputed values and buffers for computing the exponent
+    lower = zero(exponent)
+    upper = zero(exponent)
+    # Upper bounds of α and p0
+    α_upper = -1 + u0.ϵ
+    p0_upper = 1 + α_upper + (1 + α_upper)^2 / 2
+    # Enclosure of p0 - α
+    p0mα = 1 + (1 + α)^2 / 2
+    _exponent!(exponent, i, j, k, l, m) = begin
+        # Compute the part i * α + j * p0 + m
+        # Note that i * α + j * p0 = 3j / 2 + (i + 2j) * α + α^2 / 2
+        # is increasing in α if i + 2j is non-negative.
         if i + 2j >= 0
             # It is increasing in α, evaluated at endpoints
 
-            # α = -1 can be done with rational numbers
-            lower = let α = -1
-                Arb(i * α + j * (1 + α + (1 + α)^2 // 2) + m)
+            # Lower bound at α = -1 can be done with rational numbers
+            let α = -1
+                Arblib.set!(lower, i * α + j * (1 + α + (1 + α)^2 // 2) + m)
             end
 
-            upper = let α = -1 + u0.ϵ
-                i * α + j * (1 + α + (1 + α)^2 / 2) + m
-            end
+            # Upper bound i * α_upper + j * p0_upper + m
+            Arblib.set!(upper, m)
+            Arblib.addmul!(upper, α_upper, i)
+            Arblib.addmul!(upper, p0_upper, j)
 
-            enclosure = Arb((lower, upper))
+            Arblib.union!(exponent, lower, upper)
 
             # If the lower bound is zero we want to avoid any spurious
             # negative parts
-            iszero(lower) && Arblib.nonnegative_part!(enclosure, enclosure)
-
-            return enclosure
+            iszero(lower) && Arblib.nonnegative_part!(exponent, exponent)
+        else
+            # IMPROVE: We could rewrite the expression to only have α
+            # in one place, reducing overestimations.
+            Arblib.set!(exponent, m)
+            Arblib.addmul!(exponent, α, i + j)
+            Arblib.addmul!(exponent, p0mα, j)
         end
 
-        return m + (i + j) * α + j * (1 + (1 + α)^2 / 2)
+        # Add - k*u0.v0.v0.α + l*u0.v0.v0.p0
+        Arblib.submul!(exponent, u0.v0.v0.α, k)
+        Arblib.addmul!(exponent, u0.v0.v0.p0, l)
+
+        return exponent
     end
 
     # Irrationals used
     π = Arb(Irrational{:π}())
     γ = Arb(Irrational{:γ}())
 
+    # Precompute (1 - γ - log(x)) / π
+    onemγmlogxdivπ = (1 - γ - log(x)) / π
+
     res = zero(x)
 
     for ((p, q, i, j, k, l, m), y) in expansion
         if !iszero(y)
             if iszero(p)
-                exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
+                _exponent!(exponent, i, j, k, l, m)
 
-                term = y * abspow(x, exponent)
+                term = abspow(x, exponent)
             elseif isone(p)
                 # Add -α to the exponent coming from the p factor
-                exponent = exponent_α_p0_m(i - 1, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
+                _exponent!(exponent, i - 1, j, k, l, m)
 
                 # FIXME: Add error bounds for this term. Here we just
                 # use the limiting value
@@ -129,17 +153,17 @@ function eval_expansion(
                         (1 - γ - log(x)) / π * abspow(x, exponent)
                     end
 
-                    term = y * Arb((lower, upper))
+                    term = Arb((lower, upper))
                 else
-                    term = y * (1 - γ - log(x)) / π * abspow(x, exponent)
+                    term = onemγmlogxdivπ * abspow(x, exponent)
                 end
             else
                 use_approx_p_and_q ||
                     throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
 
-                exponent = exponent_α_p0_m(i, j, m) - k * u0.v0.v0.α + l * u0.v0.v0.p0
+                _exponent!(exponent, i, j, k, l, m)
 
-                term = y * abspow(x, exponent)
+                term = abspow(x, exponent)
 
                 let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
                     p_factor =
@@ -168,7 +192,8 @@ function eval_expansion(
                 end
             end
 
-            res += term
+            #res += y * term
+            Arblib.addmul!(res, y, term)
         end
     end
 
@@ -1337,12 +1362,13 @@ function F0(
                 F2231 = let
                     # Lower and upper bound of (w1 - w2) / (1 + α)
                     lower = (Arb(π)^2 + 8stieltjes(Arb, 1) - 4stieltjes(Arb, 0) - 2) / 8
-                    upper = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-                        w1 = zeta(-2α - 1) - zeta(-2α + p0 - 1)
-                        w2 = -a0 * c(α - p0)^2
+                    upper =
+                        let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
+                            w1 = zeta(-2α - 1) - zeta(-2α + p0 - 1)
+                            w2 = -a0 * c(α - p0)^2
 
-                        (w1 - w2) / (1 + α)
-                    end
+                            (w1 - w2) / (1 + α)
+                        end
 
                     Arb((lower, upper)) * invlogx
                 end
@@ -1353,7 +1379,10 @@ function F0(
                         Arblib.unit_interval!(zero(x))
                     else
                         # We compute a lower bound of t = (1 + α)^2 * log(x)
-                        t_lower = lbound(Arb, Arblib.nonnegative_part!(zero(x), (1 + α)^2) * log(x))
+                        t_lower = lbound(
+                            Arb,
+                            Arblib.nonnegative_part!(zero(x), (1 + α)^2) * log(x),
+                        )
 
                         -Arb((expm1(t_lower) / t_lower, 1))
                     end
