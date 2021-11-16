@@ -39,8 +39,8 @@ end
 function T0_alternative(
     u0::BHKdVAnsatz,
     evaltype::Ball = Ball();
-    δ0::Arb = Arb(1e-5),
-    δ::Arb = Arb(1e-3),
+    δ0::Arb = Arb(1e-3),
+    δ::Arb = Arb(1e-1),
     skip_div_u0 = false,
 )
     # Integration on [0, δ0]
