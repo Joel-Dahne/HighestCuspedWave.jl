@@ -72,7 +72,9 @@ function T0_alternative(
 
             isfinite(part3) || return part3
 
-            part4 = f4(x, b_y)
+            # We take the tolerance to be the diameter of x but no less than 1e-5
+            tol = max(Arb(1e-5), 2radius(Arb, x))
+            part4 = f4(x, b_y; tol)
         else
             # The value 1 + δ is not important
             part3 = f3(x, 1 - δ, 1 + δ, to_endpoint = true)

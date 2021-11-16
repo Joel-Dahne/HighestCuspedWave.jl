@@ -713,8 +713,10 @@ end
 
 Computes the (not yet existing) integral \$T_{0,2,2}\$ from the paper.
 
-The interval of integration is given by `[a, π]`. In practice `a`
-should be a thin ball to not give problems with the integration.
+It returns a function `f` such that `f(x, a; tol)` computes the
+integral on `[a, π]` for the given value of `x` and it uses the
+prescribed tolerance for the integration. In practice `a` should be a
+thin ball to not give problems with the integration.
 
 This is done by directly computing the integral with the integrator in
 Arb.
@@ -741,15 +743,14 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
         @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
     end
 
-    return (x, a = x + δ2) -> begin
-        x = convert(Arb, x)
-        a = convert(Arb, a)
+    # Lower and upper bounds of s = -α
+    s_l = 1 - u0.ϵ
+    s_u = one(Arb)
 
-        # FIXME: Currently we assume monotonicity in s, including for
-        # all derivatives.
-        s_l = 1 - u0.ϵ
-        s_u = one(Arb)
+    return (x::Arb, a::Arb = x + δ2; tol = Arb(1e-5)) -> begin
         integrand(y) = begin
+            # FIXME: Currently we assume monotonicity in s, including for
+            # all derivatives.
             term_l = clausenc(y - x, s_l) + clausenc(y + x, s_l) - 2clausenc(y, s_l)
             term_u = clausenc(y - x, s_u) + clausenc(y + x, s_u) - 2clausenc(y, s_u)
 
@@ -763,9 +764,9 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
             return term_union * y * log(u0.c + inv(y))
         end
 
-        res = ArbExtras.integrate(integrand, a, Arb(π), atol = 1e-5, rtol = 1e-5)
+        res = ArbExtras.integrate(integrand, a, Arb(π), atol = tol, rtol = tol)
 
-        res = res / (π * u0.w(x))
+        res /= (π * u0.w(x))
 
         if skip_div_u0
             return res
