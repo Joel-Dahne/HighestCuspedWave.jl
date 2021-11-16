@@ -359,8 +359,9 @@ end
 """
     T012(u0::BHKdVAnsatz; δ0, δ1)
 
-Returns a function such that `T012(u0; δ0, δ1)(x)` computes the integral
-\$T_{0,1,2}\$ from the paper.
+Returns a function such that `T012(u0; δ0, δ1)(x; tol)` computes the
+integral \$T_{0,1,2}\$ from the paper using the prescribed tolerance
+in the integration.
 
 **FIXME:** This currently assumes that
 ```
@@ -387,17 +388,18 @@ function T012(
         @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
     end
 
+    # Lower and upper bounds of s = -α
+    s_l = 1 - u0.ϵ
+    s_u = one(Arb)
+
+    # Integration limits
     a = δ0
     b = 1 - δ1
 
-    return x -> begin
-        x = convert(Arb, x)
-
-        # FIXME: Currently we assume monotonicity in s, including for
-        # all derivatives.
-        s_l = 1 - u0.ϵ
-        s_u = one(Arb)
+    return (x::Arb; tol = Arb(1e-5)) -> begin
         integrand(t) = begin
+            # FIXME: Currently we assume monotonicity in s, including for
+            # all derivatives.
             term_l = abs(
                 clausenc(x * (1 - t), s_l) + clausenc(x * (1 + t), s_l) -
                 2clausenc(x * t, s_l),
@@ -417,9 +419,9 @@ function T012(
             return term_union * t * log(u0.c + inv(t * x))
         end
 
-        res = ArbExtras.integrate(integrand, a, b, atol = 1e-5, rtol = 1e-5)
+        res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
 
-        res = res * x / (π * log(u0.c + inv(x)))
+        res *= x / (π * log(u0.c + inv(x)))
 
         if skip_div_u0
             return res

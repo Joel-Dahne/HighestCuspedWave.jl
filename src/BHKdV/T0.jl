@@ -54,11 +54,15 @@ function T0_alternative(
     # Construction depends on x
 
     return x -> begin
+        # We take the tolerance used for the integration to be twice
+        # the diameter of x but no less than 1e-5
+        tol = max(Arb(1e-5), 4radius(Arb, x))
+
         part1 = f1(x)
 
         isfinite(part1) || return part1
 
-        part2 = f2(x)
+        part2 = f2(x; tol)
 
         isfinite(part2) || return part2
 
@@ -72,8 +76,6 @@ function T0_alternative(
 
             isfinite(part3) || return part3
 
-            # We take the tolerance to be the diameter of x but no less than 1e-5
-            tol = max(Arb(1e-5), 2radius(Arb, x))
             part4 = f4(x, b_y; tol)
         else
             # The value 1 + δ is not important
