@@ -1,5 +1,5 @@
 """
-    lemma_bhkdv_monotonicity_alpha(u0::BHKdV)
+    lemma_bhkdv_monotonicity_alpha(u0::BHKdVAnsatz)
 
 # Statement
 The function `u0(x)` is **lower bounded** by `u0.v0(x)` for all `x ∈
@@ -43,7 +43,7 @@ for all `α ∈ [-1, -1 + ϵ]` and `x ∈ [0, π]` is the result of
 - **IMRPOVE:** We could add a check that this bound indeed holds for
   some points. To avoid potential bugs.
 """
-lemma_bhkdv_monotonicity_alpha(u0::BHKdV) = lemma_bhkdv_monotonicity_main_term(u0)
+lemma_bhkdv_monotonicity_alpha(u0::BHKdVAnsatz) = lemma_bhkdv_monotonicity_main_term()
 
 """
     lemma_bhkdv_monotonicity_main_term()
