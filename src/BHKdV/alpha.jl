@@ -3,42 +3,24 @@
 
 Compute an upper bound of `α₀` from the paper.
 
-This method relies on the fact that `u0.v0(x)` gives a **lower** bound
-for `u0(x)` for `0 <= x <= π` and any `α` in the interval `(-1, -1 +
-u0.ϵ]`.
+This method uses that `u0.v0(x)` gives a **lower** bound for `u0(x)`.
+This is the statement of [`lemma_bhkdv_monotonicity_alpha`](@ref).
 
 This means that `u0.w(x) / 2u0(x)` is **upper** bounded by `u0.w(x) /
 2u0.v0(x)`. And to get an upper bound for `α₀` it is enough to bound
 this value. The approach is therefore the same as in the version for
 `BHAnsatz` which the only difference being the different weight and
 that we only get an upper bound instead of an enclosure.
-
-**PROVE:** That `u0(x)` indeed is lower bounded by `u0.v0(x)`. The
-tails are the same so it trivially holds for them. The only thing
-remaining is thus to prove that it also holds for the main term. That
-is, we have to prove,
-```
-a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) >=
-    u0.v0.a0 * clausencmzeta(x, 2, 1)
-```
-for all `0 <= x <= π` and all `α` in our interval.
 """
 function alpha0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
+    # Assert that the lemma holds
+    @assert lemma_bhkdv_monotonicity_alpha(u0)
+
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb("0.5")
         @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
-    end
-
-    # This uses evaluation of u0.v0. It should always overlap with the
-    # value from u0. As an extra precaution we check that this seems
-    # to be the case.
-    let x = Arb("0.5")
-        @assert Arblib.overlaps(u0(x), u0.v0(x))
-    end
-    let x = Arb("1e-2")
-        @assert Arblib.overlaps(u0(x, Asymptotic()), u0.v0(x, Asymptotic()))
     end
 
     ϵ = Arb(1e-1)
@@ -47,7 +29,7 @@ function alpha0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
 
     # The first step is to create a function which can be evaluated at
     # around zero. We do this by computing the asymptotic expansion of
-    # u0 at zero and then manually cancelling factors between the
+    # u0.v0 at zero and then manually cancelling factors between the
     # weight and the expansion. Finally care has to be take to make
     # sure that the weight with the cancelled factors can be evaluated
     # around zero, this is done using monotonicity.

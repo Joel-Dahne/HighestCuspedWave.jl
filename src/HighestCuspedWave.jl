@@ -51,5 +51,6 @@ include("BHKdV/delta.jl")
 include("BHKdV/T0.jl")
 include("BHKdV/T01.jl")
 include("BHKdV/T02.jl")
+include("BHKdV/lemmas.jl")
 
 end # module
