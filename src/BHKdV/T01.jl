@@ -385,7 +385,7 @@ function T012(
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
+        @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
     end
 
     # Lower and upper bounds of s = -α
@@ -400,14 +400,12 @@ function T012(
         integrand(t) = begin
             # FIXME: Currently we assume monotonicity in s, including for
             # all derivatives.
-            term_l = abs(
-                clausenc(x * (1 - t), s_l) + clausenc(x * (1 + t), s_l) -
-                2clausenc(x * t, s_l),
-            )
-            term_u = abs(
-                clausenc(x * (1 - t), s_u) + clausenc(x * (1 + t), s_u) -
-                2clausenc(x * t, s_u),
-            )
+            xmxt = x * (1 - t)
+            xpxt = x * (1 + t)
+            xt = x * t
+
+            term_l = abs(clausenc(xmxt, s_l) + clausenc(xpxt, s_l) - 2clausenc(xt, s_l))
+            term_u = abs(clausenc(xmxt, s_u) + clausenc(xpxt, s_u) - 2clausenc(xt, s_u))
 
             if t isa ArbSeries
                 coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))

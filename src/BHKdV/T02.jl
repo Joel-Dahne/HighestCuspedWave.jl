@@ -736,23 +736,22 @@ tedious though since we would have to do it for all required
 derivatives. The point where it happens does depend on `x`.
 """
 function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
-    end
-
     # Lower and upper bounds of s = -α
     s_l = 1 - u0.ϵ
     s_u = one(Arb)
+
+    # Upper integration limit
+    b = Arb(π)
 
     return (x::Arb, a::Arb = x + δ2; tol = Arb(1e-5)) -> begin
         integrand(y) = begin
             # FIXME: Currently we assume monotonicity in s, including for
             # all derivatives.
-            term_l = clausenc(y - x, s_l) + clausenc(y + x, s_l) - 2clausenc(y, s_l)
-            term_u = clausenc(y - x, s_u) + clausenc(y + x, s_u) - 2clausenc(y, s_u)
+            ymx = y - x
+            ypx = y + x
+
+            term_l = clausenc(ymx, s_l) + clausenc(ypx, s_l) - 2clausenc(y, s_l)
+            term_u = clausenc(ymx, s_u) + clausenc(ypx, s_u) - 2clausenc(y, s_u)
 
             if y isa ArbSeries
                 coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
@@ -761,10 +760,10 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
                 term_union = union(term_l, term_u)
             end
 
-            return term_union * y * log(u0.c + inv(y))
+            return term_union * u0.w(y)
         end
 
-        res = ArbExtras.integrate(integrand, a, Arb(π), atol = tol, rtol = tol)
+        res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
 
         res /= (π * u0.w(x))
 
