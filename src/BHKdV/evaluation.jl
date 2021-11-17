@@ -141,7 +141,11 @@ function eval_expansion(
 
                 # Compute an enclosure using monotonicity
                 if iszero(x)
-                    term = zero(x)
+                    if Arblib.ispositive(exponent)
+                        term = zero(x)
+                    else
+                        term = Arblib.indeterminate!(zero(x))
+                    end
                 elseif Arblib.contains_zero(x)
                     if Arblib.ispositive(exponent)
                         lower = zero(x)
