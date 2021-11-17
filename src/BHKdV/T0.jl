@@ -157,9 +157,32 @@ terms and that we in the end want to multiply the whole integral by
 `x`. To cancel these two we therefore let
 ```
 primitive_mul_x(t) =
-    (clausencmeta(x * (1 - t), 2 - α) + clausencmzeta(x * (1 + t), 2 - α) - 2clausencmzeta(x * t, 2 - α)) / x -
+    (clausencmzeta(x * (1 - t), 2 - α) + clausencmzeta(x * (1 + t), 2 - α) - 2clausencmzeta(x * t, 2 - α)) / x -
     t * (clausens(x * (1 - t), 1 - α) - clausens(x * (1 + t), 1 - α) + 2clausens(x * t, 1 - α))
 ```
+
+Now, we are interested in computing `primitive_mul_x(b) -
+primitive_mul_x(a)`. Since `a` and `b` are expect to be fairly close
+together we can expect cancellations between the two terms. To help in
+handling these cancellations we write up the full expression and
+reorder the terms to put those parts with cancellations together.
+This gives us
+```
+primitive_mul_x(b) - primitive_mul_x(a) =
+    (
+        (clausencmzeta(x * (1 - b), 2 - α) + clausencmzeta(x * (1 + b), 2 - α) - 2clausencmzeta(x * b, 2 - α)) -
+        (clausencmzeta(x * (1 - a), 2 - α) + clausencmzeta(x * (1 + a), 2 - α) - 2clausencmzeta(x * a, 2 - α))
+    ) / x - (
+        b * (clausens(x * (1 - b), 1 - α) - clausens(x * (1 + b), 1 - α) + 2clausens(x * b, 1 - α)) -
+        a * (clausens(x * (1 - a), 1 - α) - clausens(x * (1 + a), 1 - α) + 2clausens(x * a, 1 - α))
+    )
+```
+There are two main terms which both are positive (if we include the
+minus sign in the second term) so there are no cancellations between
+them and we therefore enclose them separately. For most values of `x`
+the two terms are monotone in `x` and we can therefore compute an
+enclosure using `ArbExtras.extrema_series` with `degree = 0` which
+picks up the monotonicity.
 
 # Value at `t = π / x`
 In the special case that `t = π / x` this simplifies to
@@ -195,6 +218,16 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
     s2 = 3 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     return (x::Arb, a::Arb, b::Arb; to_endpoint = false) -> begin
+        # Check that the integrand is positive on the left endpoint
+        # PROVE: We would need to prove that it is enough to check the
+        # lower bound of x
+        let t = lbound(Arb, a), x = lbound(Arb, x), α = Arb((-1, -1 + u0.ϵ))
+            @assert Arblib.ispositive(
+                clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) -
+                2clausenc(x * t, -α),
+            )
+        end
+
         primitive(t) =
             (
                 clausencmzeta(x * (1 - t), s2) + clausencmzeta(x * (1 + t), s2) -
@@ -215,28 +248,69 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                 2clausens(x * t, s1)
             )
 
-        # Compute primitive_mul_x(a) using the monotonicity in a
-        primitive_a_mul_x = if iswide(a)
-            Arb((primitive_mul_x(lbound(Arb, a)), primitive_mul_x(ubound(Arb, a))))
-        else
-            primitive_mul_x(a)
+        x_series = ArbSeries([x, 1])
+
+        # primitive_mul_x(b) - primitive_mul_x(a)
+        primitive_bma_mul_x(a, b) = begin
+            # Compute enclosure of all clausenc terms using ArbSeries
+            term1_f(x) =
+                (
+                    (
+                        clausencmzeta(x * (1 - b), s2) + clausencmzeta(x * (1 + b), s2) - 2clausencmzeta(x * b, s2)
+                    ) - (
+                        clausencmzeta(x * (1 - a), s2) + clausencmzeta(x * (1 + a), s2) - 2clausencmzeta(x * a, s2)
+                    )
+                ) / x
+            term1 = Arb(
+                ArbExtras.extrema_series(
+                    term1_f,
+                    getinterval(x)...,
+                    degree = 0,
+                    verbose = false,
+                )[1:2],
+            )
+
+            # Compute enclosure of all clausens terms using ArbSeries
+            term2_f(x) = (
+                b * (
+                    clausens(x * (1 - b), s1) - clausens(x * (1 + b), s1) +
+                    2clausens(x * b, s1)
+                ) -
+                a * (
+                    clausens(x * (1 - a), s1) - clausens(x * (1 + a), s1) +
+                    2clausens(x * a, s1)
+                )
+            )
+            term2 = Arb(
+                ArbExtras.extrema_series(
+                    term2_f,
+                    getinterval(x)...,
+                    degree = 0,
+                    verbose = false,
+                )[1:2],
+            )
+
+            return term1 - term2
         end
 
         if b < π && !to_endpoint
             # We integrate on [a, b]
             weight_enclosure = log(u0.c + inv(x * Arb((a, b))))
 
-            # Compute primitive_mul_x(b) using the monotonicity in b
-            primitive_b_mul_x = if iswide(b)
-                Arb((primitive_mul_x(lbound(Arb, b)), primitive_mul_x(ubound(Arb, b))))
+            I_mul_x = if iswide(b)
+                union(
+                    primitive_bma_mul_x(a, lbound(Arb, b)),
+                    primitive_bma_mul_x(a, ubound(Arb, b)),
+                )
             else
-                primitive_mul_x(b)
+                primitive_bma_mul_x(a, b)
             end
-
-            I_mul_x = primitive_b_mul_x - primitive_a_mul_x
         elseif to_endpoint || b * x > π || contains(π / x, b)
             # We integrate on [a, π / x]
             weight_enclosure = log(u0.c + inv(x * Arb((a, π / x))))
+
+            # Compute primitive_mul_x(a)
+            primitive_a_mul_x = primitive_mul_x(a)
 
             # Enclosure of primitive_mul_x(π / x)
             primitive_pidivx_mul_x = let
