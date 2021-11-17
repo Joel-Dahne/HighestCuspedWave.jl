@@ -64,7 +64,7 @@ interval and the absolute value can hence be removed.
 
 Next the factor
 ```
-F = abs(inv(π) * log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+F(x) = abs(inv(π) * log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
 is factored out. Except for the addition of `inv(π)` this is the same
 as the factor `F1` in [`F0`](@ref) and we compute an upper bound
@@ -111,9 +111,12 @@ I₂₂ = -∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
 I₂₃ = ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt
 ```
 
-# Computation of `W(x) * I₁`
+# Handling `I₁`
+For `I₁` there are cancellations between the two terms `I₁₁` and `I₁₂`
+and we therefore have to keep their sign. For `I₁₃` it is enough to
+bound the absolute value.
 
-## `W(x) * I₁₁`
+## Handling `I₁₁`
 For the first integral we get
 ```
 W(x) * I₁₁ = -inv(1 - x^p0) * sinpi(α / 2) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
@@ -183,12 +186,12 @@ W(x) * I₁₁ =
 As mentioned above the factor `sinpi(α / 2)` can be enclosed directly.
 The remaining part converges to one, which is easily seen by plugging
 in `x = 0` and `α = -1` directly, and is increasing in both `x` and
-`α`
+`α`.
 - **PROVE:** The it is increasing in `x` and `α`
 - **TODO:** That the limit is 1 could be proved better.
 
-## `W(x) * I₁₂`
-For the second term we have
+## Handling `I₁₂`
+For the second integral we have
 ```
 W(x) * I₁₂ = -inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
     ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
@@ -233,34 +236,66 @@ W(x) * I₁₂ =
   limit and figure out how to bound it. The expression uses complex
   arithmetic, if possible we should probably avoid that.
 
-For the third term we have
+## Handling `I₁₃`
+For the third integral we only need to bound the absolute value and we
+have
 ```
-W(x) * I₁₃ = inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
+abs(W(x) * I₁₃) = abs(
+    inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
     ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + u0.c * x * t) dt
+)
 ```
 The factor `log(1 + u0.c * x * t)` inside the integral can be enclosed
 using that it is zero for `x = 0` and increasing in both `x` and `t`.
 We can factor out the enclosure from the integral and the integral we
 are left with is the same as for `W(x) * I₁₁`. In the end we thus get
 ```
-W(x) * I₁₃ = -inv(log(x)) * log(1 + u0.c * x * [0, 1]) * W(x) * I₁₁
+abs(W(x) * I₁₃) = abs(inv(log(x)) * log(1 + u0.c * x * [0, 1]) * W(x) * I₁₁)
 ```
-where the minus sign is added to cancel the one from `W(x) * I₁₁`.
 
-Now for the remaining three terms the first step is to handle the term
-`R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)`. From the expansion of
-the Clausen functions we get
+# Handling `I₂`
+For the three integrals in `I₂` there are no cancellations we have to
+keep track of and it is therefore enough to bound the absolute value
+of each term separately.
+
+In this case the only important part of `W(x)` is the `log(x)` factor
+in the denominator, the rest we can treat by itself.
+
+We also need to handle treat the term `R(x * (t - 1)) + R(x * (1 + t))
+- 2R(x * t)`. From the expansion of the Clausen functions we get
 ```
 R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t) = sum(
     zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
 )
 ```
-For `I₂₁` we want to multiply this by `t` and integrate from `1` to `π
-/ x`. Switching the integration and summation gives us
+Call this sum `S`.
+
+## Handling `W(x) * log(x)`
+This is the factor `W(x)` with the `log(x)` in the denominator
+removed, taking the absolute value this gives us
 ```
-sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * ∫ ((1 - t)^2m + (1 + t)^2m - 2t^2m) * t dt for m = 1:Inf
+W(x) * log(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
+```
+Notice that this term is positive so we don't have to include the
+absolute value.
+- **TODO:** Finish bounding this
+
+## Handling `I₂₁`
+For the first integral we get
+```
+abs(inv(log(x)) * I₂₁) = abs(
+    ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t dt
 )
+```
+Replacing `R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)` with the sum
+`S` defined above and switching the integration and summation gives us
+```
+abs(inv(log(x)) * I₂₁) = abs(sum(
+    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * ∫ ((1 - t)^2m + (1 + t)^2m - 2t^2m) * t dt for m = 1:Inf
+)) <=
+sum(
+    abs(zeta(-α - 2m)) / factorial(2m) * x^2m * abs(∫ ((1 - t)^2m + (1 + t)^2m - 2t^2m) * t dt) for m = 1:Inf
+))
 ```
 The integral taken from `1` to `π / x` can be determined to be
 ```
@@ -269,17 +304,17 @@ The integral taken from `1` to `π / x` can be determined to be
         binomial(2m, 2k) * ((x / π)^(2(m - 1 - k)) - (x / π)^2m) / (2k + 2) for k = 0:m-1
     )
 ```
-Inserting this into the main sum we get
+Inserting this back into the sum we get
 ```
 sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * (2(π / x)^2m * sum(
+    abs(zeta(-α - 2m)) / factorial(2m) * x^2m * (2(π / x)^2m * abs(sum(
         binomial(2m, 2k) * ((x / π)^(2(m - 1 - k)) - (x / π)^2m) / (2k + 2) for k = 0:m-1
-    )) for m = 1:Inf
+    ))) for m = 1:Inf
 ) =
 2sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * π^2m * sum(
+    abs(zeta(-α - 2m)) / factorial(2m) * π^2m * abs(sum(
         binomial(2m, 2k) * ((x / π)^(2(m - 1 - k)) - (x / π)^2m) / (2k + 2) for k = 0:m-1
-    ) for m = 1:Inf
+    )) for m = 1:Inf
 )
 ```
 Call this sum `Σ₂₁`.
@@ -288,13 +323,27 @@ Call this sum `Σ₂₁`.
   interior sum converges to`(2m - 1) / 2` as `x -> 0`. But does so
   from above so we don't get an immediate bound for it.
 
-For `I₂₂` we instead of want to multiply by `t * log(t)`, still
-integrating from `1` to `π / x`. Switching the integration and
-summation this gives us
+In the end this gives us
 ```
-sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m *
-    ∫ ((1 - t)^2m + (1 + t)^2m - 2t^2m) * t *log(t) dt for m = 1:Inf
+abs(W(x) * I₂₁) = (W(x) * log(x)) * (inv(log(x)) * I₂₁) <=
+    (W(x) * log(x)) * Σ₂₁
+```
+
+## Handling `I₂₁`
+For the second integral we get
+abs(inv(log(x)) * I₂₂) = abs(
+    inv(log(x)) *
+    ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
+)
+Replacing `R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)` with the sum
+`S` defined above and switching the integration and summation gives us
+```
+abs(inv(log(x)) * I₂₂) = abs(
+    inv(log(x)) *
+    sum(
+        zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m *
+        ∫ ((1 - t)^2m + (1 + t)^2m - 2t^2m) * t *log(t) dt for m = 1:Inf
+    )
 )
 ```
 By rewriting `(1 - t)^2m + (1 + t)^2m - 2t^2m` as
@@ -329,41 +378,29 @@ Call the sum (not including the log-factor) `Σ₂₂`.
 
 With this we get for `I₂₁`
 ```
-W(x) * I₂₁ = -x^(1 + α) / (gamma(1 + α) * (1 - x^p0)) *
-    ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t dt =
-    -x^(1 + α) / (gamma(1 + α) * (1 - x^p0)) * Σ₂₁
+abs(W(x) * I₂₂) = ((W(x) * log(x)) * abs(inv(log(x)) * I₂₂) =
+    ((W(x) * log(x)) * abs(log(π / x) / log(x) * Σ₂₂) =
 ```
-With an enclosure of `Σ₂₁` we are left computing an enclosure of
-`-x^(1 + α) / (gamma(1 + α) * (1 - x^p0))`.
-- **TODO:** Compute an enclosure of `-x^(1 + α) / (gamma(1 + α) * (1 -
-  x^p0))`. It seems to be increasing in `x` and for fixed `x` it is
-  increasing but bounded as `α -> -1`.
+An enclosure of `log(π / x) / log(x)` is easily computed by rewriting
+it as `log(π) / log(x) - 1`.
 
-For `I₂₂` we have
+## Handling I₂₃
+For the third integral we have
 ```
-W(x) * I₂₂ = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(x)) *
-    ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
-```
-The integral is bounded by `log(π / x) * Σ₂₂`, giving us
-```
-W(x) * I₂₂ = x^(1 + α) / (gamma(1 + α) * (1 - x^p0)) * log(π / x) / log(x) * Σ₂₁
-```
-We can compute an enclosure of `x^(1 + α) / (gamma(1 + α) * (1 - x^p0)
-* log(x))` as above. An enclosure of `log(π / x) / log(x)` is also
-easily computed by rewriting it as `log(π) / log(x) - 1`.
-
-Finally for the last integral we have
-```
-W(x) * I₂₃ = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(x)) *
+abs(inv(log(x)) * I₂₃) = abs(
+    inv(log(x)) *
     ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt
+)
 ```
-We can compute an enclosure of `x^(1 + α) / (gamma(1 + α) * (1 - x^p0)
-* log(x))` as above. Similarly to for `I₁₃` we can factor out an
-enclosure of `log(1 + u0.c * x * t)` from the integral, leaving us with the
-same integral as for `I₂₁`, that is
+Similarly to for `I₁₃` we can factor out an enclosure of `log(1 + u0.c
+* x * t)` from the integral, leaving us with the same integral as for
+`I₂₁`, that is
 ```
-W(x) * I₂₃ = inv(log(x)) * x^(1 + α) / (gamma(1 + α) * (1 - x^p0)) *
-    log(1 + u0.c * x * [0, 1]) * Σ₂₁
+abs(inv(log(x)) * I₂₃) = abs(inv(log(x) * log(1 + u0.c * x * [0, 1]) * Σ₂₁)
+```
+and hence
+```
+abs(W(x) * I₂₃) = (W(x) * log(x)) * abs(inv(log(x) * log(1 + u0.c * x * [0, 1]) * Σ₂₁)
 ```
 """
 function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
@@ -377,7 +414,7 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     ϵ = convert(Arb, ϵ)
     @assert ϵ < 0.5
 
-    # Setup for enclosing F
+    # Setup for bounding F
 
     # Compute the expansion of u0 and remove the leading term, which
     # is handled separately.
@@ -432,18 +469,19 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     return x::Arb -> begin
         @assert x <= ϵ
 
-        # Enclosure of sinpi(α / 2)
-        factor_I₁ = sinpi(Arb((-1, -1 + u0.ϵ)) / 2)
-
         # Enclosure of inv(log(x))
         invlogx = if iszero(x)
             zero(x)
         elseif Arblib.contains_zero(x)
-            xᵤ = ubound(Arb, x)
-            Arb((inv(log(xᵤ)), 0))
+            Arb((inv(log(ubound(Arb, x))), 0))
         else
             inv(log(x))
         end
+
+        # Handle I₁
+
+        # Enclosure of sinpi(α / 2)
+        factor_I₁ = sinpi(Arb((-1, -1 + u0.ϵ)) / 2)
 
         WxI₁₁ = begin
             # Enclosure of inv(1 - x^p0) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
@@ -451,7 +489,6 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             # are some O(x^2) terms left to handle.
             integral_I₁₁ =
                 let xᵤ = ubound(Arb, x), α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
-
                     # We use that it is 1 for α = -1, x = 0 and
                     # increasing in both variables. Notice that we
                     # always enclose it for x on the interval [0, xᵤ]
@@ -509,50 +546,101 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
                 ((α - 2) * (α - 1)) -
                 (t + 1)^-α * (1 + α * t) * log(t) / ((α - 1) * α)
 
-            primitive_I12_3(t) = 2t^(1 - α) * (1 + (α - 1) * log(t)) / (α - 1)^2
+            primitive_I12_2_one =
+                -2^(1 - α) * hypgeom_2f1(Acb(1), Acb(1 - α), Acb(2 - α), Acb(2)) /
+                ((α - 1) * α) +
+                2^(2 - α) * hypgeom_2f1(Acb(1), Acb(2 - α), Acb(3 - α), Acb(2)) /
+                ((α - 2) * (α - 1))
 
-            @show a = primitive_I12_1(Arb(π / x)) - primitive_I12_1_one
-            @show b = primitive_I12_2(Arb(π / x)) - primitive_I12_2(Arb(1))
-            @show c = primitive_I12_3(Arb(π / x)) - primitive_I12_3(Arb(1))
-            integral_I₁₂ = a + b + c
+            primitive_I12_3(t) = 2t^(1 - α) / (α - 1)^2 + 2t^(1 - α) * log(t) / (α - 1)
+
+            #2t^(1 - α) * (1 + (α - 1) * log(t)) / (α - 1)^2
+
+            primitive_I12_3_one = 2 / (α - 1)^2
+
+            primitive_I12(t) = begin
+                # All terms with log(t) above.
+                # TODO: Explicitly handle the cancellations
+                # (t - 1)^-α - (t + 1)^-α is around -2
+                # (t - 1)^-α + (t + 1)^-α - 2t^-α is -0.00015?
+                a =
+                    log(t) * (
+                        ((t - 1)^-α - (t + 1)^-α) / α -
+                        t * ((t - 1)^-α + (t + 1)^-α - 2t^-α)
+                    ) / (α - 1)
+                #@show t * ((t - 1)^-α + (t + 1)^-α - 2t^-α)
+
+                # TODO: Handle cancellations between b1, b2 and c
+                b1 =
+                    t^-α * hypgeom_2f1(α, α, 1 + α, inv(t)) / ((α - 1) * α^2) -
+                    (t - 1)^(1 - α) / (α - 1)^2
+
+                b2 =
+                    -(t + 1)^(1 - α) *
+                    hypgeom_2f1(Acb(1), Acb(1 - α), Acb(2 - α), Acb(1 + t)) /
+                    ((α - 1) * α) +
+                    (t + 1)^(2 - α) *
+                    hypgeom_2f1(Acb(1), Acb(2 - α), Acb(3 - α), Acb(1 + t)) /
+                    ((α - 2) * (α - 1))
+
+                c = 2t^(1 - α) / (α - 1)^2
+
+                #@show a (b1 + b2 + c)
+
+                a + b1 + b2 + c
+            end
+
+            primitive_I12_one =
+                primitive_I12_1_one + primitive_I12_2_one + primitive_I12_3_one
+
+            a = primitive_I12_1(Arb(π / x))# - primitive_I12_1_one
+            b = real(primitive_I12_2(Arb(π / x)))# - primitive_I12_2_one
+            c = primitive_I12_3(Arb(π / x))# - primitive_I12_3_one
+
+            #@show a + b + c
+            #@show primitive_I12(π / x)
+
+            #@show a b c
+
+            integral_I₁₂ = primitive_I12(π / x) - primitive_I12_one
 
             term = let p0 = (1 + α) + (1 + α)^2 / 2
                 integral_I₁₂ / ((1 - x^p0) * log(x))
             end
 
-            @show term
-
-            factor_I₁ * term
+            -factor_I₁ * term
         end
 
         WxI₁₃ = begin
             # Enclosure of log(1 + u0.c * x * t) for t ∈ [0, 1]
-            factor_I₁₂ = Arb((0, log1p(u0.c * x)))
+            factor_I₁₃ = Arb((0, log1p(u0.c * x)))
 
-            invlogx * factor_I₁₂ * WxI₁₁
+            abs(invlogx * factor_I₁₃ * WxI₁₁)
         end
 
         WxI₁ = WxI₁₁ + WxI₁₂ + WxI₁₃
 
-        # Enclosure of -x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
-        # FIXME: This currently computes with `α = -1 + u0.ϵ`
-        # which doesn't given an upper bound, though it gives a
-        # good estimate.
-        factor_I₂ = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
+        # Handle I₂
+
+        # Enclosure of W(x) * log(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
+        # FIXME: This currently computes with `α = -1 + u0.ϵ` which
+        # doesn't given an upper bound, though it gives a good
+        # estimate.
+        Wlogx = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
             if Arblib.contains_zero(x)
                 xᵤ = ubound(Arb, x)
-                Arb((-xᵤ^(1 + α) / (gamma(1 + α) * (1 - xᵤ^p0)), 0))
+                Arb((0, xᵤ^(1 + α) / (gamma(1 + α) * (1 - xᵤ^p0))))
             else
-                -x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
+                x^(1 + α) / (gamma(1 + α) * (1 - x^p0))
             end
         end
 
         WxI₂₁ = begin
             # Enclosure of
             #2sum(
-            #    zeta(-α - 2m) * (-1)^m / factorial(2m) * π^2m * sum(
+            #    abs(zeta(-α - 2m)) / factorial(2m) * π^2m * abs(sum(
             #        binomial(2m, 2k) * ((x / π)^(2(m - 1 - k)) - (x / π)^2m) / (2k + 2) for k = 0:m-1
-            #    ) for m = 1:Inf
+            #    )) for m = 1:Inf
             #)
             # FIXME: This only computes the first 10 terms in the sum.
             # We need to bound the tail.
@@ -560,18 +648,20 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             let π = Arb(π), α = Arb((-1, -1 + u0.ϵ))
                 for m = 1:10
                     term =
-                        zeta(-α - 2m) * (-1)^m / factorial(2m) *
+                        abs(zeta(-α - 2m)) / factorial(2m) *
                         π^2m *
-                        sum(
-                            binomial(2m, 2k) * ((x / π)^(2(m - 1 - k)) - (x / π)^2m) / (2k + 2) for
-                            k = 0:m-1
+                        abs(
+                            sum(
+                                binomial(2m, 2k) * ((x / π)^(2(m - 1 - k)) - (x / π)^2m) / (2k + 2) for
+                                k = 0:m-1
+                            ),
                         )
                     Σ₂₁ += term
                 end
             end
             Σ₂₁ *= 2
 
-            factor_I₂ * Σ₂₁
+            Wlogx * abs(Σ₂₁)
         end
 
         WxI₂₂ = begin
@@ -589,21 +679,21 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             # Enclosure of log(π / x) / log(x) = log(π) / log(x) - 1
             factor_I₂₂ = log(Arb(π)) * invlogx - 1
 
-            factor_I₂ * factor_I₂₂ * Σ₂₂
+            Wlogx * abs(factor_I₂₂ * Σ₂₂)
         end
 
         WxI₂₃ = begin
             # Enclosure of log(1 + u0.c * x * t) for t ∈ [0, 1]
             factor_I₂₃ = Arb((0, log1p(u0.c * x)))
 
-            invlogx * factor_I₂ * factor_I₂₃ * Σ₂₁
+            Wlogx * abs(invlogx * factor_I₂₃ * Σ₂₁)
         end
 
         WxI₂ = WxI₂₁ + WxI₂₂ + WxI₂₃
 
-        #@show WxI₁₁ WxI₁₂ WxI₁₃ WxI₂₁ WxI₂₂ WxI₂₃
+        res = F(x) * (WxI₁ + WxI₂)
 
-        return F(x) * (WxI₁ + WxI₂)
+        return res
     end
 end
 
