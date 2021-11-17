@@ -44,16 +44,20 @@ with the integration going from `0` to `1`.
 
 Next the factor
 ```
-x^-α * log(x) / (π * u0(x) * log(u0.c + inv(x)))
+F(x) = x^-α * log(x) / (π * u0(x) * log(u0.c + inv(x)))
 ```
 is factored out from the whole expression and multiplied back in the
 end. Notice that this factor is bounded in `x`. We can bound `log(x) /
-log(u0.c + inv(x))` by using that it is `-1` at `x = 0` and increasing.
-To bound `x^-α / u0(x)` we compute the asymptotic expansion of `u0(x)`
-and multiply that by `x^α` and evaluate.
+log(u0.c + inv(x))` by using that it is `-1` at `x = 0` and
+increasing.
+- **PROVE:** That `log(x) / log(u0.c + inv(x))` is `-1` at `x = 0` and
+    increasing.
+To bound `x^-α / u0(x)` we compute the asymptotic expansion of
+`u0(x)`, multiply that by `x^α` and evaluate.
 - **TODO:** Deal with the fact that `u0(x) * x^α` blows up as `x ->
-    0`. It's not a problem since we divide by it, but it needs to be
-    handled.
+  0`. It's not a problem since we divide by it, but it needs to be
+  handled. For now we assume monotonicity in `x` in this case and
+  compute it at the upper bound for `x`
 
 What we are left with computing is
 ```
@@ -206,31 +210,38 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
     end
 
     # Enclosure of the factor
-    # x^-α * log(x) / (π * u0(x) * log(u0.c + inv(x)))
-    factor(x) = begin
+    # F(x) = x^-α * log(x) / (π * u0(x) * log(u0.c + inv(x)))
+    F(x) = begin
         # Enclosure of log(x) / log(u0.c + inv(x))
-        if iszero(x)
-            log_factor = -one(x)
+        log_factor = if iszero(x)
+            -one(x)
         elseif Arblib.contains_zero(x)
             # Use monotonicity, it is -1 at x = 0 and increasing
             xᵤ = ubound(Arb, x)
-            log_factor = Arb((-1, log(xᵤ) / log(u0.c + inv(xᵤ))))
+            Arb((-1, log(xᵤ) / log(u0.c + inv(xᵤ))))
         else
-            log_factor = log(x) / log(u0.c + inv(x))
+            log(x) / log(u0.c + inv(x))
         end
 
-        # Enclosure of u0(x) * x^α
-        if non_asymptotic_u0
-            u0_factor = u0(x) * x^Arb((-1, -1 + u0.ϵ))
+        # Enclosure of inv(u0(x) * x^α)
+        # TODO: This behaves like inv(log(x)) and is hence increasing
+        # in x. In case x overlaps with zero we therefore compute an
+        # enclosure by evaluation at the upper bound for x. This is
+        # not proved to be correct though
+        invu0 = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            Arb((0, inv(eval_expansion(u0, u0_expansion_mul_xα, ubound(Arb, x)))))
         else
-            u0_factor = eval_expansion(u0, u0_expansion_mul_xα, x)
+            inv(eval_expansion(u0, u0_expansion_mul_xα, x))
         end
 
-        log_factor / (π * u0_factor)
+        @show invu0
+
+        log_factor * invu0 / π
     end
 
-    return x -> begin
-        x = convert(Arb, x)
+    return x::Arb -> begin
         @assert x <= ϵ
 
         # Enclosure of abs(sinpi(α / 2))
@@ -301,7 +312,7 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
 
         WxI = WxI₁ + WxI₂
 
-        res = factor(x) * WxI
+        res = F(x) * WxI
 
         return res
     end
