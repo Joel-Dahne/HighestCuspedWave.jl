@@ -98,7 +98,11 @@ I₂₁ = -log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt
 I₂₂ = -∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
 I₂₃ = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt
 ```
+Since we are interested in an upper bound of the absolute value of
+their sum it is enough to upper bound the absolute value of each
+integral separately.
 
+# Handling `I₁`
 Focusing on the first three integrals the first step is to understand
 the behaviour of
 ```
@@ -115,37 +119,46 @@ As `α -> -1` this converges to
 ```
 - **TODO:** Finish this.
 
-For the first integral we get
+For the first integral we have
 ```
-W(x) * I₁₁ = -abs(sinpi(α / 2)) *
+abs(W(x) * I₁₁) = abs(
+    sinpi(α / 2) *
     ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+)
 ```
-As mentioned `abs(sinpi(α / 2))` can be enclosed directly. The
-integral doesn't depend on `x` and can be enclosed.
+As mentioned `sinpi(α / 2)` can be enclosed directly. The integral
+doesn't depend on `x` and can be enclosed.
 - **TODO:** Enclose the integral
   `∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt`.
-Next we have
+
+For the second integral we have
 ```
-W(x) * I₁₂ = -inv(log(x)) * abs(sinpi(α / 2)) *
+abs(W(x) * I₁₂) = abs(
+    inv(log(x)) * sinpi(α / 2) *
     ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+)
 ```
 where again the integral doesn't depend on `x` and can be enclosed.
-The factor `abs(sinpi(α / 2))` can be enclosed as above and
-`-inv(log(x))` can be enclosed using that it is zero at `x = 0` and
-increasing.
+The factor `sinpi(α / 2)` can be enclosed as above and `-inv(log(x))`
+can be enclosed using that it is zero at `x = 0` and increasing.
 - **TODO:** Enclose the integral
-  ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt.
-For the third one we have
+  `∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt`.
+
+For the third integral we have
 ```
-W(x) * I₁₃ = inv(log(x)) * abs(sinpi(α / 2)) *
+abs(W(x) * I₁₃) = abs(
+    inv(log(x)) * sinpi(α / 2) *
     ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + u0.c * x * t) dt
+)
 ```
 The factor outside the integral can be dealt with in the same way as
-for `W(x) * I₁₂` The factor `log(1 + u0.c * x * t)` inside the integral can
-be enclosed using that it is zero for `x = 0` and increasing in both
-`x` and `t`. We can factor out the enclosure from the integral and the
-integral we are left with is the same as for `W(x) * I₁₁`.
+for `abs(W(x) * I₁₂)` The factor `log(1 + u0.c * x * t)` inside the
+integral can be enclosed using that it is zero for `x = 0` and
+increasing in both `x` and `t`. We can factor out the enclosure from
+the integral and the integral we are left with is the same as for
+`W(x) * I₁₁`.
 
+# Handling `I₂`
 Now for the remaining three terms the first step is to handle the term
 `R₁(x) + R₂(x) - 2R₃(x)`. From the expansion of the Clausen functions
 we get
@@ -157,35 +170,40 @@ R₁(x) + R₂(x) - 2R₃(x) = sum(
 Since we are interested in an upper bound of absolute value we get
 ```
 abs(R₁(x) + R₂(x) - 2R₃(x)) <= x^2 * sum(
-    abs(zeta(-α - 2m)) / factorial(2m) * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
-) <= x^2 * 2sum(
-    abs(zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf
-)
+    abs(zeta(-α - 2m)) / factorial(2m) * abs((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
+) <= x^2 * 2sum(abs(zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf)
 ```
-The final sum doesn't depend on `x` and can be bounded, call the bound
-`C`.
-- **TODO:** Bound the sum
+where we have used that
+```
+abs((1 - t)^2m + (1 + t)^2m - 2t^2m) <= 2^2m + 3 <= 2^(2m + 1)
+```
+for `m >= 1`. The final sum doesn't depend on `x` and can be bounded,
+call the bound `C`, i.e.,
+```
+c = 2sum(abs(zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf)
+```
+- **TODO:** Bound the tail of the sum
   `2sum(abs(zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf)`.
 
 Now for the integrals we get
 ```
-W(x) * I₂₁ = -x^(1 + α) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt <=
-    -x^(1 + α) * x^2 * C * ∫ t dt =
-    -x^(3 + α) * C / 2  <=
-    -x^3 * C / 2
+abs(W(x) * I₂₁) = abs(x^(1 + α) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t dt) <=
+    x^(1 + α) * x^2 * C * ∫ t dt =
+    x^(3 + α) * C / 2  <=
+    x^2 * C / 2
 ```
 ```
-W(x) * I₂₂ = -x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt <=
-    -x^(1 + α) / log(x) * x^2 * C * ∫ t * log(t) dt =
-    -x^(3 + α) / log(x) * C * ∫ t * log(t) dt <=
-    -x^3 / log(x) * C * ∫ t * log(t) dt =
-    x^3 / log(x) * C / 4
+abs(W(x) * I₂₂) = abs(x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt) <=
+    abs(x^(1 + α) / log(x) * x^2 * C * ∫ t * log(t) dt) =
+    abs(x^(3 + α) / log(x) * C * ∫ t * log(t) dt) <=
+    abs(x^2 / log(x) * C * ∫ t * log(t) dt) =
+    abs(x^2 / log(x) * C / 4)
 ```
 ```
-W(x) * I₂₃ = x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt <=
-    x^(1 + α) / log(x) * x^2 * C * ∫ t * log(1 + u0.c * x * t) dt <=
-    x^(3 + α) / log(x) * C * log(1 + u0.c * x) / 2 <=
-    x^3 / log(x) * C * log(1 + u0.c * x) / 2
+abs(W(x) * I₂₃) = abs(x^(1 + α) / log(x) * ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt) <=
+    abs(x^(1 + α) / log(x) * x^2 * C * ∫ t * log(1 + u0.c * x * t) dt) <=
+    abs(x^(3 + α) / log(x) * C * log(1 + u0.c * x) / 2) <=
+    abs(x^3 / log(x) * C * log(1 + u0.c * x) / 2)
 ```
 where in the last step we have used that `log(1 + u0.c * x * t) <= log(1 + u0.c * x)`.
 - **TODO:** Take a look at the sign for these three integrals. We
@@ -236,83 +254,82 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             inv(eval_expansion(u0, u0_expansion_mul_xα, x))
         end
 
-        @show invu0
-
         log_factor * invu0 / π
     end
 
     return x::Arb -> begin
         @assert x <= ϵ
 
-        # Enclosure of abs(sinpi(α / 2))
-        factor_I₁ = let α = Arb((-1, -1 + u0.ϵ))
-            abs(sinpi(α / 2))
-        end
-
         # Enclosure of inv(log(x))
         invlogx = if iszero(x)
             zero(x)
         elseif Arblib.contains_zero(x)
-            xᵤ = ubound(Arb, x)
-            Arb((inv(log(xᵤ)), 0))
+            Arb((inv(log(ubound(Arb, x))), 0))
         else
             inv(log(x))
         end
 
+        # Handle I₁
+
+        # Enclosure of sinpi(α / 2)
+        factor_I₁ = let α = Arb((-1, -1 + u0.ϵ))
+            sinpi(α / 2)
+        end
+
+        # abs(W(x) * I₁₁)
         WxI₁₁ = begin
             # Enclosure of
             # ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
             # FIXME: Rigorously enclose this
             integral_I₁₁ = Arb("0.6931477765876257")
 
-            -factor_I₁ * integral_I₁₁
+            abs(factor_I₁ * integral_I₁₁)
         end
 
         WxI₁₂ = begin
-            if iszero(x)
-                zero(x)
-            else
-                # Enclosure of
-                # ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
-                # FIXME: Rigorously enclose this
-                integral_I₁₂ = Arb("-0.46668696508451124")
+            # Enclosure of
+            # ∫ gamma(1 + α) * abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+            # FIXME: Rigorously enclose this
+            integral_I₁₂ = Arb("-0.46668696508451124")
 
-                -invlogx * factor_I₁ * integral_I₁₂
-            end
+            abs(invlogx * factor_I₁ * integral_I₁₂)
         end
 
         WxI₁₃ = begin
-            if iszero(x)
-                zero(x)
-            else
-                # The integral is the same as for WxI₁₁
-                integral_I₁₃ = integral_I₁₁
-                # Enclosure of log(1 + u0.cx * t) for t ∈ [0, 1]
-                factor_I₁₂ = Arb((0, log1p(u0.c * x)))
+            # Enclosure of log(1 + u0.cx * t) for t ∈ [0, 1]
+            factor_I₁₂ = Arb((0, log1p(u0.c * x)))
 
-                invlogx * factor_I₁ * factor_I₁₂ * integral_I₁₃
-            end
+            # The integral is the same as for WxI₁₁
+            integral_I₁₃ = integral_I₁₁
+
+            abs(invlogx * factor_I₁ * factor_I₁₂ * integral_I₁₃)
         end
 
         WxI₁ = WxI₁₁ + WxI₁₂ + WxI₁₃
 
-        # Bound of 2sum((zeta(-α - 2m)) * 2^2m / factorial(2m) for m = 1:Inf)
-        # FIXME: Rigorously bound this
-        C = Arb("0.1725034263261214970439543405065145523")
+        # Handle I₂
+
+        # Bound of 2sum((abs(zeta(-α - 2m))) * 2^2m / factorial(2m) for m = 1:Inf)
+        # FIXME: Bound the tail of this sum.
+        C = let α = Arb((-1, -1 + u0.ϵ))
+            2sum((abs(zeta(-α - 2m))) * 2^2m / factorial(2m) for m in Arb.(1:10))
+        end
 
         # Enclosure of inv(abs(gamma(1 + α) * sinpi(α / 2)))
 
-        WxI₂₁ = x^3 * C / 2
+        WxI₂₁ = x^2 * C / 2
 
-        WxI₂₂ = x^3 * invlogx * C / 4
+        WxI₂₂ = abs(x^2 * invlogx * C / 4)
 
-        WxI₂₃ = x^3 * invlogx * C * log1p(u0.c * x) / 2
+        WxI₂₃ = abs(x^2 * invlogx * C * log1p(u0.c * x) / 2)
 
         WxI₂ = WxI₂₁ + WxI₂₂ + WxI₂₃
 
+        # Combine the above
+
         WxI = WxI₁ + WxI₂
 
-        res = F(x) * WxI
+        res = abs(F(x)) * WxI
 
         return res
     end
