@@ -96,8 +96,12 @@ endpoints. If the derivative does contain zero it uses a zeroth order
 approximation instead. In the wide case it computes the endpoints at a
 reduced precision given by
 ```
-prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 ```
+where `min_prec` is `32` in general but `64` if `s` is close to an
+integer, determined by checking if the midpoint withing `1e-2` of an
+integer, in which case higher precision is typically needed.
+- **IMPROVE:** This could be tuned more, but is probably not needed.
 
 The case when `s` is a wide ball is in general handled by the
 underlying methods [`_clausens_polylog`](@ref) and
@@ -116,7 +120,13 @@ noticing that it is always bounded by `dzeta(s)`.
 function clausens(x::Arb, s::Union{Arb,Integer})
     if iswide(x)
         orig_prec = precision(x)
-        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+        f64_s = Float64(s)
+        if abs(f64_s - round(f64_s)) < 1e-2
+            min_prec = 64
+        else
+            min_prec = 32
+        end
+        prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
         x = setprecision(x, prec)
         # Compute derivative
         dclausens = clausenc(x, s - 1)
