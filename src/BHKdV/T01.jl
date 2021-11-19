@@ -346,9 +346,6 @@ allows us to enclose the integrand on the interval which then easily
 gives an enclosure of the integral by multiplying with the size of the
 interval.
 
-- **TODO:** This is correct except for the problem that `clausenc(x,
-  s)` currently doesn't give fully correct enclosures for `s`
-  overlapping 1. Once that is fixed this will give rigorous results.
 - **PROVE**: That the integrand indeed is increasing on the said
   interval.
 """
@@ -361,10 +358,11 @@ function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u
         @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
     end
 
-    return x -> begin
-        x = convert(Arb, x)
+    #Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that
+    #the lower endpoint is exactly -1
+    α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
-        α = Arb((-1, -1 + u0.ϵ))
+    return x::Arb -> begin
         integrand(t) =
             abs(
                 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) -
@@ -390,17 +388,6 @@ end
 Returns a function such that `T012(u0; δ0, δ1)(x; tol)` computes the
 integral \$T_{0,1,2}\$ from the paper using the prescribed tolerance
 in the integration.
-
-**FIXME:** This currently assumes that
-```
-clausenc(x * (1 - t), s) + clausenc(x * (1 + t), s) - 2clausenc(x * t, s)
-```
-and its derivatives up to the fourth one are monotonic in `s`. This is
-true for most of the interval but there are some points where it
-doesn't hold. One solution would be to prove that this only happens at
-some places, isolate them and handle them separately. This might be
-tedious though since we would have to do it for all required
-derivatives. The point where it happens does depend on `x`.
 """
 function T012(
     u0::BHKdVAnsatz,
@@ -416,9 +403,8 @@ function T012(
         @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
     end
 
-    # Lower and upper bounds of s = -α
-    s_l = 1 - u0.ϵ
-    s_u = one(Arb)
+    # Enclosure of -α so that the upper bound is exactly 1
+    mα = 1 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     # Integration limits
     a = δ0
@@ -426,31 +412,13 @@ function T012(
 
     return (x::Arb; tol = Arb(1e-5)) -> begin
         integrand(t) = begin
-            # FIXME: Currently we assume monotonicity in s, including for
-            # all derivatives.
-            xmxt = x * (1 - t)
-            xpxt = x * (1 + t)
             xt = x * t
 
-            term_l = abs(clausenc(xmxt, s_l) + clausenc(xpxt, s_l) - 2clausenc(xt, s_l))
-            term_u = abs(clausenc(xmxt, s_u) + clausenc(xpxt, s_u) - 2clausenc(xt, s_u))
+            term = abs(
+                clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(xt, mα),
+            )
 
-            if t isa ArbSeries
-                # Same as
-                #coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
-                #term_union = ArbSeries(coefficients)
-                # but using inplace arithmetic
-                term_union = zero(t)
-                for i = 0:Arblib.degree(t)
-                    Arblib.union!(Arblib.ref(term_union, i), Arblib.ref(term_l, i), Arblib.ref(term_u, i))
-                end
-                term_union.arb_poly.length = Arblib.degree(t) + 1
-
-            else
-                term_union = union(term_l, term_u)
-            end
-
-            return term_union * t * log(u0.c + inv(xt))
+            return term * t * log(u0.c + inv(xt))
         end
 
         res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)

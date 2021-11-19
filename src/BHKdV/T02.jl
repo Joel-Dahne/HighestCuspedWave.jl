@@ -970,45 +970,21 @@ Arb.
 
 Notice that the expression inside the absolute value is always
 positive, so we can remove the absolute value.
-
-**FIXME:** This currently assumes that
-```
-clausenc(y - x, s) + clausenc(y + x, s) - 2clausenc(y, s)
-```
-and its derivatives up to the fourth one are monotonic in `s`. This is
-true for most of the interval but there are some points where it
-doesn't hold. One solution would be to prove that this only happens at
-some places, isolate them and handle them separately. This might be
-tedious though since we would have to do it for all required
-derivatives. The point where it happens does depend on `x`.
 """
 function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     # Lower and upper bounds of s = -α
     s_l = 1 - u0.ϵ
     s_u = one(Arb)
 
+    # Enclosure of -α so that the upper bound is exactly 1
+    mα = 1 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+
     # Upper integration limit
     b = Arb(π)
 
     return (x::Arb, a::Arb = x + δ2; tol = Arb(1e-5)) -> begin
-        integrand(y) = begin
-            # FIXME: Currently we assume monotonicity in s, including for
-            # all derivatives.
-            ymx = y - x
-            ypx = y + x
-
-            term_l = clausenc(ymx, s_l) + clausenc(ypx, s_l) - 2clausenc(y, s_l)
-            term_u = clausenc(ymx, s_u) + clausenc(ypx, s_u) - 2clausenc(y, s_u)
-
-            if y isa ArbSeries
-                coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
-                term_union = ArbSeries(coefficients)
-            else
-                term_union = union(term_l, term_u)
-            end
-
-            return term_union * u0.w(y)
-        end
+        integrand(y) =
+            (clausenc(y - x, mα) + clausenc(y + x, mα) - 2clausenc(y, mα)) * u0.w(y)
 
         res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
 
