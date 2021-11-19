@@ -294,43 +294,33 @@ we make use of the fact that this converges to
 ```
 2 / π^2 * clausencmzeta(x, 2, 1)
 ```
-, which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
-evaluate this function and add error bounds for
-```
-a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) - 2 / π^2 * clausencmzeta(x, 2, 1)
-```
-valid for the entire range `α ∈ (-1, -1 + u0.ϵ]`.
+, see [`lemma_bhkdv_main_term_limit`](@ref), which is the main term
+for `BHAnsatz`, as `α -> -1`.
 
-For now we compute the value for `α = -1 + u0.ϵ` and take the union of
-this result and the one computed with the limiting expression. This
-works in practice since we have a monotone convergence.
+Combining the above with [`lemma_bhkdv_monotonicity_alpha`](@ref) we
+notice that it is enough to evaluate the limiting expression as well
+as at `α = -1 + u0.ϵ` to get an enclosure.
 
-This approach also works for `ArbSeries`, though it is currently less
-clear if we have the same monotone convergence, probably we do.
-
-- **TODO:** Compute rigorous error bounds. Possibly by proving the
-    monotonicity of the error.
+- **FIXME:** The above approach doesn't work directly for `ArbSeries`
+because we don't have monotonicity on `α` for all the derivatives.
+However for now we still compute at the endpoints and take the union,
+this means that the enclosure will not be correct for all value of `x`.
 """
 function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
     # Main term
 
-    # Approximation
-    res = 2 / Arb(π)^2 * clausencmzeta(x, 2, 1)
+    # Compute limiting expression and at upper bound for α
+    res_lower = 2 / Arb(π)^2 * clausencmzeta(x, 2, 1)
+    res_upper = let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
+        a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
+    end
 
-    # Add error bounds
-    # TODO: Implement rigorous bounds
-    @warn "Non-rigorous bounds implemented for main term" maxlog = 1
-    error = let α = -1 + u0.ϵ
-        a0 = finda0(α)
-        p0 = 1 + α + (1 + α)^2 / 2
-        res2 = a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
-
-        if x isa Arb
-            res = union(res, res2)
-        elseif x isa ArbSeries
-            coefficients = union.(Arblib.coeffs(res), Arblib.coeffs(res2))
-            res = ArbSeries(coefficients)
-        end
+    if x isa Arb
+        res = Arb((res_lower, res_upper))
+    elseif x isa ArbSeries
+        @warn "Non-rigorous bounds for main term with ArbSeries" maxlog = 1
+        coefficients = union.(Arblib.coeffs(res_lower), Arblib.coeffs(res_upper))
+        res = ArbSeries(coefficients)
     end
 
     # Tail term
