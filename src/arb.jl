@@ -222,9 +222,17 @@ If `x[0]` contains zero then all non-constant terms are set to `NaN`,
 otherwise either `-x` or `x` is returned depending on the sign of x.
 """
 function Base.abs(x::ArbSeries)
-    if Arblib.contains_zero(x[0])
-        return ArbSeries([abs(x[0]); fill(Arb(NaN), Arblib.degree(x))])
-    elseif x[0] < 0
+    if Arblib.contains_zero(Arblib.ref(x, 0))
+        res = zero(x)
+        Arblib.abs!(Arblib.ref(res, 0), Arblib.ref(x, 0))
+        for i = 1:Arblib.degree(x)
+            Arblib.indeterminate!(Arblib.ref(res, i))
+        end
+        # Since we manually set the coefficients of the polynomial we
+        # need to also manually set the degree.
+        res.arb_poly.length = Arblib.degree(x) + 1
+        return res
+    elseif Arblib.isnegative(Arblib.ref(x, 0))
         return -x
     else
         return x
