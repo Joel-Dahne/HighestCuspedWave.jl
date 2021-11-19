@@ -197,44 +197,16 @@ W(x) * I₁₂ = -inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
     ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
 ```
 where the integral is taken from `1` to `π / x`. The factor `sinpi(α /
-2)` converges to `-1` and can be enclosed directly. A primitive
-function for the integral is given by
-```
--((1 - t)^α * (t - 1)^-α * beta_inc(1 - α, 0, 1 - t)) / α +
-(
-    (α - 1) * (1 - t)^α * (t - 1)^-α * beta_inc(2 - α, 0, 1 - t) +
-    t^-α * (
-        2α * t +
-        (α - 1)^2 * t^α * beta_inc(1 - α, 0, 1 + t) +
-        (1 - α) * (
-            α * t^α * beta_inc(2 - α, 0, 1 + t) +
-            (
-                -2α * t +
-                (t - 1)^-α * t^α * (α * t - 1) +
-                (t / (1 + t))^α * (1 + α * t)
-            ) * log(t)
-        )
-    ) / α
-) / (α - 1)^2
-```
-This comes from
-```
-FullSimplify[Integrate[((t - 1)^(-a - 1) + (t + 1)^(-a - 1) - 2 t^(-a - 1))*t*Log[t], t]]
-```
-This gives us that the integral from `1` to `π / x` is given by
-```
-LONG EXPRESSION
-```
-From which we get
-```
-W(x) * I₁₂ =
-```
-- **TODO:** Finish this. Some more notes are given in the code below,
-  implementation of the primitive function and also other variants of
-  the primitive function. Write down the expression for the integral
-  and check it. Simplify it and expand in `x` if needed. Determine the
-  limit and figure out how to bound it. The expression uses complex
-  arithmetic, if possible we should probably avoid that.
+2)` converges to `-1` and can be enclosed directly.
+
+**TODO:** The primitive function of the integrand can be computed
+explicitly and from this and explicit expression for the integral can
+be computed. We expect `W(x) * I₁₁` to go to a non-zero limit so the
+integral should thus behave similarly to `inv(log(x)) * inv(1 -
+x^p0)`. However the expression you get contains several special
+functions and is very involved, making it difficult to compute the
+limit. The code below implements the primitive function in several
+different versions but doesn't handle the limit yet.
 
 ## Handling `I₁₃`
 For the third integral we only need to bound the absolute value and we
@@ -507,102 +479,287 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
             -factor_I₁ * integral_I₁₁
         end
 
+        # TODO: This is not finished and currently contains several
+        # different implementations of the primitive function.
+        WxI₁₂ = let α = Arb(-1 + u0.ϵ)
+            # First version
+            begin
+                # Primitive function of full integral
+                primitive_I12_v1(t) =
+                    -((1 - t)^α * (t - 1)^-α * beta_inc(1 - α, zero(t), 1 - t)) / α +
+                    (
+                        (α - 1) * (1 - t)^α * (t - 1)^-α * beta_inc(2 - α, zero(t), 1 - t) +
+                        t^-α * (
+                            2α * t +
+                            (α - 1)^2 * t^α * beta_inc(1 - α, zero(t), 1 + t) +
+                            (1 - α) * (
+                                α * t^α * beta_inc(2 - α, zero(t), 1 + t) +
+                                (
+                                    -2α * t +
+                                    (t - 1)^-α * t^α * (α * t - 1) +
+                                    (t / (1 + t))^α * (1 + α * t)
+                                ) * log(t)
+                            )
+                        ) / α
+                    ) / (α - 1)^2
+            end
 
-        WxI₁₂ = let α = Arb(-1 + u0.ϵ) # FIXME: For testing TODO:
-            # Finish this, the primitive functions seems to be correct
-            # at least.
-
-            primitive_I₁₂(t) =
-                -((1 - t)^α * (t - 1)^-α * beta_inc(1 - α, zero(t), 1 - t)) / α +
-                (
-                    (α - 1) * (1 - t)^α * (t - 1)^-α * beta_inc(2 - α, zero(t), 1 - t) +
-                    t^-α * (
-                        2α * t +
-                        (α - 1)^2 * t^α * beta_inc(1 - α, zero(t), 1 + t) +
-                        (1 - α) * (
-                            α * t^α * beta_inc(2 - α, zero(t), 1 + t) +
-                            (
-                                -2α * t +
-                                (t - 1)^-α * t^α * (α * t - 1) +
-                                (t / (1 + t))^α * (1 + α * t)
-                            ) * log(t)
-                        )
-                    ) / α
-                ) / (α - 1)^2
-
-            # Primitive function of (t - 1)^(-α - 1) * t * log(t)
-            primitive_I12_1(t) =
-                t^-α * hypgeom_2f1(α, α, 1 + α, inv(t)) / ((α - 1) * α^2) -
-                (t - 1)^(1 - α) / (α - 1)^2 -
-                (t - 1)^-α * (α * t - 1) * log(t) / ((α - 1) * α)
-
-            primitive_I12_1_one = hypgeom_2f1(α, α, 1 + α, Arb(1)) / ((α - 1) * α^2)
-
-            # Primitive function of (t + 1)^(-α - 1) * t * log(t)
-            primitive_I12_2(t) =
-                -(t + 1)^(1 - α) * hypgeom_2f1(Acb(1), Acb(1 - α), Acb(2 - α), Acb(1 + t)) /
-                ((α - 1) * α) +
-                (t + 1)^(2 - α) * hypgeom_2f1(Acb(1), Acb(2 - α), Acb(3 - α), Acb(1 + t)) /
-                ((α - 2) * (α - 1)) -
-                (t + 1)^-α * (1 + α * t) * log(t) / ((α - 1) * α)
-
-            primitive_I12_2_one =
-                -2^(1 - α) * hypgeom_2f1(Acb(1), Acb(1 - α), Acb(2 - α), Acb(2)) /
-                ((α - 1) * α) +
-                2^(2 - α) * hypgeom_2f1(Acb(1), Acb(2 - α), Acb(3 - α), Acb(2)) /
-                ((α - 2) * (α - 1))
-
-            primitive_I12_3(t) = 2t^(1 - α) / (α - 1)^2 + 2t^(1 - α) * log(t) / (α - 1)
-
-            #2t^(1 - α) * (1 + (α - 1) * log(t)) / (α - 1)^2
-
-            primitive_I12_3_one = 2 / (α - 1)^2
-
-            primitive_I12(t) = begin
-                # All terms with log(t) above.
-                # TODO: Explicitly handle the cancellations
-                # (t - 1)^-α - (t + 1)^-α is around -2
-                # (t - 1)^-α + (t + 1)^-α - 2t^-α is -0.00015?
-                a =
-                    log(t) * (
-                        ((t - 1)^-α - (t + 1)^-α) / α -
-                        t * ((t - 1)^-α + (t + 1)^-α - 2t^-α)
-                    ) / (α - 1)
-                #@show t * ((t - 1)^-α + (t + 1)^-α - 2t^-α)
-
-                # TODO: Handle cancellations between b1, b2 and c
-                b1 =
+            # Second version
+            begin
+                # Primitive function of (t - 1)^(-α - 1) * t * log(t)
+                primitive_I12_v2_1(t) =
                     t^-α * hypgeom_2f1(α, α, 1 + α, inv(t)) / ((α - 1) * α^2) -
-                    (t - 1)^(1 - α) / (α - 1)^2
+                    (t - 1)^(1 - α) / (α - 1)^2 -
+                    (t - 1)^-α * (α * t - 1) * log(t) / ((α - 1) * α)
 
-                b2 =
+                primitive_I12_v2_1_one =
+                    hypgeom_2f1(α, α, 1 + α, Arb(1)) / ((α - 1) * α^2)
+
+                # Primitive function of (t + 1)^(-α - 1) * t * log(t)
+                primitive_I12_v2_2(t) =
                     -(t + 1)^(1 - α) *
                     hypgeom_2f1(Acb(1), Acb(1 - α), Acb(2 - α), Acb(1 + t)) /
                     ((α - 1) * α) +
                     (t + 1)^(2 - α) *
                     hypgeom_2f1(Acb(1), Acb(2 - α), Acb(3 - α), Acb(1 + t)) /
+                    ((α - 2) * (α - 1)) -
+                    (t + 1)^-α * (1 + α * t) * log(t) / ((α - 1) * α)
+
+                primitive_I12_v2_2_one =
+                    -2^(1 - α) * hypgeom_2f1(Acb(1), Acb(1 - α), Acb(2 - α), Acb(2)) /
+                    ((α - 1) * α) +
+                    2^(2 - α) * hypgeom_2f1(Acb(1), Acb(2 - α), Acb(3 - α), Acb(2)) /
                     ((α - 2) * (α - 1))
 
-                c = 2t^(1 - α) / (α - 1)^2
+                # Primitive function of -2t^(-α - 1) * t * log(t)
+                primitive_I12_v2_3(t) =
+                    2t^(1 - α) / (α - 1)^2 + 2t^(1 - α) * log(t) / (α - 1)
 
-                #@show a (b1 + b2 + c)
+                primitive_I12_v2_3_one = 2 / (α - 1)^2
 
-                a + b1 + b2 + c
+                # Primitive function of whole integral
+                primitive_I12_v2(t) = begin
+                    # All terms with log(t) above.
+                    # TODO: Explicitly handle the cancellations
+                    # (t - 1)^-α - (t + 1)^-α is around -2
+                    # (t - 1)^-α + (t + 1)^-α - 2t^-α is -0.00015?
+                    a =
+                        log(t) * (
+                            ((t - 1)^-α - (t + 1)^-α) / α -
+                            t * ((t - 1)^-α + (t + 1)^-α - 2t^-α)
+                        ) / (α - 1)
+
+                    # TODO: Handle cancellations between b1, b2 and c
+                    b1 =
+                        t^-α * hypgeom_2f1(α, α, 1 + α, inv(t)) / ((α - 1) * α^2) - (t - 1)^(1 - α) / (α - 1)^2
+
+                    b2 =
+                        -(t + 1)^(1 - α) * hypgeom_2f1(
+                            Acb(1),
+                            Acb(1 - α),
+                            Acb(2 - α),
+                            Acb(1 + t),
+                        ) / ((α - 1) * α) +
+                        (t + 1)^(2 - α) * hypgeom_2f1(
+                            Acb(1),
+                            Acb(2 - α),
+                            Acb(3 - α),
+                            Acb(1 + t),
+                        ) / ((α - 2) * (α - 1))
+
+                    c = 2t^(1 - α) / (α - 1)^2
+
+                    a + b1 + b2 + c
+                end
+
+                primitive_I12_v2_one =
+                    primitive_I12_v2_1_one + primitive_I12_v2_2_one + primitive_I12_v2_3_one
+
             end
 
-            primitive_I12_one =
-                primitive_I12_1_one + primitive_I12_2_one + primitive_I12_3_one
+            # Third version
+            begin
+                # Primitive function of (t - 1)^(-α - 1) * t * log(t)
+                primitive_I12_v3_1(t) =
+                    beta_inc(Acb(α), Acb(1 - α), Acb(1 / t)) / ((α - 1) * α) -
+                    (t - 1)^(1 - α) / (α - 1)^2 -
+                    (t - 1)^-α * (α * t - 1) * log(t) / ((α - 1) * α)
 
-            a = primitive_I12_1(Arb(π / x))# - primitive_I12_1_one
-            b = real(primitive_I12_2(Arb(π / x)))# - primitive_I12_2_one
-            c = primitive_I12_3(Arb(π / x))# - primitive_I12_3_one
+                primitive_I12_v3_1_one = beta_inc(α, 1 - α, Arb(1)) / ((α - 1) * α)
 
-            #@show a + b + c
-            #@show primitive_I12(π / x)
+                # Primitive function of (t + 1)^(-α - 1) * t * log(t)
+                primitive_I12_v3_2(t) =
+                    beta_inc(Acb(1 - α), Acb(0), Acb(1 + t)) / α -
+                    beta_inc(Acb(2 - α), Acb(0), Acb(1 + t)) / (α - 1) -
+                    (1 + t)^(-α) * (1 + α * t) * log(t) / (α * (α - 1))
 
-            #@show a b c
+                primitive_I12_v3_2_one =
+                    beta_inc(Acb(1 - α), Acb(0), Acb(2)) / α -
+                    beta_inc(Acb(2 - α), Acb(0), Acb(2)) / (α - 1)
 
-            integral_I₁₂ = primitive_I12(π / x) - primitive_I12_one
+                # Primitive function of -2t^(-α - 1) * t * log(t)
+                primitive_I12_v3_3(t) =
+                    2t^(1 - α) / (α - 1)^2 + 2t^(1 - α) * log(t) / (α - 1)
+
+                primitive_I12_v3_3_one = 2 / (α - 1)^2
+
+                # Integral on [1, t], putting similar terms together
+                integral_I12_v3(t) = begin
+                    # Integral of (t - 1)^(-α - 1) * t * log(t)
+                    part1_v3 =
+                        (
+                            (beta_inc(α, 1 - α, 1 / t) - beta_inc(α, 1 - α, one(t))) / ((α - 1) * α)
+                        ) - (t - 1)^(1 - α) / (α - 1)^2 -
+                        (t - 1)^-α * (α * t - 1) * log(t) / ((α - 1) * α)
+
+                    # Integral of (t + 1)^(-α - 1) * t * log(t)
+                    part2_v3 =
+                        (
+                            beta_inc(Acb(1 - α), Acb(0), Acb(1 + t)) -
+                            beta_inc(Acb(1 - α), Acb(0), Acb(2))
+                        ) / α -
+                        (
+                            beta_inc(Acb(2 - α), Acb(0), Acb(1 + t)) -
+                            beta_inc(Acb(2 - α), Acb(0), Acb(2))
+                        ) / (α - 1) -
+                        (1 + t)^(-α) * (1 + α * t) * log(t) / (α * (α - 1))
+
+                    # Integral of t^(-α - 1) * t * log(t)
+                    part3_v3 =
+                        2(t^(1 - α) - 1) / (α - 1)^2 + 2t^(1 - α) * log(t) / (α - 1)
+                    @show part2_v3
+                    return part1_v3 + part2_v3 + part3_v3
+                end
+
+                # Like integral_I12_v3 above but with a different order for the terms
+                integral_I12_v3_reorder(t, α = -1 + u0.ϵ) = begin
+                    part_beta =
+                        (
+                            (beta_inc(α, 1 - α, 1 / t) - beta_inc(α, 1 - α, one(t))) / ((α - 1) * α)
+                        ) +
+                        (
+                            beta_inc(Acb(1 - α), Acb(0), Acb(1 + t)) -
+                            beta_inc(Acb(1 - α), Acb(0), Acb(2))
+                        ) / α
+
+                    part_log =
+                        ((t - 1)^-α - (t + 1)^-α) * log(t) / (α * (α - 1)) -
+                        ((t - 1)^-α + (t + 1)^-α - 2t^-α) * t * log(t) / (α - 1)
+
+                    part_rest =
+                        -(t - 1)^(1 - α) / (α - 1)^2 -
+                        (
+                            beta_inc(Acb(2 - α), Acb(0), Acb(1 + t)) -
+                            beta_inc(Acb(2 - α), Acb(0), Acb(2))
+                        ) / (α - 1) + 2t^(1 - α) / (α - 1)^2
+
+                    part_constant = -2 / (α - 1)^2
+
+                    return part_beta + part_log + part_rest + part_constant
+                end
+
+                # Like integral_I12_v3 above but replacing the beta
+                # functions using beta_inc(a, b, x) = x^a / a *
+                # hypgeom_2f1(a, 1 - b, a + 1, x)
+                integral_I12_v3_2F1(t) =
+                    let
+                        # Integral of (t - 1)^(-α - 1) * t * log(t)
+                        part1_v3 =
+                            (
+                                (
+                                    t^-α * hypgeom_2f1(α, α, α + 1, 1 / t) -
+                                    hypgeom_2f1(α, α, α + 1, one(t))
+                                ) / ((α - 1) * α^2)
+                            ) - (t - 1)^(1 - α) / (α - 1)^2 -
+                            (t - 1)^-α * (α * t - 1) * log(t) / ((α - 1) * α)
+
+                        # Integral of (t + 1)^(-α - 1) * t * log(t)
+                        part2_v3 =
+                            (
+                                (1 + t)^(1 - α) * hypgeom_2f1(
+                                    Acb(1 - α),
+                                    Acb(1),
+                                    Acb(2 - α),
+                                    Acb(1 + t),
+                                ) -
+                                2^(1 - α) *
+                                hypgeom_2f1(Acb(1 - α), Acb(1), Acb(2 - α), Acb(2))
+                            ) / ((1 - α) * α) -
+                            (
+                                (1 + t)^(2 - α) * hypgeom_2f1(
+                                    Acb(2 - α),
+                                    Acb(1),
+                                    Acb(3 - α),
+                                    Acb(1 + t),
+                                ) -
+                                2^(2 - α) *
+                                hypgeom_2f1(Acb(2 - α), Acb(1), Acb(3 - α), Acb(2))
+                            ) / ((2 - α) * (α - 1)) -
+                            (1 + t)^(-α) * (1 + α * t) * log(t) / (α * (α - 1))
+
+                        # Integral of t^(-α - 1) * t * log(t)
+                        part3_v3 =
+                            2(t^(1 - α) - 1) / (α - 1)^2 + 2t^(1 - α) * log(t) / (α - 1)
+                        @show part2_v3
+                        return part1_v3 + part2_v3 + part3_v3
+                    end
+            end
+
+
+
+            # Fourth version, with α = -1
+            begin
+                # Like integral_I12_v3_reorder above but with α = -1
+                integral_I12_v4(t) = begin
+                    part_beta = let α = Arb(-1 + 1e-5 * u0.ϵ)
+                        (beta_inc(α, Arb(2), 1 / t) - beta_inc(α, Arb(2), one(t))) / 2 - (
+                            beta_inc(Acb(2), Acb(0), Acb(1 + t)) -
+                            beta_inc(Acb(2), Acb(0), Acb(2))
+                        )
+                    end
+
+                    part_log = -log(t)
+
+                    part_rest =
+                        (t^2 + 2t) / 4 + real(beta_inc(Acb(3), Acb(0), Acb(1 + t))) / 2
+
+                    part_constant = Arb(5 // 4)
+
+                    return part_beta + part_log + part_rest + part_constant
+                end
+            end
+
+            # Integral of (t - 1)^(-α - 1) * t * log(t)
+            part1_v2 = primitive_I12_v2_1(Arb(π / x)) - primitive_I12_v2_1_one
+            # Integral of (t + 1)^(-α - 1) * t * log(t)
+            part2_v2 = real(primitive_I12_v2_2(Arb(π / x))) - primitive_I12_v2_2_one
+            # Integral of t^(-α - 1) * t * log(t)
+            part3_v2 = primitive_I12_v2_3(Arb(π / x)) - primitive_I12_v2_3_one
+
+            # Integral of (t - 1)^(-α - 1) * t * log(t)
+            part1_v3 = primitive_I12_v3_1(Arb(π / x)) - primitive_I12_v3_1_one
+            # Integral of (t + 1)^(-α - 1) * t * log(t)
+            part2_v3 = real(primitive_I12_v3_2(Arb(π / x))) - primitive_I12_v3_2_one
+            # Integral of t^(-α - 1) * t * log(t)
+            part3_v3 = primitive_I12_v3_3(Arb(π / x)) - primitive_I12_v3_3_one
+
+            # Full integral from parts
+            I12_1 = part1_v2 + part2_v2 + part3_v2
+
+            # Full integral from full primitive functions
+            I12_2 = primitive_I12_v2(π / x) - primitive_I12_v2_one
+
+            I12_3 = integral_I12_v3(π / x)
+
+            I12_4 = integral_I12_v3_reorder(π / x)
+
+            I12_5 = integral_I12_v4(π / x)
+
+            I12_6 = integral_I12_v3_2F1(π / x)
+
+            # Compute the actual value of W(x) * I₁₂. The above is
+            # mostly for testing.
+            integral_I₁₂ = I12_2
 
             term = let p0 = (1 + α) + (1 + α)^2 / 2
                 integral_I₁₂ / ((1 - x^p0) * log(x))
