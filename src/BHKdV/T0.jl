@@ -239,59 +239,66 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             ) / x
 
         primitive_mul_x(t) =
-            (
-                clausencmzeta(x * (1 - t), s2) + clausencmzeta(x * (1 + t), s2) -
-                2clausencmzeta(x * t, s2)
-            ) / x -
-            t * (
-                clausens(x * (1 - t), s1) - clausens(x * (1 + t), s1) +
-                2clausens(x * t, s1)
-            )
+            let
+                # Compute enclosure of all clausenc terms using ArbSeries
+                term1_f(x) =
+                    (
+                        clausencmzeta(x * (1 - t), s2) + clausencmzeta(x * (1 + t), s2) - 2clausencmzeta(x * t, s2)
+                    ) / x
 
-        x_series = ArbSeries([x, 1])
+                term1 = Arb(
+                    ArbExtras.extrema_series(term1_f, getinterval(x)..., degree = 0)[1:2],
+                )
+
+                # Compute enclosure of all clausens terms using ArbSeries
+                term2_f(x) =
+                    t * (
+                        clausens(x * (1 - t), s1) - clausens(x * (1 + t), s1) +
+                        2clausens(x * t, s1)
+                    )
+
+                term2 = Arb(
+                    ArbExtras.extrema_series(term2_f, getinterval(x)..., degree = 0)[1:2],
+                )
+
+                return term1 - term2
+            end
 
         # primitive_mul_x(b) - primitive_mul_x(a)
-        primitive_bma_mul_x(a, b) = begin
-            # Compute enclosure of all clausenc terms using ArbSeries
-            term1_f(x) =
-                (
+        primitive_bma_mul_x(a, b) =
+            let
+                # Compute enclosure of all clausenc terms using ArbSeries
+                term1_f(x) =
                     (
-                        clausencmzeta(x * (1 - b), s2) + clausencmzeta(x * (1 + b), s2) - 2clausencmzeta(x * b, s2)
-                    ) - (
-                        clausencmzeta(x * (1 - a), s2) + clausencmzeta(x * (1 + a), s2) - 2clausencmzeta(x * a, s2)
-                    )
-                ) / x
-            term1 = Arb(
-                ArbExtras.extrema_series(
-                    term1_f,
-                    getinterval(x)...,
-                    degree = 0,
-                    verbose = false,
-                )[1:2],
-            )
-
-            # Compute enclosure of all clausens terms using ArbSeries
-            term2_f(x) = (
-                b * (
-                    clausens(x * (1 - b), s1) - clausens(x * (1 + b), s1) +
-                    2clausens(x * b, s1)
-                ) -
-                a * (
-                    clausens(x * (1 - a), s1) - clausens(x * (1 + a), s1) +
-                    2clausens(x * a, s1)
+                        (
+                            clausencmzeta(x * (1 - b), s2) +
+                            clausencmzeta(x * (1 + b), s2) - 2clausencmzeta(x * b, s2)
+                        ) - (
+                            clausencmzeta(x * (1 - a), s2) +
+                            clausencmzeta(x * (1 + a), s2) - 2clausencmzeta(x * a, s2)
+                        )
+                    ) / x
+                term1 = Arb(
+                    ArbExtras.extrema_series(term1_f, getinterval(x)..., degree = 0)[1:2],
                 )
-            )
-            term2 = Arb(
-                ArbExtras.extrema_series(
-                    term2_f,
-                    getinterval(x)...,
-                    degree = 0,
-                    verbose = false,
-                )[1:2],
-            )
 
-            return term1 - term2
-        end
+                # Compute enclosure of all clausens terms using ArbSeries
+                term2_f(x) = (
+                    b * (
+                        clausens(x * (1 - b), s1) - clausens(x * (1 + b), s1) +
+                        2clausens(x * b, s1)
+                    ) -
+                    a * (
+                        clausens(x * (1 - a), s1) - clausens(x * (1 + a), s1) +
+                        2clausens(x * a, s1)
+                    )
+                )
+                term2 = Arb(
+                    ArbExtras.extrema_series(term2_f, getinterval(x)..., degree = 0)[1:2],
+                )
+
+                return term1 - term2
+            end
 
         if b < π && !to_endpoint
             # We integrate on [a, b]
