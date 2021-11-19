@@ -436,13 +436,21 @@ function T012(
             term_u = abs(clausenc(xmxt, s_u) + clausenc(xpxt, s_u) - 2clausenc(xt, s_u))
 
             if t isa ArbSeries
-                coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
-                term_union = ArbSeries(coefficients)
+                # Same as
+                #coefficients = union.(Arblib.coeffs(term_l), Arblib.coeffs(term_u))
+                #term_union = ArbSeries(coefficients)
+                # but using inplace arithmetic
+                term_union = zero(t)
+                for i = 0:Arblib.degree(t)
+                    Arblib.union!(Arblib.ref(term_union, i), Arblib.ref(term_l, i), Arblib.ref(term_u, i))
+                end
+                term_union.arb_poly.length = Arblib.degree(t) + 1
+
             else
                 term_union = union(term_l, term_u)
             end
 
-            return term_union * t * log(u0.c + inv(t * x))
+            return term_union * t * log(u0.c + inv(xt))
         end
 
         res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
