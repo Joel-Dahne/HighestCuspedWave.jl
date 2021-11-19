@@ -183,6 +183,33 @@ clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
 )
 
 """
+    clausens(x::ArbSeries, s)
+
+Compute the Taylor series of the Clausen function \$S_s(x)\$.
+
+It's computed by directly computing the Taylor coefficients by
+differentiating `clausens` and then composing with `x`.
+"""
+function clausens(x::ArbSeries, s)
+    res = zero(x)
+    x₀ = x[0]
+
+    for i = 0:Arblib.degree(x)
+        if i % 2 == 0
+            res[i] = (-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
+        else
+            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
+        end
+    end
+
+    # Compose the Taylor series for the result with that of the input
+    x_tmp = copy(x)
+    x_tmp[0] = 0
+
+    return Arblib.compose(res, x_tmp)
+end
+
+"""
     clausens(x, s, β)
 
 Compute \$S_s^{(β)}(x)\$, that is `clausens(x, s)` differentiated `β`
