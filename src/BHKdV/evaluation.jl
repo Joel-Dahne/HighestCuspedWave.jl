@@ -297,9 +297,9 @@ we make use of the fact that this converges to
 , see [`lemma_bhkdv_main_term_limit`](@ref), which is the main term
 for `BHAnsatz`, as `α -> -1`.
 
-Combining the above with [`lemma_bhkdv_monotonicity_alpha`](@ref) we
-notice that it is enough to evaluate the limiting expression as well
-as at `α = -1 + u0.ϵ` to get an enclosure.
+Combining the above with [`lemma_bhkdv_main_term_monotonicity`](@ref)
+we notice that it is enough to evaluate the limiting expression as
+well as at `α = -1 + u0.ϵ` to get an enclosure.
 
 - **FIXME:** The above approach doesn't work directly for `ArbSeries`
 because we don't have monotonicity on `α` for all the derivatives.
@@ -469,93 +469,51 @@ we make use of the fact that this converges to
 ```
 -2 / π^2 * clausencmzeta(x, 3, 1)
 ```
-, which is the main term for `BHAnsatz`, as `α -> -1`. We therefore
-evaluate this function and bound the error.
+, see [`lemma_bhkdv_main_term_H_limit`](@ref), which is `H` applied to
+the the main term for `BHAnsatz`, as `α -> -1`.
 
-For now we compute the value for `α = -1 + u0.ϵ` and take the union of
-this result and the one computed with the limiting expression. This
-works in practice since we have a monotone convergence.
+Combining the above with
+[`lemma_bhkdv_main_term_H_monotonicity`](@ref) we notice that it is
+enough to evaluate the limiting expression as well as at `α = -1 +
+u0.ϵ` to get an enclosure.
 
-This approach also works for `ArbSeries`, though it is currently less
-clear if we have the same monotone convergence, probably we do.
-
-- **TODO:** Compute rigorous error bounds. Possibly by proving the
-    monotonicity of the error.
+- **FIXME:** The above approach doesn't work directly for `ArbSeries`
+because we don't have monotonicity on `α` for all the derivatives.
+However for now we still compute at the endpoints and take the union,
+this means that the enclosure will not be correct for all value of `x`.
 
 For the tail term we need to make sure that we correctly handle the
-fact that the transform depends on the value of `α`.
-
-For the Fourier terms we do this directly, the transformation takes
-`cos(n * x)` to `-n^α * cos(n * x)` and in this case we just let `α`
-be a ball containing `(-1, -1 + u0.ϵ]`.
-
-For the Clausen functions we have to be a bit more careful. The
-transformation takes `clausenc(x, s)` to `-clausenc(x, s - α)` but
-putting `α` as a ball doesn't give good enclosures. It gives a large
-overestimations, in particular when `s - α` is close to an integer,
-and fails when it overlaps with an integer.
-
-For now we take the same approach as for the main term, compute with
-`α = -1 + u0.ϵ` and take the union.
-
-- **FIXME:** The monotonicity holds when computing with `Arb` but not
-    when computing with `ArbSeries` for higher order terms. At least
-    this seems to be the case. So this doesn't give a rigorous bound
-    but probably does give good bounds in practice.
-- **TODO:** Compute rigorous error bounds. Proving the monotonicity of
-    the error would be great but might be hard in practice since one
-    of the coefficients of `u0.v0.v0` have a sign that differs.
+fact that the transform depends on the value of `α`. As long as `u0.ϵ`
+is sufficiently small we get good enough bounds by just using it as a
+ball directly.
 """
 function H(u0::BHKdVAnsatz{Arb}, ::Ball)
-    # Terms used when computing error bounds
-    α = -1 + u0.ϵ
-    a0 = finda0(α)
-    p0 = 1 + α + (1 + α)^2 / 2
-
     return x::Union{Arb,ArbSeries} -> begin
         # Main term
 
-        # Approximation
-        res = -2 / Arb(π)^2 * clausencmzeta(x, 3, 1)
+        # Compute limiting expression and at upper bound for α
+        res_lower = let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
+            -a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
+        end
+        res_upper = -2 / Arb(π)^2 * clausencmzeta(x, 3, 1)
 
-        # Add error bounds
-        @warn "No error bounds for main term" maxlog = 1
-        # TODO: Implement rigorous bounds
-        res2 = -a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
         if x isa Arb
-            res = union(res, res2)
+            res = Arb((res_lower, res_upper))
         elseif x isa ArbSeries
-            coefficients = union.(Arblib.coeffs(res), Arblib.coeffs(res2))
+            @warn "Non-rigorous bounds for main term with ArbSeries" maxlog = 1
+            coefficients = union.(Arblib.coeffs(res_lower), Arblib.coeffs(res_upper))
             res = ArbSeries(coefficients)
         end
 
         # Tail term
 
         # Clausen terms
-        clausen_term = zero(x)
-
-        # Approximation
-        for j = 1:u0.v0.v0.N0
-            term = clausencmzeta(x, 2 - u0.v0.v0.α + j * u0.v0.v0.p0)
-            clausen_term -= u0.v0.v0.a[j] * term
+        let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
+            for j = 1:u0.v0.v0.N0
+                term = clausencmzeta(x, 2 - u0.v0.v0.α + j * u0.v0.v0.p0)
+                res -= u0.v0.v0.a[j] * term
+            end
         end
-
-        # Add error bounds
-        @warn "Non-rigorous bounds implemented for Clausen terms" maxlog = 1
-        # TODO: Implement rigorous bounds
-        clausen_term2 = zero(x)
-        for j = 1:u0.v0.v0.N0
-            term = clausencmzeta(x, 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0)
-            clausen_term2 -= u0.v0.v0.a[j] * term
-        end
-        if x isa Arb
-            clausen_term = union(clausen_term, clausen_term2)
-        elseif x isa ArbSeries
-            coefficients = union.(Arblib.coeffs(clausen_term), Arblib.coeffs(clausen_term2))
-            clausen_term = ArbSeries(coefficients)
-        end
-
-        res += clausen_term
 
         # Fourier terms
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
