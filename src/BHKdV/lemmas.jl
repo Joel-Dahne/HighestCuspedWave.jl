@@ -163,4 +163,4 @@ it for the `x` in the interval `[0, π]`.
 
 **PROVE:** Finish this proof.
 """
-lemma_bhkdv_main_term_limit() = true
+lemma_bhkdv_main_term_H_limit() = true
