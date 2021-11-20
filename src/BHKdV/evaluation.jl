@@ -758,6 +758,46 @@ function D(
 end
 
 """
+    F0_upper_bound(u0::BHKdVAnsatz{Arb})
+
+Returns a function such that the absolute value of
+`F0_upper_bound(u0)(x)` is an upper bound of the absolute value of
+`F0(u0)(x)`.
+
+More precisely this computes
+```
+D(u0)(x) / (u0.w(x) * u0.v0(x))
+```
+Since `u0.v0(x)` gives a lower bound of `u0(x)`, by
+[`lemma_bhkdv_monotonicity_alpha`](@ref), this gives a value which has
+the same sign as `F0(x)` but is larger in magnitude. This holds as
+long as `u0.v0(x)` is positive at least, which is easily checked.
+"""
+function F0_upper_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
+    f = D(u0, evaltype)
+
+    return x::Union{Arb,ArbSeries} -> begin
+        invweight = inv(u0.w(x))
+
+        isfinite(invweight) || return invweight
+
+        invu0v0 = inv(u0.v0(x))
+
+        isfinite(invu0v0) || return invu0v0
+
+        if (x isa Arb && !Arblib.ispositive(invu0v0)) ||
+           (x isa ArbSeries && !Arblib.ispositive(Arblib.ref(invu0v0, 0)))
+            error("expected u0.v0(x) to be positive, got inv(u0.v0(x)) = $invu0v0")
+        end
+
+        Du0 = f(x)
+
+        return Du0 * invu0v0 * invweight
+    end
+end
+
+
+"""
     F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
 
 Returns a function such that an **upper bound** of `F0(u0)(x)` is

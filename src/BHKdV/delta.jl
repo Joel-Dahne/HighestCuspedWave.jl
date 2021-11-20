@@ -9,9 +9,8 @@ The interval `[0, π]` is first split into three intervals, `[0, ϵ1]`,
    asymptotic expansion.
 2. On the second interval we use the asymptotic expansion together
    with [`ArbExtras.maximum_enclosure`](@ref).
-3. On the third interval we uses straight forward ball enclosures
-   together with [`ArbExtras.maximum_enclosure`](@ref).
-   - **TODO:** Implement this. For now we use an approximation
+3. On the third interval we use [`F0_upper_bound`](@ref) together with
+   [`ArbExtras.maximum_enclosure`](@ref).
 
 **IMPROVE:** We could make the choice of the tolerances used dynamic
 and not hard coded like now.
@@ -28,17 +27,13 @@ function delta0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-1"), verbose = false)
     verbose && @show m1
 
     # Bound on [ϵ1, ϵ2]
-
-    # Evaluate f at ϵ2 to get a lower bound for the maximum
-    fϵ2 = f(Arb(ϵ2))
-
     m2 = ArbExtras.maximum_enclosure(
         F0(u0, Asymptotic(), ϵ = 2Arb(ϵ2)),
         ϵ1,
         ϵ2,
         abs_value = true,
         log_bisection = true,
-        point_value_max = fϵ2,
+        point_value_max = f(Arb(ϵ2)),
         threaded = true,
         degree = -1,
         depth = 30,
@@ -51,7 +46,7 @@ function delta0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-1"), verbose = false)
     verbose && @show m2
 
     # Bound the value on [ϵ2, π]
-    g = F0(u0)
+    g = F0_upper_bound(u0)
 
     # Compute an approximation of the maximum. Take log-spaced points
     # on [ϵ2, 1e-1] and linearly space on [1e-1, π].
@@ -65,19 +60,22 @@ function delta0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-1"), verbose = false)
 
     m3_approx = maximum(abs.(ys))
 
-    # FIXME: Implement rigorous enclosure of maximum
-    @warn "non-rigorous approximation of non-asymptotic defect"
-    m3 = m3_approx
-    #m3 = ArbExtras.maximum_enclosure(
-    #    F0(u0),
-    #    ϵ2,
-    #    Arblib.ubound(Arb(π)),
-    #    degree = -1,
-    #    abs_value = true,
-    #    threaded = true;
-    #    rtol,
-    #    verbose,
-    #)
+    verbose && @show m3_approx
+
+    m3 = ArbExtras.maximum_enclosure(
+        g,
+        ϵ2,
+        ubound(Arb(π)),
+        degree = 4,
+        abs_value = true,
+        point_value_max = m3_approx,
+        threaded = true,
+        depth_start = 4,
+        maxevals = 100000,
+        depth = 30;
+        rtol,
+        verbose,
+    )
 
     verbose && @show m3
 
