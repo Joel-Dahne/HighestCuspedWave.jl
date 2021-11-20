@@ -59,7 +59,7 @@ function CB(
     # The evaluation of T0 doesn't support ArbSeries, but the
     # evaluation of u0 does. We can use ArbSeries to get a tighter
     # enclosure for u0.
-    f = T0_alternative(u0, skip_div_u0 = true)
+    f = T0(u0, skip_div_u0 = true)
 
     g(x) =
         let
