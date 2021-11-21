@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.0
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -7,8 +7,16 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     quote
+        local iv = try
+            Base.loaded_modules[Base.PkgId(
+                Base.UUID("6e696c72-6542-2067-7265-42206c756150"),
+                "AbstractPlutoDingetjes",
+            )].Bonds.initial_value
+        catch
+            b -> missing
+        end
         local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
     end
 end
@@ -33,7 +41,7 @@ $u_t + \left(\frac{u}{2}\right)_x = H[u]$
 
 where $H[u]$ is the Hilbert transform of $u$. For the details of the proof see the paper, this notebook focuses on the computer assisted parts.
 
-The wave in question looks roughtly as this
+The wave in question looks like this
 """
 
 # ╔═╡ 6c2a16c7-2bcf-4a2b-9466-38309a36b937
@@ -95,14 +103,21 @@ let xs = Arb.(range(-4, 4, length = 101))
         end
     end
     ys = u0(zero(Arb), Asymptotic()) .- ys
-    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "", linewidth = 2)
+    plot(
+        xs,
+        ys,
+        ribbon = Arblib.radius.(Arb, ys),
+        label = "",
+        linewidth = 2,
+        axis = ([], false),
+    )
 end
 
 # ╔═╡ 0a7c70da-f6d6-4484-baf5-0ae51ef3e349
 md"We can plot the solution on `[0, π]`."
 
 # ╔═╡ 1b9e2283-03f9-4f5a-9143-85984586d77c
-let xs = Arb.(range(0, π, length = 100)[2:end])
+let xs = range(Arb(0), π, length = 100)
     ys = similar(xs)
     Threads.@threads for i in eachindex(xs)
         ys[i] = u0(xs[i])
@@ -143,9 +158,9 @@ The code uses
 """
 
 # ╔═╡ f1dce520-a035-43e6-9e08-4696a14c5a54
-α0_xs, α0_ys = let xs = Arb.(range(0, π, length = 100)[2:end])
+α0_xs, α0_ys = let xs = range(Arb(0), π, length = 100)
     ys = similar(xs)
-    f(x) = u0.w(x) / (2u0(x))
+    f(x) = u0.w(x) / 2u0(x)
     Threads.@threads for i in eachindex(xs)
         ys[i] = f(xs[i])
     end
