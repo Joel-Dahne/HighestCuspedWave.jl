@@ -107,6 +107,7 @@ function _eval_expansion!(
     expansion::Vector{Tuple{Int,Arb,Arb}},
     x::T,
     invlogx::T = inv(log(x)),
+    term_buffer::T = zero(x),
 ) where {T<:Union{Arb,ArbSeries}}
     if T == Arb && Arblib.contains_nonpositive(x)
         iszero(x) && return Arblib.zero!(res)
@@ -134,7 +135,6 @@ function _eval_expansion!(
     Arblib.zero!(res)
 
     len = length(x)
-    term = zero(x)
 
     for (i, exponent, y) in expansion
         # Handle the constant term directly
@@ -153,39 +153,39 @@ function _eval_expansion!(
             continue
         end
 
-        # term = x^exponent
+        # term_buffer = x^exponent
         if T == Arb
-            Arblib.pow!(term, x, exponent)
+            Arblib.pow!(term_buffer, x, exponent)
         elseif T == ArbSeries
-            Arblib.pow_arb_series!(term, x, exponent, len)
+            Arblib.pow_arb_series!(term_buffer, x, exponent, len)
         end
 
         if i == -1
-            # term *= inv(log(x))
+            # term_buffer *= inv(log(x))
             if T == Arb
-                Arblib.mul!(term, term, invlogx)
+                Arblib.mul!(term_buffer, term_buffer, invlogx)
             elseif T == ArbSeries
-                Arblib.mullow!(term, term, invlogx, len)
+                Arblib.mullow!(term_buffer, term_buffer, invlogx, len)
             end
         elseif i != 0
-            # term *= log(x)^i
+            # term_buffer *= log(x)^i
             throw(ArgumentError("i = $i: this should not occur in the cases we care about"))
         end
 
-        Arblib.mul!(term, term, y)
+        Arblib.mul!(term_buffer, term_buffer, y)
 
         # Use that each term is monotonically increasing and zero at x
         # = 0. This doesn't hold for the constant term but this case
         # we have already handled above.
         if contained_zero
-            Arblib.union!(term, term, z)
+            Arblib.union!(term_buffer, term_buffer, z)
         end
 
-        # res += term
+        # res += term_buffer
         if T == Arb
-            Arblib.add!(res, res, term)
+            Arblib.add!(res, res, term_buffer)
         elseif T == ArbSeries
-            Arblib.add_series!(res, res, term, len)
+            Arblib.add_series!(res, res, term_buffer, len)
         end
     end
 
@@ -560,6 +560,7 @@ function F0(
         res = weight!(zero(x), x)
 
         tmp = zero(x)
+        buffer = zero(x)
 
         if x isa Arb
             # invlogx = inv(log(x))
@@ -569,12 +570,12 @@ function F0(
             Arblib.div!(
                 res,
                 res,
-                _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx),
+                _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx, buffer),
             )
             Arblib.mul!(
                 res,
                 res,
-                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx),
+                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx, buffer),
             )
         elseif x isa ArbSeries
             len = length(res)
@@ -586,13 +587,13 @@ function F0(
             Arblib.div_series!(
                 res,
                 res,
-                _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx),
+                _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx, buffer),
                 len,
             )
             Arblib.mullow!(
                 res,
                 res,
-                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx),
+                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx, buffer),
                 len,
             )
         end
