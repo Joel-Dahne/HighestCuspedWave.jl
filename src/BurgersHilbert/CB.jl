@@ -67,7 +67,7 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
         # on the interval and therefore very efficient.
         invu0 = inv(
             Arb(
-                ArbExtras.extrema_series(u0, Arblib.getinterval(Arf, x)..., degree = 1)[1:2],
+                ArbExtras.extrema_series(u0, Arblib.getinterval(Arf, x)..., degree = 0)[1:2],
             ),
         )
 
