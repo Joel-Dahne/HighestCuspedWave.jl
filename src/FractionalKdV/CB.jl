@@ -33,7 +33,6 @@ function CB_bounded_by(
         verbose && @info "ϵ for asymptotic evaluation to satisfy bound" ϵ
     end
 
-
     # Check that the bound holds on [0, ϵ]
     asymptotic_bound = ArbExtras.bounded_by(f, Arf(0), ϵ, C, degree = -1; threaded, verbose)
 
@@ -41,6 +40,8 @@ function CB_bounded_by(
         verbose && @info "Bound doesn't hold on [0, ϵ]"
         return false
     end
+
+    verbose && @info "Bound holds on [0, ϵ]"
 
     g = T0(u0, Ball(), δ2 = Arf(1e-1), skip_div_u0 = true)
 
@@ -53,7 +54,7 @@ function CB_bounded_by(
         # ArbSeries. In practice this will pick up that u0 is monotone
         # on the interval and therefore very efficient.
         u0x =
-            Arb(ArbExtras.extrema_series(u0, Arblib.getinterval(x)..., degree = 1)[1:2])
+            Arb(ArbExtras.extrema_series(u0, Arblib.getinterval(x)..., degree = 0)[1:2])
 
         res /= u0x
 
@@ -68,7 +69,6 @@ function CB_bounded_by(
         C,
         degree = -1,
         depth_start = 8;
-        maxevals = 1000,
         threaded,
         verbose,
     )
@@ -77,6 +77,8 @@ function CB_bounded_by(
         verbose && @info "Bound doesn't hold on [ϵ, π]"
         return false
     end
+
+    verbose && @info "Bound holds on [ϵ, π]"
 
     return true
 end
