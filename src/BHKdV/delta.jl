@@ -72,7 +72,7 @@ function delta0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-1"), verbose = false)
         threaded = true,
         depth_start = 4,
         maxevals = 100000,
-        depth = 30;
+        depth = 40;
         rtol,
         verbose,
     )
