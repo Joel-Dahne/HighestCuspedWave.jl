@@ -37,7 +37,7 @@ md"""
 # Burger Hilberts Equation
 This notebook contains the computer assisted part of the proof for the existence of a highest cusped traveling wave for the Burger Hilberts equation. The Equation is given by
 
-$u_t + \left(\frac{u}{2}\right)_x = H[u]$
+$u_t + \left(\frac{u^2}{2}\right)_x = H[u]$
 
 where $H[u]$ is the Hilbert transform of $u$. For the details of the proof see the paper, this notebook focuses on the computer assisted parts.
 
@@ -158,7 +158,7 @@ The code uses
 """
 
 # ╔═╡ f1dce520-a035-43e6-9e08-4696a14c5a54
-α0_xs, α0_ys = let xs = range(Arb(0), π, length = 100)
+α0_xs, α0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
     ys = similar(xs)
     f(x) = u0.w(x) / 2u0(x)
     Threads.@threads for i in eachindex(xs)
@@ -321,7 +321,7 @@ let pl = plot()
 end
 
 # ╔═╡ Cell order:
-# ╟─a0ab3d57-b420-43c2-b69b-c403dde1f3ad
+# ╠═a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 # ╟─3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
 # ╟─73ae2ee7-d722-4ad8-8fc7-a57781180d35
 # ╟─6c2a16c7-2bcf-4a2b-9466-38309a36b937
@@ -330,7 +330,7 @@ end
 # ╟─028b15a1-402d-40f3-85db-b27672ff9d73
 # ╠═a063a9a2-c2c2-4c99-9df1-9fce888baad2
 # ╟─0a7c70da-f6d6-4484-baf5-0ae51ef3e349
-# ╠═1b9e2283-03f9-4f5a-9143-85984586d77c
+# ╟─1b9e2283-03f9-4f5a-9143-85984586d77c
 # ╟─43ff127c-f7fa-4ff0-9827-36fc9507fb0b
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─3e6b7582-bb9f-46be-84de-f568dec6780e
