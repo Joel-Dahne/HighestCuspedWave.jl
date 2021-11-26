@@ -442,12 +442,11 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     if !iszero(u0.v0.N)
         for m = 1:M-1
             res[(0, 0, 0, 0, 0, 0, 2m)] +=
-                (-1)^m * sum(Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
-                factorial(Arb(2m))
+                (-1)^m * sum(Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) / factorial(2m)
         end
         Arblib.add_error!(
             res[(0, 0, 0, 0, 0, 0, 2M)],
-            sum(Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) / factorial(Arb(2M)),
+            sum(Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) / factorial(2M),
         )
     end
 
@@ -703,12 +702,11 @@ function H(
             for m = 1:M-1
                 res[(0, 0, 0, 0, 0, 0, 2m)] -=
                     (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
-                    factorial(Arb(2m))
+                    factorial(2m)
             end
             Arblib.add_error!(
                 res[(0, 0, 0, 0, 0, 0, 2M)],
-                sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) /
-                factorial(Arb(2M)),
+                sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) / factorial(2M),
             )
         end
 

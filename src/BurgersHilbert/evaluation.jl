@@ -234,26 +234,23 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     res[(1, 1, 0, 0)] = -Arb(π) / 2 * u0.a0
     res[(0, 1, 0, 0)] = -(γ - 1) * Arb(π) / 2 * u0.a0
     for m = 1:M-1
-        res[(0, 2m, 0, 0)] = (-1)^m * dzeta(Arb(2 - 2m)) / factorial(Arb(2m)) * u0.a0
+        res[(0, 2m, 0, 0)] = (-1)^m * dzeta(Arb(2 - 2m)) / factorial(2m) * u0.a0
     end
     # TODO: Give an expression for the error term. The one we use
     # here is twice the coefficient for x^2M which should be
     # larger than required but this is yet to be proved. The minimum
     # value for M should also be checked in relation to this.
-    Arblib.add_error!(
-        res[(0, 2M, 0, 0)],
-        2abs(dzeta(Arb(2 - 2M)) / factorial(Arb(2M))) * u0.a0,
-    )
+    Arblib.add_error!(res[(0, 2M, 0, 0)], 2abs(dzeta(Arb(2 - 2M)) / factorial(2M)) * u0.a0)
 
     # Fourier terms
     if !iszero(u0.N)
         for m = 1:M-1
             res[(0, 2m, 0, 0)] +=
-                (-1)^m * sum(Arb(n)^(2m) * u0.b[n] for n = 1:u0.N) / factorial(Arb(2m))
+                (-1)^m * sum(Arb(n)^(2m) * u0.b[n] for n = 1:u0.N) / factorial(2m)
         end
         Arblib.add_error!(
             res[(0, 2M, 0, 0)],
-            sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N) / factorial(Arb(2M)),
+            sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
         )
     end
 
@@ -335,7 +332,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             else
                 term = dzeta(Arb(3 - 2m))
             end
-            res[(0, 2m, 0, 0)] = -(-1)^m * term * u0.a0 / factorial(Arb(2m))
+            res[(0, 2m, 0, 0)] = -(-1)^m * term * u0.a0 / factorial(2m)
         end
         # TODO: Give an expression for the error term. The one we use
         # here is twice the coefficient for x^2M which should be
@@ -343,19 +340,18 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         # value for M should also be checked in relation to this.
         Arblib.add_error!(
             res[(0, 2M, 0, 0)],
-            2abs(dzeta(Arb(3 - 2M)) / factorial(Arb(2M))) * u0.a0,
+            2abs(dzeta(Arb(3 - 2M)) / factorial(2M)) * u0.a0,
         )
 
         # Fourier terms
         if !iszero(u0.N)
             for m = 1:M-1
                 res[(0, 2m, 0, 0)] -=
-                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) /
-                    factorial(Arb(2m))
+                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) / factorial(2m)
             end
             Arblib.add_error!(
                 res[(0, 2M, 0, 0)],
-                sum(Arb(n)^(2M - 1) * abs(u0.b[n]) for n = 1:u0.N) / factorial(Arb(2M)),
+                sum(Arb(n)^(2M - 1) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
             )
         end
 

@@ -22,7 +22,7 @@ function E(u0::FractionalKdVAnsatz{Arb}, M::Integer)
         for n = 1:u0.N1
             E_bound2 += Arb(n)^(2M) * abs(u0.b[n])
         end
-        E_bound2 /= factorial(Arb(2M))
+        E_bound2 /= factorial(2M)
 
         return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
     end
@@ -50,7 +50,7 @@ function EH(u0::FractionalKdVAnsatz{Arb}, M::Integer)
         for n = 1:u0.N1
             E_bound2 += n^(2M + u0.α) * abs(u0.b[n])
         end
-        E_bound2 /= factorial(Arb(2M))
+        E_bound2 /= factorial(2M)
 
         return Arblib.add_error!(zero(u0.α), E_bound1 + E_bound2)
     end

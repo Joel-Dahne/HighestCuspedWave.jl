@@ -150,7 +150,7 @@ function T02(
     c_ϵ = zero(α)
     for m = 1:20
         integral = 2 * binomial(2m, 2m - 2) * π^(2m - 1 + p) / (2m - 1 + p)
-        term = (-1)^m * zeta(-α - 2m) * integral / factorial(Arb(2m))
+        term = (-1)^m * zeta(-α - 2m) * integral / factorial(2m)
 
         c_ϵ += term
     end

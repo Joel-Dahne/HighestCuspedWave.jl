@@ -312,7 +312,7 @@ function T01(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
         # Bound of 2sum((abs(zeta(-α - 2m))) * 2^2m / factorial(2m) for m = 1:Inf)
         # FIXME: Bound the tail of this sum.
         C = let α = Arb((-1, -1 + u0.ϵ))
-            2sum((abs(zeta(-α - 2m))) * 2^2m / factorial(2m) for m in Arb.(1:10))
+            2sum((abs(zeta(-α - 2m))) * 2^2m / factorial(2m) for m = 1:10)
         end
 
         # Enclosure of inv(abs(gamma(1 + α) * sinpi(α / 2)))
