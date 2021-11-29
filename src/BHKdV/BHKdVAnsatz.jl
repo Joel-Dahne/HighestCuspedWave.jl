@@ -73,6 +73,8 @@ BHKdVAnsatz(ϵ::T, v0::BHAnsatz{T}) where {T} = BHKdVAnsatz{T}(ϵ, v0)
 function Base.getproperty(u0::BHKdVAnsatz{T}, name::Symbol) where {T}
     if name == :w
         return x -> abs(x) * log(u0.c + inv(abs(x)))
+    elseif name == :wdivx
+        return x -> log(u0.c + inv(abs(x)))
     elseif name == :c
         return 2convert(T, ℯ)
     else
