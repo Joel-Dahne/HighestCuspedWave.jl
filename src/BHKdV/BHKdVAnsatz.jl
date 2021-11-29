@@ -31,13 +31,14 @@ details see `BHAnsatz`.
 It assumes that `v0` uses the correct coefficient in front of the
 leading Clausen function, i.e. `v0.a0 = 2 / π^2`.
 
-The weight is fixed to be given by
+The weight is given by
 ```
-u0.w(x) = abs(x) * log(u0.c + inv(abs(x)))
+u0.w(x) = abs(x) * (abs(x)^(-u0.γ * (1 + α)) + log(u0.c + inv(abs(x))))
 ```
-where `u0.c = 2ℯ`. The reason for the value of `u0.c` inside the `log`
-is to make sure that the non-asymptotic value of the norm is
-sufficiently low.
+where `u0.c = 2ℯ` and `u0.γ = 0` by default. The reason for the value
+of `u0.c` inside the `log` is to make sure that the non-asymptotic
+value of the norm is sufficiently low. The reason for the `u0.γ` is to
+make sure that the norm of the operator is less than one at `x = 0`.
 
 If `isnothing(v0.v0)` then an empty `v0.v0` is created for the tail
 part which doesn't contain any terms (technically one term with the
@@ -47,9 +48,18 @@ special case.
 struct BHKdVAnsatz{T} <: AbstractAnsatz{T}
     ϵ::T
     v0::BHAnsatz{T}
+    γ::T
+    c::T
 
-    function BHKdVAnsatz{T}(ϵ::T, v0::BHAnsatz{T}) where {T}
+    function BHKdVAnsatz{T}(
+        ϵ::T,
+        v0::BHAnsatz{T};
+        γ::T = zero(T),
+        c::T = 2convert(T, ℯ),
+    ) where {T}
         @assert ϵ > 0
+        @assert 0 <= γ <= 1
+        @assert c > 0
         if T == Arb
             @assert Arblib.overlaps(v0.a0, 2 / convert(T, π)^2)
         end
@@ -64,19 +74,30 @@ struct BHKdVAnsatz{T} <: AbstractAnsatz{T}
             v0 = v0
         end
 
-        return new{T}(ϵ, v0)
+        return new{T}(ϵ, v0, γ, c)
     end
 end
 
-BHKdVAnsatz(ϵ::T, v0::BHAnsatz{T}) where {T} = BHKdVAnsatz{T}(ϵ, v0)
+BHKdVAnsatz(ϵ::T, v0::BHAnsatz{T}; γ::T = zero(T), c::T = 2convert(T, ℯ)) where {T} =
+    BHKdVAnsatz{T}(ϵ, v0; γ, c)
 
 function Base.getproperty(u0::BHKdVAnsatz{T}, name::Symbol) where {T}
     if name == :w
-        return x -> abs(x) * log(u0.c + inv(abs(x)))
+        if iszero(u0.γ)
+            return x -> abs(x) * log(u0.c + inv(abs(x)))
+        else
+            return x -> let αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), Arb((0, u0.ϵ)))
+                abs(x) * (abspow(x, -u0.γ * αp1) + log(u0.c + inv(abs(x))))
+            end
+        end
     elseif name == :wdivx
-        return x -> log(u0.c + inv(abs(x)))
-    elseif name == :c
-        return 2convert(T, ℯ)
+        if iszero(u0.γ)
+            return x -> log(u0.c + inv(abs(x)))
+        else
+            return x -> let αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), Arb((0, u0.ϵ)))
+                abspow(x, -u0.γ * αp1) + log(u0.c + inv(abs(x)))
+            end
+        end
     else
         return getfield(u0, name)
     end
