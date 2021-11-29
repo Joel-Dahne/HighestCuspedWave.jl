@@ -351,12 +351,6 @@ interval.
 """
 function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u0 = false)
     δ0 < 0.05 || Throw(ArgumentError("δ0 must be less than 0.05, got $δ0"))
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
-    end
 
     #Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that
     #the lower endpoint is exactly -1
@@ -369,11 +363,11 @@ function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u
                 2clausenc(x * t, -α),
             ) *
             t *
-            log(u0.c + inv(x * t))
+            u0.wdivx(x * t)
 
         integral = δ0 * Arb((0, integrand(δ0)))
 
-        res = integral * x / (π * log(u0.c + inv(x)))
+        res = integral * x / (π * u0.wdivx(x))
         if skip_div_u0
             return res
         else
@@ -396,13 +390,6 @@ function T012(
     δ1::Arb = Arb(1e-5),
     skip_div_u0 = false,
 )
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
-    end
-
     # Enclosure of -α so that the upper bound is exactly 1
     mα = 1 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
@@ -418,12 +405,12 @@ function T012(
                 clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(xt, mα),
             )
 
-            return term * t * log(u0.c + inv(xt))
+            return term * t * u0.wdivx(xt)
         end
 
         res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
 
-        res *= x / (π * log(u0.c + inv(x)))
+        res *= x / (π * u0.wdivx(x))
 
         if skip_div_u0
             return res
@@ -486,18 +473,11 @@ doesn't support evaluation on intervals containing zero.
   might not be needed.
 """
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * log(u0.c + inv(x)))
-    end
-
     return x -> begin
         x = convert(Arb, x)
 
         weight_factor = let t = Arb((1 - δ1, 1))
-            -t * log(u0.c + inv(x * t))
+            -t * u0.wdivx(x * t)
         end
 
         # s = 1 - α
@@ -530,7 +510,7 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
         end
         integral *= weight_factor
 
-        res = integral / (π * log(u0.c + inv(x)))
+        res = integral / (π * u0.wdivx(x))
 
         if skip_div_u0
             return res
