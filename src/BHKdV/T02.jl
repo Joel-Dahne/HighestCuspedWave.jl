@@ -707,6 +707,835 @@ function T02(u0::BHKdVAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(
 end
 
 """
+    T02_alternative(u0::BHKdVAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
+
+Returns a function such that `T02_alternative(u0, Asymptotic())(x)`
+computes an **upper bound** of the integral \$T_{0,2}\$ from the paper
+using an evaluation strategy that works asymptotically as `x` goes to
+0.
+
+This version uses the weight
+```
+x * (x^(-u0.γ * (1 + α)) + log(u0.c + inv(x)))
+```
+
+It precomputes the expansions of `u0` and for that reason a number `ϵ`
+has to be given, the resulting expansion will be valid for all `x <
+ϵ`. The value of `ϵ` has to be less than `1 // 2`.
+
+First of all the change of coordinates `t = y / x` leaves us with
+```
+x / (π * u0(x) * (x^(-u0.γ * (1 + α)) + log(u0.c + inv(x)))) *
+    ∫ abs(clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+        t * ((x * t)^(-u0.γ * (1 + α)) + log(u0.c + inv(x * t))) dt
+```
+with the integration going from `1` to `π / x`. Further we can notice
+that the expression inside the absolute value is positive on the whole
+interval and the absolute value can hence be removed.
+
+Next the factor
+```
+F(x) = inv(π) *
+    (x^(-u0.γ * (1 + α)) - log(x)) / (x^(-u0.γ * (1 + α)) + log(u0.c + inv(x))) *
+     gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)
+```
+is factored out. Except for the addition of `inv(π)` this is the same
+as the factor `F1` in [`F0`](@ref) and we compute an upper bound
+following the same procedure as described there.
+
+What we are left with computing is
+```
+abs(W(x) * I)
+```
+where
+```
+W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * (x^(-u0.γ * (1 + α)) - log(x)))
+```
+and `I` the same integral as above (but without the absolute value in
+the integrand).
+
+Now consider the expansions
+```
+clausenc(x * (t - 1), -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * (t - 1)^(-α - 1) + R(x * (t - 1))
+clausenc(x * (1 + t), -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
+clausenc(x * t, -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * t^(-α - 1) + R(x * t)
+```
+where the error term `R` contains one constant term and `R(x * (1 -
+t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`. We can split
+the integral into the two integrals
+```
+I1 = gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t *
+        ((x * t)^(-u0.γ * (1 + α)) + log(u0.c + inv(x * t))) dt
+I2 = ∫ (R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) * t *
+         ((x * t)^(-u0.γ * (1 + α)) + log(u0.c + inv(x * t))) dt
+```
+satisfying `I = I1 + I2`. Furthermore we can split
+```
+(x * t)^(-u0.γ * (1 + α)) + log(u0.c + inv(x * t))
+```
+as
+```
+(x * t)^(-u0.γ * (1 + α)) + log(u0.c + inv(x * t)) =
+    (x * t)^(-u0.γ * (1 + α)) -
+    log(x) -
+    log(t) +
+    log(1 + u0.c * x * t)
+```
+Which allows us to split the two above integrals into four integrals
+each.
+```
+I11 = gamma(1 + α) * sinpi(α / 2) * x^(-(1 + u0.γ) * (1 + α)) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) dt
+I12 = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * log(x)
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+I13 = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+I14 = gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(1 + u0.c * x * t) dt
+```
+and
+```
+I21 = x^(-u0.γ * (1 + α)) * ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t^(1 - u0.γ * (1 + α))dt
+I22 = -log(x) * ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t dt
+I23 = -∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(t) dt
+I24 = ∫ (R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t)) * t * log(1 + u0.c * x * t) dt
+```
+
+# Handling `I1`
+For `I1` there are important cancellations between `I11`, `I12` and
+`I13` so we therefore have to keep track of their signs. For `I14` it
+is enough to bound the absolute value.
+
+## Handling `I11`
+For the first integral we get
+```
+W(x) * I11 = sinpi(α / 2) *
+    x^(-u0.γ * (1 + α)) / ((x^(-u0.γ * (1 + α)) - log(x))) *
+    inv((1 - x^p0)) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) dt
+```
+where the integral is taken from `1` to `π / x`. The factor `sinpi(α /
+2)` converges to `-1` and can be enclosed directly.
+
+For `u0.γ = 1 / 2` a primitive function for the integral is given by
+```
+2t^(1 / 2 - 3α / 2) * (
+    + 2 / (3α - 1)
+    - t^(1 + α) * hypgeom_2f1(3 / 2 - α / 2, 1 + α, 5 / 2 - α / 2, -t) / (α - 3)
+    + (1 - t)^α * (1 - t)^-α * t^(1 + α) * hypgeom_2f1(3 / 2 - α / 2, 1 + α, 5 / 2 - α / 2, t) / (α - 3)
+)
+```
+
+Alternatively we can expand the integrand using that
+```
+(t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+```
+can be Taylor expanded around `α = -1` by writing it as
+```
+(t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1) =
+    exp(-log(t - 1) * (α + 1)) + exp(-log(t + 1) * (α + 1)) - 2exp(-log(t) * (α + 1)) =
+    sum((-1)^n * (α + 1)^n * (log(t - 1)^n + log(t + 1)^n - 2log(t)^n) / factorial(n) for n = 1:Inf)
+```
+Putting this inside the integral and switching the integral and the
+sum we get
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt =
+    sum((-1)^n * (α + 1)^n * ∫ (log(t - 1)^n + log(t + 1)^n - 2log(t)) * t * log(t) dt for n = 1:Inf)
+```
+where again the integral is taken from `1` to `π / x`. Now that the
+integral no longer depend on `α` we can expand it around `x = 0`.
+- **TODO:** Fix the above for our case
+It looks like the integrals behave like
+```
+(-1)^n * (3 / 2)^(n - 1) * log(x)^n
+```
+This would give us
+```
+2 / 3 * sum((α + 1)^n * (1 + u0.γ)^n * log(x)^n / factorial(n) for n = 1:Inf) =
+    inv(1 + u0.γ) * (exp((α + 1) * (1 + u0.γ) * log(x)) - 1) =
+    inv(1 + u0.γ) * (x^((1 + u0.γ) * (α + 1)) - 1)
+```
+Putting it back we get
+```
+sinpi(α / 2) *
+    x^(-u0.γ * (1 + α)) / ((x^(-u0.γ * (1 + α)) - log(x))) *
+    inv((1 - x^p0)) *
+    inv(1 + u0.γ) * (x^((1 + u0.γ) * (α + 1)) - 1) =
+-sinpi(α / 2) / (1 + u0.γ) *
+    x^(-u0.γ * (1 + α)) / ((x^(-u0.γ * (1 + α)) - log(x))) *
+    (x^((1 + u0.γ) * (α + 1)) - 1) / (x^p0 - 1)
+```
+
+## Handling `I12`
+For the second integral we get
+```
+W(x) * I₁₁ = -inv(1 - x^p0) * sinpi(α / 2) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+```
+where the integral is taken from `1` to `π / x`. The factor `sinpi(α /
+2)` converges to `-1` and can be enclosed directly. A primitive
+function for the integral is given by
+```
+((t - 1)^-α * (1 - α * t) - (t + 1)^-α * (1 + α * t) + 2α * t^(1 - α)) / (α * (α - 1))
+```
+and we hence get that the integral is
+```
+((π / x - 1)^-α * (1 - α * π / x) - (π / x + 1)^-α * (1 + α * π /x) + 2α * (π / x)^(1 - α)) / (α * (α - 1)) -
+(2α - 2^-α * (1 + α)) / (α * (α - 1))
+```
+The part `(2α - 2^-α * (1 + α)) / (α * (α - 1))` doesn't depend on
+`x`, for the other part we can rewrite it as
+```
+x^(α - 1) * ((π - x)^-α * (x - α * π) - (π + x)^-α * (x + α * π) + 2α * π^(1 - α)) / (α * (α - 1))
+```
+and furthermore as
+```
+x^(α - 1) * (
+    x * ((π - x)^-α - (π + x)^-α) -
+    α * π * ((π - x)^-α + (π + x)^-α) +
+    2α * π^(1 - α)
+) / (α * (α - 1))
+```
+Expanding at `x = 0` we have
+```
+x * ((π - x)^-α - (π + x)^-α) = 2α * π^(-1 - α) * x^2 + O(x^4)
+α * π * ((π - x)^-α + (π + x)^-α) = 2α * π^(1 - α) + α^2 * (1 + α) * π^(-1 - α) * x^2 + O(x^4)
+```
+This gives us
+```
+x^(α - 1) * (
+    2α * π^(-1 - α) * x^2 + O(x^4) -
+    α^2 * (1 + α) * π^(-1 - α) * x^2 - O(x^4)
+) / (α * (α - 1))
+```
+Which simplifies to
+```
+x^(1 + α) * π^(-1 - α) * (
+    2 + O(x^2) -
+    α * (1 + α) - O(x^2)
+) / (α - 1)
+```
+Ignoring the `O(x^2)` terms for now we get the following expression
+for the integral
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt =
+x^(1 + α) * π^(-1 - α) * (2 - α * (1 + α)) / (α - 1) - (2α - 2^-α * (1 + α)) / (α * (α - 1))
+```
+- **TODO:** Handle the `O(x^2)` terms.
+Putting everything together we get
+```
+W(x) * I₁₁ =
+    - inv(1 - x^p0) * sinpi(α / 2) * (
+        x^(1 + α) * π^(-1 - α) * (2 - α * (1 + α)) / (α - 1) -
+        (2α - 2^-α * (1 + α)) / (α * (α - 1))
+    ) =
+    - sinpi(α / 2) * (
+        x^(1 + α) * π^(-1 - α) * (2 - α * (1 + α)) / (α - 1) -
+        (2α - 2^-α * (1 + α)) / (α * (α - 1))
+    ) / (1 - x^p0)
+```
+As mentioned above the factor `sinpi(α / 2)` can be enclosed directly.
+The remaining part converges to one, which is easily seen by plugging
+in `x = 0` and `α = -1` directly, and is increasing in both `x` and
+`α`.
+- **PROVE:** The it is increasing in `x` and `α`
+- **TODO:** That the limit is 1 could be proved better.
+
+## Handling `I13`
+For the third integral we have
+```
+W(x) * I13 = -inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt
+```
+where the integral is taken from `1` to `π / x`. The factor `sinpi(α /
+2)` converges to `-1` and can be enclosed directly.
+
+We can expand
+```
+(t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+```
+in a Taylor around `α = -1` by writing it as
+```
+(t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1) =
+    exp(-log(t - 1) * (α + 1)) + exp(-log(t + 1) * (α + 1)) - 2exp(-log(t) * (α + 1)) =
+    sum((-1)^n * (α + 1)^n * (log(t - 1)^n + log(t + 1)^n - 2log(t)^n) / factorial(n) for n = 1:Inf)
+```
+Putting this inside the integral and switching the integral and the
+sum we get
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t * log(t) dt =
+    sum((-1)^n * (α + 1)^n * ∫ (log(t - 1)^n + log(t + 1)^n - 2log(t)) * t * log(t) dt for n = 1:Inf)
+```
+where again the integral is taken from `1` to `π / x`. Now that the
+integral no longer depend on `α` we can expand it around `x = 0`.
+
+The remaining part is not finished, we here give the idea of what
+should happen. We would like to show that the integral behaves like
+```
+∫ (log(t - 1)^n + log(t + 1)^n - 2log(t)) * t * log(t) dt = (-1)^n * n / (n + 1) * log(x)^(n + 1) + O(log(x)^n)
+```
+If we ignore the `O(log(x)^n)` term we would then get the sum
+- **TODO:** Prove the above asymptotics and handle the `O(log(x)^n)` term.
+```
+sum((-1)^n * (α + 1)^n * (-1)^n * n / (n + 1) * log(x)^(n + 1) for n = 1:Inf) =
+    sum((α + 1)^n * n / (n + 1) * log(x)^(n + 1) for n = 1:Inf)
+```
+This would give us
+```
+W(x) * I₁₂ =
+    -inv(log(x)) * inv(1 - x^p0) * sinpi(α / 2) *
+        sum((α + 1)^n * n / (n + 1) * log(x)^(n + 1) for n = 1:Inf) =
+    -inv(1 - x^p0) * sinpi(α / 2) *
+        sum((α + 1)^n * n / (n + 1) * log(x)^n for n = 1:Inf) =
+```
+The sum can be computed explicitly to be
+```
+x^(α + 1) + (1 - x^(α + 1)) / ((α + 1) * log(x))
+```
+Inserting this gives us
+```
+-inv(1 - x^p0) * sinpi(α / 2) * sum((α + 1)^n * log(x)^n for n = 1:Inf) =
+    -inv(1 - x^p0) * sinpi(α / 2) * (x^(α + 1) + (1 - x^(α + 1)) / ((α + 1) * log(x))) =
+    = -sinpi(α / 2) * (x^(α + 1) + (1 - x^(α + 1)) / ((α + 1) * log(x))) / (1 - x^p0)
+```
+- **TODO:** Finish this. Unfortunately the above seems to go to zero
+  as `x` goes to `0`, whereas we would need to go to `-1 / 2`. Could
+  this be because we have neglected the `O(log(x)^n)` terms in the
+  integrals inside the sum? Or is there a chance that it actually goes
+  to zero? In that case our whole approach fails :/
+
+## Handling `I₁₃`
+We ignore this for now since it goes to zero.
+
+# Handling `I₂`
+We ignore these for now since they all go to zero.
+
+"""
+function T02_alternative(
+    u0::BHKdVAnsatz,
+    ::Asymptotic;
+    non_asymptotic_u0 = false,
+    ϵ = Arb(2e-1),
+)
+    ϵ = convert(Arb, ϵ)
+    @assert ϵ < 0.5
+
+    # Setup for bounding F
+
+    # Compute the expansion of u0 and remove the leading term, which
+    # is handled separately.
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
+    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
+
+    # Ensure that the tail of the expansion of u0 is positive, so that
+    # we can remove it from the denominator of F1 and still get an
+    # upper bound.
+    expansion_ispositive(u0, u0_expansion, ϵ) ||
+        error("expansion of u0 not proven to be positive, this should not happen")
+
+    # Function for computing an upper bound of F
+    F(x) =
+        let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
+            # Note that inside this statement α refers to -1 + u0.ϵ
+            # and p0 to the corresponding p0 value.
+
+            # Enclosure of
+            # abs((x^(-u0.γ * (1 + α)) - log(x)) / (x^(-u0.γ * (1 + α)) + log(u0.c + inv(x))))
+            # either by direct evaluation or using monotonicity in x and α.
+            F11 =
+                let f =
+                        α ->
+                            x -> abs(
+                                (abspow(x, -u0.γ * (1 + α)) - log(x)) /
+                                (abspow(x, -u0.γ * (1 + α)) + log(u0.c + inv(x))),
+                            )
+                    if iszero(x)
+                        one(Arb)
+                    elseif Arblib.contains_zero(x)
+                        Arb((f(Arb(-1))(xᵤ), 1))
+                    else
+                        f(Arb((-1, -1 + u0.ϵ)))(x)
+                    end
+                end
+
+            # Enclose F12
+            F121_lower = -Arb(π)^2 / 2
+            F122_upper = gamma(1 + α) / finda0(α)
+            F121 = Arb((F121_lower, F122_upper))
+
+            c(a) = gamma(a) * sinpi((1 - a) / 2)
+
+            # Upper and lower bound of
+            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+            F122_lower = (1 - xᵤ^p0) / (1 - c(α - p0) / c(α) * xᵤ^p0)
+            F122_upper = one(Arb)
+            # Combine upper and lower bound and multiply with
+            # enclosure of inv(c(α)) to get an upper bound for F122.
+            F122 = inv(Arb((c(α), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
+
+            F12 = F121 * F122
+
+            Arblib.ispositive(F12) ||
+                error("leading term of u0 is not positive, this should not happen")
+
+            return inv(π) * F11 * F12
+        end
+
+    return x::Arb -> begin
+        @assert x <= ϵ
+
+        # Enclosure of inv(log(x))
+        invlogx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            Arb((inv(log(ubound(Arb, x))), 0))
+        else
+            inv(log(x))
+        end
+
+        # Handle I1
+
+        # Enclosure of sinpi(α / 2)
+        factor_I1 = sinpi(Arb((-1, -1 + u0.ϵ)) / 2)
+
+        Wx11 = begin
+            zero(x)
+        end
+
+        # TODO: Rewrite this with updated weight
+        WxI12 = begin
+            # Enclosure of inv(1 - x^p0) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t dt
+            # FIXME: This doesn't enclose the full integral yet, there
+            # are some O(x^2) terms left to handle.
+            integral_I12 =
+                let xᵤ = ubound(Arb, x), α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
+                    # We use that it is 1 for α = -1, x = 0 and
+                    # increasing in both variables. Notice that we
+                    # always enclose it for x on the interval [0, xᵤ]
+                    # even if x doesn't touch zero. This could
+                    # possibly be improved but might not be needed.
+                    lower = one(x)
+                    upper =
+                        (
+                            xᵤ^(1 + α) * π^(-1 - α) * (2 - α * (1 + α)) / (α - 1) -
+                            (2α - 2^-α * (1 + α)) / (α * (α - 1))
+                        ) / (1 - xᵤ^p0)
+
+                    Arb((lower, upper))
+                end
+
+            -factor_I1 * integral_I12
+        end
+
+        # TODO: Rewrite this with updated weight
+        WxI13 = let α = Arb(-1 + u0.ϵ)
+            # Keep all terms in the integral but approximate the
+            # integrals by their leading term
+            term_asym = let p0 = (1 + α) + (1 + α)^2 / 2
+                (x^(α + 1) + (1 - x^(α + 1)) / ((α + 1) * log(x))) / (1 - x^p0)
+            end
+
+            -factor_I1 * term_asym
+        end
+
+        WxI14 = zero(x) # Neglect this
+
+        WxI1 = WxI11 + WxI12 + WxI13 + WxI14
+
+        # Handle I2
+
+        I2 = zero(x) # Neglect this
+
+        res = F(x) * (WxI1 + WxI2)
+
+        return res
+    end
+end
+
+"""
+    T02_alternative2(u0::BHKdVAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
+
+Returns a function such that `T02_alternative(u0, Asymptotic())(x)`
+computes an **upper bound** of the integral \$T_{0,2}\$ from the paper
+using an evaluation strategy that works asymptotically as `x` goes to
+0.
+
+This version uses the weight
+```
+w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
+```
+
+It precomputes the expansions of `u0` and for that reason a number `ϵ`
+has to be given, the resulting expansion will be valid for all `x <
+ϵ`. The value of `ϵ` has to be less than `1 // 2`.
+
+The starting point is the integral
+```
+inv(π * u0(x) * w(x)) *
+    ∫ (clausenc(x - y, - α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * w(y) dy
+```
+from `x` to `π`. Where we have removed an absolute value in the
+integrand since it is positive. The change of variables `t = y / x`
+leaves us with
+```
+x / (π * u0(x) * w(x)) *
+    ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * w(t * x) dt
+```
+with the integration going from `1` to `π / x`. Now
+```
+w(t * x) = (t * x)^(1 - u0.γ * (1 + α)) * log(u0.c + inv(t * x))
+         = x^(1 - u0.γ * (1 + α)) * t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(t * x))
+```
+so this can be simplified to
+```
+x / (π * u0(x) * log(u0.c + inv(t * x))) *
+    ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(t * x)) dt
+```
+
+Next the factor
+```
+F(x) = abs(inv(π) * log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+```
+is factored out. Except for the addition of `inv(π)` this is the same
+as the factor `F1` in [`F0`](@ref) and we compute an upper bound
+following the same procedure as described there.
+
+What we are left with computing is
+```
+abs(W(x) * I)
+```
+where
+```
+W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(x))
+```
+and `I` the same integral as above.
+
+Now consider the expansions
+```
+clausenc(x * (t - 1), -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * (t - 1)^(-α - 1) + R(x * (t - 1))
+clausenc(x * (1 + t), -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
+clausenc(x * t, -α) = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * t^(-α - 1) + R(x * t)
+```
+where the error term `R` contains one constant term and `R(x * (1 -
+t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`. We can split
+the integral into the two integrals
+```
+I1 = gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t))) dt
+
+I2 = ∫ (R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t))) dt
+```
+satisfying `I = I1 + I2`. Furthermore we can split
+```
+log(u0.c + inv(x * t))
+```
+as
+```
+log(u0.c + inv(x * t)) = -log(x) - log(t) + log(1 + u0.c * x * t)
+```
+Which allows us to split the two above integrals into three integrals
+each.
+```
+I11 = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * log(x)
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) dt
+
+I12 = -gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) * log(t) dt
+
+I13 = gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) * log(1 + u0.c * x * t) dt
+```
+and similarly for `I2`
+
+For now we are only interested in getting the asymptotic values and we
+don't care about getting an enclosure. We will therefore neglect `I13`
+and `I2` which are both of lower order in `x`.
+
+# Handling `I1`
+In all of these integrals the factor `sinpi(α / 2)` comes up which
+converges to `-1` as `α -> -1` and can be enclosed directly.
+
+We will also make heavy use of the expansion
+```
+((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-u0.γ * (1 + α))
+    = (exp(-log(t - 1) * (α + 1)) + exp(-log(t + 1) * (α + 1)) - 2exp(-log(t) * (α + 1))) *
+        exp(-u0.γ * log(t) * (1 + α))
+    = exp(-(log(t - 1) + u0.γ * log(t)) * (α + 1)) +
+        exp(-(log(t + 1) + u0.γ * log(t)) * (α + 1)) -
+        2exp(-(1 + u0.γ) * log(t) * (α + 1))
+    =  sum(
+        (-1)^n * (α + 1)^n / factorial(n) *
+        ((log(t - 1) + u0.γ * log(t))^n + (log(t + 1) + u0.γ * log(t))^n - 2(1 + u0.γ)^n * log(t)^n)
+        for n = 1:Inf
+    )
+```
+To reduce the complicated integrals to a sum of easier integrals.
+
+## Handling `I11`
+We get
+```
+W(x) * I11 = -sinpi(α / 2) / (1 - x^p0) *
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) dt
+```
+
+Using the expansion of
+```
+((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-u0.γ * (1 + α))
+```
+and switching the integration and summation we get
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-u0.γ * (1 + α)) * log(t) dt =
+    sum(
+        (-1)^n * (α + 1)^n / factorial(n) *
+        ∫ ((log(t - 1) + u0.γ * log(t))^n + (log(t + 1) + u0.γ * log(t))^n - 2(1 + u0.γ)^n * log(t)^n) *
+            t dt
+        for n = 1:Inf
+    )
+```
+Now that the integrals no longer depend on `α` we want to expand them
+around `x = 0`.
+
+As a first step we attempt to compute the leading term in the
+asymptotic. The leading order in the integrals comes from the
+integration for large values of `t`. We therefore want to expand the
+integrand at infinity.
+
+We focus on expanding
+```
+((log(t - 1) + u0.γ * log(t))^n + (log(t + 1) + u0.γ * log(t))^n - 2(1 + u0.γ)^n * log(t)^n)
+```
+since the multiplication by `t` is easily handled. Asymptotically as
+`t -> Inf` this behaves like
+```
+- n * (1 + u0.γ)^(n - 1) * log(t)^(n - 1) / t^2
+```
+- **TODO:** Write down the calculations. It is done by rewriting
+  `log(t ± 1) = log(t * (1 ± inv(t))) = log(t) + log(1 ± inv(t))` and
+  using the binomial theorem, noticing that the two leading terms
+  cancel and that the third one is `- n / (n + 1) * (1 + u0.γ)^(n - 1)
+  * log(t)^(n + 1)`
+This gives us the integrals
+```
+- n * (1 + u0.γ)^(n - 1) * ∫ log(t)^(n - 1) / t dt
+```
+The primitive function is given by
+```
+∫ log(t)^(n - 1) / t dt = log(t)^n / n
+```
+The integration is taken from `1` to `π / x` but since we only care
+about what happens for small `x` (large `t`) we just let `t = 1 / x`,
+giving us that
+```
+- n * (1 + u0.γ)^(n - 1) * ∫ log(t)^(n - 1) / t dt
+```
+asymptotically behaves like
+```
+-(-1)^n * (1 + u0.γ)^(n - 1) * log(1 / x)^n =
+```
+Inserting this into the sum we get
+```
+-sum((α + 1)^n / factorial(n) * (1 + u0.γ)^(n - 1) * log(x)^n for n = 1:Inf) =
+-inv(1 + u0.γ) * sum((α + 1)^n / factorial(n) * (1 + u0.γ)^n * log(x)^n for n = 1:Inf) =
+-inv(1 + u0.γ) * (exp((1 + u0.γ) * (1 + α) * log(x)) - 1) =
+-(x^((1 + u0.γ) * (1 + α)) - 1) / (1 + u0.γ) =
+(1 - x^((1 + u0.γ) * (1 + α))) / (1 + u0.γ)
+```
+
+Now adding the factor `-sinpi(α / 2) / (1 - x^p0)` in front of the
+integral we get
+```
+W(x) * I11 = sinpi(α / 2) / (1 + u0.γ) * (1 - x^((1 + u0.γ) * (1 + α))) / (1 - x^p0)
+```
+
+## Handling `I12`
+The procedure is very similar to that for `I11`. We get
+```
+W(x) * I12 = -sinpi(α / 2) / ((1 - x^p0) * log(x))
+    ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(1 - u0.γ * (1 + α)) * log(t) dt
+```
+
+Using the expansion of
+```
+((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-u0.γ * (1 + α))
+```
+and switching the integration and summation we get
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-u0.γ * (1 + α)) * log(t) dt =
+    sum(
+        (-1)^n * (α + 1)^n / factorial(n) *
+        ∫ ((log(t - 1) + u0.γ * log(t))^n + (log(t + 1) + u0.γ * log(t))^n - 2(1 + u0.γ)^n * log(t)^n) *
+            t * log(t) dt
+        for n = 1:Inf
+    )
+```
+Now that the integral no longer depend on `α` we can expand it around
+`x = 0`.
+
+As a first step we attempt to compute the leading term in the
+asymptotic. The leading order in the integrals comes from the
+integration for large values of `t`. We therefore want to expand the
+integrand at infinity.
+
+Similarly to above we focus on expanding
+```
+((log(t - 1) + u0.γ * log(t))^n + (log(t + 1) + u0.γ * log(t))^n - 2(1 + u0.γ)^n * log(t)^n)
+```
+and then add the multiplication by `t * log(t)`. As above we get that
+asymptotically as `t -> Inf` this behaves like
+```
+- n * (1 + u0.γ)^(n - 1) * log(t)^(n - 1) / t^2
+```
+This gives us the integrals
+```
+- n * (1 + u0.γ)^(n - 1) * ∫ log(t)^n / t dt
+```
+The primitive function is given by
+```
+∫ log(t)^n / t dt = log(t)^(n + 1) / (n + 1)
+```
+The integration is taken from `1` to `π / x` but since we only care
+about what happens for small `x` (large `t`) we just let `t = 1 / x`,
+giving us that
+```
+- n * (1 + u0.γ)^(n - 1) * ∫ log(t)^(n - 1) / t dt
+```
+asymptotically behaves like
+```
+-(-1)^n * n / (n + 1) * (1 + u0.γ)^(n - 1) * log(1 / x)^(n + 1) =
+```
+Inserting this into the sum we get
+```
+-sum((α + 1)^n / factorial(n) * n / (n + 1) * (1 + u0.γ)^(n - 1) * log(x)^(n + 1) for n = 1:Inf) =
+-log(x) / (1 + u0.γ) * sum(n / (n + 1) * (α + 1)^n / factorial(n) * (1 + u0.γ)^n * log(x)^n for n = 1:Inf) =
+-log(x) / (1 + u0.γ) * (
+    (1 - x^((1 + u0.γ) * (1 + α))) / ((1 + u0.γ) * (1 + α) * log(x)) +
+    x^((1 + u0.γ) * (1 + α))
+)
+```
+
+Now adding the factor `-sinpi(α / 2) / ((1 - x^p0) * log(x))` in front of the
+integral we get
+```
+W(x) * I11 = sinpi(α / 2) / ((1 - x^p0) * log(x)) * log(x) / (1 + u0.γ) * (
+    (1 - x^((1 + u0.γ) * (1 + α))) / ((1 + u0.γ) * (1 + α) * log(x)) +
+    x^((1 + u0.γ) * (1 + α))
+) =
+sinpi(α / 2) / (1 + u0.γ) * (
+    (1 - x^((1 + u0.γ) * (1 + α))) / ((1 + u0.γ) * (1 + α) * log(x)) +
+    x^((1 + u0.γ) * (1 + α))
+) / (1 - x^p0)
+```
+
+## Handling `I13`
+We neglect this for now
+- **TODO:** Handle this.
+
+# Handling `I₂`
+We ignore these for now since they all go to zero.
+- **TODO:** Handle this.
+
+"""
+function T02_alternative2(
+    u0::BHKdVAnsatz,
+    ::Asymptotic;
+    non_asymptotic_u0 = false,
+    ϵ = Arb(2e-1),
+)
+    ϵ = convert(Arb, ϵ)
+    @assert ϵ < 0.5
+
+    # Setup for bounding F
+
+    # Compute the expansion of u0 and remove the leading term, which
+    # is handled separately.
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
+    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
+
+    # Ensure that the tail of the expansion of u0 is positive, so that
+    # we can remove it from the denominator of F1 and still get an
+    # upper bound.
+    expansion_ispositive(u0, u0_expansion, ϵ) ||
+        error("expansion of u0 not proven to be positive, this should not happen")
+
+    # Function for computing an upper bound of F
+    F(x) =
+        let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
+            # Note that inside this statement α refers to -1 + u0.ϵ
+            # and p0 to the corresponding p0 value.
+
+            # Enclosure of abs(log(x) / log(u0.c + inv(x))), either by
+            # direct evaluation or using monotonicity.
+            F11 = if iszero(x)
+                one(Arb)
+            elseif Arblib.contains_zero(x)
+                abs(Arb((-1, log(xᵤ) / log(u0.c + inv(xᵤ)))))
+            else
+                abs(log(x) / log(u0.c + inv(x)))
+            end
+
+            # Enclose F12
+            F121_lower = -Arb(π)^2 / 2
+            F122_upper = gamma(1 + α) / finda0(α)
+            F121 = Arb((F121_lower, F122_upper))
+
+            c(a) = gamma(a) * sinpi((1 - a) / 2)
+
+            # Upper and lower bound of
+            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+            F122_lower = (1 - xᵤ^p0) / (1 - c(α - p0) / c(α) * xᵤ^p0)
+            F122_upper = one(Arb)
+            # Combine upper and lower bound and multiply with
+            # enclosure of inv(c(α)) to get an upper bound for F122.
+            F122 = inv(Arb((c(α), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
+
+            F12 = F121 * F122
+
+            Arblib.ispositive(F12) ||
+                error("leading term of u0 is not positive, this should not happen")
+
+            return inv(π) * F11 * F12
+        end
+
+    return x::Arb -> begin
+        @assert x <= ϵ
+
+        sin_factor = let α = Arb((-1, -1 + u0.ϵ))
+            sinpi(α / 2)
+        end
+
+        WxI11 = let α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
+            # TODO: Multiply by sin_factor
+            1 / (1 + u0.γ) * (1 - x^((1 + u0.γ) * (1 + α))) / (1 - x^p0)
+        end
+
+        WxI12 = let α = -1 + u0.ϵ, p0 = (1 + α) + (1 + α)^2 / 2
+            # TODO: Multiply by sin_factor
+            1 / (1 + u0.γ) * (
+                (1 - x^((1 + u0.γ) * (1 + α))) / ((1 + u0.γ) * (1 + α) * log(x)) +
+                x^((1 + u0.γ) * (1 + α))
+            ) / (1 - x^p0)
+        end
+
+        #@show WxI11 WxI12
+
+        WxI1 = WxI11 + WxI12
+
+        return WxI11, WxI12, WxI1
+
+        # Handle I2
+
+        WxI2 = zero(x) # Neglect this
+
+        res = F(x) * (WxI1 + WxI2)
+
+        return res
+    end
+end
+
+"""
     T021(u0::BHKdVAnsatz)
 
 Computes the (not yet existing) integral \$T_{0,2,1}\$ from the paper.
