@@ -808,6 +808,21 @@ p0 = 1 + α + (1 + α)^2 / 2
 
 Recall that the expression we are interested in bounding is
 ```
+abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * u0.w(x)))
+```
+with
+```
+u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
+```
+Since we are only interested in an upper bound it is enough to use a
+lower bound of `u0.w(x)`. We can note that it is increasing in `u0.γ`
+for `0 < x < 1` and a lower bound is hence given by
+```
+x * log(u0.c + inv(x))
+```
+In what follows we will hence use this weight which still gives us an
+upper bound. This means that the expression we want to bound is
+```
 abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * x * log(u0.c + inv(x))))
 ```
 
@@ -820,8 +835,8 @@ The first one is given by
 F1 = abs(log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
 ```
 Notice that `log(x) / log(u0.c + inv(x))` is easily seen to be bounded
-and as we will see later so is `gamma(1 + α) * x^-α * (1 - x^p0) /
-u0(x)`
+and `gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)` is handle by
+[`inv_u0_bound`](@ref).
 
 The second one is given by
 ```
@@ -844,76 +859,12 @@ zero we compute an enclosure by using that `log(x) / log(u0.c + inv(x))`
 converges to `-1` as `x -> 0` and is increasing in `x`.
 - **PROVE:** That `log(x) / log(u0.c + inv(x))` is increasing in `x`.
 
-For `F12` we compute the asymptotic expansion of `u0`. We then split
-the expansion into the leading term and a tail. In practice both the
-leading term and the tail are positive and the tail is much smaller
-than the leading term. Since we are only interested in an upper bound
-we can thus just skip the tail. For this to be valid we must ensure
-that both the leading term and the tail are positive. For the tail
-this is checked using [`expansion_ispositive`](@ref). For the leading
-term this is done by checking that the end result is positive (it is
-easily seen that the numerator is positive in our case)
-
-What remains is to handle the leading term, it is given by
-```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
-```
-Since we are interested in `gamma(1 + α) * x^-α * (1 - x^p0)` divided
-by this we get
-```
-gamma(1 + α) * (1 - x^p0) /
-    (a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0))
-```
-Numerically we can see that this term converges to `π` as `α -> -1`
-and `x -> 0`. We can also see that it is decreasing in both `α` and
-`x`. We would therefore expect to be able to compute a rather accurate
-enclosure. We don't use these observations directly though, instead we
-proceed as follows. We can split this further into the two factors
-```
-F121 = gamma(1 + α) / a0
-F122 = (1 - x^p0) /
-    (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
-```
-
-For `F121` we can get an enclosure using that it converges to `-π^2 /
-2` as `α -> -1` and is increasing in `α`.
-- **PROVE:** That `gamma(1 + α) / a0` converges to `-π^2 / 2` as `α ->
-  -1` and is increasing in `α`.
-
-For `F122` we let `c(a) = gamma(a) * sinpi((1 - a) / 2)` and then
-factor it out, giving us
-```
-inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-```
-We can enclose `c(α)` using that it converges to `-π / 2` as `α -> -1`
-and is decreasing in `α`.
-- **PROVE:** That `c(α)` converges to `-π / 2` as `α -> -1` and is
-  decreasing in `α`.
-
-For the remaining part we notice that `c(α - p0) / c(α)` converges to
-`1` as `α -> -1` and is decreasing in `α`. An upper bound for `(1 -
-x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is hence given by `1` (for `α =
--1`) and a lower bound can be computed by evaluating it at `α = -1 +
-u0.ϵ` and an upper bound for `x`
-- **PROVE:** That `c(α - p0) / c(α)` converges to `1` as `α -> -1` and is
-  decreasing in `α` and `x`.
-
-**IMPROVE:** WE could improve the enclosure we get by incorporating
-some of the terms in the tail of `u0`. For very small `x` this would
-be negligible but for `x` around say `1e-10` this would slightly
-improve the values. It seems to be able to give a factor of around
-`0.5` for `x` close to `0.1` but only a factor `0.85` around `x =
-1e-10` (checked by plotting the value for `F1` used in this method and
-comparing it to the non-asymptotic version of it). Since this is not a
-big improvement and for `x` values this large we can use the
-non-asymptotic version anyway it is probably not worth it to implement
-though.
+An upper bound of `F12` is computed using [`inv_u0_bound`](@ref).
 
 # Bounding `F2`
 Getting an accurate bound for `F2` requires some work since it's not
 enough to only consider the leading term, we have to account for the
-cancellation between the terms even for very small values of `x` (of
-the order `1e-10000` or even smaller).
+cancellation between the terms.
 
 Recall that we are interested in bounding
 ```
@@ -934,7 +885,8 @@ and
 ```
 Q = -a0 * ((c(2α) - c(2α - p0) * x^p0) * x^-2α - (zeta(-2α - 1) / 2 - zeta(-2α + p0 - 1) / 2) * x^2)
 ```
-where `c(a) = gamma(a) * sinpi((1 - a) / 2)` as above.
+where `c(a) = gamma(a) * sinpi((1 - a) / 2)`, similar to
+[`inv_u0_bound`](@ref).
 
 By construction `a0` is such that the terms with exponent `x^-2α`
 cancel out. This leaves us with
@@ -1220,23 +1172,14 @@ function F0(
 )
     @assert ϵ < 1
 
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
+    # This method assumes that the weight is x^(1 - u0.γ * (1 + α)) *
+    # log(u0.c * inv(x)). As an extra precaution we check this.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), x * log(u0.c + inv(x)))
+        @assert Arblib.overlaps(u0.w(x), x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x)))
     end
 
-    # Compute the expansion of u0 and remove the leading term, which
-    # is handled separately.
-    u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
-    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
-
-    # Ensure that the tail of the expansion of u0 is positive, so that
-    # we can remove it from the denominator of F1 and still get an
-    # upper bound.
-    #expansion_ispositive(u0, u0_expansion, ϵ) ||
-    #    error("expansion of u0 not prove to be positive, this should not happen")
+    # Function for computing an enclosure of F12
+    F12 = inv_u0_bound(u0)
 
     # Compute the expansion of D(u0), skipping the Clausen term in the
     # tail corresponding to j = 1 and also remove the two leading
@@ -1251,14 +1194,14 @@ function F0(
     for ((p, q, i, j, k, l, m), y) in Du0_expansion
         Du0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
     end
-    #return Du0_expansion_div_x_onemα
+
     c(a) = gamma(a) * sinpi((1 - a) / 2)
 
     return x::Arb -> begin
         @assert x <= ϵ
 
         # Compute an upper bound of F1
-        F1 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
+        F1 = let xᵤ = ubound(Arb, x)
             # Note that inside this statement α refers to -1 + u0.ϵ
             # and p0 to the corresponding p0 value.
 
@@ -1272,25 +1215,7 @@ function F0(
                 abs(log(x) / log(u0.c + inv(x)))
             end
 
-            # Enclose F12
-            F121_lower = -Arb(π)^2 / 2
-            F122_upper = gamma(1 + α) / finda0(α)
-            F121 = Arb((F121_lower, F122_upper))
-
-            # Upper and lower bound of
-            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-            F122_lower = (1 - xᵤ^p0) / (1 - c(α - p0) / c(α) * xᵤ^p0)
-            F122_upper = one(Arb)
-            # Combine upper and lower bound and multiply with
-            # enclosure of inv(c(α)) to get an upper bound for F122.
-            F122 = inv(Arb((c(α), -Arb(π) / 2))) * Arb((F122_lower, F122_upper))
-
-            F12 = F121 * F122
-
-            Arblib.ispositive(F12) ||
-                error("leading term of u0 is not positive, this should not happen")
-
-            F11 * F12
+            F11 * F12(x)
         end
 
         # Compute an enclosure of F2
