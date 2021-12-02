@@ -70,7 +70,8 @@ With the change of coordinates `t = y / x` the integral for the norm
 is given by
 ```
 x / (π * u0(x) * log(u0.c + inv(x))) *
-    ∫ abs(clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t * log(u0.c + inv(x * t)) dt
+    ∫ abs(clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 This method returns a function `f` such that `f(x, a, b)` computes the
 above, integrating `a` to `b`. Optionally it accepts the keyword
@@ -80,10 +81,10 @@ from `a` to `π / x`, i.e. `f(x, a, b, to_endpoint = true)`.
 The computation is done by factoring out part of the weight and
 integrating the rest explicitly.
 
-More precisely, since `log(u0.c + inv(x * t))` is well behaved as long
-as `x` is not very close to zero we can compute an enclosure of it for
-all `t ∈ [1 - δ, 1 + δ]` and factor this out. This leaves us with the
-integral
+More precisely, since `t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))`
+is well behaved as long as `x` is not very close to zero we can
+compute an enclosure of it for all `t` in the interval and factor this
+out. This leaves us with the integral
 ```
 I = ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt
 ```
@@ -271,7 +272,9 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
 
         if b * x < π && !to_endpoint
             # We integrate on [a, b]
-            weight_enclosure = log(u0.c + inv(x * Arb((a, b))))
+            weight_enclosure = let α = Arb((-1, -1 + u0.ϵ)), t = Arb((a, b))
+                t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))
+            end
 
             I_mul_x = if iswide(b)
                 union(
@@ -283,7 +286,9 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             end
         elseif to_endpoint || b * x > π || contains(π / x, b)
             # We integrate on [a, π / x]
-            weight_enclosure = log(u0.c + inv(x * Arb((a, π / x))))
+            weight_enclosure = let α = Arb((-1, -1 + u0.ϵ)), t = Arb((a, π / x))
+                t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))
+            end
 
             # Compute primitive_mul_x(a)
             primitive_a_mul_x = primitive_mul_x(a)
