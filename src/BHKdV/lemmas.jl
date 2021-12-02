@@ -164,3 +164,31 @@ it for the `x` in the interval `[0, π]`.
 **PROVE:** Finish this proof.
 """
 lemma_bhkdv_main_term_H_limit() = true
+
+"""
+    lemma_bhkdv_weight_div_asymptotic_bound()
+
+# Statement
+Let
+```
+0 <= γ < 1
+-1 < α < 0
+p0 = (1 + α) + (1 + α)^2 / 2
+```
+then the function
+```
+-x^((1 - γ) * (1 + α)) * log(x) / (gamma(1 + α) * (1 - x^p0))
+```
+is bounded by
+```
+1.1
+```
+- **TODO:** This bound can be checked numerically to be valid but
+  should be updated with a better bound once we have that. Annoyingly
+  enough the upper bound is not quite one, but some number slightly
+  larger than one.
+
+# Proof
+**PROVE:** Prove this.
+"""
+lemma_bhkdv_weight_div_asymptotic_bound(u0::BHKdVAnsatz{T}) where {T} = convert(T, 1.1)
