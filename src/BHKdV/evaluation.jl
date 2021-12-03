@@ -1552,6 +1552,8 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
     p0ᵤ = 1 + αᵤ + (1 + αᵤ)^2 / 2
 
     return x::Arb -> begin
+        x <= ϵ || throw(ArgumentError("need x <= ϵ, got x = $x with ϵ = $ϵ"))
+
         xᵤ = ubound(Arb, x)
 
         # Enclose F12
