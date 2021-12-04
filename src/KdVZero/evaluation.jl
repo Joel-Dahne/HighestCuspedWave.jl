@@ -136,7 +136,7 @@ remove the pole and we have the expansion
 
 For computing `a[0] * zeta(1 - 2α)` we rewrite it as
 ```
-(a[0] / α) * (α * zeta(1 - α))
+(a[0] / α) * (α * zeta(1 - 2α))
 ```
 and use the expansion
 ```
@@ -162,7 +162,7 @@ function H(u0::KdVZeroAnsatz, ::Ball)
             # Divide clausen term by α
             clausen_term = clausen_term << 1
 
-            # Expansion of 2α * gamma(2α)
+            # Expansion of α * gamma(2α)
             gammamulα = let γ = Arb(Irrational{:γ}()), π = Arb(π)
                 ArbSeries((1 // 2, -γ, γ^2 + π^2 / 6))
             end
@@ -174,7 +174,8 @@ function H(u0::KdVZeroAnsatz, ::Ball)
             # multiplication is correct.
             a0clausenterm = ((as[0] << 1) * clausen_term) >> 1
 
-            zetamulα = ArbSeries((-1 // 2, stieltjes(Arb, 0),24stieltjes(Arb, 1), 2stieltjes(Arb, 2)))
+            # Expansion of α * zeta(1 - 2α)
+            zetamulα = ArbSeries((-1 // 2, stieltjes(Arb, 0), 2stieltjes(Arb, 1), 2stieltjes(Arb, 2)))
 
             a0zeta_term = (as[0] << 1) * zetamulα
 
