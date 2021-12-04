@@ -617,6 +617,25 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
 end
 
 """
+    _clausencmzeta_zeta(x::Arb, s::ArbSeries)
+
+Evaluation of the `clausencmzeta` function through the zeta function.
+
+This uses the same expression as in [`_clausenc_zeta`](@ref) and also
+subtracts `zeta(s)`. It uses direct evaluation and doesn't do anything
+fancy.
+"""
+function _clausencmzeta_zeta(x::Arb, s::ArbSeries)
+    v = 1 - s
+
+    res =
+        gamma(v) * inv(2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) -
+        zeta(s)
+
+    return res
+end
+
+"""
     clausencmzeta(x, s)
 
 Compute `clausenc(x, s) - zeta(s)`. Notice that `clausenc(0, s) =
@@ -707,6 +726,8 @@ function clausencmzeta(x, s)
     x, s = promote(x, s)
     return clausenc(x, s) - zeta(s)
 end
+
+clausencmzeta(x::Arb, s::ArbSeries) = _clausencmzeta_zeta(x, s)
 
 """
     clausencmzeta(x, s, β)
