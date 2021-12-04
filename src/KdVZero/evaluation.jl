@@ -79,7 +79,8 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         # multiplication is correct.
         a0clausenterm = ((as[0] << 1) * clausen_term) >> 1
 
-        zetamulα = ArbSeries((-1, stieltjes(Arb, 0), stieltjes(Arb, 1), stieltjes(Arb, 2) / 2))
+        zetamulα =
+            ArbSeries((-1, stieltjes(Arb, 0), stieltjes(Arb, 1), stieltjes(Arb, 2) / 2))
 
         a0zeta_term = (as[0] << 1) * zetamulα
 
@@ -175,7 +176,12 @@ function H(u0::KdVZeroAnsatz, ::Ball)
             a0clausenterm = ((as[0] << 1) * clausen_term) >> 1
 
             # Expansion of α * zeta(1 - 2α)
-            zetamulα = ArbSeries((-1 // 2, stieltjes(Arb, 0), 2stieltjes(Arb, 1), 2stieltjes(Arb, 2)))
+            zetamulα = ArbSeries((
+                -1 // 2,
+                stieltjes(Arb, 0),
+                2stieltjes(Arb, 1),
+                2stieltjes(Arb, 2),
+            ))
 
             a0zeta_term = (as[0] << 1) * zetamulα
 

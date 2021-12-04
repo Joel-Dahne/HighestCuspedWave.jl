@@ -256,7 +256,11 @@ function Base.:(<<)(p::ArbSeries, n::Integer)
         iszero(Arblib.ref(p, i)) ||
             throw(ArgumentError("coefficient $i not equal to zero, got $(p[i])"))
     end
-    return Arblib.shift_right!(ArbSeries(degree = Arblib.degree(p) - n, prec = precision(p)), p, n)
+    return Arblib.shift_right!(
+        ArbSeries(degree = Arblib.degree(p) - n, prec = precision(p)),
+        p,
+        n,
+    )
 end
 
 """
@@ -270,5 +274,9 @@ shift.
 """
 function Base.:(>>)(p::ArbSeries, n::Integer)
     n >= 0 || throw(ArgumentError("n needs to be non-negative, got $n"))
-    return Arblib.shift_left!(ArbSeries(degree = Arblib.degree(p) + n, prec = precision(p)), p, n)
+    return Arblib.shift_left!(
+        ArbSeries(degree = Arblib.degree(p) + n, prec = precision(p)),
+        p,
+        n,
+    )
 end

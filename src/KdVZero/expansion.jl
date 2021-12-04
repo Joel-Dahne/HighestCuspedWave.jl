@@ -174,32 +174,29 @@ function expansion_p0(::KdVZeroAnsatz{Arb})
 
     p02 = let π = Arb(π)
         (
-            (-8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1)) -
-                (
-                    - 18 * π^2 * digamma(-p00)
-                    - 12 * p01 * π^2 * digamma(-p00)
-                    + 8 * digamma(-p00)^3
-                    + 72 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00)))
-                    + 48 * p01 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00)))
-                    + 56 * real(polygamma(Acb(2), Acb(-p00)))
-                    + 72 * p01 * real(polygamma(Acb(2), Acb(-p00)))
-                    + 24 * p01^2 * real(polygamma(Acb(2), Acb(-p00)))
-                    + 5 * π^3 * tan(p00 * π / 2)
-                    + 12 * p01 * π^3 * tan(p00 * π / 2)
-                    + 6 * p01^2 * π^3 * tan(p00 * π / 2)
-                    + 12 * π * digamma(-p00)^2 * tan(p00 * π / 2)
-                    + 36 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2)
-                    + 24 * p01 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2)
-                    - 12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
-                    - 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
-                    + 6 * π^3 * tan(p00 * π / 2)^3
-                    + 12 * p01 * π^3 * tan(p00 * π / 2)^3
-                    + 6 * p01^2 * π^3 * tan(p00 * π / 2)^3
-                )
+            (-8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1)) - (
+                -18 * π^2 * digamma(-p00) - 12 * p01 * π^2 * digamma(-p00) +
+                8 * digamma(-p00)^3 +
+                72 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) +
+                48 * p01 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) +
+                56 * real(polygamma(Acb(2), Acb(-p00))) +
+                72 * p01 * real(polygamma(Acb(2), Acb(-p00))) +
+                24 * p01^2 * real(polygamma(Acb(2), Acb(-p00))) +
+                5 * π^3 * tan(p00 * π / 2) +
+                12 * p01 * π^3 * tan(p00 * π / 2) +
+                6 * p01^2 * π^3 * tan(p00 * π / 2) +
+                12 * π * digamma(-p00)^2 * tan(p00 * π / 2) +
+                36 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) +
+                24 * p01 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) -
+                12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 -
+                12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
+                6 * π^3 * tan(p00 * π / 2)^3 +
+                12 * p01 * π^3 * tan(p00 * π / 2)^3 +
+                6 * p01^2 * π^3 * tan(p00 * π / 2)^3
+            )
         ) / (
-            - 12 * π^2
-            + 48 * real(polygamma(Acb(1), Acb(-p00)))
-            - 12 * π^2 * tan(p00 * π / 2)^2
+            -12 * π^2 + 48 * real(polygamma(Acb(1), Acb(-p00))) -
+            12 * π^2 * tan(p00 * π / 2)^2
         )
     end
 
