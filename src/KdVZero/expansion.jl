@@ -272,15 +272,10 @@ v1 = q * a[0] * z2 / 4
 v2 = -q * a[0] * z3 / 4
 ```
 If we naively compute these terms with `ArbSeries` the degree after
-the multiplication will be the minimum degree of all factors. However,
-since all factors except `q` have a zero constant term we can keep
-higher order terms. More precisely the valid degrees after the
-multiplication are
-```
-degree(d) = min(degree(q) + 1, degree(z1))
-degree(v1) = min(degree(q) + 2, degree(a0) + 1, degree(z2) + 1)
-degree(v2) = min(degree(q) + 2, degree(a0) + 1, degree(z3) + 1)
-```
+the multiplication will be the minimum degree of all factors. By
+factoring out `α` from `a[0]` as well as `z1`, `z2` and `z3`,
+performing the multiplication and then multiplying back the `α` we can
+avoid this issue.
 
 ## Handling division by `d`
 We want to compute
@@ -288,11 +283,9 @@ We want to compute
 a[1] = v1 / d
 a[2] = v2 / d
 ```
-but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `x`
-from all of them. In fact both `v1[1]` and `v2[1]` are zero as well.
-We therefore divide `v1` and `v2` by `x^2` and `d` by `x`, perform the
-division and then multiply by `x`. The reason we do it this way is to
-keep higher order terms.
+but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `α`
+from all of them. To get the higher order terms we factor out one more
+`α` from `v1` and `v2` and multiply it back afterwards.
 """
 function expansion_as(u0::KdVZeroAnsatz{Arb})
     # Compute expansion of a0
@@ -325,35 +318,16 @@ function expansion_as(u0::KdVZeroAnsatz{Arb})
     @assert all(Arblib.contains_zero(z[0]) for z in (z1, z2, z3))
     z1[0] = z2[0] = z3[0] = 0
 
-    # Compute d, v1 and v2. Here we want to make sure that we keep the
-    # highest possible number of terms.
-    @assert !iszero(q[0]) && iszero(a0[0])
+    # Factor out α from z1 and multiply back afterwards
+    d = (q * (z1 << 1) / 4) >> 1
+    # Factor out α from a[0] and z2 and multiply back afterwards
+    v1 = (q * (a0 << 1) * (z2 << 1) / 4) >> 2
+    # Factor out α from a[0] and z3 and multiply back afterwards
+    v2 = -(q * (a0 << 1) * (z3 << 1) / 4) >> 2
 
-    degree_d = min(Arblib.degree(q) + 1, Arblib.degree(z1))
-    degree_v1 = min(Arblib.degree(q) + 2, Arblib.degree(a0) + 1, Arblib.degree(z2) + 1)
-    degree_v2 = min(Arblib.degree(q) + 2, Arblib.degree(a0) + 1, Arblib.degree(z3) + 1)
+    # Factor out α^2 from v1 and v2 and α from d, multiply back one α afterwards
+    a1 = ((v1 << 2) / (d << 1)) >> 1
+    a2 = ((v2 << 2) / (d << 1)) >> 1
 
-    d = Arblib.mullow!(ArbSeries(degree = degree_d), q, z1, degree_d + 1) / 4
-
-    v1 = Arblib.mullow!(ArbSeries(degree = degree_v1), q, a0, degree_v1 + 1)
-    v1 = Arblib.mullow!(v1, v1, z2, degree_v1 + 1) / 4
-
-    v2 = -Arblib.mullow!(ArbSeries(degree = degree_v2), q, a0, degree_v2 + 1) / 4
-    v2 = Arblib.mullow!(v2, v2, z3, degree_v2 + 1)
-
-    # Divide d by x and v1 and v2 by x^2
-    @assert all(iszero(x) for x in (d[0], v1[0], v2[0], v1[1], v2[1]))
-    ddivx = Arblib.shift_right!(ArbSeries(degree = Arblib.degree(d) - 1), d, 1)
-    v1divx2 = Arblib.shift_right!(ArbSeries(degree = Arblib.degree(v1) - 2), v1, 2)
-    v2divx2 = Arblib.shift_right!(ArbSeries(degree = Arblib.degree(v2) - 2), v2, 2)
-
-    # Perform the division
-    a1divx = v1divx2 / ddivx
-    a2divx = v2divx2 / ddivx
-
-    # Multiply by x
-    a1 = Arblib.shift_left!(ArbSeries(degree = Arblib.degree(a1divx) + 1), a1divx, 1)
-    a2 = Arblib.shift_left!(ArbSeries(degree = Arblib.degree(a2divx) + 1), a2divx, 1)
-
-    return a0, a1, a2
+    return OffsetVector([a0, a1, a2], 0:2)
 end
