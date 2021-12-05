@@ -58,5 +58,6 @@ include("BHKdV/lemmas.jl")
 include("KdVZero/KdVZeroAnsatz.jl")
 include("KdVZero/expansion.jl")
 include("KdVZero/evaluation.jl")
+include("KdVZero/alpha0.jl")
 
 end # module
