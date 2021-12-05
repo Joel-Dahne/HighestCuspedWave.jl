@@ -193,3 +193,134 @@ function H(u0::KdVZeroAnsatz, ::Ball)
         return res
     end
 end
+
+"""
+    u0_div_xmα(u0::KdvZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ)
+
+The leading term of `u0` behaves like ` x^-α`. This method returns a
+function `f` such that `f(x)` computes an enclosure of `u0(x) / x^-α`.
+So an enclosure of `u0(x)` is given by
+```
+x^-α * f(x)
+```
+It does so in a way that allows evaluation at `x = 0` where `f` is
+non-zero.
+
+A value `ϵ` has to be given and this will allow evaluation for all `x
+<= ϵ`.
+
+Note that this method doesn't return an expansion in `α` but the
+result is an enclosure that is valid for all values of `α`.
+
+Recall that `u0(x)` is given by
+```
+u0(x) = a[0] * clausencmzeta(x, 1 - α) +
+        a[1] * clausencmzeta(x, 1 - α + p0) +
+        a[2] * clausencmzeta(x, 1 - α + 2p0)
+```
+
+The second and third term we can handle directly by computing
+enclosures of `a[1]`, `a[2]`, `p0` and then using the expansion of the
+Clausen functions around `x = 0`
+
+For the first term direct evaluation fails computing the singular term
+in `clausenc(x, 1 - α)` (it also fails computing the constant term but
+that is exactly cancelled by the `zeta`). It works well for computing
+the `x^2m` term for `m >= 1` and the remainder term.
+
+The singular term is given by
+```
+gamma(α) * cospi(α / 2) * x^-α
+```
+which blows up as `α -> 0`. If we take into account the multiplication
+by `a[0]` we get
+```
+a[0] * gamma(α) * cospi(α / 2) * x^-α =
+    2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2)) * x^-α
+```
+The coefficient here also occurs in [`expansion_p0`](@ref) and its
+expansion around `α = 0` is given by
+```
+2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2)) =
+    1 - γ * α + (γ^2 / 2 - π^2 / 8) * α^2 +
+    (-4γ^3 + 3γ * π^2 + 28 * polygamma(2, 1)) / 24 * α^3 + O(α^4)
+```
+which we can use to compute an enclosure
+
+**IMPROVE:** We could attempt to compute a tighter enclosure if
+needed. We could avoid some overestimations by using that the sign of
+the individual terms are fixed. We could compute tighter enclosures of
+`a[0]` by using the monotonicity, might be able to do similar things
+for the other enclosures. We might not need to compute a tighter
+enclosure in the end though.
+"""
+function u0_div_xmα(
+    u0::KdVZeroAnsatz{Arb},
+    ::Asymptotic = Asymptotic();
+    ϵ::Arb,
+    M::Integer = 3,
+)
+    # We can just as well use an upper bound for ϵ
+    ϵ = ubound(Arb, ϵ)
+
+    p0 = expansion_p0(u0)
+    as = expansion_as(u0)
+
+    # Compute enclosures of a[0], a[1], a[2] and p0
+    as_enclosure = [a(u0.α) for a in as]
+    p0_enclosure = p0(u0.α)
+
+    _, _, P0, E0 = clausenc_expansion(ϵ, 1 - u0.α + p0_enclosure, M)
+    C1, e1, P1, E1 = clausenc_expansion(ϵ, 1 - u0.α + p0_enclosure, M)
+    C2, e2, P2, E2 = clausenc_expansion(ϵ, 1 - u0.α + 2p0_enclosure, M)
+
+    # Enclosure of a[0] * C0 where C0 is the coefficient for the
+    # singular term of the first Clausen function.
+    a0C0 = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+        q = ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8))
+        q(u0.α)
+    end
+
+    return x::Union{Arb,ArbSeries} -> begin
+        x isa Arb &&
+            !(abs_ubound(x) <= abs_ubound(ϵ)) &&
+            throw(ArgumentError("x has to be less than ϵ = $ϵ, got x = $x"))
+        x isa ArbSeries &&
+            !(abs_ubound(x[0]) <= abs_ubound(ϵ)) &&
+            throw(ArgumentError("x has to be less than ϵ = $ϵ, got x = $x"))
+
+        # Compute an enclosure of the first Clausen function
+        clausen0_tail = zero(x)
+        for m = 1:M-1
+            clausen0_tail += P0[2m] * abspow(x, 2m + u0.α)
+        end
+        clausen0_tail += E0 * abspow(x, 2M + u0.α)
+
+        # The exponent for the singular term is -u0.α + u0.α = 0
+        res = a0C0 + as_enclosure[0] * clausen0_tail
+
+        # Compute enclosures of the second and third Clausen functions
+
+        # The exponent is given by e1 + u0.α = (-u0.α + p0_enclosure)
+        # + u0.α = p0_enclosure
+        clausen1 = C1 * abspow(x, p0_enclosure)
+        for m = 1:M-1
+            clausen1 += P1[2m] * abspow(x, 2m + u0.α)
+        end
+        clausen1 += E1 * abspow(x, 2M + u0.α)
+
+        res += as_enclosure[1] * clausen1
+
+        # The exponent is given by e2 + u0.α = (-u0.α + 2p0_enclosure)
+        # + u0.α = 2p0_enclosure
+        clausen2 = C2 * abspow(x, 2p0_enclosure)
+        for m = 1:M-1
+            clausen2 += P2[2m] * abspow(x, 2m + u0.α)
+        end
+        clausen2 += E2 * abspow(x, 2M + u0.α)
+
+        res += as_enclosure[2] * clausen2
+
+        return res
+    end
+end
