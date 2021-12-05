@@ -185,6 +185,20 @@ function abspow(x::Arb, y::Arb)
     return abs(x)^y
 end
 
+function abspow(x::ArbSeries, y::Arb)
+    if Arblib.contains_zero(Arblib.ref(x, 0))
+        # All non-constant terms are indeterminate, the constant term
+        # is given by abs(x[0])^y
+        res = ArbSeries(abspow(x[0], y), degree = Arblib.degree(x))
+        for i = 1:Arblib.degree(res)
+            res[i] = NaN
+        end
+        return res
+    end
+
+    return abs(x)^y
+end
+
 abspow(x, y) = abs(x)^y
 
 hypgeom_2f1(a::Arb, b::Arb, c::Arb, z::Arb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
