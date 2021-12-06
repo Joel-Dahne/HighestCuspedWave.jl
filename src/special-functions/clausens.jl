@@ -17,7 +17,18 @@ function _clausens_polylog(x::Arb, s::Union{Arb,Integer})
 end
 
 """
-    _clausenc_polylog(x::Arb, s::Arb, β::Integer)
+    _clausens_polylog(x::Arb, s::Union{Arb,Integer})
+
+Evaluation of the `clausens` function through the polylog function as
+a power series in `s`.
+"""
+function _clausens_polylog(x::Arb, s::ArbSeries)
+    z = exp(Acb(0, x, prec = precision(x)))
+    return ArbSeries(imag.(Arblib.coeffs(polylog(AcbSeries(s), z))))
+end
+
+"""
+    _clausens_polylog(x::Arb, s::Arb, β::Integer)
 
 Evaluation of the `clausens(x, s, β)` function through the polylog
 function.
@@ -82,6 +93,25 @@ function _clausens_zeta(x::Arb, s::Arb)
     end
 
     return f(v)
+end
+
+"""
+    _clausens_zeta(x::Arb, s::ArbSeries)
+
+Evaluation of the `clausens` function through the zeta function as a
+power series in `s`.
+"""
+function _clausens_zeta(x::Arb, s::ArbSeries)
+    Arblib.ispositive(x) && x < 2Arb(π) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    v = 1 - s
+
+    res = let inv2π = inv(2Arb(π))
+        gamma(v) * inv2π^v * sinpi(v / 2) * (zeta(v, x * inv2π) - zeta(v, 1 - x * inv2π))
+    end
+
+    return res
 end
 
 """
@@ -217,6 +247,28 @@ function clausens(x::ArbSeries, s)
     x_tmp[0] = 0
 
     return Arblib.compose(res, x_tmp)
+end
+
+"""
+    clausens(x::Arb, s::ArbSeries)
+
+Compute the Taylor series of the Clausen function \$S_s(x)\$ in the
+parameter `s`.
+
+It uses [`_clausens_zeta`](@ref) in general and
+[`_clausens_polylog`](@ref) when `s[0]` is an integer. It currently
+doesn't support `s[0]` overlapping an integer but not being exactly an
+integer.
+
+- **TODO:** Implement support for `s` overlapping integers. This will
+  be needed to enclose remainder terms.
+"""
+function clausens(x::Arb, s::ArbSeries)
+    if isinteger(Arblib.ref(s, 0))
+        return _clausens_polylog(x, s)
+    else
+        return _clausens_zeta(x, s)
+    end
 end
 
 """

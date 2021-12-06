@@ -17,6 +17,17 @@ function _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
 end
 
 """
+    _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
+
+Evaluation of the `clausenc` function through the polylog function as
+a power series in `s`.
+"""
+function _clausenc_polylog(x::Arb, s::ArbSeries)
+    z = exp(Acb(0, x, prec = precision(x)))
+    return ArbSeries(real.(Arblib.coeffs(polylog(AcbSeries(s), z))))
+end
+
+"""
     _clausenc_polylog(x::Arb, s::Arb, β::Integer)
 
 Evaluation of the `clausenc(x, s, β)` function through the polylog
@@ -130,6 +141,25 @@ function _clausenc_zeta(x::Acb, s::Arb)
         (zeta(Acb(v), xinv2pi) + zeta(Acb(v), onemxinv2pi))
 
     return f(v)
+end
+
+"""
+    _clausenc_zeta(x::Arb, s::ArbSeries)
+
+Evaluation of the `clausenc` function through the zeta function as a
+power series in `s`.
+"""
+function _clausenc_zeta(x::Arb, s::ArbSeries)
+    Arblib.ispositive(x) && x < 2Arb(π) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    v = 1 - s
+
+    res = let inv2π = inv(2Arb(π))
+        gamma(v) * inv2π^v * cospi(v / 2) * (zeta(v, x * inv2π) + zeta(v, 1 - x * inv2π))
+    end
+
+    return res
 end
 
 """
@@ -279,6 +309,28 @@ function clausenc(x::ArbSeries, s)
     x_tmp[0] = 0
 
     return Arblib.compose(res, x_tmp)
+end
+
+"""
+    clausenc(x::Arb, s::ArbSeries)
+
+Compute the Taylor series of the Clausen function \$C_s(x)\$ in the
+parameter `s`.
+
+It uses [`_clausenc_zeta`](@ref) in general and
+[`_clausenc_polylog`](@ref) when `s[0]` is an integer. It currently
+doesn't support `s[0]` overlapping an integer but not being exactly an
+integer.
+
+- **TODO:** Implement support for `s` overlapping integers. This will
+  be needed to enclose remainder terms.
+"""
+function clausenc(x::Arb, s::ArbSeries)
+    if isinteger(Arblib.ref(s, 0))
+        return _clausenc_polylog(x, s)
+    else
+        return _clausenc_zeta(x, s)
+    end
 end
 
 """
@@ -617,25 +669,6 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
 end
 
 """
-    _clausencmzeta_zeta(x::Arb, s::ArbSeries)
-
-Evaluation of the `clausencmzeta` function through the zeta function.
-
-This uses the same expression as in [`_clausenc_zeta`](@ref) and also
-subtracts `zeta(s)`. It uses direct evaluation and doesn't do anything
-fancy.
-"""
-function _clausencmzeta_zeta(x::Arb, s::ArbSeries)
-    v = 1 - s
-
-    res =
-        gamma(v) * inv(2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) -
-        zeta(s)
-
-    return res
-end
-
-"""
     clausencmzeta(x, s)
 
 Compute `clausenc(x, s) - zeta(s)`. Notice that `clausenc(0, s) =
@@ -722,12 +755,12 @@ end
 
 clausencmzeta(x::ArbSeries, s) = clausenc(x, s) - zeta(Arb(s, prec = precision(x)))
 
+clausencmzeta(x::Arb, s::ArbSeries) = clausenc(x, s) - zeta(s)
+
 function clausencmzeta(x, s)
     x, s = promote(x, s)
     return clausenc(x, s) - zeta(s)
 end
-
-clausencmzeta(x::Arb, s::ArbSeries) = _clausencmzeta_zeta(x, s)
 
 """
     clausencmzeta(x, s, β)

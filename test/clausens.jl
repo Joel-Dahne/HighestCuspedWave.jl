@@ -37,7 +37,9 @@
 
     # TODO: Add tests for wide values of s
 
-    # TODO: Add tests for ArbSeries
+    # TODO: Add tests for x::ArbSeries
+
+    # TODO: Add tests for s::ArbSeries
 
     # TODO: Add tests for clausenc(x, s, β)
 end
