@@ -201,6 +201,8 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
             root_lower, root_upper = roots[1][1], roots[end][2]
         end
 
+        root_lower, root_upper = Arb(root_lower), Arb(root_upper)
+
         integrand(t; analytic) = begin
             # Check that the real part of t is strictly between 0 and
             # 1 or return an indeterminate result
