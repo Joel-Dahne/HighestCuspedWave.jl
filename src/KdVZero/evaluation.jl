@@ -325,16 +325,64 @@ function u0_div_xmα(
     end
 end
 
+"""
+    F0(u0::KdVZeroAnsatz, ::Ball)
+
+Return a function such that `F0(u0)(x)` computes an expansion in `α`
+around `α = 0` of
+```
+(u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
+```
+
+Both the constant and the linear terms in the expansion are supposed
+to be zero. That the constant term is zero we get for free in the
+computations, it is `1` for `u0(x)` and `1 / 2` for `H(u0)(x)` so they
+cancel exactly. For the linear term we need to prove that it is zero.
+
+Let `p` and `q` denote the expansions in `α` from `u0(x)` and
+`H(u0)(x)`. We have `p[0] = 1` and `q[0] = 1 / 2`. This means that the
+linear term in `p^2 / 2 + q` is given by `p[1] + q[1]`, we want to
+show that this term is exactly equal to zero.
+
+We have
+```
+u0(x) = sum(a[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:2)
+```
+and
+```
+-sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
+```
+It is enough to show that the linear term of the expansion in `α` of
+```
+a[j] * clausencmzeta(x, 1 - α + j * p0)
+```
+is the same as that for
+```
+a[j] * clausencmzeta(x, 1 - 2α + j * p0)
+```
+for `j = 0, 1, 2`. Since the coefficient `a[j]` is the same for both
+terms we can ignore it when comparing the terms. However `a[j]` has a
+zero constant coefficient in all cases so the linear term of the
+product will be determined by the constant term of the Clausen
+functions.
+
+But the constant terms of the expansion in `α` are given by directly
+plugging in `α = 0`, in which case the two terms are clearly
+identical, which is what we wanted to show.
+"""
 function F0(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
 
     return x -> begin
-        y = u0(x, evaltype)
+        p = u0(x, evaltype)
+        q = f(x)
 
-        res = (y^2 / 2 + f(x)) / (u0.w(x) * y)
+        @assert isone(Arblib.ref(p, 0))
+        @assert Arblib.ref(q, 0) == Arb(1 // 2)
+
+        res = (p^2 / 2 + q) / (u0.w(x) * p)
 
         @assert iszero(Arblib.ref(res, 0))
-        # PROVE: That the linear coefficient is exactly zero
         @assert Arblib.contains_zero(Arblib.ref(res, 1))
         res[1] = 0
 
