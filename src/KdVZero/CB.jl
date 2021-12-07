@@ -34,7 +34,7 @@ The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
 """
-function CB(u0::KdVZeroAnsatz; threaded = true, verbose = false)
+function CB(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose = false)
     ϵ = Arf(0.1)
 
     # In both the below methods we compute the expansion, subtract 1

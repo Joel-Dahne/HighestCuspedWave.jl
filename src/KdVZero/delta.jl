@@ -33,9 +33,7 @@ The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
 """
-function delta0(u0::KdVZeroAnsatz; threaded = true, verbose = false)
-    ϵ = Arf(0.1)
-
+function delta0(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose = false)
     # In both the below methods we compute the expansion, divide by
     # α^2 and evaluate the resulting series at u0.α. This gives us an
     # enclosure of p₂(x). Note that the division by α checks so that
