@@ -208,7 +208,7 @@ function T0(u0::KdVZeroAnsatz{Arb}, ::Ball; skip_div_u0 = false)
 
         # Find a crude upper bound for the root
         δ = Arb(0.4)
-        Arblib.ispositive(f(root_lower + δ)) || return Arblib.indeterminate!(zero(x))
+        Arblib.ispositive(f(root_lower + δ)) || return ArbSeries((1, NaN))
         while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
             Arblib.mul_2exp!(δ, δ, -1)
         end
@@ -274,8 +274,6 @@ zero.
 **TODO:** Implement this.
 """
 function T0(u0::KdVZeroAnsatz{Arb}, ::Asymptotic)
-    α = ArbSeries((0, 1), degree = 2)
-
     return x::Arb -> begin
         # TODO: Implement this
         return ArbSeries((1, 0))
