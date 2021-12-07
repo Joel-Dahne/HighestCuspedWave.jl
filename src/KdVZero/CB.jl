@@ -74,3 +74,51 @@ function CB(u0::KdVZeroAnsatz; verbose = false)
 
     return ArbSeries((1, p1))
 end
+
+"""
+    CB_estimate(u0::KdVZeroAnsatz)
+
+Compute an estimate of `CB(u0)`. It returns an `ArbSeries` `p` of the
+form
+```
+p = 1 + p[1] * α
+```
+such that `p(α)` gives an estimate of \$C_B\$ for the given `α ∈
+u0.α`.
+"""
+function CB_estimate(
+    u0::KdVZeroAnsatz{T};
+    n::Integer = 100,
+    return_values = false,
+    include_zero = false,
+    threaded = true,
+) where {T}
+    xs = collect(range(zero(T), π, length = n + 1)[2:end-1])
+
+    ys = similar(xs)
+
+    g = T0(u0, Ball())
+    f(x) = ((g(x) - 1) << 1)(u0.α)
+    if threaded
+        Threads.@threads for i in eachindex(xs)
+            ys[i] = f(xs[i])
+        end
+    else
+        for i in eachindex(xs)
+            ys[i] = f(xs[i])
+        end
+    end
+
+    if include_zero
+        # FIXME: Not properly implemented yet
+        pushfirst!(xs, zero(T))
+        pushfirst!(ys, ((T0(u0, Asymptotic())(zero(T)) - 1) << 1)(u0.α))
+    end
+
+    p1 = minimum(ys)
+
+    res = ArbSeries((1, p1))
+
+    return_values && return res, xs, ys
+    return res
+end
