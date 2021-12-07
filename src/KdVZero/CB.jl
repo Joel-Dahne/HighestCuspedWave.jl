@@ -33,12 +33,8 @@ and we see that it is enough to compute an enclosure of `q[1] + q[2]
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
-
-In practice the maximum is attained at `x = 0` and for that reason we
-compute the maximum on the interval `[0, ϵ]` first and then prove that
-the value on `[ϵ, π]` is bounded by this value.
 """
-function CB(u0::KdVZeroAnsatz; verbose = false)
+function CB(u0::KdVZeroAnsatz; threaded = true, verbose = false)
     ϵ = Arf(0.1)
 
     # In both the below methods we compute the expansion, subtract 1
@@ -54,23 +50,18 @@ function CB(u0::KdVZeroAnsatz; verbose = false)
     g(x) = ((T0_nonasymptotic(x) - 1) << 1)(u0.α)
 
     # Compute an enclosure on [0, ϵ]
-    # TODO: Implement this
-    #p1 = ArbExtras.minimum_enclosure(f, Arf(0), ϵ, degree = -1; verbose)
+    p1_asymptotic =
+        ArbExtras.minimum_enclosure(f, zero(ϵ), ϵ, degree = -1; threaded, verbose)
 
-    #verbose && @show p1
+    verbose && @info "Bound of p[1] on [0, ϵ]" p1_asymptotic
 
-    # Check that the value on [ϵ, π] is bounded by that on [0, ϵ]
-    # TODO: Implement this
-    #ArbExtras..bounded_by(g, ϵ, ubound(Arb(π)), lbound(p1), degree = -1; verbose) ||
-    #    error("could not show bound on [ϵ, π]")
+    # Compute an enclosure on [0, ϵ]
+    p1_nonasymptotic =
+        ArbExtras.minimum_enclosure(g, ϵ, ubound(Arb(π)), degree = -1; threaded, verbose)
 
-    # FIXME: For now we only compute it on a discrete set of points
-    xs = range(Arb(0), π, length = 100)[2:end-1]
-    ys = g.(xs)
+    verbose && @info "Bound of p[1] on [ϵ, π]" p1_nonasymptotic
 
-    p1 = minimum(ys)
-
-    verbose && @show p1
+    p1 = max(p1_asymptotic, p1_nonasymptotic)
 
     return ArbSeries((1, p1))
 end
