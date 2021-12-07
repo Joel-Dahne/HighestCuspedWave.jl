@@ -60,5 +60,6 @@ include("KdVZero/expansion.jl")
 include("KdVZero/evaluation.jl")
 include("KdVZero/alpha0.jl")
 include("KdVZero/T0.jl")
+include("KdVZero/CB.jl")
 
 end # module
