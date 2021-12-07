@@ -49,8 +49,7 @@ function delta0(u0::KdVZeroAnsatz; threaded = true, verbose = false)
     F0_nonasymptotic = F0(u0, Ball())
     g(x) = (F0_nonasymptotic(x) << 2)(u0.α)
 
-
-    # Bound the value on [0, ϵ]
+    # Compute an enclosure on [0, ϵ]
     p2_asymptotic = ArbExtras.maximum_enclosure(
         f,
         zero(ϵ),
@@ -63,7 +62,7 @@ function delta0(u0::KdVZeroAnsatz; threaded = true, verbose = false)
 
     verbose && @info "Bound of p[2] from [0, ϵ]" p2_asymptotic
 
-    # Bound the value on [ϵ, π]
+    # Compute an enclosure on [ϵ, π]
     p2_nonasymptotic = ArbExtras.maximum_enclosure(
         g,
         ϵ,
@@ -76,7 +75,7 @@ function delta0(u0::KdVZeroAnsatz; threaded = true, verbose = false)
 
     verbose && @info "Bound of p[2] on [ϵ, π]" p2_nonasymptotic
 
-    res = max(p2_asymptotic, p2_nonasymptotic)
+    p2 = max(p2_asymptotic, p2_nonasymptotic)
 
-    return res
+    return ArbSeries((0, 0, p2))
 end
