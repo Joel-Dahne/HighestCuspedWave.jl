@@ -264,3 +264,20 @@ function T0(u0::KdVZeroAnsatz{Arb}, ::Ball; skip_div_u0 = false)
         end
     end
 end
+
+"""
+    T0(u0::KdVZeroAnsatz{Arb}, ::Asymptotic)
+
+Compute the integral \$T_0\$ in a way that works for `x` close to
+zero.
+
+**TODO:** Implement this.
+"""
+function T0(u0::KdVZeroAnsatz{Arb}, ::Asymptotic)
+    α = ArbSeries((0, 1), degree = 2)
+
+    return x::Arb -> begin
+        # TODO: Implement this
+        return ArbSeries((1, 0))
+    end
+end
