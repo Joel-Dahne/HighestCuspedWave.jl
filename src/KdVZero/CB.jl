@@ -17,22 +17,22 @@ From this expansion we compute `p₁(x)` such that
 1 + p₁(x) * α
 ```
 gives an enclosure of `T0(u0)(x)` for every `α ∈ u0.α`. We are then
-interested in computing the minimum value of `p(x)` for `x ∈ [0, π]`,
+interested in computing the minimum value of `p₁(x)` for `x ∈ [0, π]`,
 we take the minimum value since `α` is negative.
 
 To compute `p₁(x)` we note that `T0(u0)(x)` returns `q::ArbSeries`
 such that `q(u0.α)` gives an enclosure for the specified `x`. We can
-reduce this to a first order enclosure that rewriting `q` as
+reduce this to a first order enclosure by rewriting `q` as
 ```
 q = 1 + q[1] * α + q[2] * α^2 + ...
   = 1 + (q[1] + q[2] * α + ...) * α
 ```
-and we see that it is enough to compute an enclosure of `(q[1] + q[2]
-* α + ...)`.
+and we see that it is enough to compute an enclosure of `q[1] + q[2]
+* α + ...`.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
-On `[0 ϵ]` we use an asymptotic expansion of `T0(u0)` whereas on ´[ϵ,
-π]` we use a non-asymptotic version.
+On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
+π]` we use the non-asymptotic version.
 
 In practice the maximum is attained at `x = 0` and for that reason we
 compute the maximum on the interval `[0, ϵ]` first and then prove that
