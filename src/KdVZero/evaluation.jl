@@ -324,3 +324,27 @@ function u0_div_xmα(
         return res
     end
 end
+
+function F0(u0::KdVZeroAnsatz, evaltype::Ball)
+    f = H(u0, evaltype)
+
+    return x -> begin
+        y = u0(x, evaltype)
+
+        res = (y^2 / 2 + f(x)) / (u0.w(x) * y)
+
+        @assert iszero(Arblib.ref(res, 0))
+        # PROVE: That the linear coefficient is exactly zero
+        @assert Arblib.contains_zero(Arblib.ref(res, 1))
+        res[1] = 0
+
+        return res
+    end
+end
+
+# TODO: Implement this
+function F0(u0::KdVZeroAnsatz, ::Asymptotic)
+    return x -> begin
+        ArbSeries((0, 0, 1))
+    end
+end
