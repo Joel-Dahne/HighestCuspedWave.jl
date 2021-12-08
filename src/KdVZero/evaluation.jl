@@ -336,11 +336,11 @@ around `α = 0` of
 
 Both the constant and the linear terms in the expansion are supposed
 to be zero. That the constant term is zero we get for free in the
-computations, it is `1` for `u0(x)` and `1 / 2` for `H(u0)(x)` so they
+computations, it is `1` for `u0(x)` and `-1 / 2` for `H(u0)(x)` so they
 cancel exactly. For the linear term we need to prove that it is zero.
 
 Let `p` and `q` denote the expansions in `α` from `u0(x)` and
-`H(u0)(x)`. We have `p[0] = 1` and `q[0] = 1 / 2`. This means that the
+`H(u0)(x)`. We have `p[0] = 1` and `q[0] = -1 / 2`. This means that the
 linear term in `p^2 / 2 + q` is given by `p[1] + q[1]`, we want to
 show that this term is exactly equal to zero.
 
@@ -378,7 +378,7 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
         q = f(x)
 
         @assert isone(Arblib.ref(p, 0))
-        @assert Arblib.ref(q, 0) == Arb(1 // 2)
+        @assert Arblib.ref(q, 0) == Arb(-1 // 2)
 
         res = (p^2 / 2 + q) / (u0.w(x) * p)
 
