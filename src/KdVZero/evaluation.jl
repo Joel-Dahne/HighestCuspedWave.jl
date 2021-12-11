@@ -264,6 +264,15 @@ and use the expansion
 function H(u0::KdVZeroAnsatz, ::Ball)
     α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
 
+    # Expansion of α * gamma(2α)
+    gammamulα = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+        ArbSeries((1 // 2, -γ, γ^2 + π^2 / 6))
+    end
+
+    # Expansion of α * zeta(1 - 2α)
+    zetamulα =
+        ArbSeries((-1 // 2, stieltjes(Arb, 0), 2stieltjes(Arb, 1), 2stieltjes(Arb, 2)))
+
     return x::Arb -> begin
         # The main term we handle manually
         res = let
@@ -278,25 +287,12 @@ function H(u0::KdVZeroAnsatz, ::Ball)
             # Divide clausen term by α
             clausen_term = clausen_term << 1
 
-            # Expansion of α * gamma(2α)
-            gammamulα = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-                ArbSeries((1 // 2, -γ, γ^2 + π^2 / 6))
-            end
-
             clausen_term *= gammamulα
 
             # Divide a[0] by α, perform the multiplication and then
             # multiply by α. This makes sure the degree after the
             # multiplication is correct.
             a0clausenterm = ((u0.a[0] << 1) * clausen_term) >> 1
-
-            # Expansion of α * zeta(1 - 2α)
-            zetamulα = ArbSeries((
-                -1 // 2,
-                stieltjes(Arb, 0),
-                2stieltjes(Arb, 1),
-                2stieltjes(Arb, 2),
-            ))
 
             a0zeta_term = (u0.a[0] << 1) * zetamulα
 
