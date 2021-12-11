@@ -93,6 +93,95 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 end
 
 """
+    (u0::KdVZeroAnsatz)(x::Arb, ::Asymptotic; M::Integer = 3)
+
+Return an expansion of `u0(x)` in `x` around zero where the
+coefficients in the expansion are themselves expansions in `α` around
+zero.
+
+It returns a dictionary `expansion` where the keys are three tuples
+`(i, j, m)` and correspond to a term of the form
+```
+expansion[(i, j, m)] * abs(x)^(i * α + j * p0 + m)
+```
+
+The value of `M` determines the number of terms in the expansion in
+`x`.
+
+Most of the terms can be computed by evaluating them directly. The
+exception is the singular term for the first Clausen function, given
+by `gamma(α) * cospi(α / 2)` which has a singularity at `α = 0`.
+However multiplication by `a[0]` removes the singularity and we have
+the expansion
+```
+a[0] * gamma(α) * cospi(α / 2) = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+```
+which is the same as the one occurring in [`expansion_p0`](@ref). The
+expansion is given by
+```
+2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2)) =
+    1 - γ * α + (γ^2 / 2 - π^2 / 8) * α^2 +
+    (-4γ^3 + 3γ * π^2 + 28 * polygamma(2, 1)) / 24 * α^3 + O(α^4)
+```
+where `γ` is the Euler constant.
+- **TODO:** Compute remainder term
+
+- **TODO:** Figure out how to handle remainder terms.
+"""
+function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
+    as = expansion_as(u0)
+    p0 = expansion_p0(u0)
+    α = ArbSeries((0, 1), degree = Arblib.degree(p0))
+
+    expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
+
+    # Initiate even powers of x
+    for m = 1:M
+        expansion[(0, 0, 2m)] = ArbSeries(degree = 3)
+    end
+
+    # Handle main term
+    s = 1 - α
+
+    # Compute the coefficient for the singular term
+    a0singular_term = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8))
+    end
+    expansion[(1, 0, 0)] = a0singular_term
+
+    # Compute the coefficients for the analytic terms
+    for m = 1:M-1
+        term = (-1)^m * zeta(1 - α - 2m) / factorial(2m)
+        expansion[(0, 0, 2m)] += as[0] * term
+    end
+
+    # Add error term
+    error_term = ArbSeries() # TODO: How to handle this?
+    expansion[(0, 0, 2M)] += as[0] * error_term
+
+    # Handle tail terms
+    for j = 1:2
+        s = 1 - α + j * p0
+
+        # Compute the coefficient for the singular term
+        singular_term = gamma(1 - s) * sinpi(s / 2)
+        expansion[(1, j, 0)] = as[j] * singular_term
+
+        # Compute the coefficients for the analytic terms
+        for m = 1:M-1
+            term = (-1)^m * zeta(s - 2m) / factorial(2m)
+            expansion[(0, 0, 2m)] += as[j] * term
+        end
+
+        # Add error term
+        error_term = ArbSeries() # TODO: How to handle this?
+        expansion[(0, 0, 2M)] += as[j] * error_term
+    end
+
+    return expansion
+end
+
+"""
     H(u0::KdVZeroAnsatz, ::Ball)
 
 Return a function such that `H(u0)(x)` computes an expansion in `α`
