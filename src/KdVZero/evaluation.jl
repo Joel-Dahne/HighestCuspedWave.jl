@@ -12,7 +12,9 @@ an enclosure.
 function eval_expansion(
     u0::KdVZeroAnsatz{Arb},
     expansion::AbstractDict{NTuple{3,Int},ArbSeries},
-    x,
+    x::Arb;
+    offset_i::Integer = 0,
+    offset_m::Integer = 0,
 )
     as = expansion_as(u0)
     p0 = expansion_p0(u0)
@@ -24,7 +26,7 @@ function eval_expansion(
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
-            exponent = -i * u0.α + j * p0_enclosure + m
+            exponent = -(i + offset_i) * u0.α + j * p0_enclosure + (m + offset_m)
 
             res += y * abspow(x, exponent)
         end
@@ -409,6 +411,76 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
 end
 
 """
+    D(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
+
+Return an expansion of `D(u0)(x)` in `x` around zero where the
+coefficients in the expansion are themselves expansions in `α` around
+zero.
+
+It returns a dictionary `expansion` where the keys are three tuples
+`(i, j, m)` and correspond to a term of the form
+```
+expansion[(i, j, m)] * abs(x)^(i * α + j * p0 + m)
+```
+
+The value of `M` determines the number of terms in the expansion in
+`x`.
+
+The expansion is computed using `u0` and `H(u0)` but some modification
+are made to it.
+
+To begin with the leading terms in the expansion are identically equal
+to zero due to the choice of `a[0]`, `a[1]`, `a[2]` and `p0`. These
+are the terms with keys `(2, 0, 0), (2, 1, 0), (0, 0, 2), (1, 0, 2)`.
+
+As is shown in [`F0`](@ref) we also know that the linear term of the
+expansion in `α` is identically equal to zero. We can therefore set
+all linear terms to zero since they must cancel out in the end anyway.
+
+"""
+function D(u0::KdVZeroAnsatz{Arb}, evaltype::AsymptoticExpansion; M::Integer = 3)
+    f = H(u0, evaltype; M)
+    return x::Arb -> begin
+        expansion1 = u0(x, evaltype; M)
+        expansion2 = f(x)
+
+        expansion = empty(expansion1)
+
+        # u0^2/2 term
+        let expansion1 = collect(expansion1)
+            z = zero(first(expansion1)[2]) # Avoid allocating zero multiple times
+            for (i, (key1, a1)) in enumerate(expansion1)
+                expansion[2 .* key1] = get(expansion, 2 .* key1, z) + a1^2 / 2
+                for j = i+1:length(expansion1)
+                    (key2, a2) = expansion1[j]
+                    key = key1 .+ key2
+                    expansion[key] = get(expansion, key, z) + a1 * a2
+                end
+            end
+        end
+
+        # H term
+        merge!(+, expansion, expansion2)
+
+        # Handle terms that are zero due to the choice of a[0], a[1],
+        # a[2] and p0.
+        for key in ((2, 0, 0), (2, 1, 0), (0, 0, 2), (1, 0, 2))
+            y = expansion[key]
+            @assert all(Arblib.contains_zero, Arblib.coeffs(y))
+            expansion[key] = zero(y)
+        end
+
+        # Zero all linear terms in α since they all cancel out
+        for (key, y) in expansion
+            Arblib.degree(y) < 1 && continue # FIXME: This is not needed in the end
+            y[1] = 0
+        end
+
+        return expansion
+    end
+end
+
+"""
     u0_div_xmα(u0::KdvZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ)
 
 The leading term of `u0` behaves like ` x^-α`. This method returns a
@@ -604,9 +676,39 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
     end
 end
 
-# TODO: Implement this
-function F0(u0::KdVZeroAnsatz, ::Asymptotic)
+"""
+    F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
+
+Return a function such that `F0(u0)(x)` computes an expansion in `α`
+around `α = 0` of
+```
+(u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
+```
+It uses an evaluation strategy that works asymptotically in `x`.
+
+It first computes an expansion of
+```
+D(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
+```
+in `x`.
+
+We then want to divide this by
+```
+u0.w(x) * u0(x) = x * x^-α * (u0(x) / x^-α) = x^(1 - α) * (u0(x) / x^-α)
+```
+Where we can compute an enclosure of `u0(x) / x^-α` using
+[`u0_div_xmα`](@ref).
+
+- **TODO:** Figure out exactly how to treat remainder terms.
+"""
+function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
+    D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    f = u0_div_xmα(u0, Asymptotic(); ϵ)
+
     return x -> begin
-        ArbSeries((0, 0, 1))
+        # Enclosure of D(u0)(x) / x^(1 - α)
+        D = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
+
+        return D / f(x)
     end
 end
