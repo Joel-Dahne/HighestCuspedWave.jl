@@ -1,5 +1,5 @@
 """
-    expansion_p0(::KdVZeroAnsatz)
+    expansion_p0(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
 
 Compute an expansion for `p0` at `α = 0`.
 
@@ -149,7 +149,7 @@ p02 =
 **TODO:** Possibly compute more terms in the expansion.
 **TODO:** Compute remainder term.
 """
-function expansion_p0(::KdVZeroAnsatz)
+function expansion_p0(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
     γ = Arb(Irrational{:γ}())
 
     rhs = ArbSeries((1, -γ, γ^2 / 2 - Arb(π)^2 / 8))
@@ -206,7 +206,7 @@ function expansion_p0(::KdVZeroAnsatz)
 end
 
 """
-    expansion_as(u0::KdVZeroAnsatz)
+    expansion_as(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
 
 Compute expansions for `a[i]` for `i = 1:3` at `α = 0`.
 
@@ -400,7 +400,7 @@ but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `α`
 from all of them. To get the higher order terms we factor out one more
 `α` from `v1` and `v2` and multiply it back afterwards.
 """
-function expansion_as(u0::KdVZeroAnsatz)
+function expansion_as(u0::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
     # Compute expansion of a0
     a0 = ArbSeries((
         0,
