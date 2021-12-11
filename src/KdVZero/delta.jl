@@ -33,14 +33,21 @@ The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
 """
-function delta0(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose = false)
+function delta0(
+    u0::KdVZeroAnsatz;
+    ϵ::Arf = Arf(0.1),
+    rtol = Arb(1e-3), # TODO: Possibly tune this
+    maxevals = 1000, # TODO: This we can probably remove later
+    threaded = true,
+    verbose = false,
+)
     # In both the below methods we compute the expansion, divide by
     # α^2 and evaluate the resulting series at u0.α. This gives us an
     # enclosure of p₂(x). Note that the division by α checks so that
     # the first two coefficients are exactly zero.
 
     # Function for computing p₂(x) for x ∈ [0, ϵ]
-    F0_asymptotic = F0(u0, Asymptotic())
+    F0_asymptotic = F0(u0, Asymptotic(), ϵ = Arb(2ϵ))
     f(x) = (F0_asymptotic(x) << 2)(u0.α)
 
     # Function for computing p₂(x) for x ∈ [ϵ, π]
@@ -54,6 +61,7 @@ function delta0(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose 
         ϵ,
         degree = -1,
         abs_value = true;
+        rtol,
         threaded,
         verbose,
     )
@@ -67,6 +75,8 @@ function delta0(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose 
         ubound(Arb(π)),
         degree = -1,
         abs_value = true;
+        rtol,
+        maxevals,
         threaded,
         verbose,
     )
