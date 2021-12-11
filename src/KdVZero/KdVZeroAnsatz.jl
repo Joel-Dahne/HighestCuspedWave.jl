@@ -13,22 +13,17 @@ a[0] * clausencmzeta(x, 1 - α) + a[1] * clausencmzeta(x, 1 - α + p0) + a[2] * 
 where `a0`, `a1`, `a2` and `p0` all are computed through expansions in
 `α` around zero.
 
-It stores the value of `α` to use as well as a dictionary of
-precomputed values. For now the dictionary can contain anything but as
-the interface stabilizes it is likely that we either don't precompute
-anything or at least fix what is precomputed.
-
-
-
+It stores the value of `α` as well as precomputed `a` and `p0`.
 """
 struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
     α::Arb
-    precomputed::OrderedDict{Any,Any}
+    a::OffsetVector{ArbSeries,Vector{ArbSeries}}
+    p0::ArbSeries
 
     function KdVZeroAnsatz(α::Arb)
-        u0 = new(α, OrderedDict())
-
-        # Precompute expansions for a[0], a[1] and a[2]
+        a = expansion_as(KdVZeroAnsatz)
+        p0 = expansion_p0(KdVZeroAnsatz)
+        u0 = new(α, a, p0)
 
         return u0
     end
