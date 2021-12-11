@@ -1,4 +1,39 @@
 """
+    eval_expansion(u0::KdVZeroAnsatz, expansion, x)
+
+Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
+```
+y*abs(x)^(-i * α + j * p0 + m)
+```
+`y` is given by a series in `α` but for the exponent we only compute
+an enclosure.
+- **TODO:** Is it enough to only compute an enclosure of the exponent?
+"""
+function eval_expansion(
+    u0::KdVZeroAnsatz{Arb},
+    expansion::AbstractDict{NTuple{3,Int},ArbSeries},
+    x,
+)
+    as = expansion_as(u0)
+    p0 = expansion_p0(u0)
+
+    # Compute enclosures of a[0], a[1], a[2] and p0
+    p0_enclosure = p0(u0.α)
+
+    res = ArbSeries(degree = Arblib.degree(p0))
+
+    for ((i, j, m), y) in expansion
+        if !iszero(y)
+            exponent = -i * u0.α + j * p0_enclosure + m
+
+            res += y * abspow(x, exponent)
+        end
+    end
+
+    return res
+end
+
+"""
     (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 
 Return an expansion of `u0(x)` in `α` around `α = 0`.
