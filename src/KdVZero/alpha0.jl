@@ -20,7 +20,7 @@ giving us
 x / (2x^-α * f(x)) = x^(1 + α) / 2f(x)
 ```
 """
-function alpha0(u0::KdVZeroAnsatz{Arb}; verbose = false)
+function alpha0(u0::KdVZeroAnsatz; verbose = false)
     f = u0_div_xmα(u0, Asymptotic(), ϵ = Arb(3.5), M = 5)
 
     # Function for computing x^(1 + α) / 2f(x)

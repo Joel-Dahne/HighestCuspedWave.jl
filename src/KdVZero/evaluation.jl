@@ -10,7 +10,7 @@ an enclosure.
 - **TODO:** Is it enough to only compute an enclosure of the exponent?
 """
 function eval_expansion(
-    u0::KdVZeroAnsatz{Arb},
+    u0::KdVZeroAnsatz,
     expansion::AbstractDict{NTuple{3,Int},ArbSeries},
     x::Arb;
     offset_i::Integer = 0,
@@ -438,7 +438,7 @@ expansion in `α` is identically equal to zero. We can therefore set
 all linear terms to zero since they must cancel out in the end anyway.
 
 """
-function D(u0::KdVZeroAnsatz{Arb}, evaltype::AsymptoticExpansion; M::Integer = 3)
+function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
     f = H(u0, evaltype; M)
     return x::Arb -> begin
         expansion1 = u0(x, evaltype; M)
@@ -540,12 +540,7 @@ the individual terms are fixed. We could compute tighter enclosures of
 for the other enclosures. We might not need to compute a tighter
 enclosure in the end though.
 """
-function u0_div_xmα(
-    u0::KdVZeroAnsatz{Arb},
-    ::Asymptotic = Asymptotic();
-    ϵ::Arb,
-    M::Integer = 3,
-)
+function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M::Integer = 3)
     # We can just as well use an upper bound for ϵ
     ϵ = ubound(Arb, ϵ)
 

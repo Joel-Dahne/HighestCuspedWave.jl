@@ -78,13 +78,13 @@ such that `p(α)` gives an estimate of \$C_B\$ for the given `α ∈
 u0.α`.
 """
 function CB_estimate(
-    u0::KdVZeroAnsatz{T};
+    u0::KdVZeroAnsatz;
     n::Integer = 100,
     return_values = false,
     include_zero = false,
     threaded = true,
-) where {T}
-    xs = collect(range(zero(T), π, length = n + 1)[2:end-1])
+)
+    xs = collect(range(zero(Arb), π, length = n + 1)[2:end-1])
 
     ys = similar(xs)
 
@@ -102,8 +102,8 @@ function CB_estimate(
 
     if include_zero
         # FIXME: Not properly implemented yet
-        pushfirst!(xs, zero(T))
-        pushfirst!(ys, ((T0(u0, Asymptotic())(zero(T)) - 1) << 1)(u0.α))
+        pushfirst!(xs, zero(Arb))
+        pushfirst!(ys, ((T0(u0, Asymptotic())(zero(Arb)) - 1) << 1)(u0.α))
     end
 
     p1 = minimum(ys)

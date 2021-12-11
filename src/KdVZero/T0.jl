@@ -1,5 +1,5 @@
 """
-    T0(u0::KdVZeroAnsatz{Arb}, ::Ball; skip_div_u0 = false)
+    T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
 Compute the integral \$T_0\$.
 
@@ -190,7 +190,7 @@ division by `π` the constant function should be exactly `1`.
   most likely need to do in the end.
 - **TODO:** Compute the remainder terms.
 """
-function T0(u0::KdVZeroAnsatz{Arb}, ::Ball; skip_div_u0 = false)
+function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
     α = ArbSeries((0, 1), degree = 2)
 
     return x::Arb -> begin
@@ -266,14 +266,14 @@ function T0(u0::KdVZeroAnsatz{Arb}, ::Ball; skip_div_u0 = false)
 end
 
 """
-    T0(u0::KdVZeroAnsatz{Arb}, ::Asymptotic)
+    T0(u0::KdVZeroAnsatz, ::Asymptotic)
 
 Compute the integral \$T_0\$ in a way that works for `x` close to
 zero.
 
 **TODO:** Implement this.
 """
-function T0(u0::KdVZeroAnsatz{Arb}, ::Asymptotic)
+function T0(u0::KdVZeroAnsatz, ::Asymptotic)
     return x::Arb -> begin
         # TODO: Implement this
         return ArbSeries((1, 0))
