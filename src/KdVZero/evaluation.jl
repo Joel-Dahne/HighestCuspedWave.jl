@@ -16,13 +16,10 @@ function eval_expansion(
     offset_i::Integer = 0,
     offset_m::Integer = 0,
 )
-    as = expansion_as(u0)
-    p0 = expansion_p0(u0)
+    # Compute enclosure of p0
+    p0_enclosure = u0.p0(u0.α)
 
-    # Compute enclosures of a[0], a[1], a[2] and p0
-    p0_enclosure = p0(u0.α)
-
-    res = ArbSeries(degree = Arblib.degree(p0))
+    res = ArbSeries(degree = Arblib.degree(u0.p0))
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
@@ -42,7 +39,7 @@ Return an expansion of `u0(x)` in `α` around `α = 0`.
 
 The value is given by
 ```
-sum(as[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:2)
+sum(a[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:2)
 ```
 
 For `j = 1, 2` we can evaluate it directly with
@@ -87,9 +84,7 @@ and use the expansion
 ```
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
-    as = expansion_as(u0)
-    p0 = expansion_p0(u0)
-    α = ArbSeries((0, 1), degree = Arblib.degree(p0))
+    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
 
     # The main term we handle manually
     res = let
@@ -111,20 +106,20 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 
         clausen_term *= gammamulα
 
-        # Divide as[0] by α, perform the multiplication and then
+        # Divide a[0] by α, perform the multiplication and then
         # multiply by α. This makes sure the degree after the
         # multiplication is correct.
-        a0clausenterm = ((as[0] << 1) * clausen_term) >> 1
+        a0clausenterm = ((u0.a[0] << 1) * clausen_term) >> 1
 
         zetamulα =
             ArbSeries((-1, stieltjes(Arb, 0), stieltjes(Arb, 1), stieltjes(Arb, 2) / 2))
 
-        a0zeta_term = (as[0] << 1) * zetamulα
+        a0zeta_term = (u0.a[0] << 1) * zetamulα
 
         a0clausenterm - a0zeta_term
     end
 
-    res += sum(as[j] * clausencmzeta(x, 1 - α + j * p0) for j = 1:2)
+    res += sum(u0.a[j] * clausencmzeta(x, 1 - α + j * u0.p0) for j = 1:2)
 
     return res
 end
@@ -166,9 +161,7 @@ where `γ` is the Euler constant.
 - **TODO:** Figure out how to handle remainder terms.
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
-    as = expansion_as(u0)
-    p0 = expansion_p0(u0)
-    α = ArbSeries((0, 1), degree = Arblib.degree(p0))
+    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
 
     expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
 
@@ -187,30 +180,30 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
     # Compute the coefficients for the analytic terms
     for m = 1:M-1
         term = (-1)^m * zeta(1 - α - 2m) / factorial(2m)
-        expansion[(0, 0, 2m)] += as[0] * term
+        expansion[(0, 0, 2m)] += u0.a[0] * term
     end
 
     # Add error term
     error_term = ArbSeries() # TODO: How to handle this?
-    expansion[(0, 0, 2M)] += as[0] * error_term
+    expansion[(0, 0, 2M)] += u0.a[0] * error_term
 
     # Handle tail terms
     for j = 1:2
-        s = 1 - α + j * p0
+        s = 1 - α + j * u0.p0
 
         # Compute the coefficient for the singular term
         singular_term = gamma(1 - s) * sinpi(s / 2)
-        expansion[(1, j, 0)] = as[j] * singular_term
+        expansion[(1, j, 0)] = u0.a[j] * singular_term
 
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
             term = (-1)^m * zeta(s - 2m) / factorial(2m)
-            expansion[(0, 0, 2m)] += as[j] * term
+            expansion[(0, 0, 2m)] += u0.a[j] * term
         end
 
         # Add error term
         error_term = ArbSeries() # TODO: How to handle this?
-        expansion[(0, 0, 2M)] += as[j] * error_term
+        expansion[(0, 0, 2M)] += u0.a[j] * error_term
     end
 
     return expansion
@@ -224,7 +217,7 @@ around `α = 0`.
 
 The value is given by
 ```
--sum(as[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
+-sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
 ```
 
 For `j = 1, 2` we can evaluate it directly with
@@ -269,9 +262,7 @@ and use the expansion
 ```
 """
 function H(u0::KdVZeroAnsatz, ::Ball)
-    as = expansion_as(u0)
-    p0 = expansion_p0(u0)
-    α = ArbSeries((0, 1), degree = Arblib.degree(p0))
+    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
 
     return x::Arb -> begin
         # The main term we handle manually
@@ -294,10 +285,10 @@ function H(u0::KdVZeroAnsatz, ::Ball)
 
             clausen_term *= gammamulα
 
-            # Divide as[0] by α, perform the multiplication and then
+            # Divide a[0] by α, perform the multiplication and then
             # multiply by α. This makes sure the degree after the
             # multiplication is correct.
-            a0clausenterm = ((as[0] << 1) * clausen_term) >> 1
+            a0clausenterm = ((u0.a[0] << 1) * clausen_term) >> 1
 
             # Expansion of α * zeta(1 - 2α)
             zetamulα = ArbSeries((
@@ -307,12 +298,12 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                 2stieltjes(Arb, 2),
             ))
 
-            a0zeta_term = (as[0] << 1) * zetamulα
+            a0zeta_term = (u0.a[0] << 1) * zetamulα
 
             -(a0clausenterm - a0zeta_term)
         end
 
-        res -= sum(as[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 1:2)
+        res -= sum(u0.a[j] * clausencmzeta(x, 1 - 2α + j * u0.p0) for j = 1:2)
 
         return res
     end
@@ -353,9 +344,7 @@ where `γ` is the Euler constant.
 - **TODO:** Figure out how to handle remainder terms.
 """
 function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
-    as = expansion_as(u0)
-    p0 = expansion_p0(u0)
-    α = ArbSeries((0, 1), degree = Arblib.degree(p0))
+    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
 
     return x::Arb -> begin
         expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
@@ -380,30 +369,30 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
             term = (-1)^m * zeta(1 - 2α - 2m) / factorial(2m)
-            expansion[(0, 0, 2m)] -= as[0] * term
+            expansion[(0, 0, 2m)] -= u0.a[0] * term
         end
 
         # Add error term
         error_term = ArbSeries() # TODO: How to handle this?
-        expansion[(0, 0, 2M)] -= as[0] * error_term
+        expansion[(0, 0, 2M)] -= u0.a[0] * error_term
 
         # Handle tail terms
         for j = 1:2
-            s = 1 - 2α + j * p0
+            s = 1 - 2α + j * u0.p0
 
             # Compute the coefficient for the singular term
             singular_term = gamma(1 - s) * sinpi(s / 2)
-            expansion[(2, j, 0)] = -as[j] * singular_term
+            expansion[(2, j, 0)] = -u0.a[j] * singular_term
 
             # Compute the coefficients for the analytic terms
             for m = 1:M-1
                 term = (-1)^m * zeta(s - 2m) / factorial(2m)
-                expansion[(0, 0, 2m)] -= as[j] * term
+                expansion[(0, 0, 2m)] -= u0.a[j] * term
             end
 
             # Add error term
             error_term = ArbSeries() # TODO: How to handle this?
-            expansion[(0, 0, 2M)] -= as[j] * error_term
+            expansion[(0, 0, 2M)] -= u0.a[j] * error_term
         end
 
         return expansion
@@ -544,12 +533,9 @@ function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M:
     # We can just as well use an upper bound for ϵ
     ϵ = ubound(Arb, ϵ)
 
-    p0 = expansion_p0(u0)
-    as = expansion_as(u0)
-
     # Compute enclosures of a[0], a[1], a[2] and p0
-    as_enclosure = [a(u0.α) for a in as]
-    p0_enclosure = p0(u0.α)
+    a_enclosure = [a(u0.α) for a in u0.a]
+    p0_enclosure = u0.p0(u0.α)
 
     _, _, P0, E0 = clausenc_expansion(ϵ, 1 - u0.α + p0_enclosure, M)
     C1, e1, P1, E1 = clausenc_expansion(ϵ, 1 - u0.α + p0_enclosure, M)
@@ -578,7 +564,7 @@ function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M:
         clausen0_tail += E0 * abspow(x, 2M + u0.α)
 
         # The exponent for the singular term is -u0.α + u0.α = 0
-        res = a0C0 + as_enclosure[0] * clausen0_tail
+        res = a0C0 + a_enclosure[0] * clausen0_tail
 
         # Compute enclosures of the second and third Clausen functions
 
@@ -590,7 +576,7 @@ function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M:
         end
         clausen1 += E1 * abspow(x, 2M + u0.α)
 
-        res += as_enclosure[1] * clausen1
+        res += a_enclosure[1] * clausen1
 
         # The exponent is given by e2 + u0.α = (-u0.α + 2p0_enclosure)
         # + u0.α = 2p0_enclosure
@@ -600,7 +586,7 @@ function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M:
         end
         clausen2 += E2 * abspow(x, 2M + u0.α)
 
-        res += as_enclosure[2] * clausen2
+        res += a_enclosure[2] * clausen2
 
         return res
     end
