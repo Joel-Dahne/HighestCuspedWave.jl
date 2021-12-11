@@ -128,7 +128,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 end
 
 """
-    (u0::KdVZeroAnsatz)(x::Arb, ::Asymptotic; M::Integer = 3)
+    (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
 
 Return an expansion of `u0(x)` in `x` around zero where the
 coefficients in the expansion are themselves expansions in `α` around
@@ -176,8 +176,6 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
     end
 
     # Handle main term
-    s = 1 - α
-
     # Compute the coefficient for the singular term
     a0singular_term = let γ = Arb(Irrational{:γ}()), π = Arb(π)
         ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8))
