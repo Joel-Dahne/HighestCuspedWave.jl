@@ -16,14 +16,13 @@ function eval_expansion(
     offset_i::Integer = 0,
     offset_m::Integer = 0,
 )
-    # Compute enclosure of p0
-    p0_enclosure = u0.p0(u0.α)
+    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
 
-    res = ArbSeries(degree = Arblib.degree(u0.p0))
+    res = zero(α)
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
-            exponent = -(i + offset_i) * u0.α + j * p0_enclosure + (m + offset_m)
+            exponent = -(i + offset_i) * α + j * u0.p0 + (m + offset_m)
 
             res += y * abspow(x, exponent)
         end
