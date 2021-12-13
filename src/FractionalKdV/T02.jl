@@ -130,7 +130,7 @@ function T02(
         end
     end
 
-    @warn "T02(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
+    @warn "T02(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded" maxlog = 1
 
     # Compute c_α
     c_α = let
