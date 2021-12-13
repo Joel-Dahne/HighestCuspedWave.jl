@@ -332,11 +332,168 @@ end
 Compute the integral \$T_0\$ in a way that works for `x` close to
 zero.
 
-**TODO:** Implement this.
+The method is similar to the non-asymptotic version but it evaluates
+the terms that depend on `x` in an asymptotic way. From the
+non-asymptotic version we get that we want to compute
+```
+(primitive_mul_x(0) - 2primitive_mul_x(root) + primitive_mul_x(π / x)) / (π * u0(x))
+```
+The leading term in `u0(x)` behaves like `x^-α` (see
+[`u0_div_xmα`](@ref)) and we want to explicitly cancel this term. We
+therefore rewrite the above as
+```
+(primitive_mul_x(0) * x^α - 2primitive_mul_x(root) * x^α + primitive_mul_x(π / x) * x^α) / (π * u0(x) * x^α)
+```
+
+For
+```
+primitive_mul_x(0) * x^α = 2clausencmzeta(x, 2 - α) / x^(1 - α)
+```
+We expand the Clausen function at `x = 0` and compute series in `α` of
+the coefficients. The only problematic term is the singular one given by
+```
+gamma(α - 1) * sinpi(α / 2) * abspow(x, 1 - α)
+```
+where there is a removable singularity for `gamma(α - 1) * sinpi(α /
+2)`. The expansion can be computed to be
+```
+gamma(α - 1) * sinpi(α / 2) =
+    -π / 2 + (γ - 1) * π / 2 * α +
+    (-24π + 24γ * π - 12γ^2 * π - π^3) / 48 * α^2
+```
+- **PROVE:** That this is the expansion, Mathematica gives this.
+- **TODO:** Handle remainder term in `α`.
+
+For
+```
+primitive_mul_x(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x
+```
+We expand `clausenc(x + π, 2 - α)` at `x = π` and cancel `clausenc(π,
+2 - α)` explicitly. Since `clausenc` is analytic in `x` at `x = π` we
+can compute the expansion by differentiating by hand and evaluating
+with a series in `α`.
+
+Finally for `primitive_mul_x(t)` we can expand the `clausenc` terms in
+the same way as for `primitive_mul_x(0)`. For the `clausens` terms the
+singular term in the expansion in `x` is given by
+```
+gamma(α) * sinpi(α / 2) * abspow(x, -α)
+```
+which also has a removable singularity. The expansion is given by
+```
+gamma(α) * sinpi(α / 2) =
+    π / 2 - γ * π / 2 * α + (12γ^2 * π + π^3) / 48 * α^2
+```
+- **PROVE:** That this is the expansion, Mathematica gives this.
+- **TODO:** Handle remainder term in `α`.
+
+- **TODO:** Bound remainder terms in `x` for all the above expansions.
+- **TODO:** Enclose `root` for the full enclosure of `α`.
 """
-function T0(u0::KdVZeroAnsatz, ::Asymptotic)
+function T0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = one(Arb), skip_div_u0 = false)
+    α = ArbSeries((0, 1), degree = 2)
+
+    u0_expansion = u0(ϵ, AsymptoticExpansion())
+
     return x::Arb -> begin
-        # TODO: Implement this
-        return ArbSeries((1, 0))
+        x <= ϵ || throw(ArgumentError("x needs to be smaller than ϵ, got x = $x, ϵ = $ϵ"))
+
+        root = _integrand_compute_root(u0, x)
+
+        # FIXME: Figure out how to handle remainder terms in α
+        # FIXME: Add remainder term in x
+        # Compute primitive_mul_x(t) * x^α = primitive(t) * x^(1 + α)
+        primitive_mul_x_onepα(t) =
+            let
+                part1 = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+                    gamma_sin = ArbSeries((
+                        -π / 2,
+                        (γ - 1) * π / 2,
+                        (-24π + 24γ * π - 12γ^2 * π - π^3) / 48,
+                    ))
+
+                    gamma_sin * (
+                        abspow(1 - t, 1 - α) + abspow(1 + t, 1 - α) - 2abspow(t, 1 - α)
+                    ) + sum(
+                        (-1)^m *
+                        zeta(2 - α - 2m) *
+                        abspow(x, 2m - 1 + α) *
+                        ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m) for
+                        m = 1:5
+                    )
+                end
+
+                part2 = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+                    gamma_sin = ArbSeries((π / 2, -γ * π / 2, (12γ^2 * π + π^3) / 48))
+
+                    t * (
+                        gamma_sin *
+                        (-abspow(1 - t, -α) + abspow(1 + t, -α) - 2abspow(t, -α)) +
+                        sum(
+                            (-1)^m *
+                            zeta(-α - 2m) *
+                            abspow(x, 2m + 1 + α) *
+                            (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) /
+                            factorial(2m + 1) for m = 0:4
+                        )
+                    )
+                end
+
+                part1 + part2
+            end
+
+        # Compute primitive_mul_x_onepα(0)
+        # FIXME: Figure out how to handle remainder terms in α
+        # FIXME: Add remainder term in x
+        primitive_mul_x_onepα_zero = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+            gamma_sin = ArbSeries((
+                -π / 2,
+                (γ - 1) * π / 2,
+                (-24π + 24γ * π - 12γ^2 * π - π^3) / 48,
+            ))
+            2gamma_sin +
+            2sum(
+                (-1)^m * zeta(2 - α - 2m) * abspow(x, 2m - 1 + α) / factorial(2m)
+                for m = 1:5
+            )
+        end
+
+        # Compute primitive_mul_x_onepα(π / x)
+        # FIXME: Figure out how to handle remainder terms in α
+        # FIXME: Add remainder term in x
+        primitive_mul_x_onepα_pi_div_x = let π = Arb(π)
+            s = 2 - α
+            res = zero(primitive_mul_x_onepα_zero)
+            # We start from n = 1 since the first is cancelled
+            for i = 1:Arblib.degree(res)
+                # We have x^(i - 1) since we divide by x
+                if i % 2 == 0
+                    res +=
+                        (-1)^(i ÷ 2) * clausenc(π, s - i) / factorial(i) *
+                        abspow(x, i - 1 + α)
+                else
+                    res +=
+                        -(-1)^(i ÷ 2) * clausens(π, s - i) / factorial(i) *
+                        abspow(x, i - 1 + α)
+                end
+            end
+            2res
+        end
+
+        I_mul_x =
+            primitive_mul_x_onepα_zero - 2primitive_mul_x_onepα(root) +
+            primitive_mul_x_onepα_pi_div_x
+
+        I_mul_x_onepα_div_pi = I_mul_x / π
+
+        # The constant term should be exactly 1
+        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1)
+        I_mul_x_onepα_div_pi[0] = 1
+
+        if skip_div_u0
+            return I_mul_x_onepα_div_pi
+        else
+            return I_mul_x_onepα_div_pi / eval_expansion(u0, u0_expansion, x, offset_i = -1)
+        end
     end
 end
