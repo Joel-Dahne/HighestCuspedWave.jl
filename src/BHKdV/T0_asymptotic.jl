@@ -83,23 +83,481 @@ end
 """
     _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
 
+Compute an upper bound of
+```
+W(x) * I_M(x) = sinpi(α / 2) / ((1 - x^p0) * log(x)) *
+                ∫ abs(abs(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+                    t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+defined in [`T0_asymptotic`](@ref).
 
+The function `sinpi(α / 2)` converges to `-1` and can be enclosed
+directly and we therefore focus on computing an upper bound of
+```
+-1 / ((1 - x^p0) * log(x)) *
+    ∫ abs(abs(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+        t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+
+# Split into two intervals
+The function
+```
+abs(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
+```
+in the integrand has a singularity at `t = 1` so it is natural to
+split the interval `[0, π / x]` into two parts, `[0, 1]` and `[1, π /
+x]`.
+
+We handle these two intervals separately.
+
+# The interval `[0, 1]`
+On this interval `t - 1` is non-positive so the problem reduces to
+computing an upper bound of
+```
+G1(x) = -1 / ((1 - x^p0) * log(x)) *
+            ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+where the integration is taken from `0` to `1`.
+
+This term tends to zero as `α -> -1` and `x -> 0` and we therefore
+don't need to compute a very accurate upper bound.
+
+**TODO:** Finish this. Possibly by multiplying and dividing by
+`gamma(1 + α)` to make the integrand no longer go to zero. And then
+splitting the log-term.
+
+# The interval `[1, π / x]`
+On this interval `t - 1` is non-negative so the problem reduces to
+computing an upper bound of
+```
+G2(x) = -1 / ((1 - x^p0) * log(x)) *
+            ∫ abs((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+where the integration is taken from `1` to `π / x`.
+
+In this case the expression inside the absolute value
+```
+(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
+```
+can be checked to be positive on `[1, Inf]` and the absolute
+value can hence be removed.
+- **PROVE:** That `(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)`
+  is positive on `[1, Inf]`.
+This gives us
+```
+G2(x) = -1 / ((1 - x^p0) * log(x)) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+
+## Expanding integrand
+We want to get rid of the fractional exponents inside the integral. To
+do this we focus on the part of the integrand given by
+```
+((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-γ * (1 + α))
+```
+We can rewrite this as
+```
+((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-γ * (1 + α)) =
+    (exp(-log(t - 1) * (1 + α)) + exp(-log(t + 1) * (1 + α)) - 2exp(-log(t) * (1 + α))) *
+        exp(-γ * log(t) * (1 + α)) =
+    exp(-(log(t - 1) + γ * log(t)) * (1 + α)) +
+        exp(-(log(t + 1) + γ * log(t)) * (1 + α)) -
+        2exp(-(1 + γ) * log(t) * (1 + α))
+```
+Expanding the exponentials and joining the three sums we arrive at
+```
+sum(
+    (-1)^n * (1 + α)^n / factorial(n) *
+    ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n)
+    for n = 1:Inf
+)
+```
+Inserting this into the integral and switching the order of
+integration and summation gives us
+```
+G2(x) = -1 / ((1 - x^p0) * log(x)) * sum(
+    (-1)^n * (1 + α)^n / factorial(n) *
+    ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
+        t * log(c + inv(x * t)) dt
+    for n = 1:Inf
+)
+```
+Where the integration is done from `1` to `π / x`. We are hence
+interested in computing the integrals
+```
+I(n) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
+    t * log(c + inv(x * t)) dt
+```
+for `n = 1, 2, ...`.
+
+## Computing `I(n)`
+
+### Split into parts
+As a first step we split `I(n)` into three parts by using that
+```
+log(c + inv(x * t)) = log((c * x * t + 1) / (x * t)) = log(1 + c * x * t) - log(x) - log(t)
+```
+Letting
+```
+I1(n) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
+    t dt
+
+I2(n) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
+    t * log(t) dt
+
+I3(n) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
+    t * log(1 + c * x * t) dt
+```
+we then get
+```
+I(n) = -log(x) * I1(n) - I2(n) + I3(n)
+```
+Since `1 <= x <= π / x` we get that `log(1 + c * x * t)` is bounded on
+the interval and satisfies
+```
+log(1 + c * x * t) ∈ [0, log(1 + c * π)]
+```
+If we let `D` be a ball corresponding to this interval we can
+therefore factor it out from the integral, allowing us to rewrite
+`I(n)` as
+```
+I(n) = (D - log(x)) * I1(n) - I2(n)
+```
+where the equality should be understood in an interval sense. It is
+therefore enough to study `I1(n)` and `I2(n)`.
+
+### Simplifying the integrand
+To begin with we want to study
+```
+(log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n
+```
+Using the binomial theorem we can write this as
+```
+sum(binomial(n, k) γ^k * log(t)^k * log(t - 1)^(n - k) for k = 0:n) +
+sum(binomial(n, k) γ^k * log(t)^k * log(t + 1)^(n - k) for k = 0:n) -
+2(1 + γ)^n * log(t)^n
+```
+By joining the sums we can write this as
+```
+sum(binomial(n, k) * γ^k * log(t)^k * (log(t - 1)^(n - k) + log(t + 1)^(n - k)) for k = 0:n) -
+    2(1 + γ)^n * log(t)^n
+```
+
+For large values of `t` the factor
+```
+log(t - 1)^(n - k) + log(t + 1)^(n - k)
+```
+behaves almost like `2log(t)^(n - k)`. We can therefore split it into
+this term plus a remainder and handle them separately. If we let
+```
+R(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
+```
+we can split the sum as
+```
+sum(binomial(n, k) * γ^k * log(t)^k * (log(t - 1)^(n - k) + log(t + 1)^(n - k)) for k = 0:n) =
+    sum(binomial(n, k) * γ^k * log(t)^k * 2log(t)^(n - k) for k = 0:n) +
+    sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n)
+```
+
+We can now notice that the first of these sums
+```
+sum(binomial(n, k) * γ^k * log(t)^k * 2log(t)^(n - k) for k = 0:n)
+```
+is exactly equal to
+```
+2(1 + γ)^n * log(t)^n
+```
+and they hence cancel each other out. This leaves us with only one sum
+remaining
+```
+sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n)
+```
+Noticing that `R(0, t) = 0` we can simplify this to
+```
+sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1)
+```
+
+Inserting this back into `I1(n)` and `I2(n)` we get
+```
+I1(n) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t dt
+
+I2(n) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t * log(t) dt
+```
+
+### Computing `I1(n)` and `I2(n)`
+Switching the summation and integration in `I1(n)` and `I2(n)` we
+arrive at
+```
+I1(n) = sum(binomial(n, k) * γ^k * ∫ log(t)^k * R(n - k, t) * t dt for k = 0:n-1)
+
+I2(n) = sum(binomial(n, k) * γ^k * ∫ log(t)^(k + 1) * R(n - k, t) * t dt for k = 0:n-1)
+```
+Using that `R(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l` we can
+write these integrals as
+```
+∫ log(t)^k * (log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k)) * t dt
+```
+and
+```
+∫ log(t)^(k + 1) * (log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k)) * t dt
+```
+- **TODO:** Possibly split in three and integrate explicitly? We need
+  to take care of cancellations between the integrals in that case.
+
+#### Attempt using asymptotic behaviour of integrand
+**NOTE:** This is an attempt which might not work out. In particular
+this expansion only holds for large `t` and we would have to do
+something more to handle `t` close to `1`.
+
+Asymptotically as `t` goes to infinity we have that
+```
+log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k)
+```
+behaves like
+```
+(n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2 + O(1 / t^4)
+```
+- **TODO:** Prove this and bound remainder.
+
+Inserting the main term into the integrals for `I1(n)` and `I2(n)`
+gives us
+```
+∫ log(t)^k * (n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2 * t dt
+= (n - k) * ∫ log(t)^(n - 2) * ((n - k - 1) - log(t)) / t dt
+= (n - k) * (n - k - 1) * ∫ log(t)^(n - 2) / t dt -
+    (n - k) * ∫ log(t)^(n - 1) / t dt
+
+∫ log(t)^(k + 1) * (n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2 * t dt
+= (n - k) * ∫ log(t)^(n - 1) * ((n - k - 1) - log(t)) / t dt
+= (n - k) * (n - k - 1) * ∫ log(t)^(n - 1) / t dt -
+    (n - k) * ∫ log(t)^n / t dt
+```
+The integrals can be computed exactly to be
+```
+(n - k) * (n - k - 1) * ∫ log(t)^(n - 2) / t dt =
+    (n - k) * (n - k - 1) / (n - 1) * log(π / x)^(n - 1)
+
+(n - k) * ∫ log(t)^(n - 1) / t dt =
+    (n - k) / n * log(π / x)^n
+
+(n - k) * (n - k - 1) * ∫ log(t)^(n - 1) / t dt =
+    (n - k) * (n - k - 1) / n * log(π / x)^n
+
+(n - k) * ∫ log(t)^n / t dt =
+    (n - k) / (n + 1) * log(π / x)^(n + 1)
+```
+Inserting this into `I1(n)` and `I2(n)` gives us the approximations
+```
+I1(n) ≈ sum(
+    binomial(n, k) * γ^k * (n - k) * log(π / x)^(n - 1) * ((n - k - 1) / (n - 1) - log(π / x) / n)
+    for k = 0:n-1
+) =
+log(π / x)^(n - 1) * (
+    1 / (n - 1) * sum(binomial(n, k) * γ^k * (n - k) * (n - k - 1)  for k = 0:n-1) -
+    log(π / x) / n * sum(binomial(n, k) * γ^k * (n - k) for k = 0:n-1)
+)
+
+I2(n) ≈ sum(
+    binomial(n, k) * γ^k * (n - k) * log(π / x)^n * ((n - k - 1) / n - log(π / x) / (n + 1))
+    for k = 0:n-1
+) =
+log(π / x)^n * sum(
+    1 / n * sum(binomial(n, k) * γ^k * (n - k) * (n - k - 1)  for k = 0:n-1) -
+    log(π / x) / (n + 1) * sum(binomial(n, k) * γ^k * (n - k) for k = 0:n-1)
+)
+```
+
+The sums in `I1(n)` and `I2(n)` above are the same and they can be
+explicitly computed to be
+```
+sum(binomial(n, k) * γ^k * (n - k) * (n - k - 1)  for k = 0:n-1) =
+    (1 + γ)^(n - 2) * (n - 1) * n
+
+sum(binomial(n, k) * γ^k * (n - k) for k = 0:n-1) =
+    (1 + γ)^(n - 1) * n
+```
+Inserting this backs gives us
+```
+I1(n) ≈ log(π / x)^(n - 1) * (1 + γ)^(n - 2) * (n - log(π / x) * (1 + γ))
+
+I2(n) ≈ log(π / x)^n * (1 + γ)^(n - 2) * ((n - 1) - n / (n + 1) * log(π / x) * (1 + γ))
+```
+
+## Inserting `I(n)` back into the sum
+Recall that we are interested in computing
+```
+G2(x) = -1 / ((1 - x^p0) * log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I(n) for n = 1:Inf)
+```
+With
+```
+I(n) = (D - log(x)) * I1(n) - I2(n)
+```
+We can split `G2` into two sums as
+```
+G2(x) = -1 / ((1 - x^p0) * log(x)) * (
+    + (D - log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I1(n) for n = 1:Inf)
+    - sum((-1)^n * (1 + α)^n / factorial(n) * I2(n) for n = 1:Inf)
+)
+```
+We are now interested in computing these two sums.
+
+Using the above approximations of `I1(n)` and `I2(n)` we get for the
+first sum
+```
+sum((-1)^n * (1 + α)^n / factorial(n) * I1(n) for n = 1:Inf)
+
+= sum(
+    (-1)^n * (1 + α)^n / factorial(n) *
+    log(π / x)^(n - 1) * (1 + γ)^(n - 2) * (n - log(π / x) * (1 + γ))
+    for n = 1:Inf
+)
+
+= sum(
+    (-1)^n * (1 + α)^n / factorial(n - 1) * log(π / x)^(n - 1) * (1 + γ)^(n - 2)
+    for n = 1:Inf
+)
+- sum(
+    (-1)^n * (1 + α)^n / factorial(n) * log(π / x)^(n) * (1 + γ)^(n - 1)
+    for n = 1:Inf
+)
+
+= -(1 + α) / (1 + γ) * sum(
+    (-1)^(n - 1) * (1 + α)^(n - 1) / factorial(n - 1) * log(π / x)^(n - 1) * (1 + γ)^(n - 1)
+    for n = 1:Inf
+)
+- 1 / (1 + γ) * sum(
+    (-1)^n * (1 + α)^n / factorial(n) * log(π / x)^(n) * (1 + γ)^n
+    for n = 1:Inf
+)
+
+= -(1 + α) / (1 + γ) * (π / x)^(-(1 + α) * (1 + γ))
+- 1 / (1 + γ) * ((π / x)^(-(1 + α) * (1 + γ)) - 1)
+
+= (1 - (2 + α) * (π / x)^(-(1 + α) * (1 + γ))) / (1 + γ)
+```
+And for the second sum we get
+```
+sum((-1)^n * (1 + α)^n / factorial(n) * I2(n) for n = 1:Inf)
+
+= sum(
+    (-1)^n * (1 + α)^n / factorial(n) *
+    log(π / x)^n * (1 + γ)^(n - 2) * ((n - 1) - n / (n + 1) * log(π / x) * (1 + γ))
+    for n = 1:Inf
+)
+
+= sum(
+    (-1)^n * (1 + α)^n / factorial(n) *
+    log(π / x)^n * (1 + γ)^(n - 2) * (n - 1)
+    for n = 1:Inf
+)
+- sum(
+    (-1)^n * (1 + α)^n / factorial(n) *
+    log(π / x)^n * (1 + γ)^(n - 2) * n / (n + 1) * log(π / x) * (1 + γ)
+    for n = 1:Inf
+)
+
+= 1 / (1 + γ)^2 * sum(
+    (-1)^n * (1 + α)^n / factorial(n) * log(π / x)^n * (1 + γ)^n * (n - 1) for n = 1:Inf
+)
++ 1 / ((1 + α) * (1 + γ)^2) * sum(
+    (-1)^(n + 1) * (1 + α)^(n + 1) / factorial(n + 1) * log(π / x)^(n + 1) * (1 + γ)^(n + 1) * n
+    for n = 1:Inf
+)
+
+= 1 / (1 + γ)^2 * (1 - (π / x)^(-(1 + α) * (1 + γ)) * ((1 + α) * (1 + γ) * log(π / x) + 1))
++ 1 / ((1 + α) * (1 + γ)^2) * (1 - (π / x)^(-(1 + α) * (1 + γ)) * ((1 + α) * (1 + γ) * log(π / x) + 1))
+
+= (2 + α) / ((1 + α) * (1 + γ)^2) *
+    (1 - (π / x)^(-(1 + α) * (1 + γ)) * ((1 + α) * (1 + γ) * log(π / x) + 1))
+
+= ((2 + α) * (1 - (π / x)^(-(1 + α) * (1 + γ)))) / ((1 + α) * (1 + γ)^2)
+- (2 + α) / (1 + γ) * (π / x)^(-(1 + α) * (1 + γ)) * log(π / x)
+```
+
+If we let `s = (π / x)^(-(1 + α) * (1 + γ))` we can write `G2` as
+```
+G2(x) = -1 / ((1 - x^p0) * log(x)) * (
+    + (D - log(x)) * (1 - (2 + α) * s) / (1 + γ)
+    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ)^2)
+    + (2 + α) / (1 + γ) * s * (1 + α) * (1 + γ) * log(π / x)
+)
+```
+Expanding `log(π / x) = log(π) - log(x)` and putting the log-terms
+together, as well as factoring out `1 / (1 + γ)`, we get
+```
+G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ) * (
+    + (D - log(x)) * (1 - (2 + α) * s)
+    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
+    + (2 + α) / (1 + γ) * s * (log(π) - log(x))
+)
+
+= -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
+    + D * (1 - (2 + α) * s)
+    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
+    + (2 + α) * s * log(π)
+    - log(x) * (1 - (2 + α) * s)
+    - log(x) * (2 + α) * s
+)
+
+= -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
+    + D * (1 - (2 + α) * s)
+    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
+    + (2 + α) * s * log(π)
+    - log(x)
+)
+```
+Next we collect all occurrences of `s`, cancel the `log(x)` explicitly
+and reorder the signs a bit
+```
+G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
+    + D - (2 + α) / ((1 + α) * (1 + γ))
+    + (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ)) - D) * s
+    - log(x)
+
+= 1 / ((1 - x^p0) * (1 + γ)) * (
+    - D + (2 + α) / ((1 + α) * (1 + γ)) / log(x)
+    - (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ)) - D) * s / log(x)
+    + 1
+)
+```
+- **TODO:** We probably have to handle the `D` in a different way, it
+  give to poor enclosures for `x` around `1e-2`or so.
+- **IDEA:** Prove that it is increasing in `α` so that we only have to
+  bound it for an upper bound of `α`. Then we can fix `α` and do the
+  asymptotics in `x`.
 """
 function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
-    return x::Arb -> begin
-        Wx_I_M = zero(x)
-
-        return Wx_I_M
+    # Construct function for computation of the term on the interval
+    # [0, 1]
+    G1 = let
+        x -> zero(x)
     end
+
+    # Construct function for computation of the term on the interval
+    # [1, π / x]
+    G2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
+        # Enclosure of log(1 + c * x * t) on the interval 1 <= t <= π / x
+        D = Arb((0, log(1 + c * π)))
+
+        1 / ((1 - x^p0) * (1 + γ)) * (
+            -D + (2 + α) / ((1 + α) * (1 + γ)) / log(x) -
+            (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ)) - D) * s / log(x) + 1
+        )
+    end
+
+    return x::Arb -> sinpi(α / 2) * (G1(x) + G2(x))
 end
 
 """
     _T0_asymptotic_remainder(α::Arb, γ::Arb, c::Arb)
 
-Compute an enclosure of
+Compute an upper bound of
 ```
 W(x) * I_R(x) = -x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(x)) *
-                ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+                ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
                     t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
 defined in [`T0_asymptotic`](@ref).
@@ -117,11 +575,11 @@ and bound that separately.
 Next we want to compute a bound of the remainder terms from the
 Clausen functions
 ```
-abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t))
+abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t))
 ```
 More precisely we compute `C` such that
 ```
-abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) <= x^2 * C
+abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) <= x^2 * C
 ```
 
 From the expansion of the Clausen functions we get
@@ -136,8 +594,9 @@ R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t) = x^2 * sum(
     zeta(-α - 2m) * (-1)^m / factorial(2m) * x^(2(m - 1)) * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
 )
 ```
-We can thus get `C` by computing an upper bound of the absolute value
-of this sum. This is implemented in the method
+where we have removed the absolute value around `1 - t` since all
+powers are even. We can thus get `C` by computing an upper bound of
+the absolute value of this sum. This is implemented in the method
 [`_bound_remainder_sum`](@ref).
 
 # Tying it together
@@ -212,7 +671,7 @@ end
     T0_asymptotic(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
 
 Returns a function `f` such that `f(x)` computes an **upper bound** of
-the integral \$T_{0}\$ from the paper using an evaluation strategy
+the integral \$T_0\$ from the paper using an evaluation strategy
 that works asymptotically as `x` goes to `0`.
 
 The integral in question is given by
@@ -235,7 +694,7 @@ x / (π * log(u0.c + inv(x)) * u0(x)) *
     ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
         t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
-This is the expression we are interested in computing an *upper
+This is the expression we are interested in computing an **upper
 bound** of.
 
 # Split into two factors
@@ -267,25 +726,25 @@ I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clause
 We have the following expansions for the Clausen functions in the
 integrand
 ```
-clausenc(x * (t - 1), -α) = -sinpi(α / 2) * gamma(1 + α) * x^(-α - 1) * (t - 1)^(-α - 1) + R(x * (t - 1))
+clausenc(x * (1 - t), -α) = -sinpi(α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + R(x * abs(1 - t))
 clausenc(x * (1 + t), -α) = -sinpi(α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
 clausenc(x * t, -α) = -sinpi(α / 2) * gamma(1 + α) * x^(-α - 1) * t^(-α - 1) + R(x * t)
 ```
-where the error term `R` contains one constant term and `R(x * (1 -
+where the error term `R` contains one constant term and `R(x * abs(1 -
 t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`.
 
 Inserting this into the integral allows us to split it into one main
 integral
 ```
 I_M(x) = -sinpi(α / 2) * gamma(1 + α) * x^(-α - 1) *
-    ∫ abs((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+    ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
         t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 , where we have used that `-sinpi(α / 2) * gamma(1 + α) * x^(-α - 1)`
 is positive to allow us to move it outside of the absolute value, and
 one remainder integral
 ```
-I_R(x) = ∫ abs(R(x * (1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+I_R(x) = ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
     t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 They satisfy `I(x) <= I_M(x) + I_R(x)`.
