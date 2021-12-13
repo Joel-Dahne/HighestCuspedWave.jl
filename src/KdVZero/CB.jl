@@ -34,7 +34,14 @@ The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
 """
-function CB(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose = false)
+function CB(
+    u0::KdVZeroAnsatz;
+    ϵ::Arf = Arf(0.1),
+    rtol = Arb(1e-3), # TODO: Possibly tune this,
+    maxevals = 1000, # TODO: This we can probably remove later
+    threaded = true,
+    verbose = false,
+)
     ϵ = Arf(0.1)
 
     # In both the below methods we compute the expansion, subtract 1
@@ -50,14 +57,30 @@ function CB(u0::KdVZeroAnsatz; ϵ::Arf = Arf(0.1), threaded = true, verbose = fa
     g(x) = ((T0_nonasymptotic(x) - 1) << 1)(u0.α)
 
     # Compute an enclosure on [0, ϵ]
-    p1_asymptotic =
-        ArbExtras.minimum_enclosure(f, zero(ϵ), ϵ, degree = -1; threaded, verbose)
+    p1_asymptotic = ArbExtras.minimum_enclosure(
+        f,
+        zero(ϵ),
+        ϵ,
+        degree = -1;
+        rtol,
+        maxevals,
+        threaded,
+        verbose,
+    )
 
     verbose && @info "Bound of p[1] on [0, ϵ]" p1_asymptotic
 
     # Compute an enclosure on [0, ϵ]
-    p1_nonasymptotic =
-        ArbExtras.minimum_enclosure(g, ϵ, ubound(Arb(π)), degree = -1; threaded, verbose)
+    p1_nonasymptotic = ArbExtras.minimum_enclosure(
+        g,
+        ϵ,
+        ubound(Arb(π)),
+        degree = -1;
+        rtol,
+        maxevals,
+        threaded,
+        verbose,
+    )
 
     verbose && @info "Bound of p[1] on [ϵ, π]" p1_nonasymptotic
 
