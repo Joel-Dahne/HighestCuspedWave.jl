@@ -300,10 +300,20 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         # If x overlaps with π this gives an indeterminate result
         # which we handle specially
         if Arblib.overlaps(x, Arb(π))
-            # TODO: Handle this case. We probably have to use the
-            # asymptotic expansion and expand that in α
-            @warn "x overlaps π, not implemented yet"
-            clausenc_x_plus_pi = clausenc(x + π, 2 - α)
+            # Use periodicity of 2π to evaluate at x - π which is
+            # close to zero. Use the asymptotic expansion at x = 0 to
+            # evaluate it.
+            # To compute the expansion around x = 0 it uses the same
+            # approach as the asymptotic version of T0 does.
+            y = abs(x - π)
+            gamma_sin = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+                ArbSeries((-π / 2, (γ - 1) * π / 2, (-24π + 24γ * π - 12γ^2 * π - π^3) / 48))
+            end
+
+            clausenc_x_plus_pi =
+                gamma_sin * abspow(y, 1 - α) + sum(
+                    (-1)^m * zeta(2 - α - 2m) * abspow(y, 2m) / factorial(2m) for m = 0:5
+                )
         else
             clausenc_x_plus_pi = clausenc(x + π, 2 - α)
         end
