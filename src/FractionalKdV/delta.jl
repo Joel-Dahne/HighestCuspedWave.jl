@@ -46,7 +46,7 @@ function delta0(
         verbose && @info "ϵ was determined to be" ϵ
     end
 
-    # Bound the value one [0, ϵ]
+    # Bound the value on [0, ϵ]
     # Estimate the value by evaluating it at ϵ
     estimate = abs(f(Arb(ϵ)))
     max_asymptotic = ArbExtras.maximum_enclosure(
