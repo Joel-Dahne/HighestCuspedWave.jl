@@ -1,4 +1,96 @@
 """
+    _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
+
+Compute the unique root of
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`
+
+For wide values of `x` it uses that the root is decreasing in `x` to
+only have to evaluate at the endpoints.
+- **PROVE:** That the root is decreasing in `x`
+
+If the lower bound of `x` is zero or close to zero (smaller than
+`eps(x)`) it computes the root in the limiting case as `x` goes to
+zero. Expanding the function at `x = 0` gives us the leading term
+```
+-gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * ((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1))
+```
+and the limit of the root can be found by computing the root of
+```
+(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+```
+- **PROVE:** That the root of the integrand converges to the root of
+  `(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)`.
+
+If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
+compute the root at `eps(x)` and use that as a lower bound. This
+avoids computing with very small values of `x`.
+"""
+function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
+    # FIXME: For now we use α = lbound(u0.α), this should be
+    # updated to work for the whole enclosure in α
+    α = lbound(Arb, u0.α)
+
+    compute_root(x) =
+        let
+            f(t) =
+                clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+
+            # The root is lower bounded by 1 / 2
+            root_lower = Arf(0.5)
+
+            # Find a crude upper bound for the root
+            δ = Arb(0.4)
+            Arblib.ispositive(f(root_lower + δ))# || return ArbSeries((1, NaN))
+            while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
+                Arblib.mul_2exp!(δ, δ, -1)
+            end
+            root_upper = ubound(root_lower + δ)
+
+            # Improve the enclosure of the root
+            roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper, depth = 5)
+            if length(flags) == 1 && flags[1]
+                # Refine the unique root
+                root = ArbExtras.refine_root(f, Arb(only(roots)))
+            else
+                root = Arb((roots[1][1], roots[end][2]))
+            end
+
+            return root
+        end
+
+    compute_root_zero() =
+        let
+            f(t) = (1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+
+            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9), depth = 5)
+            length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
+
+            ArbExtras.refine_root(f, Arb(only(roots)))
+        end
+
+    xₗ, xᵤ = getinterval(Arb, x)
+    xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
+    ϵ = eps(x)
+
+    if iszero(x)
+        root = compute_root_zero()
+    elseif !iswide(x)
+        root = compute_root(x) # In this case x never overlaps zero
+    elseif xᵤ < ϵ
+        root = Arb((compute_root(ϵ), compute_root_zero()))
+    elseif xₗ < eps(Arb)
+        root = Arb((compute_root(xᵤ), compute_root_zero()))
+    else
+        root = Arb((compute_root(xᵤ), compute_root(xₗ)))
+    end
+
+    return root
+end
+
+"""
     T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
 Compute the integral \$T_0\$.
@@ -182,10 +274,6 @@ primitive(0) - 2primitive(root) + primitive(π / x) =
 Which is exactly what we wanted to show. This means that after the
 division by `π` the constant function should be exactly `1`.
 
-- **TODO:** Figure out how to handle the enclosure of the root. It
-  seems like we don't need to expand it in `α` but it is enough to use
-  an enclosure of the root. However the equation for the root becomes
-  singular at `α = 0` so we need to handle that.
 - **TODO:** Improve enclosure for wide values of `x`. This we will
   most likely need to do in the end.
 - **TODO:** Compute the remainder terms.
@@ -194,34 +282,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
     α = ArbSeries((0, 1), degree = 2)
 
     return x::Arb -> begin
-        # Isolate the root of clausenc(x * (1 - t), -α) + clausenc(x *
-        # (1 + t), -α) - 2clausenc(x * t, -α)
-        # FIXME: For now we use α = lbound(u0.α), this should be
-        # updated to work for the whole enclosure in α
-        f(t) =
-            let α = lbound(u0.α)
-                clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
-            end
-
-        # The root is lower bounded by 1 / 2
-        root_lower = Arf(0.5)
-
-        # Find a crude upper bound for the root
-        δ = Arb(0.4)
-        Arblib.ispositive(f(root_lower + δ)) || return ArbSeries((1, NaN))
-        while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
-            Arblib.mul_2exp!(δ, δ, -1)
-        end
-        root_upper = ubound(root_lower + δ)
-
-        # Improve the enclosure of the root
-        roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper, depth = 5)
-        if length(flags) == 1 && flags[1]
-            # Refine the unique root
-            root = ArbExtras.refine_root(f, Arb(only(roots)))
-        else
-            root = Arb((roots[1][1], roots[end][2]))
-        end
+        root = _integrand_compute_root(u0, x)
 
         primitive_mul_x(t) =
             (
