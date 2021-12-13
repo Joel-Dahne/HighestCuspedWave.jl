@@ -199,6 +199,106 @@ function abspow(x::ArbSeries, y::Arb)
     return abs(x)^y
 end
 
+function abspow(x::Arb, y::ArbSeries)
+    # This function is only partially implemented. In the case when x
+    # overlaps zero it is currently based on differentiation and
+    # isolation of extrema done by hand. If we want to support much
+    # higher degrees we would need to do this algorithmically. In the
+    # current version it is also not optimized at all, so it could be
+    # much faster.
+
+    # Helper function for creating indeterminate ArbSeries
+    function nan(p::ArbSeries)
+        indet = Arblib.indeterminate!(zero(Arb))
+        res = zero(p)
+        for i = 0:Arblib.degree(res)
+            res[i] = indet
+        end
+        return res
+    end
+
+    iszero(y) && return one(y)
+
+    if iszero(x)
+        Arblib.contains_negative(Arblib.ref(y, 0)) && return nan(y)
+
+        return zero(y)
+    end
+
+    if Arblib.contains_zero(x)
+        Arblib.contains_negative(Arblib.ref(y, 0)) && return nan(y)
+
+        # Differentiate with respect to the parameter of y manually
+        # and enclose the terms
+
+        deg = Arblib.degree(y)
+
+        deg <= 3 || error("supports degree at most 3")
+
+        res = zero(y)
+
+        res[0] = abspow(x, y[0])
+        if deg >= 1
+            # res[1] = y[1] * log(x) * abspow(x, y[0])
+
+            # Compute enclosure of log(x) * abspow(x, y[0])
+            # Evaluate at x = 0, x = ubound(x) and possibly extrema
+            f1(x) = log(x) * abspow(x, y[0])
+
+            term = union(zero(x), f1(ubound(Arb, x)))
+
+            extrema = exp(-1 / y[0])
+            if Arblib.overlaps(x, extrema)
+                term = union(term, f1(extrema))
+            end
+
+            res[1] = y[1] * term
+        end
+        if deg >= 2
+            #res[2] = (2y[2] * log(x) + (y[1] * log(x))^2) / 2 * abspow(x, y[0])
+
+            # Compute enclosure of (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0])
+            f2(x) = (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0])
+
+            term = union(zero(x), f2(ubound(Arb, x)))
+
+            if iszero(y[1])
+                # The extrema simplifies
+                extrema = exp(-1 / y[0])
+                if Arblib.overlaps(x, extrema)
+                    term = union(term, f2(extrema))
+                end
+            else
+                Δ = 4(y[0] * y[2] + y[1]^2)^2 - 8y[1]^2 * y[2]
+                if Arblib.contains_nonnegative(Δ) # Otherwise there are no real roots
+                    Arblib.sqrtpos(Δ)
+                    extrema1 = exp((-2(y[0] * y[2] + y[1]^2) + Arblib.sqrtpos(Δ)) / 2y[1]^2)
+                    extrema2 = exp((-2(y[0] * y[2] + y[1]^2) - Arblib.sqrtpos(Δ)) / 2y[1]^2)
+                    if Arblib.overlaps(x, extrema1)
+                        term = union(term, f2(extrema1))
+                    end
+                    if Arblib.overlaps(x, extrema2)
+                        term = union(term, f2(extrema2))
+                    end
+                end
+
+                res[2] = term / 2
+            end
+        end
+        if deg >= 3
+            # I DONT WANT TO DO THIS!!!
+            @warn "not properly implemented for degree 3"
+            res[3] =
+                (6y[3] * log(x) + 6y[1] * y[2] * log(x)^2 + (y[1] * log(x))^3) / 6 * res[0]
+        end
+
+        return res
+    end
+
+    return abs(x)^y
+end
+
+
 abspow(x, y) = abs(x)^y
 
 hypgeom_2f1(a::Arb, b::Arb, c::Arb, z::Arb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
