@@ -1174,7 +1174,7 @@ function F0(
 
     # This method assumes that the weight is x^(1 - u0.γ * (1 + α)) *
     # log(u0.c * inv(x)). As an extra precaution we check this.
-    let x = Arb(0.5)
+    let x = Arb(0.5), α = Arb((-1, -1 + u0.ϵ))
         @assert Arblib.overlaps(u0.w(x), x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x)))
     end
 
