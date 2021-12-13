@@ -666,25 +666,24 @@ It first computes an expansion of
 ```
 D(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
 ```
-in `x`.
+and `u0(x)` in `x`.
 
-We then want to divide this by
+When computing
 ```
-u0.w(x) * u0(x) = x * x^-α * (u0(x) / x^-α) = x^(1 - α) * (u0(x) / x^-α)
+D(u0)(x) / (x * u0(x))
 ```
-Where we can compute an enclosure of `u0(x) / x^-α` using
-[`u0_div_xmα`](@ref).
+we then explicitly cancel `x^(1 - α)` in `D(u0)` and `x^-α` in `u0`.
 
-- **TODO:** Figure out exactly how to treat remainder terms.
+- **TODO:** Figure out how to treat remainder terms.
 """
 function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
     D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
-    f = u0_div_xmα(u0, Asymptotic(); ϵ)
+    u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
 
-    return x -> begin
-        # Enclosure of D(u0)(x) / x^(1 - α)
-        D = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
+    return x::Arb -> begin
+        num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
+        den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
-        return D / f(x)
+        return num / den
     end
 end
