@@ -7,7 +7,14 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local iv = try
+            Base.loaded_modules[Base.PkgId(
+                Base.UUID("6e696c72-6542-2067-7265-42206c756150"),
+                "AbstractPlutoDingetjes",
+            )].Bonds.initial_value
+        catch
+            b -> missing
+        end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
@@ -165,27 +172,28 @@ A_xs, A_ys = let xs = range(Arb(0), π, length = 200)[2:end]
 end
 
 # ╔═╡ 616c4ebf-b2ca-4c5d-a300-30f4c1918223
-A_xs_asym, A_ys_asym = let xs = exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), length = 200));
+A_xs_asym, A_ys_asym =
+    let xs = exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), length = 200))
 
-    ys = similar(xs)
-    f = let F0 = F0(u0, Asymptotic(), ϵ = one(Arb))
-        x -> begin
-            expansion = F0(x)
-            @assert iszero(expansion[0]) && iszero(expansion[1])
-            expansion[2]
+        ys = similar(xs)
+        f = let F0 = F0(u0, Asymptotic(), ϵ = one(Arb))
+            x -> begin
+                expansion = F0(x)
+                @assert iszero(expansion[0]) && iszero(expansion[1])
+                expansion[2]
+            end
         end
+        Threads.@threads for i in eachindex(xs)
+            ys[i] = f(xs[i])
+        end
+        xs, ys
     end
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = f(xs[i])
-    end
-    xs, ys
-end
 
 # ╔═╡ 0044f472-bfd7-462a-aee8-256913beaad3
 A = if use_rigorous_bounds_δ0
-	delta0(u0, verbose = true, maxevals = 10000)[2]
+    delta0(u0, verbose = true, maxevals = 10000)[2]
 else
-	max(maximum(abs.(A_ys)), maximum(abs.(A_ys_asym)))
+    max(maximum(abs.(A_ys)), maximum(abs.(A_ys_asym)))
 end
 
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
@@ -197,7 +205,16 @@ end
 
 # ╔═╡ 17860367-ec0a-4dd4-8650-7bd99c5320c6
 let pl = plot(legend = :bottomright)
-    plot!(pl, A_xs_asym, A_ys_asym, ribbon = radius.(Arb, A_ys_asym), label = "", m = :dot, ms = 1, xaxis = :log10)
+    plot!(
+        pl,
+        A_xs_asym,
+        A_ys_asym,
+        ribbon = radius.(Arb, A_ys_asym),
+        label = "",
+        m = :dot,
+        ms = 1,
+        xaxis = :log10,
+    )
     hline!([A], ribbon = [radius(Arb, A)], color = :green, label = "A bound")
     hline!([-A], ribbon = [radius(Arb, A)], color = :green, label = "")
 end
@@ -232,26 +249,27 @@ B_xs, B_ys = let xs = range(Arb(0), π, length = 200)[2:end]
 end
 
 # ╔═╡ f01b115e-0f4a-403a-807c-92d876c7e7c6
-B_xs_asym, B_ys_asym = let xs = exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), length = 200));
-    ys = similar(xs)
-    f = let T0 = T0(u0, Asymptotic(), ϵ = one(Arb))
-        x -> begin
-            expansion = T0(x)
-            @assert isone(expansion[0])
-            expansion[1]
+B_xs_asym, B_ys_asym =
+    let xs = exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), length = 200))
+        ys = similar(xs)
+        f = let T0 = T0(u0, Asymptotic(), ϵ = one(Arb))
+            x -> begin
+                expansion = T0(x)
+                @assert isone(expansion[0])
+                expansion[1]
+            end
         end
+        Threads.@threads for i in eachindex(xs)
+            ys[i] = f(xs[i])
+        end
+        xs, ys
     end
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = f(xs[i])
-    end
-    xs, ys
-end
 
 # ╔═╡ 17755368-cba0-446a-9d64-edcd32b11be2
 B = if use_rigorous_bounds_C_B
-	CB(u0, verbose = true)[1]
+    CB(u0, verbose = true)[1]
 else
-	min(minimum(B_ys), minimum(B_ys_asym))
+    min(minimum(B_ys), minimum(B_ys_asym))
 end
 
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
@@ -262,7 +280,16 @@ end
 
 # ╔═╡ 89599cbf-2571-4475-a360-bc4e165d71d8
 let pl = plot(legend = :topleft)
-    plot!(pl, B_xs_asym, B_ys_asym, ribbon = radius.(Arb, B_ys_asym), label = "", m = :dot, ms = 1, xaxis = :log10)
+    plot!(
+        pl,
+        B_xs_asym,
+        B_ys_asym,
+        ribbon = radius.(Arb, B_ys_asym),
+        label = "",
+        m = :dot,
+        ms = 1,
+        xaxis = :log10,
+    )
     hline!([B], ribbon = [radius(Arb, B)], color = :green, label = "A bound")
 end
 
