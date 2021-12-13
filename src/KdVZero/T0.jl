@@ -486,14 +486,17 @@ function T0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = one(Arb), skip_div_u0 = f
 
         I_mul_x_onepα_div_pi = I_mul_x / π
 
-        # The constant term should be exactly 1
-        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1)
-        I_mul_x_onepα_div_pi[0] = 1
-
         if skip_div_u0
-            return I_mul_x_onepα_div_pi
+            res = I_mul_x_onepα_div_pi
         else
-            return I_mul_x_onepα_div_pi / eval_expansion(u0, u0_expansion, x, offset_i = -1)
+            res = I_mul_x_onepα_div_pi / eval_expansion(u0, u0_expansion, x, offset_i = -1)
         end
+
+        # The constant term should be exactly 1
+        # TODO: Should this be before or after the division by u0? What do we prove?
+        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1)
+        res[0] = 1
+
+        return res
     end
 end
