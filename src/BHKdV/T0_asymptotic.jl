@@ -627,17 +627,35 @@ G2(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2) * log(x)) * 1 / Σ2 * 1 / (1 + α) *
     - 1 / log(x)
 )
 ```
-The problem now reduces to computing bounds for `Σ1 / (1 + α)` and
-`Σ2` , where we will also need that `Σ2` is non-zero.
 
-Unfortunately both `Σ1 / (1 + α)` and `Σ2` blow up as `x -> 0` so we
-need cannot take the limit directly. For any fixed `x` which is not
-too small, so that these terms are still relatively small, we can
-compute explicit enclosures and from that get enclosures for the norm.
+As `x` goes to zero both `1 / Σ2` and `Σ1 / (1 + α)` blow up. We
+therefore have to take care of their interaction. To handle this we
+reorder the terms of `G2` as
+```
+G2(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2) * Σ2) * (
+    (2 + α) * Σ1 / ((1 + α) * log(x)^2 * Σ2)
+    - (1 + γ) * (2 + α) / 2Σ2
+    + (1 + γ) * (2 + α) * log(π)^2 / (log(x)^2 * Σ2)
+    - 1 / (log(x) * Σ2)
+)
+```
+The two terms
+```
+(1 + γ) * (2 + α) * log(π)^2 / (log(x)^2 * Σ2)
 
-**IDEA:** Prove that it is increasing in `α` so that we only have to
-bound it for an upper bound of `α`. Then we can fix `α` and do the
-asymptotics in `x` only.
+- 1 / (log(x) * Σ2)
+```
+are bounded and can be enclosed by computing an enclosure of
+`inv(log(x) * Σ2)`.
+
+The critical part is thus
+```
+(2 + α) * Σ1 / ((1 + α) * log(x)^2 * Σ2) - (1 + γ) * (2 + α) / 2Σ2
+
+= (2 + α) * (Σ1 / ((1 + α) * log(x)^2) - (1 + γ)) / 2Σ2
+```
+which is supposed to be bounded and not go to zero.
+- **TODO:** Handle this term!
 """
 function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
     # Construct function for computation of the term on the interval
@@ -659,26 +677,58 @@ function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
                 inv(log(x))
             end
 
-            # Compute enclosure of Σ1 / (1 + α)
-            # TODO: Bound tail
-            Σ1_div_onepα = let π = Arb(π)
-                sum(
-                    (log(π / x) / (n + 1) - log(π)) *
-                    (1 + α)^(n - 1) *
-                    (-(1 + γ) * log(π / x))^n / factorial(big(n)) for n = 2:10
-                )
+            # Compute enclosure of inv(Σ2)
+            # TODO: In the end we probably don't need this
+            invΣ2 = if iszero(x)
+                # FIXME
+                one(x)
+            elseif Arblib.contains_zero(x)
+                # FIXME
+                one(x)
+            else
+                # TODO: Enclose for full α interval
+                let p0 = (1 + α) + (1 + α)^2 / 2
+                    p0 * log(x) / (x^p0 - 1)
+                end
             end
 
-            # Compute enclosure of Σ2
-            # TODO: Bound tail
-            Σ2 = let p0 = (1 + α) + (1 + α)^2 / 2
-                sum(p0^n * log(x)^n / factorial(big(n + 1)) for n = 0:10)
+            # Compute enclosure of inv(log(x) * Σ2)
+            invlogxΣ2 = if iszero(x)
+                zero(x)
+            elseif Arblib.contains_zero(x)
+                # FIXME
+                zero(x)
+            else
+                # TODO: Enclose for full α interval
+                let p0 = (1 + α) + (1 + α)^2 / 2
+                    p0 / (x^p0 - 1)
+                end
+            end
+
+            # Compute enclosure of Σ1 / ((1 + α) * log(x)^2 * Σ2)
+            Σ1_div_onepα_logx2_Σ2 = if iszero(x)
+                # FIXME
+                zero(x)
+            elseif Arblib.contains_zero(x)
+                # FIXME
+                zero(x)
+            else
+                # TODO: Bound tail - note that it doesn't go to zero
+                # until very late for small x!
+                Σ1_div_onepα = let π = Arb(π)
+                    sum(
+                        (log(π / x) / (n + 1) - log(π)) *
+                        (1 + α)^(n - 1) *
+                        (-(1 + γ) * log(π / x))^n / factorial(big(n)) for n = 2:10
+                    )
+                end
+                Σ1_div_onepα * invlogx * invlogxΣ2
             end
 
             res = let π = Arb(π)
-                -1 / ((1 + γ) * (1 + (1 + α) / 2)) * 1 / Σ2 * (
-                    (2 + α) * invlogx^2 * Σ1_div_onepα -
-                    (1 + γ) * (2 + α) / 2 * (1 - log(π)^2 * invlogx^2) - invlogx
+                -1 / ((1 + γ) * (1 + (1 + α) / 2)) * (
+                    (2 + α) * Σ1_div_onepα_logx2_Σ2 - (1 + γ) * (2 + α) / 2 * invΣ2 +
+                    (1 + γ) * (2 + α) * log(π)^2 * invlogx * invlogxΣ2 - invlogxΣ2
                 )
             end
 
