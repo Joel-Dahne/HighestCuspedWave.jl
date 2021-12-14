@@ -520,9 +520,124 @@ G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
 ```
 - **TODO:** Add part from `I3(n)`
 
-- **IDEA:** Prove that it is increasing in `α` so that we only have to
-  bound it for an upper bound of `α`. Then we can fix `α` and do the
-  asymptotics in `x`.
+## Asymptotics in `α`
+We now focus on determining the asymptotic behaviour of `G2(x)` as `α`
+goes to `-1` to allow us to compute an enclosure for the full interval
+of `α`.
+
+To begin with we slightly rewrite `G2` as
+```
+G2(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
+    + (2 + α) / log(x) * ((1 - s) / (1 + α) / (1 + γ) - log(π) * s)
+    + 1
+)
+```
+The important parts are
+1. `1 - x^p0`
+2. `(1 - s) / (1 + α)`
+3. `s`
+Recall that `s = (π / x)^(-(1 + α) * (1 + γ))`, this give us
+```
+s = exp((1 + α) * (-(1 + γ) * log(π / x)))
+  = sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf)
+```
+Looking at the factor
+```
+(2 + α) / log(x) * ((1 - s) / (1 + α) / (1 + γ) - log(π) * s) + 1
+```
+of `G2` we can write this as
+```
+(2 + α) / log(x) * (
+    - 1 / (1 + γ) / (1 + α) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 1:Inf)
+    - log(π) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf)
+) + 1
+
+= (2 + α) / log(x) * (
+    + log(π / x) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n + 1) for n = 0:Inf)
+    - log(π) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf)
+) + 1
+
+= (2 + α) / log(x) * sum(
+        (log(π / x) / (n + 1) - log(π)) *
+        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf
+) + 1
+```
+Extracting the first two terms in this sum gives us
+```
+= (2 + α) / log(x) * sum(
+        (log(π / x) / (n + 1) - log(π)) *
+        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
+)
+- (2 + α) / log(x) * (log(π / x) / 2 - log(π)) * (1 + α) * (1 + γ) * log(π / x)
++ (2 + α) / log(x) * (log(π / x) - log(π))
++ 1
+
+= (2 + α) / log(x) * sum(
+        (log(π / x) / (n + 1) - log(π)) *
+        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
+)
+- (1 + γ) * (2 + α) / 2 * (log(x) - log(π)^2 / log(x)) * (1 + α)
++ (2 + α) / log(x) * (log(π / x) - log(π))
++ 1
+
+= (2 + α) / log(x) * sum(
+        (log(π / x) / (n + 1) - log(π)) *
+        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
+)
+- (1 + γ) * (2 + α) / 2 * (log(x) - log(π)^2 / log(x)) * (1 + α)
+- (1 + α)
+```
+Call the sum `Σ1`, i.e.
+```
+Σ1 = sum(
+    (log(π / x) / (n + 1) - log(π)) *
+    (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
+)
+```
+
+For `1 - x^p0` we have
+```
+1 - x^p0 = 1 - exp(p0 * log(x))
+= -sum(p0^n * log(x)^n / factorial(n) for n = 1:Inf)
+= -(1 + α) * (1 + (1 + α) / 2) * log(x) * sum(p0^n * log(x)^n / factorial(n + 1) for n = 0:Inf)
+```
+For the other factor of `G2`, `1 / ((1 - x^p0) * (1 + γ))`, this gives us
+```
+1 / ((1 - x^p0) * (1 + γ))
+= -1 / ((1 + γ) * (1 + (1 + α) / 2) * log(x)) *
+    1 / sum(p0^n * log(x)^n / factorial(n + 1) for n = 0:Inf) *
+    1 / (1 + α)
+```
+Call the sum `Σ2`, i.e.
+```
+Σ2 = sum(p0^n * log(x)^n / factorial(n + 1) for n = 0:Inf)
+```
+
+For `G2` we then get
+```
+G2(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2) * log(x)) * 1 / Σ2 * 1 / (1 + α) * (
+    (2 + α) / log(x) * Σ1
+    - (1 + γ) * (2 + α) / 2 * (log(x) - log(π)^2 / log(x)) * (1 + α)
+    - (1 + α)
+)
+
+= -1 / ((1 + γ) * (1 + (1 + α) / 2) * Σ2) * (
+    (2 + α) / log(x)^2 * Σ1 / (1 + α)
+    - (1 + γ) * (2 + α) / 2 * (1 - log(π)^2 / log(x)^2)
+    - 1 / log(x)
+)
+```
+The problem now reduces to computing bounds for `Σ1 / (1 + α)` and
+`Σ2` , where we will also need that `Σ2` is non-zero.
+
+Unfortunately both `Σ1 / (1 + α)` and `Σ2` blow up as `x -> 0` so we
+need cannot take the limit directly. For any fixed `x` which is not
+too small, so that these terms are still relatively small, we can
+compute explicit enclosures and from that get enclosures for the norm.
+
+**IDEA:** Prove that it is increasing in `α` so that we only have to
+bound it for an upper bound of `α`. Then we can fix `α` and do the
+asymptotics in `x` only.
 """
 function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
     # Construct function for computation of the term on the interval
@@ -534,17 +649,41 @@ function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
     # Construct function for computation of the term on the interval
     # [1, π / x]
     # FIXME: We currently do this for an upper bound of α
-    G2 = let α = ubound(Arb, α), p0 = 1 + α + (1 + α)^2 / 2
-        x -> begin
-            s = (π / x)^(-(1 + α) * (1 + γ))
+    G2(x) =
+        let
+            invlogx = if iszero(x)
+                zero(x)
+            elseif Arblib.contains_zero(x)
+                Arb((inv(log(ubound(Arb, x))), 0))
+            else
+                inv(log(x))
+            end
 
-            # TODO: Add part from I3(n)
-            1 / ((1 - x^p0) * (1 + γ)) * (
-                (2 + α) / ((1 + α) * (1 + γ)) / log(x) -
-                (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ))) * s / log(x) + 1
-            )
+            # Compute enclosure of Σ1 / (1 + α)
+            # TODO: Bound tail
+            Σ1_div_onepα = let π = Arb(π)
+                sum(
+                    (log(π / x) / (n + 1) - log(π)) *
+                    (1 + α)^(n - 1) *
+                    (-(1 + γ) * log(π / x))^n / factorial(big(n)) for n = 2:10
+                )
+            end
+
+            # Compute enclosure of Σ2
+            # TODO: Bound tail
+            Σ2 = let p0 = (1 + α) + (1 + α)^2 / 2
+                sum(p0^n * log(x)^n / factorial(big(n + 1)) for n = 0:10)
+            end
+
+            res = let π = Arb(π)
+                -1 / ((1 + γ) * (1 + (1 + α) / 2)) * 1 / Σ2 * (
+                    (2 + α) * invlogx^2 * Σ1_div_onepα -
+                    (1 + γ) * (2 + α) / 2 * (1 - log(π)^2 * invlogx^2) - invlogx
+                )
+            end
+
+            return res
         end
-    end
 
     return x::Arb -> -sinpi(α / 2) * (G1(x) + G2(x))
 end
