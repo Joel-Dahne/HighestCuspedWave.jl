@@ -518,6 +518,58 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
 end
 
 """
+    clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer)
+
+Compute an enclosure of the remainder term in the asymptotic expansion
+of `clausenc(x, s)` at zero up to order `2M - 2`, meaning that the
+remainder is of order `2M`.
+
+This is the `E` occurring in [`clausenc_expansion`](@ref).
+
+An upper bound for the absolute value of the remainder is given by
+```
+2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2)
+```
+and this functions returns a ball centered at zero with this radius.
+"""
+clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer) =
+    let π = Arb(π, prec = precision(x))
+        Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
+    end
+
+"""
+    clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
+
+Compute an enclosure of the remainder term in the asymptotic expansion
+of `clausenc(x, s)` at zero up to order `2M - 2`, meaning that the
+remainder is of order `2M`.
+
+The remainder term is given by
+```
+x^2M * sum((-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(2m) for m = M:Inf)
+```
+where we enclose the sum. We want to compute an enclosure of each term
+in the expansion in `s`.
+
+**FIXME:** Properly implement this. For now we compute a finite number
+of terms in the expansion and sum them. For the constant term we do
+use the rigorous enclosure.
+"""
+function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
+    @warn "remainder not rigorously bounded" maxlog = 1
+
+    res = zero(s)
+    for m = M:10
+        term = (-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(2m)
+        res += term
+    end
+
+    res[0] = clausenc_expansion_remainder(x, s[0], M)
+
+    return res
+end
+
+"""
     clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, e::Arb)
 
 For `s` overlapping an odd positive integer `2k + 1` the exponents for
