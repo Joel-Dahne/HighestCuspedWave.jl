@@ -27,6 +27,11 @@ and the limit of the root can be found by computing the root of
 If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
 compute the root at `eps(x)` and use that as a lower bound. This
 avoids computing with very small values of `x`.
+
+- **TODO:** Handle the full interval in `α`. For now we only compute
+  it for `α = lbound(u0.α)`.
+- **TODO:** Is it possible that we have to compute an expansion in `α`
+  of the root?
 """
 function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
     # FIXME: For now we use α = lbound(u0.α), this should be
@@ -156,8 +161,6 @@ and
 ```
 primitive(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^2
 ```
-- **TODO:** Handle computation of `clausenc(x + π, 2 - α)` when `x`
-  overlaps with `π`.
 
 We can notice that all terms in the result, except the `I12` term,
 contains a division by `x` and that we in the end multiply with `x` If
@@ -280,7 +283,7 @@ division by `π` the constant function should be exactly `1`.
 
 - **TODO:** Improve enclosure for wide values of `x`. This we will
   most likely need to do in the end.
-- **TODO:** Compute the remainder terms.
+- **TODO:** Handle remainder term in `α`.
 """
 function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
     α = ArbSeries((0, 1), degree = 2)
@@ -412,8 +415,7 @@ gamma(α) * sinpi(α / 2) =
 - **PROVE:** That this is the expansion, Mathematica gives this.
 - **TODO:** Handle remainder term in `α`.
 
-- **TODO:** Bound remainder terms in `x` for all the above expansions.
-- **TODO:** Enclose `root` for the full enclosure of `α`.
+**TODO:** Handle remainder term in `α**.
 """
 function T0(
     u0::KdVZeroAnsatz,
@@ -518,7 +520,6 @@ function T0(
         # Compute primitive_mul_x_onepα(π / x) =
         # 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(1 - α)
         # FIXME: Figure out how to handle remainder terms in α
-        # FIXME: Add remainder term in x
         primitive_mul_x_onepα_pi_div_x = let π = Arb(π)
             s = 2 - α
             res = zero(primitive_mul_x_onepα_zero)
@@ -556,8 +557,9 @@ function T0(
             res = I_mul_x_onepα_div_pi / eval_expansion(u0, u0_expansion, x, offset_i = -1)
         end
 
-        # The constant term should be exactly 1
-        # TODO: Should this be before or after the division by u0? What do we prove?
+        # The constant term should be exactly 1. This holds not matter
+        # if we divide by u0 or not since the constant term of u0 is
+        # exactly 1.
         @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1)
         res[0] = 1
 
