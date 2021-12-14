@@ -5,9 +5,6 @@ Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
 ```
 y*abs(x)^(-i * α + j * p0 + m)
 ```
-`y` is given by a series in `α` but for the exponent we only compute
-an enclosure.
-- **TODO:** Is it enough to only compute an enclosure of the exponent?
 """
 function eval_expansion(
     u0::KdVZeroAnsatz,
@@ -81,6 +78,8 @@ and use the expansion
 ```
 α * zeta(1 - α) = -1 + stieltjes(0) * α + stieltjes(1) * α^2 + stieltjes(2) / 2 * α^3 + O(α^4)
 ```
+
+- **TODO:** Handle remainder terms in `α`
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
     α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
@@ -155,7 +154,6 @@ expansion is given by
     (-4γ^3 + 3γ * π^2 + 28 * polygamma(2, 1)) / 24 * α^3 + O(α^4)
 ```
 where `γ` is the Euler constant.
-- **TODO:** Compute remainder term
 
 - **TODO:** Handle remainder terms in `α`.
 """
@@ -259,6 +257,8 @@ and use the expansion
 ```
 α * zeta(1 - 2α) = -1 / 2 + stieltjes(0) * α + 2stieltjes(1) * α^2 + 2stieltjes(2) * α^3 + O(α^4)
 ```
+
+- **TODO:** Handle remainder terms in `α`
 """
 function H(u0::KdVZeroAnsatz, ::Ball)
     α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
@@ -334,7 +334,6 @@ From Mathematica the expansion is given by
     (-8γ^3 + 3γ * π^2 + 14polygamma(2, 1)) / 12 * α^3
 ```
 where `γ` is the Euler constant.
-- **TODO:** Compute remainder term
 
 - **TODO:** Handle remainder terms in `α`.
 """
@@ -456,7 +455,6 @@ function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
 
         # Zero all linear terms in α since they all cancel out
         for (key, y) in expansion
-            Arblib.degree(y) < 1 && continue # FIXME: This is not needed in the end
             y[1] = 0
         end
 
@@ -631,6 +629,8 @@ functions.
 But the constant terms of the expansion in `α` are given by directly
 plugging in `α = 0`, in which case the two terms are clearly
 identical, which is what we wanted to show.
+
+- **TODO:** Handle remainder terms in `α`.
 """
 function F0(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
@@ -674,7 +674,7 @@ D(u0)(x) / (x * u0(x))
 ```
 we then explicitly cancel `x^(1 - α)` in `D(u0)` and `x^-α` in `u0`.
 
-- **TODO:** Figure out how to treat remainder terms.
+- **TODO:** Handle remainder terms in `α`.
 """
 function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
     D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
