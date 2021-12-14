@@ -37,7 +37,7 @@ On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 function CB(
     u0::KdVZeroAnsatz;
     ϵ::Arf = Arf(0.1),
-    rtol = Arb(1e-3), # TODO: Possibly tune this,
+    rtol = Arb(1e-3),
     maxevals = 1000, # TODO: This we can probably remove later
     threaded = true,
     verbose = false,
@@ -107,7 +107,7 @@ function CB_estimate(
     include_zero = false,
     threaded = true,
 )
-    xs = collect(range(zero(Arb), π, length = n + 1)[2:end-1])
+    xs = collect(range(zero(Arb), π, length = n + 1)[2:end])
 
     ys = similar(xs)
 
@@ -124,7 +124,6 @@ function CB_estimate(
     end
 
     if include_zero
-        # FIXME: Not properly implemented yet
         pushfirst!(xs, zero(Arb))
         pushfirst!(ys, ((T0(u0, Asymptotic())(zero(Arb)) - 1) << 1)(u0.α))
     end

@@ -36,7 +36,7 @@ On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 function delta0(
     u0::KdVZeroAnsatz;
     ϵ::Arf = Arf(0.1),
-    rtol = Arb(1e-3), # TODO: Possibly tune this
+    rtol = Arb(1e-3),
     maxevals = 1000, # TODO: This we can probably remove later
     threaded = true,
     verbose = false,
