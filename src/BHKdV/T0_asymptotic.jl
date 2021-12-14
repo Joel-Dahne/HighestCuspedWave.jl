@@ -92,7 +92,8 @@ W(x) * I_M(x) = sinpi(α / 2) / ((1 - x^p0) * log(x)) *
 defined in [`T0_asymptotic`](@ref).
 
 The function `sinpi(α / 2)` converges to `-1` and can be enclosed
-directly and we therefore focus on computing an upper bound of
+directly, by factoring out `-sinpi(α / 2)` we can therefore focus on
+computing an upper bound of
 ```
 -1 / ((1 - x^p0) * log(x)) *
     ∫ abs(abs(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
@@ -545,7 +546,7 @@ function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
         end
     end
 
-    return x::Arb -> sinpi(α / 2) * (G1(x) + G2(x))
+    return x::Arb -> -sinpi(α / 2) * (G1(x) + G2(x))
 end
 
 """
