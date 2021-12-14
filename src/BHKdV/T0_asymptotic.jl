@@ -215,22 +215,9 @@ we then get
 ```
 I(n) = -log(x) * I1(n) - I2(n) + I3(n)
 ```
-Since `1 <= x <= π / x` we get that `log(1 + c * x * t)` is bounded on
-the interval and satisfies
-```
-log(1 + c * x * t) ∈ [0, log(1 + c * π)]
-```
-If we let `D` be a ball corresponding to this interval we can
-therefore factor it out from the integral, allowing us to rewrite
-`I(n)` as
-```
-I(n) = (D - log(x)) * I1(n) - I2(n)
-```
-where the equality should be understood in an interval sense. It is
-therefore enough to study `I1(n)` and `I2(n)`.
 
 ### Simplifying the integrand
-To begin with we want to study
+To begin with we want to study the part of the integrand given by
 ```
 (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n
 ```
@@ -280,16 +267,19 @@ Noticing that `R(0, t) = 0` we can simplify this to
 sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1)
 ```
 
-Inserting this back into `I1(n)` and `I2(n)` we get
+Inserting this back into `I1(n)`, `I2(n)` and `I3(n)` we get
 ```
 I1(n) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t dt
 
 I2(n) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t * log(t) dt
+
+I2(n) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t * log(1 + c * x * t) dt
 ```
 
 ### Computing `I1(n)` and `I2(n)`
-Switching the summation and integration in `I1(n)` and `I2(n)` we
-arrive at
+We start by computing `I1(n)` and `I2(n)` since `I3(n)` is of lower
+order. Switching the summation and integration in `I1(n)` and `I2(n)`
+we arrive at
 ```
 I1(n) = sum(binomial(n, k) * γ^k * ∫ log(t)^k * R(n - k, t) * t dt for k = 0:n-1)
 
@@ -386,6 +376,9 @@ I1(n) ≈ log(π / x)^(n - 1) * (1 + γ)^(n - 2) * (n - log(π / x) * (1 + γ))
 I2(n) ≈ log(π / x)^n * (1 + γ)^(n - 2) * ((n - 1) - n / (n + 1) * log(π / x) * (1 + γ))
 ```
 
+### Computing `I3(n)`
+**TODO:** Do this.
+
 ## Inserting `I(n)` back into the sum
 Recall that we are interested in computing
 ```
@@ -393,16 +386,17 @@ G2(x) = -1 / ((1 - x^p0) * log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I(
 ```
 With
 ```
-I(n) = (D - log(x)) * I1(n) - I2(n)
+I(n) = -log(x) * I1(n) - I2(n) + I3(n)
 ```
 We can split `G2` into two sums as
 ```
 G2(x) = -1 / ((1 - x^p0) * log(x)) * (
-    + (D - log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I1(n) for n = 1:Inf)
+    - log(x) * sum((-1)^n * (1 + α)^n / factorial(n) * I1(n) for n = 1:Inf)
     - sum((-1)^n * (1 + α)^n / factorial(n) * I2(n) for n = 1:Inf)
 )
 ```
 We are now interested in computing these two sums.
+- **TODO:** Add the sum coming from `I3(n)`.
 
 Using the above approximations of `I1(n)` and `I2(n)` we get for the
 first sum
@@ -480,22 +474,22 @@ sum((-1)^n * (1 + α)^n / factorial(n) * I2(n) for n = 1:Inf)
 If we let `s = (π / x)^(-(1 + α) * (1 + γ))` we can write `G2` as
 ```
 G2(x) = -1 / ((1 - x^p0) * log(x)) * (
-    + (D - log(x)) * (1 - (2 + α) * s) / (1 + γ)
+    - log(x) * (1 - (2 + α) * s) / (1 + γ)
     - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ)^2)
     + (2 + α) / (1 + γ) * s * (1 + α) * (1 + γ) * log(π / x)
 )
 ```
-Expanding `log(π / x) = log(π) - log(x)` and putting the log-terms
+- **TODO:** Add part from `I3(n)`
+Writing `log(π / x) = log(π) - log(x)` and putting the log-terms
 together, as well as factoring out `1 / (1 + γ)`, we get
 ```
 G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ) * (
-    + (D - log(x)) * (1 - (2 + α) * s)
+    - log(x) * (1 - (2 + α) * s)
     - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
     + (2 + α) / (1 + γ) * s * (log(π) - log(x))
 )
 
 = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    + D * (1 - (2 + α) * s)
     - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
     + (2 + α) * s * log(π)
     - log(x) * (1 - (2 + α) * s)
@@ -503,28 +497,28 @@ G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ) * (
 )
 
 = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    + D * (1 - (2 + α) * s)
     - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
     + (2 + α) * s * log(π)
     - log(x)
 )
 ```
+- **TODO:** Add part from `I3(n)`
 Next we collect all occurrences of `s`, cancel the `log(x)` explicitly
 and reorder the signs a bit
 ```
 G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    + D - (2 + α) / ((1 + α) * (1 + γ))
-    + (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ)) - D) * s
+    - (2 + α) / ((1 + α) * (1 + γ))
+    + (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ))) * s
     - log(x)
 
 = 1 / ((1 - x^p0) * (1 + γ)) * (
-    - D + (2 + α) / ((1 + α) * (1 + γ)) / log(x)
-    - (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ)) - D) * s / log(x)
+    + (2 + α) / ((1 + α) * (1 + γ)) / log(x)
+    - (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ))) * s / log(x)
     + 1
 )
 ```
-- **TODO:** We probably have to handle the `D` in a different way, it
-  give to poor enclosures for `x` around `1e-2`or so.
+- **TODO:** Add part from `I3(n)`
+
 - **IDEA:** Prove that it is increasing in `α` so that we only have to
   bound it for an upper bound of `α`. Then we can fix `α` and do the
   asymptotics in `x`.
@@ -538,14 +532,17 @@ function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
 
     # Construct function for computation of the term on the interval
     # [1, π / x]
-    G2 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, xᵤ = ubound(Arb, x)
-        # Enclosure of log(1 + c * x * t) on the interval 1 <= t <= π / x
-        D = Arb((0, log(1 + c * π)))
+    # FIXME: We currently do this for an upper bound of α
+    G2 = let α = ubound(Arb, α), p0 = 1 + α + (1 + α)^2 / 2
+        x -> begin
+            s = (π / x)^(-(1 + α) * (1 + γ))
 
-        1 / ((1 - x^p0) * (1 + γ)) * (
-            -D + (2 + α) / ((1 + α) * (1 + γ)) / log(x) -
-            (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ)) - D) * s / log(x) + 1
-        )
+            # TODO: Add part from I3(n)
+            1 / ((1 - x^p0) * (1 + γ)) * (
+                (2 + α) / ((1 + α) * (1 + γ)) / log(x) -
+                (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ))) * s / log(x) + 1
+            )
+        end
     end
 
     return x::Arb -> sinpi(α / 2) * (G1(x) + G2(x))
