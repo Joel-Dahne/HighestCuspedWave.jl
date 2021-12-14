@@ -157,7 +157,7 @@ expansion is given by
 where `γ` is the Euler constant.
 - **TODO:** Compute remainder term
 
-- **TODO:** Figure out how to handle remainder terms.
+- **TODO:** Handle remainder terms in `α`.
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
     α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
@@ -182,9 +182,9 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
         expansion[(0, 0, 2m)] += u0.a[0] * term
     end
 
-    # Add error term
-    error_term = ArbSeries() # TODO: How to handle this?
-    expansion[(0, 0, 2M)] += u0.a[0] * error_term
+    # Add remainder term
+    remainder_term = clausenc_expansion_remainder(x, 1 - α, M)
+    expansion[(0, 0, 2M)] += u0.a[0] * remainder_term
 
     # Handle tail terms
     for j = 1:2
@@ -200,9 +200,9 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
             expansion[(0, 0, 2m)] += u0.a[j] * term
         end
 
-        # Add error term
-        error_term = ArbSeries() # TODO: How to handle this?
-        expansion[(0, 0, 2M)] += u0.a[j] * error_term
+        # Add remainder term
+        remainder_term = clausenc_expansion_remainder(x, s, M)
+        expansion[(0, 0, 2M)] += u0.a[j] * remainder_term
     end
 
     return expansion
@@ -336,7 +336,7 @@ From Mathematica the expansion is given by
 where `γ` is the Euler constant.
 - **TODO:** Compute remainder term
 
-- **TODO:** Figure out how to handle remainder terms.
+- **TODO:** Handle remainder terms in `α`.
 """
 function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
     α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
@@ -367,9 +367,9 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
             expansion[(0, 0, 2m)] -= u0.a[0] * term
         end
 
-        # Add error term
-        error_term = ArbSeries() # TODO: How to handle this?
-        expansion[(0, 0, 2M)] -= u0.a[0] * error_term
+        # Add remainder term
+        remainder_term = clausenc_expansion_remainder(x, 1 - 2α, M)
+        expansion[(0, 0, 2M)] -= u0.a[0] * remainder_term
 
         # Handle tail terms
         for j = 1:2
@@ -385,9 +385,9 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
                 expansion[(0, 0, 2m)] -= u0.a[j] * term
             end
 
-            # Add error term
-            error_term = ArbSeries() # TODO: How to handle this?
-            expansion[(0, 0, 2M)] -= u0.a[j] * error_term
+            # Add remainder term
+            remainder_term = clausenc_expansion_remainder(x, s, M)
+            expansion[(0, 0, 2M)] -= u0.a[j] * remainder_term
         end
 
         return expansion
