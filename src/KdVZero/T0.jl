@@ -38,12 +38,16 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
             f(t) =
                 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 
-            # The root is lower bounded by 1 / 2
-            root_lower = Arf(0.5)
+            # The root is lower bounded by 1 / 2, take a value
+            # slightly larger so that we can still isolate it even if
+            # it touches 1 / 2.
+            root_lower = Arf(0.5) - sqrt(eps(Arf))
 
             # Find a crude upper bound for the root
             δ = Arb(0.4)
-            Arblib.ispositive(f(root_lower + δ))# || return ArbSeries((1, NaN))
+            # IMPROVE: We can remove this check if we can prove that
+            # the root is less than x + δ.
+            Arblib.ispositive(f(root_lower + δ)) || return ArbSeries((NaN, NaN))
             while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
                 Arblib.mul_2exp!(δ, δ, -1)
             end
