@@ -504,160 +504,282 @@ G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ) * (
 )
 ```
 - **TODO:** Add part from `I3(n)`
-Next we collect all occurrences of `s`, cancel the `log(x)` explicitly
-and reorder the signs a bit
-```
-G2(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    - (2 + α) / ((1 + α) * (1 + γ))
-    + (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ))) * s
-    - log(x)
-
-= 1 / ((1 - x^p0) * (1 + γ)) * (
-    + (2 + α) / ((1 + α) * (1 + γ)) / log(x)
-    - (2 + α) * (log(π) + 1 / ((1 + α) * (1 + γ))) * s / log(x)
-    + 1
-)
-```
-- **TODO:** Add part from `I3(n)`
-
-## Asymptotics in `α`
-We now focus on determining the asymptotic behaviour of `G2(x)` as `α`
-goes to `-1` to allow us to compute an enclosure for the full interval
-of `α`.
-
-To begin with we slightly rewrite `G2` as
+Next we cancel the `log(x)` explicitly and reorder the signs a bit
 ```
 G2(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
-    + (2 + α) / log(x) * ((1 - s) / (1 + α) / (1 + γ) - log(π) * s)
+    + ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ) * log(x))
+    - (2 + α) * s * log(π) / log(x)
     + 1
 )
 ```
-The important parts are
-1. `1 - x^p0`
-2. `(1 - s) / (1 + α)`
-3. `s`
-Recall that `s = (π / x)^(-(1 + α) * (1 + γ))`, this give us
+Factoring out `(2 + α) / log(x)` inside the last factor gives
 ```
-s = exp((1 + α) * (-(1 + γ) * log(π / x)))
-  = sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf)
-```
-Looking at the factor
-```
-(2 + α) / log(x) * ((1 - s) / (1 + α) / (1 + γ) - log(π) * s) + 1
-```
-of `G2` we can write this as
-```
-(2 + α) / log(x) * (
-    - 1 / (1 + γ) / (1 + α) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 1:Inf)
-    - log(π) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf)
-) + 1
-
-= (2 + α) / log(x) * (
-    + log(π / x) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n + 1) for n = 0:Inf)
-    - log(π) * sum((1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf)
-) + 1
-
-= (2 + α) / log(x) * sum(
-        (log(π / x) / (n + 1) - log(π)) *
-        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 0:Inf
-) + 1
-```
-Extracting the first two terms in this sum gives us
-```
-= (2 + α) / log(x) * sum(
-        (log(π / x) / (n + 1) - log(π)) *
-        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
+G2(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
+    + (2 + α) / log(x) * (
+        (1 - s) / ((1 + α) * (1 + γ))
+        - log(π) * s
+    ) + 1
 )
-- (2 + α) / log(x) * (log(π / x) / 2 - log(π)) * (1 + α) * (1 + γ) * log(π / x)
-+ (2 + α) / log(x) * (log(π / x) - log(π))
-+ 1
 
-= (2 + α) / log(x) * sum(
-        (log(π / x) / (n + 1) - log(π)) *
-        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
-)
-- (1 + γ) * (2 + α) / 2 * (log(x) - log(π)^2 / log(x)) * (1 + α)
-+ (2 + α) / log(x) * (log(π / x) - log(π))
-+ 1
+## Fixed `x`
+To begin with we consider the case when `x` is fixed and non-zero,
+then the only asymptotics we have to do is in `α`.
 
-= (2 + α) / log(x) * sum(
-        (log(π / x) / (n + 1) - log(π)) *
-        (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
-)
-- (1 + γ) * (2 + α) / 2 * (log(x) - log(π)^2 / log(x)) * (1 + α)
-- (1 + α)
+By multiplying and dividing by `1 + α` we can write `G2(x)` as
 ```
-Call the sum `Σ1`, i.e.
+G2(x) = (1 + α) / ((1 - x^p0) * (1 + γ)) * (
+    + (2 + α) / log(x) * (
+        (1 - s) / ((1 + α) * (1 + γ))
+        - log(π) * s
+    ) + 1
+    ) / (1 + α)
 ```
-Σ1 = sum(
-    (log(π / x) / (n + 1) - log(π)) *
-    (1 + α)^n * (-(1 + γ) * log(π / x))^n / factorial(n) for n = 2:Inf
-)
+and then split it into the two factors
 ```
+G21(x) = (1 + α) / ((1 - x^p0) * (1 + γ))
 
-For `1 - x^p0` we have
+G22(x) = ((2 + α) / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s) + 1) / (1 + α)
+```
+Our goal will be to enclose these two separately.
+
+### Enclosing `G21(x)`
+Expanding `1 - x^p0` as
 ```
 1 - x^p0 = 1 - exp(p0 * log(x))
 = -sum(p0^n * log(x)^n / factorial(n) for n = 1:Inf)
-= -(1 + α) * (1 + (1 + α) / 2) * log(x) * sum(p0^n * log(x)^n / factorial(n + 1) for n = 0:Inf)
+= -p0 * sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
 ```
-For the other factor of `G2`, `1 / ((1 - x^p0) * (1 + γ))`, this gives us
+we can write `G21(x)` as
 ```
-1 / ((1 - x^p0) * (1 + γ))
-= -1 / ((1 + γ) * (1 + (1 + α) / 2) * log(x)) *
-    1 / sum(p0^n * log(x)^n / factorial(n + 1) for n = 0:Inf) *
-    1 / (1 + α)
+G21(x) = -1 / (1 + γ) * (1 + α) / p0 * 1 / sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
 ```
-Call the sum `Σ2`, i.e.
+Since `p0 = (1 + α) * (1 + (1 + α) / 2)` we get
 ```
-Σ2 = sum(p0^n * log(x)^n / factorial(n + 1) for n = 0:Inf)
+G21(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2)) * 1 / sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
 ```
+and what remains is to enclose the sum. Since `log(x) < 1` the sum is
+alternating. For large enough `n` it is also decreasing, more
+precisely we have
+```
+abs(p0^(n - 1) * log(x)^n / factorial(n)) > abs(p0^n * log(x)^(n + 1) / factorial(n + 1))
+⟺
+1 > abs(p0 * log(x) / (n + 1))
+⟺
+n > p0 * abs(log(x)) - 1
+```
+So for every `n` greater than `p0 * abs(log(x)) - 1` the terms in the
+sum are decreasing. We can thus explicitly sum the first `n` and get
+an error which is bounded by the magnitude of the `n + 1`-th term. To
+get a slightly better enclosure we can explicitly sum a few extra
+terms after the `n`-th.
 
-For `G2` we then get
+### Enclosing `G22(x)`
+To be able to explicitly cancel the division by `1 + α` we rewrite
+`G22(x)` as.
 ```
-G2(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2) * log(x)) * 1 / Σ2 * 1 / (1 + α) * (
-    (2 + α) / log(x) * Σ1
-    - (1 + γ) * (2 + α) / 2 * (log(x) - log(π)^2 / log(x)) * (1 + α)
-    - (1 + α)
+G22(x) = (
+    (1 + α) / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s)
+    + 1 / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s)
+    + 1
+) / (1 + α)
+
+= ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s) / log(x)
++ (1 / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s) + 1) / (1 + α)
+```
+Now, using that `s = (x / π)^((1 + α) * (1 + γ))` and letting `q0 = (1
++ α) * (1 + γ)` we can write this as
+```
+G22(x) = ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) / log(x)
++ (1 / log(x) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + 1) / (1 + α)
+```
+The second term we can rewrite as
+```
+(1 / log(x) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + 1) / (1 + α)
+
+= ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0 + log(x)) / ((1 + α) * log(x))
+
+= ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0 + log(x / π) + log(π)) / ((1 + α) * log(x))
+
+= ((1 + q0 * log(x / π) - (x / π)^q0) / q0 + log(π) * (1 - (x / π)^q0)) / ((1 + α) * log(x))
+```
+Giving us
+```
+G22(x) = ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) / log(x)
++ ((1 + q0 * log(x / π) - (x / π)^q0) / q0 + log(π) * (1 - (x / π)^q0)) / ((1 + α) * log(x))
+
+= inv(log(x)) * (
+    (1 - (x / π)^q0) / q0
+    - log(π) * (x / π)^q0
+    + (1 + q0 * log(x / π) - (x / π)^q0) / (q0 * (1 + α))
+    + log(π) * (1 - (x / π)^q0) / (1 + α)
 )
+```
+We will not bound each of these four terms separately. The term
+`log(π) * (x / π)^q0` can be enclosed directly. For the other three
+terms we make use of the expansion
+```
+(x / π)^q0 = sum(q0^n * log(x / π)^n / factorial(n) for n = 0:Inf)
+```
+For the three terms this gives us
+```
+(1 - (x / π)^q0) / q0 = -sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 1:Inf)
 
-= -1 / ((1 + γ) * (1 + (1 + α) / 2) * Σ2) * (
-    (2 + α) / log(x)^2 * Σ1 / (1 + α)
-    - (1 + γ) * (2 + α) / 2 * (1 - log(π)^2 / log(x)^2)
-    - 1 / log(x)
+(1 + q0 * log(x / π) - (x / π)^q0) / (q0 * (1 + α)) =
+    -sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 2:Inf) / (1 + α) =
+    -(1 + γ) * sum(q0^(n - 2) * log(x / π)^n / factorial(n) for n = 2:Inf) =
+
+log(π) * (1 - (x / π)^q0) / (1 + α) =
+    -log(π) * sum(q0^n * log(x / π)^n / factorial(n) for n = 1:Inf) / (1 + α) =
+    -(1 + γ) * log(π) * sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 1:Inf)
+```
+Note that the first and last sum are identical. Similar to the sum in
+`G21(x)` all of these sums are alternating and to compute enclosures
+it is enough to find when the terms start to decrease. In this case we
+get
+```
+abs(q0^(n - 1) * log(x / π)^n / factorial(n)) > abs(q0^n * log(x / π)^(n + 1) / factorial(n + 1))
+⟺
+1 > abs(q0 * log(x / π) / (n + 1))
+⟺
+n > q0 * abs(log(x / π)) - 1
+```
+for the first sum and a similar calculation gives the same for the
+second sum. So for every `n` greater than `q0 * abs(log(x / π)) - 1`
+the terms in both sums are decreasing. We can thus explicitly sum the
+first `n` and get an error which is bounded by the magnitude of the `n
++ 1`-th term. To get a slightly better enclosure we can explicitly sum
+a few extra terms after the `n`-th.
+
+## Monotonicity in `x`
+Above we showed how to compute an enclosure of `G2(x)` for a fixed
+non-zero `x`. We will now show a certain type of monotonicity in `x`,
+so that it is enough to work with an upper bound of `x`. We want to
+show that
+```
+G2(x) < 1 / (1 + γ)
+```
+We can rewrite this as
+```
+(2 + α) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + log(x) >= (1 - x^p0) * log(x)
+```
+where we have multiplied both sides by `(1 + γ) * (1 - x^p0) *
+log(x)`, since this is negative we also reversed the inequality. If we
+move everything to one side we get
+```
+(2 + α) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + x^p0 * log(x) >= 0
+```
+We now want to show that the left hand side is decreasing in `x`, so
+that it is enough to check the inequality for an upper bound of `x`.
+
+Differentiating the left hand side we get
+```
+(2 + α) * (-x^(q0 - 1) / π^q0 - q0 * log(π) * x^(q0 - 1) / π^q0) + x^(p0 - 1) * (p0 * log(x) + 1)
+```
+Grouping terms we have
+```
+x^(p0 - 1) * (
+    - (2 + α) * x^(q0 - p0) / π^q0
+    - (2 + α) * q0 * log(π) * x^(q0 - p0) / π^q0
+    + p0 * log(x)
+    + 1
 )
 ```
-
-As `x` goes to zero both `1 / Σ2` and `Σ1 / (1 + α)` blow up. We
-therefore have to take care of their interaction. To handle this we
-reorder the terms of `G2` as
+It is therefore enough to show that
 ```
-G2(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2) * Σ2) * (
-    (2 + α) * Σ1 / ((1 + α) * log(x)^2 * Σ2)
-    - (1 + γ) * (2 + α) / 2Σ2
-    + (1 + γ) * (2 + α) * log(π)^2 / (log(x)^2 * Σ2)
-    - 1 / (log(x) * Σ2)
+(
+    - (2 + α) * x^(q0 - p0) / π^q0
+    - (2 + α) * q0 * log(π) * x^(q0 - p0) / π^q0
+    + p0 * log(x)
+    + 1
 )
 ```
-The two terms
+is negative. We will prove that this is increasing in `x` and
+non-positive at `x = 1`. At `x = 1` we get
 ```
-(1 + γ) * (2 + α) * log(π)^2 / (log(x)^2 * Σ2)
+(
+    - (2 + α) / π^q0
+    - (2 + α) * q0 * log(π) / π^q0
+    + 1
+) =
+1 - (2 + α) * (1 + q0 * log(π)) / π^q0
+```
+which we want to prove is upper bounded by `0`. To prove move one of
+the terms to the other side and multiply both sides by `π^q0` and use
+the expansion `π^q0 = sum(q0^n * log(π)^n / factorial(n) for n =
+0:Inf)` to get
+```
+sum(q0^n * log(π)^n / factorial(n) for n = 0:Inf) <= (2 + α) * (1 + q0 * log(π))
+⟺
+sum(q0^n * log(π)^n / factorial(n) for n = 2:Inf) <= (1 + α) * (1 + q0 * log(π))
+⟺
+(1 + α) * (1 + γ) * log(π) * sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) <=
+    (1 + α) * (1 + q0 * log(π))
+⟺
+(1 + γ) * log(π) * sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) <=
+    1 + q0 * log(π)
+```
+It therefore suffices to show that
+```
+sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) <= 1 / (1 + γ) * log(π)
+```
+Since the sum is increasing in `q0` we only have to show this for an
+upper bound of `q0`. The sum can be computed explicitly to be
+```
+sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) = (π^q0 - q0 * log(π) - 1) / q0
+```
+and since we now know that this is increasing in `q0` we check that
+```
+(π^q0 - q0 * log(π) - 1) / q0 <= 1 / (1 + γ) * log(π)
+```
+holds for an upper bound of `q0`.
 
-- 1 / (log(x) * Σ2)
+For the derivative we get
 ```
-are bounded and can be enclosed by computing an enclosure of
-`inv(log(x) * Σ2)`.
-
-The critical part is thus
+(
+    - (q0 - p0) * (2 + α) * x^(q0 - p0 - 1) / π^q0
+    - (q0 - p0) * (2 + α) * q0 * log(π) * x^(q0 - p0 - 1) / π^q0
+    + p0 / x
+)
 ```
-(2 + α) * Σ1 / ((1 + α) * log(x)^2 * Σ2) - (1 + γ) * (2 + α) / 2Σ2
-
-= (2 + α) * (Σ1 / ((1 + α) * log(x)^2) - (1 + γ)) / 2Σ2
+Multiplying by `x`, which doesn't change the sign, and reordering we
+get
 ```
-which is supposed to be bounded and not go to zero.
-- **TODO:** Handle this term!
+p0 - (q0 - p0) * (2 + α) * (1 + q0 * log(π)) / π^q0 * x^(q0 - p0)
+```
+Since `q0 - p0 > 0` and hence `0 <= x^(q0 - p0) <= 1`, it is enough to
+show
+```
+p0 - (q0 - p0) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
+```
+Factoring out `1 + α` and cancelling it we get
+```
+(1 + (1 + α) / 2) - ((1 + γ) - (1 + (1 + α) / 2)) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
+⟺
+1 + (1 + α) / 2 - (γ - (1 + α) / 2) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
+```
+Since `(1 + α) / 2` is positive we can remove it, giving us
+```
+1 - (γ - (1 + α) / 2) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
+```
+Similarly we can replace `(γ - (1 + α) / 2)` with `γ` without losing
+anything.
+```
+1 - γ * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
+```
+Finally `γ < 1` so it is enough to show
+```
+1 - (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
+```
+which is exactly what we already had above for the `x = 1` case.
 """
 function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
+    # This function assumes that x is less than or equal to 1
+    @assert x <= 1
+
+    # We use 1 + α in many places and this is assumed to be
+    # non-negative, we therefore compute such an enclosure
+    onepα = Arblib.nonnegative_part!(zero(α), 1 + α)
+
     # Construct function for computation of the term on the interval
     # [0, 1]
     G1 = let
@@ -666,73 +788,95 @@ function _T0_asymptotic_main(α::Arb, γ::Arb, c::Arb)
 
     # Construct function for computation of the term on the interval
     # [1, π / x]
-    # FIXME: We currently do this for an upper bound of α
+    # TODO: Add the two remainder terms which we for now ignore.
     G2(x) =
         let
-            invlogx = if iszero(x)
-                zero(x)
-            elseif Arblib.contains_zero(x)
-                Arb((inv(log(ubound(Arb, x))), 0))
-            else
-                inv(log(x))
-            end
+            if Arblib.contains_zero(x)
+                # In this case we prove that G2 is bounded by 1 / (1 +
+                # γ). By above we only have to check two things
+                # 1. 1 - (2 + α) * (1 + q0 * log(π)) / π^q0 <= 0
+                # 2. 0 <= p0 - (q0 - p0) * (2 + α) * (1 + q0 * log(π)) / π^q0
 
-            # Compute enclosure of inv(Σ2)
-            # TODO: In the end we probably don't need this
-            invΣ2 = if iszero(x)
-                # FIXME
-                one(x)
-            elseif Arblib.contains_zero(x)
-                # FIXME
-                one(x)
-            else
-                # TODO: Enclose for full α interval
-                let p0 = (1 + α) + (1 + α)^2 / 2
-                    p0 * log(x) / (x^p0 - 1)
+                # 1. This was reduced to checking that
+                # (π^q0 - q0 * log(π) - 1) / q0 <= 1 / (1 + γ) * log(π)
+                # holds for an upper bound of q0
+                lemma1 = let q0 = ubound(Arb, (1 + α) * (1 + γ)), π = Arb(π)
+                    (π^q0 - q0 * log(π) - 1) / q0 <= 1 / (1 + γ) * log(π)
                 end
-            end
 
-            # Compute enclosure of inv(log(x) * Σ2)
-            invlogxΣ2 = if iszero(x)
-                zero(x)
-            elseif Arblib.contains_zero(x)
-                # FIXME
-                zero(x)
-            else
-                # TODO: Enclose for full α interval
-                let p0 = (1 + α) + (1 + α)^2 / 2
-                    p0 / (x^p0 - 1)
+                # 2. This was reduced to checking the same inequality
+                # as for 1. and using that γ <= 1
+                lemma2 = γ <= 1 && lemma1
+
+                if lemma1 && lemma2
+                    return 1 / (1 + γ)
+                else
+                    return Arblib.indeterminate!(zero(α))
                 end
-            end
-
-            # Compute enclosure of Σ1 / ((1 + α) * log(x)^2 * Σ2)
-            Σ1_div_onepα_logx2_Σ2 = if iszero(x)
-                # FIXME
-                zero(x)
-            elseif Arblib.contains_zero(x)
-                # FIXME
-                zero(x)
             else
-                # TODO: Bound tail - note that it doesn't go to zero
-                # until very late for small x!
-                Σ1_div_onepα = let π = Arb(π)
-                    sum(
-                        (log(π / x) / (n + 1) - log(π)) *
-                        (1 + α)^(n - 1) *
-                        (-(1 + γ) * log(π / x))^n / factorial(big(n)) for n = 2:10
-                    )
+                # Compute G21
+                G21 = let
+                    # Enclosure of sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
+                    G21_sum = let p0 = onepα + onepα^2 / 2
+                        # N such that the terms are decreasing
+                        N = Int(Arblib.ceil!(zero(Arf), ubound(p0 * abs(log(x)) - 1)))
+                        # IMPROVE: If we need to go to very small x we
+                        # will have to take more extra terms
+                        extra = 10 # Take 10 extra terms
+                        term(n) = p0^(n - 1) * log(x)^n / factorial(big(n))
+                        Σ = sum(term(n) for n = 1:N+extra)
+                        # Error is bounded by magnitude of next term
+                        Arblib.add_error!(Σ, term(N + extra + 1))
+                        Σ
+                    end
+
+                    G21 = -1 / ((1 + γ) * (1 + onepα / 2) * G21_sum)
                 end
-                Σ1_div_onepα * invlogx * invlogxΣ2
-            end
 
-            res = let π = Arb(π)
-                -1 / ((1 + γ) * (1 + (1 + α) / 2)) * (
-                    (2 + α) * Σ1_div_onepα_logx2_Σ2 - (1 + γ) * (2 + α) / 2 * invΣ2 +
-                    (1 + γ) * (2 + α) * log(π)^2 * invlogx * invlogxΣ2 - invlogxΣ2
-                )
-            end
+                G22 = let q0 = onepα * (1 + γ), π = Arb(π)
+                    # Compute N such that the terms in the sum are
+                    # decreasing for n >= N. This is the same number
+                    # of all sums
+                    N = Int(Arblib.ceil!(zero(Arf), ubound(q0 * abs(log(x / π)) - 1)))
 
-            return res
+                    # IMPROVE: If we need to go to very small x we
+                    # will have to take more extra terms
+                    extra = 10 # Take 10 extra terms
+
+                    # Compute term1 and term4 since they share the same sum
+                    term1, term4 = let
+                        # Enclosure of sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 1:Inf)
+                        term14_sum = let
+                            term(n) = q0^(n - 1) * log(x / π)^n / factorial(big(n))
+                            Σ = sum(term(n) for n = 1:N+extra)
+                            # Error is bounded by magnitude of next term
+                            Arblib.add_error!(Σ, term(N + extra + 1))
+                            Σ
+                        end
+
+                        -term14_sum, -(1 + γ) * log(π) * term14_sum
+                    end
+
+                    # This we enclose directly
+                    term2 = -log(π) * abspow(x / π, q0)
+
+                    term3 = let
+                        term3_sum = let
+                            term(n) = q0^(n - 2) * log(x / π)^n / factorial(big(n))
+                            Σ = sum(term(n) for n = 2:N+extra)
+                            # Error is bounded by magnitude of next term
+                            Arblib.add_error!(Σ, term(N + extra + 1))
+                            Σ
+                        end
+
+                        -(1 + γ) * term3_sum
+                    end
+
+                    (term1 + term2 + term3 + term4) / log(x)
+                end
+
+                return G21 * G22
+            end
         end
 
     return x::Arb -> -sinpi(α / 2) * (G1(x) + G2(x))
