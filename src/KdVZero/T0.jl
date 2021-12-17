@@ -1,11 +1,35 @@
 """
-    _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
+    _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb, degree = 1)
 
 Compute the unique root of
 ```
 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`
+in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
+
+If `degree >= 0` it computes an expansion of the root in `α` around `α
+= 0`. Currently it only supports `degree <= 1`. If `degree < 0` it
+computes an enclosure of the root on `u0.α`, this will only work if
+`u0.α` doesn't contain zero and is mostly meant for testing purposes.
+In all cases it returns the root in terms of an `ArbSeries`, when
+`degree < 0` only the constant term will be set.
+
+# Enclosing the root
+The first step is to compute an enclosure of the root for `α = 0`. In
+the limit as `α -> 0` the function
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+tends to zero everywhere and to get a good limit we have to normalise
+by dividing by `α`. This means that we are searching for the root of
+```
+(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) / α
+```
+and in the limit as `α` goes to zero this approaches
+```
+clausenc(x * (1 - t), 0, 1) + clausenc(x * (1 + t), 0, 1) - 2clausenc(x * t, 0, 1)
+```
+which is the function we compute the root of.
 
 For wide values of `x` it uses that the root is decreasing in `x` to
 only have to evaluate at the endpoints.
@@ -13,35 +37,67 @@ only have to evaluate at the endpoints.
 
 If the lower bound of `x` is zero or close to zero (smaller than
 `eps(x)`) it computes the root in the limiting case as `x` goes to
-zero. Expanding the function at `x = 0` gives us the leading term
+zero. Expanding `clausenc(x, 0, 1)` at `x = 0` gives us the expansion
 ```
--gamma(1 + α) * sinpi(α / 2) * x^(-α - 1) * ((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1))
+π / 2 * abs(x)^-1 + sum(dzeta(-2m) * x^(2m) / factorial(2m) for m = 0:Inf)
 ```
-and the limit of the root can be found by computing the root of
+- **PROVE:** That this is the correct expansion, we just differentiate
+  the one for `clausenc(x, s)` with respect to `s`.
+The limiting root can then be bound by computing the root of
 ```
-(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+(1 - t)^(-1) + (1 + t)^(-1) - 2t^(-1)
 ```
 - **PROVE:** That the root of the integrand converges to the root of
-  `(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)`.
+  `(1 - t)^(-1) + (1 + t)^(-1) - 2t^(-1)`.
 
 If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
 compute the root at `eps(x)` and use that as a lower bound. This
 avoids computing with very small values of `x`.
 
-- **TODO:** Handle the full interval in `α`. For now we only compute
-  it for `α = lbound(u0.α)`.
-- **TODO:** Is it possible that we have to compute an expansion in `α`
-  of the root?
-"""
-function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
-    # FIXME: For now we use α = lbound(u0.α), this should be
-    # updated to work for the whole enclosure in α
-    α = lbound(Arb, u0.α)
+In the case `degree < 0` it computes a root of
+```
+clausenc(x * (1 - t), -u0.α) + clausenc(x * (1 + t), -u0.α) - 2clausenc(x * t, -u0.α)
+```
+directly.
 
+# Computing expansion in `α` of the root
+Once an enclosure of the root is computed the next step is to compute
+the expansion in `α`. If we see the root as a function of `α` we want
+the expansion of
+```
+clausenc(x * (1 - root(α)), -α, 1) + clausenc(x * (1 + root(α)), -α, 1) - 2clausenc(x * root(α), -α, 1)
+```
+at `α = 0` to be identically equal to zero.
+
+Differentiating with respect to `α` gives us
+```
+-(clausenc(x * (1 - root(α)), -α, 2) + clausenc(x * (1 + root(α)), -α, 2) - 2clausenc(x * root(α), -α, 2)) +
+    -x * root'(α) * (-clausens(x * (1 - root(α)), -α - 1, 1) + clausens(x * (1 + root(α)), -α - 1, 1) - 2clausens(x * root(α), -α - 1, 1))
+```
+Putting this equal to zero, solving for `root'(α)` and setting `α = 0`
+gives us
+```
+root'(0) = -(clausenc(x * (1 - root(0)), -0, 2) + clausenc(x * (1 + root(0)), -0, 2) - 2clausenc(x * root(0), -0, 2)) /
+    x * (-clausens(x * (1 - root(0)), -0 - 1, 1) + clausens(x * (1 + root(0)), -0 - 1, 1) - 2clausens(x * root(0), -0 - 1, 1))
+```
+- **TODO:** Implement asymptotic evaluation of this. We might not need
+  it in the end.
+- **TODO:** Possibly compute more terms in the expansion. This might
+  not be needed in the end.
+"""
+function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb; degree = 1)
     compute_root(x) =
         let
+            # If degree < 0 compute with an enclosure of α instead of
+            # for α = 0.
             f(t) =
-                clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+                if degree < 0
+                    clausenc(x * (1 - t), -u0.α, 1) + clausenc(x * (1 + t), -u0.α, 1) -
+                    2clausenc(x * t, -u0.α, 1)
+                else
+                    clausenc(x * (1 - t), Arb(0), 1) + clausenc(x * (1 + t), Arb(0), 1) -
+                    2clausenc(x * t, Arb(0), 1)
+                end
 
             # The root is lower bounded by 1 / 2, take a value
             # slightly larger so that we can still isolate it even if
@@ -52,14 +108,14 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
             δ = Arb(0.4)
             # IMPROVE: We can remove this check if we can prove that
             # the root is less than x + δ.
-            Arblib.ispositive(f(root_lower + δ)) || return ArbSeries((NaN, NaN))
+            Arblib.ispositive(f(root_lower + δ)) || return Arblib.indeterminate!(zero(x))
             while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
                 Arblib.mul_2exp!(δ, δ, -1)
             end
             root_upper = ubound(root_lower + δ)
 
             # Improve the enclosure of the root
-            roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper, depth = 5)
+            roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
             if length(flags) == 1 && flags[1]
                 # Refine the unique root
                 root = ArbExtras.refine_root(f, Arb(only(roots)))
@@ -72,12 +128,44 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
 
     compute_root_zero() =
         let
-            f(t) = (1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+            f(t) = (1 - t)^(-1) + (1 + t)^(-1) - 2t^(-1)
 
-            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9), depth = 5)
+            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9))
             length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
 
             ArbExtras.refine_root(f, Arb(only(roots)))
+        end
+
+    # Compute the derivative of the root in α
+    compute_derivative(t) =
+        let
+            num =
+                clausenc(x * (1 - t), Arb(0), 2) + clausenc(x * (1 + t), Arb(0), 2) -
+                2clausenc(x * t, Arb(0), 2)
+
+            den =
+                x * (
+                    -clausens(x * (1 - t), Arb(-1), 1) + clausens(x * (1 + t), Arb(-1), 1) -
+                    2clausens(x * t, Arb(-1), 1)
+                )
+
+            -num / den
+        end
+
+    # TODO: Implement this, if we need it in the end
+    compute_derivative_zero(t) =
+        let
+            num =
+                clausenc(x * (1 - t), Arb(0), 2) + clausenc(x * (1 + t), Arb(0), 2) -
+                2clausenc(x * t, Arb(0), 2)
+
+            den =
+                x * (
+                    -clausens(x * (1 - t), Arb(-1), 1) + clausens(x * (1 + t), Arb(-1), 1) -
+                    2clausens(x * t, Arb(-1), 1)
+                )
+
+            -num / den
         end
 
     xₗ, xᵤ = getinterval(Arb, x)
@@ -96,7 +184,17 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb)
         root = Arb((compute_root(xᵤ), compute_root(xₗ)))
     end
 
-    return root
+    if degree < 0
+        res = ArbSeries(root)
+    elseif degree == 0
+        res = ArbSeries(root)
+    elseif degree == 1
+        res = ArbSeries((root, compute_derivative(root)))
+    else
+        degree <= 1 || throw(ArgumentError("degree at most 1 is supported"))
+    end
+
+    return res
 end
 
 """
@@ -109,6 +207,7 @@ computes the integral. It computes an expansion in `α` around `α = 0`
 and treats the zero of the integrand differently, otherwise they are
 very similar.
 
+# Computing the integral
 The integral is given by
 ```
 inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
@@ -147,11 +246,15 @@ I2 = primitive(π / x) - primitive(1)
 
 On the interval `[0, 1]` the expression inside the absolute value has
 a unique root, it is negative to the left of the root and positive to
-the right. If we let `root` be an enclosure of the root then an
-enclosure of the integral on `[0, 1]` is given by
+the right. If we let `root` correspond to this root then an enclosure
+of the integral on `[0, 1]` is given by
 ```(
 I1 = -(primitive(root) - primitive(0)) + (primitive(1) - primitive(root))
    = primitive(0) - 2primitive(root) + primitive(π / x)
+```
+Putting this together we get
+```
+I = I1 + I2 = primitive(0) - 2primitive(root) + primitive(π / x)
 ```
 We also get that
 ```
@@ -162,9 +265,8 @@ and
 primitive(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^2
 ```
 
-We can notice that all terms in the result, except the `I12` term,
-contains a division by `x` and that we in the end multiply with `x` If
-we let
+We can notice that all terms in the result contains a division by `x`
+and that we in the end multiply with `x` If we let
 ```
 primitive_mul_x(t) =
             (
@@ -181,11 +283,16 @@ we get
 x * I = primitive_mul_x(0) - 2primitive_mul_x(root) + primitive_mul_x(π / x)
 ```
 
-We are now interested in computing an expansion, in `α`, of this. This
-can be done with direct evaluation using `ArbSeries`. However we need
-to prove that the constant term in the expansion is exactly `π` and
-this requires some additional work.
+# Expanding in `α`
+We are now interested in computing an expansion, in `α`, of this. Most
+of this can be done with direct evaluation using `ArbSeries`. However
+we need to prove that the constant term in the expansion is exactly
+`π` and this requires some additional work. In addition to this we
+also need to handle that `root` is given as an expansion in `α`, so we
+need to work a bit more to get the expansion of
+`primitive_mul_x(root)`.
 
+## Computing the constant term
 To get the constant term we let `α = 0` in the above formulas. This
 means that we are computing with the parameters `1` and `2` in the
 Clausen functions, for which we have the explicit expressions
@@ -281,17 +388,57 @@ primitive(0) - 2primitive(root) + primitive(π / x) =
 Which is exactly what we wanted to show. This means that after the
 division by `π` the constant function should be exactly `1`.
 
+## Computing expansion of `primitive_mul_x(root)`
+The constant term in the expansion can be computed directly. For the
+derivative with respect to `α` we by differentiating
+`primitive_mul_x(t)` with respect to `α` and treating `t` as a
+function of `α`
+```
+(
+    - x * t' * (-clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α))
+    - (-clausenc(x * (1 - t), 2 - α, 1) + clausenc(x * (1 + t), 2 - α, 1) - 2clausenc(x * t, 2 - α, 1))
+) / x + t' * (
+    -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α)
+) + t * (
+    x * t' * (clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α))
+    - (-clausens(x * (1 - t), 1 - α, 1) + clausens(x * (1 + t), 1 - α, 1) - 2clausens(x * t, 1 - α, 1))
+)
+```
+From here we can notice several simplifications, to begin with we have two copies of
+```
+t' * (-clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α))
+```
+with opposite sign that cancel out. We also have the factor
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+which is the function that we found the root of, so this will be zero
+for that root. What remains is
+```
+- (
+    clausenc(x * (1 - t), 2 - α, 1) + clausenc(x * (1 + t), 2 - α, 1) - 2clausenc(x * t, 2 - α, 1)
+) / x -  t * (
+    -clausens(x * (1 - t), 1 - α, 1) + clausens(x * (1 + t), 1 - α, 1) - 2clausens(x * t, 1 - α, 1)
+)
+```
+Which is the same derivative we get if we treat `t` as a constant not
+depending on `α`. The derivative of the root with respect to `α` hence
+**does not** affect the derivative of the result.
+- **TODO:** If we only need one derivative then we wont have to
+  compute the expansion of the root at all. Saving some effort.
 - **TODO:** Improve enclosure for wide values of `x`. This we will
   most likely need to do in the end.
 - **TODO:** Handle remainder term in `α`.
 """
 function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
-    α = ArbSeries((0, 1), degree = 2)
+    α = ArbSeries((0, 1), degree = 1)
 
     return x::Arb -> begin
-        root = _integrand_compute_root(u0, x)
+        # The derivative of the result doesn't depend on the
+        # derivative of the root so we only compute it to first order.
+        root = _integrand_compute_root(u0, x, degree = 0)
 
-        primitive_mul_x(t) =
+        primitive_mul_x(t::Arb) =
             (
                 clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
                 2clausenc(x * t, 2 - α)
@@ -300,6 +447,21 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
                 -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
                 2clausens(x * t, 1 - α)
             )
+
+        primitive_mul_x(t::ArbSeries) =
+            let
+                # Compute the derivative considering the root as a constant
+                res = primitive_mul_x(t[0])
+
+                # The derivative of res doesn't depend on the derivative
+                # of the root. So if the degree is at most 1 we have
+                # computed the correct value
+                Arblib.degree(res) <= 1 && return res
+
+                # TODO: If we need more derivatives we have to handle them
+                # manually.
+                error("degree at most 1 supported")
+            end
 
         primitive_mul_x_zero = 2clausencmzeta(x, 2 - α) / x
 
@@ -336,7 +498,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
             clausenc_x_plus_pi = clausenc(x + π, 2 - α)
         end
         primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi - clausenc(Arb(π), 2 - α)) / x
-
+        return primitive_mul_x(root)
         I_mul_x =
             primitive_mul_x_zero - 2primitive_mul_x(root) + primitive_mul_x_pi_div_x
 
@@ -424,18 +586,19 @@ function T0(
     M::Integer = 5,
     skip_div_u0 = false,
 )
-    α = ArbSeries((0, 1), degree = 2)
+    α = ArbSeries((0, 1), degree = 1)
 
     u0_expansion = u0(ϵ, AsymptoticExpansion())
 
     return x::Arb -> begin
         x <= ϵ || throw(ArgumentError("x needs to be smaller than ϵ, got x = $x, ϵ = $ϵ"))
 
-        root = _integrand_compute_root(u0, x)
+        # We only need an enclosure of the root, not the derivative
+        root = _integrand_compute_root(u0, x, degree = 0)
 
         # FIXME: Figure out how to handle remainder terms in α
         # Compute primitive_mul_x(t) * x^α = primitive(t) * x^(1 + α)
-        primitive_mul_x_onepα(t) =
+        primitive_mul_x_onepα(t::Arb) =
             let γ = Arb(Irrational{:γ}()), π = Arb(π)
                 part1 = let s = 2 - α
                     gamma_sin = ArbSeries((
@@ -493,6 +656,21 @@ function T0(
                 end
 
                 part1 + part2
+            end
+
+        primitive_mul_x_onepα(t::ArbSeries) =
+            let
+                # Compute the derivative considering the root as a constant
+                res = primitive_mul_x_onepα(t[0])
+
+                # The derivative of res doesn't depend on the derivative
+                # of the root. So if the degree is at most 1 we have
+                # computed the correct value
+                Arblib.degree(res) <= 1 && return res
+
+                # TODO: If we need more derivatives we have to handle them
+                # manually.
+                error("degree at most 1 supported")
             end
 
         # Compute primitive_mul_x_onepα(0) = 2clausencmzeta(x, 2 - α) / x^(1 - α)
