@@ -10,6 +10,10 @@ gamma(2α - p0) cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) 
 ```
 
 Expanding the right hand side around `α = 0` we get from Mathematica
+with
+```
+Series[2 Gamma[2 a]*Cos[Pi*a]/(Gamma[a]*Cos[Pi*a/2]), {a, 0, 3}]
+```
 ```
 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2)) =
     1 - γ * α + (γ^2 / 2 - π^2 / 8) * α^2 +
@@ -19,42 +23,46 @@ where `γ` is the Euler constant.
 - **TODO:** Compute remainder term
 
 If we let `p0 = p00 + p01 * α + p02 * α^2`, insert this into the left
-hand side and expand in `α` we get
+hand side and expand in `α` we get, using
+```
+Series[(Gamma[2 a - p0]* Cos[Pi*(2 a - p0)/2]/(Gamma[a - p0]*Cos[Pi (a - p0)/2])) /.
+    p0 -> (p00 + p01*a + p02*a^2), {a, 0, 3}]
+```
 ```
 1 +
 (digamma(-p00) + π / 2 * tan(p00 * π / 2)) * α +
 (
     - 3π^2
-    - 2p01 * π^2
+    + 2p01 * π^2
     + 4digamma(-p00)^2
     + 12polygamma(1, -p00)
-    + 8p01 * polygamma(1, -p00)
+    - 8p01 * polygamma(1, -p00)
     + 4π * digamma(-p00) * tan(p00 * π / 2)
     - 2π^2 * tan(p00 * π / 2)^2
-    - 2p01 * π^2 * tan(p00 * π / 2)^2
+    + 2p01 * π^2 * tan(p00 * π / 2)^2
 ) / 8 * α^2 +
 (
-    - 12 * p02 * π^2
+    + 12 * p02 * π^2
     - 18 * π^2 * digamma(-p00)
-    - 12 * p01 * π^2 * digamma(-p00)
+    + 12 * p01 * π^2 * digamma(-p00)
     + 8 * digamma(-p00)^3
-    + 48 * p02 * polygamma(1, -p00)
+    - 48 * p02 * polygamma(1, -p00)
     + 72 * digamma(-p00) * polygamma(1, -p00)
-    + 48 * p01 * digamma(-p00) * polygamma(1, -p00)
+    - 48 * p01 * digamma(-p00) * polygamma(1, -p00)
     + 56 * polygamma(2, -p00)
-    + 72 * p01 * polygamma(2, -p00)
+    - 72 * p01 * polygamma(2, -p00)
     + 24 * p01^2 * polygamma(2, -p00)
     + 5 * π^3 * tan(p00 * π / 2)
-    + 12 * p01 * π^3 * tan(p00 * π / 2)
+    - 12 * p01 * π^3 * tan(p00 * π / 2)
     + 6 * p01^2 * π^3 * tan(p00 * π / 2)
     + 12 * π * digamma(-p00)^2 * tan(p00 * π / 2)
     + 36 * π * polygamma(1, -p00) * tan(p00 * π / 2)
-    + 24 * p01 * π * polygamma(1, -p00) * tan(p00 * π / 2)
-    - 12 * p02 * π^2 * tan(p00 * π / 2)^2
+    - 24 * p01 * π * polygamma(1, -p00) * tan(p00 * π / 2)
+    + 12 * p02 * π^2 * tan(p00 * π / 2)^2
     - 12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
-    - 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
+    + 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
     + 6 * π^3 * tan(p00 * π / 2)^3
-    + 12 * p01 * π^3 * tan(p00 * π / 2)^3
+    - 12 * p01 * π^3 * tan(p00 * π / 2)^3
     + 6 * p01^2 * π^3 * tan(p00 * π / 2)^3
 ) / 48 * α^3 +
 O(α^4)
@@ -67,89 +75,106 @@ digamma(-p00) + π / 2 * tan(p00 * π / 2) = -γ
 For `p01` we get (after multiplying by `8`)
 ```
 - 3π^2
-- 2p01 * π^2
++ 2p01 * π^2
 + 4digamma(-p00)^2
 + 12polygamma(1, -p00)
-+ 8p01 * polygamma(1, -p00)
+- 8p01 * polygamma(1, -p00)
 + 4π * digamma(-p00) * tan(p00 * π / 2)
 - 2π^2 * tan(p00 * π / 2)^2
-- 2p01 * π^2 * tan(p00 * π / 2)^2
++ 2p01 * π^2 * tan(p00 * π / 2)^2
 = 4γ^2 - π^2
 ```
 And for `p02` we have after multiplication by 48
 ```
-- 12 * p02 * π^2
++ 12 * p02 * π^2
 - 18 * π^2 * digamma(-p00)
-- 12 * p01 * π^2 * digamma(-p00)
++ 12 * p01 * π^2 * digamma(-p00)
 + 8 * digamma(-p00)^3
-+ 48 * p02 * polygamma(1, -p00)
+- 48 * p02 * polygamma(1, -p00)
 + 72 * digamma(-p00) * polygamma(1, -p00)
-+ 48 * p01 * digamma(-p00) * polygamma(1, -p00)
+- 48 * p01 * digamma(-p00) * polygamma(1, -p00)
 + 56 * polygamma(2, -p00)
-+ 72 * p01 * polygamma(2, -p00)
+- 72 * p01 * polygamma(2, -p00)
 + 24 * p01^2 * polygamma(2, -p00)
 + 5 * π^3 * tan(p00 * π / 2)
-+ 12 * p01 * π^3 * tan(p00 * π / 2)
+- 12 * p01 * π^3 * tan(p00 * π / 2)
 + 6 * p01^2 * π^3 * tan(p00 * π / 2)
 + 12 * π * digamma(-p00)^2 * tan(p00 * π / 2)
 + 36 * π * polygamma(1, -p00) * tan(p00 * π / 2)
-+ 24 * p01 * π * polygamma(1, -p00) * tan(p00 * π / 2)
-- 12 * p02 * π^2 * tan(p00 * π / 2)^2
+- 24 * p01 * π * polygamma(1, -p00) * tan(p00 * π / 2)
++ 12 * p02 * π^2 * tan(p00 * π / 2)^2
 - 12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
-- 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
++ 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
 + 6 * π^3 * tan(p00 * π / 2)^3
-+ 12 * p01 * π^3 * tan(p00 * π / 2)^3
+- 12 * p01 * π^3 * tan(p00 * π / 2)^3
 + 6 * p01^2 * π^3 * tan(p00 * π / 2)^3
 = -8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1)
 ```
 
-We can solve for `p00` using numerical methods. For `p01` we can note
+we can solve for `p00` using numerical methods. for `p01` we can note
 that the equation is linear and we immediately get
 ```
+p01 = (
+    (4γ^2 - π^2)
+    - (
+        - 3π^2
+        + 4digamma(-p00)^2
+        + 12polygamma(1, -p00)
+        + 4π * digamma(-p00) * tan(p00 * π / 2)
+        - 2π^2 * tan(p00 * π / 2)^2
+    )
+) / (
++ 2π^2
+- 8polygamma(1, -p00)
++ 2π^2 * tan(p00 * π / 2)^2
+)
+
+=
+
+
 p01 = -(
     4γ^2 - π^2 -
     (-3π^2 + 4digamma(-p00)^2 + 12polygamma(1, -p00) + + 4π * digamma(-p00) * tan(p00 * π / 2) - 2π^2 * tan(p00 * π / 2)^2)
     ) / (- 2π^2 + 8polygamma(1, -p00) - 2π^2 * tan(p00 * π / 2)^2)
 ```
-Similarly we get
+similarly we get
 ```
-p02 =
-(
-    (-8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1)) -
-    (
+p02 = (
+    (-8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1))
+    - (
         - 18 * π^2 * digamma(-p00)
-        - 12 * p01 * π^2 * digamma(-p00)
+        + 12 * p01 * π^2 * digamma(-p00)
         + 8 * digamma(-p00)^3
         + 72 * digamma(-p00) * polygamma(1, -p00)
-        + 48 * p01 * digamma(-p00) * polygamma(1, -p00)
+        - 48 * p01 * digamma(-p00) * polygamma(1, -p00)
         + 56 * polygamma(2, -p00)
-        + 72 * p01 * polygamma(2, -p00)
+        - 72 * p01 * polygamma(2, -p00)
         + 24 * p01^2 * polygamma(2, -p00)
         + 5 * π^3 * tan(p00 * π / 2)
-        + 12 * p01 * π^3 * tan(p00 * π / 2)
+        - 12 * p01 * π^3 * tan(p00 * π / 2)
         + 6 * p01^2 * π^3 * tan(p00 * π / 2)
         + 12 * π * digamma(-p00)^2 * tan(p00 * π / 2)
         + 36 * π * polygamma(1, -p00) * tan(p00 * π / 2)
-        + 24 * p01 * π * polygamma(1, -p00) * tan(p00 * π / 2)
+        - 24 * p01 * π * polygamma(1, -p00) * tan(p00 * π / 2)
         - 12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
-        - 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
+        + 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2
         + 6 * π^3 * tan(p00 * π / 2)^3
-        + 12 * p01 * π^3 * tan(p00 * π / 2)^3
+        - 12 * p01 * π^3 * tan(p00 * π / 2)^3
         + 6 * p01^2 * π^3 * tan(p00 * π / 2)^3
     )
 ) / (
-    - 12 * π^2
-    + 48 * polygamma(1, -p00)
-    - 12 * π^2 * tan(p00 * π / 2)^2
+    + 12 * π^2
+    - 48 * polygamma(1, -p00)
+    + 12 * π^2 * tan(p00 * π / 2)^2
 )
-
-
 ```
 
 **TODO:** Possibly compute more terms in the expansion.
 **TODO:** Compute remainder term.
 """
-function expansion_p0(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
+function expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
+    degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
+
     γ = Arb(Irrational{:γ}())
 
     rhs = ArbSeries((1, -γ, γ^2 / 2 - Arb(π)^2 / 8))
@@ -174,28 +199,27 @@ function expansion_p0(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
 
     p02 = let π = Arb(π)
         (
-            (-8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1)) - (
-                -18 * π^2 * digamma(-p00) - 12 * p01 * π^2 * digamma(-p00) +
+            (-8γ^3 + 6γ * π^2 + 56 * real(polygamma(Acb(2), Acb(1)))) - (
+                -18 * π^2 * digamma(-p00) +
+                12 * p01 * π^2 * digamma(-p00) +
                 8 * digamma(-p00)^3 +
-                72 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) +
+                72 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) -
                 48 * p01 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) +
-                56 * real(polygamma(Acb(2), Acb(-p00))) +
+                56 * real(polygamma(Acb(2), Acb(-p00))) -
                 72 * p01 * real(polygamma(Acb(2), Acb(-p00))) +
                 24 * p01^2 * real(polygamma(Acb(2), Acb(-p00))) +
-                5 * π^3 * tan(p00 * π / 2) +
-                12 * p01 * π^3 * tan(p00 * π / 2) +
+                5 * π^3 * tan(p00 * π / 2) - 12 * p01 * π^3 * tan(p00 * π / 2) +
                 6 * p01^2 * π^3 * tan(p00 * π / 2) +
                 12 * π * digamma(-p00)^2 * tan(p00 * π / 2) +
-                36 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) +
+                36 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) -
                 24 * p01 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) -
-                12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 -
+                12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
                 12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
-                6 * π^3 * tan(p00 * π / 2)^3 +
-                12 * p01 * π^3 * tan(p00 * π / 2)^3 +
+                6 * π^3 * tan(p00 * π / 2)^3 - 12 * p01 * π^3 * tan(p00 * π / 2)^3 +
                 6 * p01^2 * π^3 * tan(p00 * π / 2)^3
             )
         ) / (
-            -12 * π^2 + 48 * real(polygamma(Acb(1), Acb(-p00))) -
+            +12 * π^2 - 48 * real(polygamma(Acb(1), Acb(-p00))) +
             12 * π^2 * tan(p00 * π / 2)^2
         )
     end
