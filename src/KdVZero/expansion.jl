@@ -1,7 +1,9 @@
 """
-    expansion_p0(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
+    expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
 
-Compute an expansion for `p0` at `α = 0`.
+Compute an expansion for `p0` at `α = 0` of the given degree. The last
+term is a remainder term which ensures that evaluating the expansion
+gives an enclosure of `p0` for all values in the interval `α`.
 
 We are interested in finding `p0` solving
 ```
@@ -224,15 +226,26 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
         )
     end
 
-    p0 = ArbSeries((p00, p01, p02))
+    # Expansion without remainder term
+    p0 = ArbSeries((p00, p01, p02); degree)
+
+    # FIXME: Properly implement this. Now we just widen the last
+    # coefficient so that we get an enclosure for a lower bound of α
+    error = let α = lbound(Arb, α)
+        findp0(α) - p0(α)
+    end
+    p0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
 
     return p0
 end
 
 """
-    expansion_as(::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
+    expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::integer = 2)
 
-Compute expansions for `a[i]` for `i = 1:3` at `α = 0`.
+Compute expansions for `a[i]` for `i = 1:3` at `α = 0` of the given
+degree. The last term is a remainder term which ensures that
+evaluating the expansion gives an enclosure of `a[i]` for all values
+in the interval `α`.
 
 # Computing `a[0]`
 From Mathematica we have
@@ -246,7 +259,7 @@ We can get the values for `a[1]` and `a[2]` in terms of a linear
 system depending on `α`, `a[0]` and `p0`.
 
 Computing the asymptotic expansion of `D(u0)` we have that the four
-leading terms have the `x`-factors are, in order,
+leading terms have the `x`-factors, in order,
 - `x^(-2α)`
 - `x^(-2α + p0)`
 - `x^2`
@@ -424,27 +437,43 @@ but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `α`
 from all of them. To get the higher order terms we factor out one more
 `α` from `v1` and `v2` and multiply it back afterwards.
 """
-function expansion_as(u0::Union{KdVZeroAnsatz,Type{KdVZeroAnsatz}})
-    # Compute expansion of a0
-    a0 = ArbSeries((
-        0,
-        1,
-        0,
-        -Arb(π)^2 / 12,
-        real(polygamma(Acb(2), Acb(1))),
-        -11Arb(π)^4 / 360,
-    ),)
+function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
+    degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
 
-    # Compute expansions of p0 and α
-    p0 = expansion_p0(u0)
-    α = ArbSeries((0, 1), degree = Arblib.degree(a0))
+    # Expansion of a[0] without remainder term
+    a0 = ArbSeries(
+        (0, 1, 0, -Arb(π)^2 / 12, real(polygamma(Acb(2), Acb(1))), -11Arb(π)^4 / 360);
+        degree,
+    )
+
+    # FIXME: Properly implement this. Now we just widen the last
+    # coefficient so that we get an enclosure for a lower bound of α
+    error = let α = lbound(Arb, α)
+        finda0(α) - a0(α)
+    end
+    a0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
+
+    # TODO: Take care of remainder terms for a[1] and a[2]
+
+    # Compute expansions of p0
+    p0 = expansion_p0(KdVZeroAnsatz, α; degree)
 
     # Expansion of gamma(α) * sinpi((1 - α) / 2) * a[0]
     q = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8))
+        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8); degree)
     end
 
-    z(i, j) = zeta(-1 - i * α + j * p0)
+    # FIXME: Properly implement this. Now we just widen the last
+    # coefficient so that we get an enclosure for a lower bound of α
+    error = let α = lbound(Arb, α)
+        gamma(α) * sinpi((1 - α) / 2) * finda0(α) - q(α)
+    end
+    q[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
+
+    α_s = ArbSeries((0, 1); degree) # Series expansion of α
+    z(i, j) = zeta(-1 - i * α_s + j * p0)
+
+    # TODO: Compute proper remainder terms
 
     z1 = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
     z2 = z(2, 2) * z(1, 0) - z(1, 2) * z(2, 0)
