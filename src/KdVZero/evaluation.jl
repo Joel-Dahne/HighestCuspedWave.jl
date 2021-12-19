@@ -169,7 +169,9 @@ end
 
 Return an expansion of `u0(x)` in `x` around zero where the
 coefficients in the expansion are themselves expansions in `α` around
-zero.
+zero. The last term in each of these expansions in `α` is a remainder
+term which ensures that evaluating the expansion gives an enclosure of
+the term for all values in the interval `α`.
 
 It returns a dictionary `expansion` where the keys are three tuples
 `(i, j, m)` and correspond to a term of the form
@@ -196,53 +198,68 @@ expansion is given by
     (-4γ^3 + 3γ * π^2 + 28 * polygamma(2, 1)) / 24 * α^3 + O(α^4)
 ```
 where `γ` is the Euler constant.
-
-- **TODO:** Handle remainder terms in `α`.
+- **TODO:** Compute remainder term in `α`
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
-    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
+    α = ArbSeries((0, 1); u0.degree)
 
     expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
 
     # Initiate even powers of x
     for m = 1:M
-        expansion[(0, 0, 2m)] = ArbSeries(degree = 3)
+        expansion[(0, 0, 2m)] = ArbSeries(; u0.degree)
     end
 
     # Handle main term
     # Compute the coefficient for the singular term
     a0singular_term = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8))
+        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8); u0.degree)
     end
+    # FIXME: Properly implement this. Now we just widen the last
+    # coefficient so that we get an enclosure for a lower bound of α
+    if !iszero(α)
+        error = let α = lbound(Arb, u0.α)
+            gamma(α) * sinpi((1 - α) / 2) * finda0(α) - a0singular_term(α)
+        end
+        a0singular_term[u0.degree] +=
+            Arblib.add_error!(zero(error), error / lbound(Arb, u0.α)^u0.degree)
+    end
+
     expansion[(1, 0, 0)] = a0singular_term
 
     # Compute the coefficients for the analytic terms
     for m = 1:M-1
         term = (-1)^m * zeta(1 - α - 2m) / factorial(2m)
-        expansion[(0, 0, 2m)] += u0.a[0] * term
+        term_remainder = let α = ArbSeries((u0.α, 1), degree = u0.degree)
+            ((-1)^m*zeta(1 - α - 2m)/factorial(2m))[u0.degree]
+        end
+        term[u0.degree] = term_remainder
+
+        expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[0], term, u0.α)
     end
 
-    # Add remainder term
-    remainder_term = clausenc_expansion_remainder(x, 1 - α, M)
-    expansion[(0, 0, 2M)] += u0.a[0] * remainder_term
+    # Add remainder term (in x)
+    remainder_term = clausenc_expansion_remainder(x, 1 - α, M) # FIXME
+    expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[0], remainder_term, u0.α)
 
     # Handle tail terms
     for j = 1:2
         s = 1 - α + j * u0.p0
 
         # Compute the coefficient for the singular term
-        singular_term = gamma(1 - s) * sinpi(s / 2)
-        expansion[(1, j, 0)] = u0.a[j] * singular_term
+        singular_term = compose_with_remainder(s -> gamma(1 - s) * sinpi(s / 2), s, u0.α)
+        expansion[(1, j, 0)] = mul_with_remainder(u0.a[j], singular_term, u0.α)
 
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
-            term = (-1)^m * zeta(s - 2m) / factorial(2m)
-            expansion[(0, 0, 2m)] += u0.a[j] * term
+            term =
+                (-1)^m * compose_with_remainder(s -> zeta(s - 2m), s, u0.α) / factorial(2m)
+            expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[j], term, u0.α)
         end
 
         # Add remainder term
-        remainder_term = clausenc_expansion_remainder(x, s, M)
-        expansion[(0, 0, 2M)] += u0.a[j] * remainder_term
+        remainder_term = clausenc_expansion_remainder(x, s, M) # FIXME
+        expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[j], remainder_term, u0.α)
     end
 
     return expansion
@@ -395,7 +412,9 @@ end
 
 Return a function such that `H(u0)(x)` computes an expansion in `x`
 around zero there the coefficients are themselves expansion in `α`
-around zero.
+around zero. The last term in each of these expansions in `α` is a
+remainder term which ensures that evaluating the expansion gives an
+enclosure of the term for all values in the interval `α`.
 
 It returns a dictionary `expansion` where the keys are three tuples
 `(i, j, m)` and correspond to a term of the form
@@ -420,59 +439,68 @@ From Mathematica the expansion is given by
     (-8γ^3 + 3γ * π^2 + 14polygamma(2, 1)) / 12 * α^3
 ```
 where `γ` is the Euler constant.
-
-- **TODO:** Handle remainder terms in `α`.
+- **TODO:** Compute remainder term in `α`
 """
 function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
-    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
+    α = ArbSeries((0, 1); u0.degree)
 
     return x::Arb -> begin
         expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
 
         # Initiate even powers of x
         for m = 1:M
-            expansion[(0, 0, 2m)] = ArbSeries(degree = 3)
+            expansion[(0, 0, 2m)] = ArbSeries(; u0.degree)
         end
 
         # Handle main term
         # Compute the coefficient for the singular term
         a0singular_term = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-            ArbSeries((
-                1 // 2,
-                -γ,
-                γ^2 - π^2 / 8,
-                (-8γ^3 + 3γ * π^2 + 14real(polygamma(Acb(2), Acb(1)))) / 12,
-            ))
+            ArbSeries((1 // 2, -γ, γ^2 - π^2 / 8); u0.degree)
+        end
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure for a lower bound of α
+        if !iszero(α)
+            error = let α = lbound(Arb, u0.α)
+                gamma(2α) * cospi(1 - α) * finda0(α) - a0singular_term(α)
+            end
+            a0singular_term[u0.degree] +=
+                Arblib.add_error!(zero(error), error / lbound(Arb, u0.α)^u0.degree)
         end
         expansion[(2, 0, 0)] = -a0singular_term
 
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
             term = (-1)^m * zeta(1 - 2α - 2m) / factorial(2m)
-            expansion[(0, 0, 2m)] -= u0.a[0] * term
+            term_remainder = let α = ArbSeries((u0.α, 1), degree = u0.degree)
+                ((-1)^m*zeta(1 - 2α - 2m)/factorial(2m))[u0.degree]
+            end
+            expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[0], term, u0.α)
         end
 
         # Add remainder term
-        remainder_term = clausenc_expansion_remainder(x, 1 - 2α, M)
-        expansion[(0, 0, 2M)] -= u0.a[0] * remainder_term
+        remainder_term = clausenc_expansion_remainder(x, 1 - 2α, M) # FIXME
+        expansion[(0, 0, 2M)] -= mul_with_remainder(u0.a[0], remainder_term, u0.α)
 
         # Handle tail terms
         for j = 1:2
             s = 1 - 2α + j * u0.p0
 
             # Compute the coefficient for the singular term
-            singular_term = gamma(1 - s) * sinpi(s / 2)
-            expansion[(2, j, 0)] = -u0.a[j] * singular_term
+            singular_term =
+                compose_with_remainder(s -> gamma(1 - s) * sinpi(s / 2), s, u0.α)
+            expansion[(2, j, 0)] = -mul_with_remainder(u0.a[j], singular_term, u0.α)
 
             # Compute the coefficients for the analytic terms
             for m = 1:M-1
-                term = (-1)^m * zeta(s - 2m) / factorial(2m)
-                expansion[(0, 0, 2m)] -= u0.a[j] * term
+                term =
+                    (-1)^m * compose_with_remainder(s -> zeta(s - 2m), s, u0.α) /
+                    factorial(2m)
+                expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[j], term, u0.α)
             end
 
             # Add remainder term
-            remainder_term = clausenc_expansion_remainder(x, s, M)
-            expansion[(0, 0, 2M)] -= u0.a[j] * remainder_term
+            remainder_term = clausenc_expansion_remainder(x, s, M) # FIXME
+            expansion[(0, 0, 2M)] -= mul_with_remainder(u0.a[j], remainder_term, u0.α)
         end
 
         return expansion
