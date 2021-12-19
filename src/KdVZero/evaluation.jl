@@ -13,15 +13,16 @@ function eval_expansion(
     offset_i::Integer = 0,
     offset_m::Integer = 0,
 )
-    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
+    α = ArbSeries((0, 1); u0.degree)
 
     res = zero(α)
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
             exponent = -(i + offset_i) * α + j * u0.p0 + (m + offset_m)
+            term = compose_with_remainder(e -> abspow(x, e), exponent, u0.α)
 
-            res += y * abspow(x, exponent)
+            res += mul_with_remainder(y, term, u0.α)
         end
     end
 
