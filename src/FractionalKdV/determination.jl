@@ -173,6 +173,73 @@ function findas(u0::FractionalKdVAnsatz{Arb})
 end
 
 """
+    _finda1a2(α)
+
+Compute `a1` and `a2` so that the leading terms in the asymptotics
+are exactly zero.
+
+This only works with an expansion of exactly three terms, i.e. it
+should not include `a3` or higher. It is mainly intended for testing
+when `α -> 0`.
+
+Computing the asymptotic expansion of `D(u0)` we have that the four
+leading terms have the `x`-factors are, in order,
+- `x^(-2α)`
+- `x^(-2α + p0)`
+- `x^2`
+- `x^(-α + 2)
+The first two are zero because of the choice of `a0` and `p0`. We want
+to find `a1` and `a2` such that the last two are also zero.
+
+The coefficient in front of `x^2` is given by
+```
+L₁⁰ = -1 / 2 * sum(a[j] * zeta(1 - 2α + j * p0 - 2) for j = 0:2) =
+    -1 / 2 * (a0 * zeta(1 - 2α - 2) + a1 * zeta(1 - 2α + p0 - 2) + a2 * zeta(1 - 2α + 2p0 - 2))
+```
+and for `x^(-α + 2)`
+```
+a₀⁰ * K₁⁰ = gamma(α) * sinpi((1 - α) / 2) * a0 * (-1 / 2) * sum(a[j] * zeta(1 - α + j * p0 - 2) for j = 0:2) =
+    gamma(α) * sinpi((1 - α) / 2) * a0 * (-1 / 2) * (
+        a0 * zeta(1 - α - 2) + a1 * zeta(1 - α + p0 - 2) + a2 * zeta(1 - α + 2p0 - 2)
+    )
+```
+If we let
+```
+A1 = -zeta(1 - 2α + p0 - 2) / 2
+A2 = -zeta(1 - 2α + 2p0 - 2) / 2
+C1 = -a0 * zeta(1 - 2α - 2) / 2
+
+B1 = -gamma(α) * sinpi((1 - α) / 2) * a0 * zeta(1 - α + p0 - 2) / 2
+B2 = -gamma(α) * sinpi((1 - α) / 2) * a0 * zeta(1 - α + 2p0 - 2) / 2
+C2 = -gamma(α) * sinpi((1 - α) / 2) * a0^2 * zeta(1 - α - 2) / 2
+```
+we can write this as the linear system
+```
+A1 * a1 + A2 * a2 = -C1
+B1 * a1 + B2 * a2 = -C2
+```
+
+**IMRPOVE:** Since we only care about finding the zero we can throw
+away a lot of constants we don't need.
+"""
+function _finda1a2(α)
+    a0 = finda0(α)
+    p0 = findp0(α)
+
+    A1 = -zeta(1 - 2α + p0 - 2) / 2
+    A2 = -zeta(1 - 2α + 2p0 - 2) / 2
+    C1 = -a0 * zeta(1 - 2α - 2) / 2
+
+    B1 = -gamma(α) * sinpi((1 - α) / 2) * a0 * zeta(1 - α + p0 - 2) / 2
+    B2 = -gamma(α) * sinpi((1 - α) / 2) * a0 * zeta(1 - α + 2p0 - 2) / 2
+    C2 = -gamma(α) * sinpi((1 - α) / 2) * a0^2 * zeta(1 - α - 2) / 2
+
+    a1, a2 = [B2 -A2; -B1 A1] * [-C1; -C2] / (A1 * B2 - A2 * B1)
+
+    return a1, a2
+end
+
+"""
     findbs(u0, initial)
 
 Find values of `u0.b[n]` to minimize the defect `D(u0)`.

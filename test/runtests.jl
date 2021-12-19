@@ -6,5 +6,9 @@ setprecision(Arb, 128) do
             include("clausenc.jl")
             include("clausens.jl")
         end
+
+        @testset "KdVZero" begin
+            include("KdVZero/expansion.jl")
+        end
     end
 end

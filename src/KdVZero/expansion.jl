@@ -231,10 +231,10 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
 
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
-    error = let α = lbound(Arb, α)
-        findp0(α) - p0(α)
+    if !iszero(α)
+        error = findp0(lbound(Arb, α)) - p0(lbound(Arb, α))
+        p0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
     end
-    p0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
 
     return p0
 end
@@ -448,10 +448,10 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
 
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
-    error = let α = lbound(Arb, α)
-        finda0(α) - a0(α)
+    if !iszero(α)
+        error = finda0(lbound(Arb, α)) - a0(lbound(Arb, α))
+        a0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
     end
-    a0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
 
     # TODO: Take care of remainder terms for a[1] and a[2]
 
@@ -465,19 +465,19 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
 
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
-    error = let α = lbound(Arb, α)
-        gamma(α) * sinpi((1 - α) / 2) * finda0(α) - q(α)
+    if !iszero(α)
+        error = let α = lbound(Arb, α)
+            gamma(α) * sinpi((1 - α) / 2) * finda0(α) - q(α)
+        end
+        q[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
     end
-    q[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
 
     α_s = ArbSeries((0, 1); degree) # Series expansion of α
-    z(i, j) = zeta(-1 - i * α_s + j * p0)
+    z(i, j) = compose_with_remainder(zeta, -1 - i * α_s + j * p0, α)
 
-    # TODO: Compute proper remainder terms
-
-    z1 = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
-    z2 = z(2, 2) * z(1, 0) - z(1, 2) * z(2, 0)
-    z3 = z(2, 1) * z(1, 0) - z(1, 1) * z(2, 0)
+    z1 = mul_with_remainder(z(2, 1), z(1, 2), α) - mul_with_remainder(z(2, 2), z(1, 1), α)
+    z2 = mul_with_remainder(z(2, 2), z(1, 0), α) - mul_with_remainder(z(1, 2), z(2, 0), α)
+    z3 = mul_with_remainder(z(2, 1), z(1, 0), α) - mul_with_remainder(z(1, 1), z(2, 0), α)
 
     # The constant coefficients for z1, z2 and z3 are all exactly
     # equal to zero.
@@ -485,15 +485,15 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
     z1[0] = z2[0] = z3[0] = 0
 
     # Factor out α from z1 and multiply back afterwards
-    d = (q * (z1 << 1) / 4) >> 1
+    d = (mul_with_remainder(q, (z1 << 1) / 4, α)) >> 1
     # Factor out α from a[0] and z2 and multiply back afterwards
-    v1 = (q * (a0 << 1) * (z2 << 1) / 4) >> 2
+    v1 = (mul_with_remainder(mul_with_remainder(q, (a0 << 1), α), (z2 << 1) / 4, α)) >> 2
     # Factor out α from a[0] and z3 and multiply back afterwards
-    v2 = -(q * (a0 << 1) * (z3 << 1) / 4) >> 2
+    v2 = -(mul_with_remainder(mul_with_remainder(q, (a0 << 1), α), (z3 << 1) / 4, α)) >> 2
 
     # Factor out α^2 from v1 and v2 and α from d, multiply back one α afterwards
-    a1 = ((v1 << 2) / (d << 1)) >> 1
-    a2 = ((v2 << 2) / (d << 1)) >> 1
+    a1 = (div_with_remainder((v1 << 2), (d << 1), α)) >> 1
+    a2 = (div_with_remainder((v2 << 2), (d << 1), α)) >> 1
 
     return OffsetVector([a0, a1, a2], 0:2)
 end
