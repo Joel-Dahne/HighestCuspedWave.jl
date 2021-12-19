@@ -4,7 +4,8 @@ export KdVZeroAnsatz
     KdVZeroAnsatz(α::Arb; degree::Integer = 2) <: AbstractAnsatz{Arb}
 
 Represents an ansatz for an approximate solution for the fractional
-KdV equations as an expansion around `α = 0`.
+KdV equations as an expansion around `α = 0`. The computed expansions
+are valid on the interval given by `α`.
 
 The ansatz is given by
 ```
@@ -13,12 +14,19 @@ a[0] * clausencmzeta(x, 1 - α) + a[1] * clausencmzeta(x, 1 - α + p0) + a[2] * 
 where `a0`, `a1`, `a2` and `p0` all are computed through expansions in
 `α` around zero.
 
-It stores the value of `α` as well as precomputed expansions for `a`
-and `p0`. The expansions for `a` and `p0` are computed to the degree
-`degree`. The last term in each expansion is a remainder term which
-ensures that that evaluating the expansion gives an enclosure of the
-value for the full interval in `α`, i.e. `a[i] ∈ u0.a[i](α)` for each
-`α ∈ u0.α` and similarly for `p0`.
+Any expansions computed with this approximation are typically computed
+to the given degree, though some methods compute to a lower or higher
+degree.
+
+It stores precomputed expansions for `a` and `p0`. The expansions for
+`a` and `p0` are computed to the degree `degree` with the exception of
+`a[0]` which is computed to one degree higher, the reason for this is
+that the constant term in `a[0]` is zero and in many cases we divide
+`a[0]` by `α` and still want to have sufficiently high degree. The
+last term in each expansion is a remainder term which ensures that
+that evaluating the expansion gives an enclosure of the value for the
+full interval in `α`, i.e. `a[i] ∈ u0.a[i](α)` for each `α ∈ u0.α` and
+similarly for `p0`.
 
 !!! Note that this way of having the last term in the expansion
     represent a remainder term is a non-standard way of using

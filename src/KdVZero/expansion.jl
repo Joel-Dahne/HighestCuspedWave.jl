@@ -247,6 +247,11 @@ degree. The last term is a remainder term which ensures that
 evaluating the expansion gives an enclosure of `a[i]` for all values
 in the interval `α`.
 
+The expansion of `a[0]` is computed to a degree one higher than the
+other. The reason for this is that the constant term in `a[0]` is zero
+and in many cases we divide `a[0]` by `α` and still want to have
+sufficiently high degree.
+
 # Computing `a[0]`
 From Mathematica we have
 ```
@@ -442,8 +447,8 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
 
     # Expansion of a[0] without remainder term
     a0 = ArbSeries(
-        (0, 1, 0, -Arb(π)^2 / 12, real(polygamma(Acb(2), Acb(1))), -11Arb(π)^4 / 360);
-        degree,
+        (0, 1, 0, -Arb(π)^2 / 12, real(polygamma(Acb(2), Acb(1))), -11Arb(π)^4 / 360),
+        degree = degree + 1,
     )
 
     # FIXME: Properly implement this. Now we just widen the last
