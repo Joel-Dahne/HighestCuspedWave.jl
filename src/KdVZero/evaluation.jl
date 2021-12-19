@@ -31,7 +31,9 @@ end
 """
     (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 
-Return an expansion of `u0(x)` in `α` around `α = 0`.
+Return an expansion of `u0(x)` in `α` around `α = 0`. The last term is
+a remainder term which ensures that evaluating the expansion gives an
+enclosure of `u0` for all values in the interval `α`.
 
 The value is given by
 ```
@@ -69,6 +71,7 @@ remove the pole and we have the expansion
 ```
 α * gamma(α) = 1 - γ * α + (γ^2 / 2 + π^2 / 12) * α^2 + O(α^3)
 ```
+- **TODO:** Compute remainder term in `α`
 
 For computing `a[0] * zeta(1 - α)` we rewrite it as
 ```
@@ -78,17 +81,23 @@ and use the expansion
 ```
 α * zeta(1 - α) = -1 + stieltjes(0) * α + stieltjes(1) * α^2 + stieltjes(2) / 2 * α^3 + O(α^4)
 ```
-
-- **TODO:** Handle remainder terms in `α`
+- **TODO:** Compute remainder term in `α`
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
-    α = ArbSeries((0, 1), degree = Arblib.degree(u0.p0))
-
     # The main term we handle manually
     res = let
-        clausen_term = let π = Arb(π)
+        # Compute this to one degree higher since we divide it by α,
+        # reducing the degree by one.
+        clausen_term = let π = Arb(π), α = ArbSeries((0, 1), degree = u0.degree + 1)
             inv(2π)^α * cospi(α / 2) * (zeta(α, x / 2π) + zeta(α, 1 - x / 2π))
         end
+
+        # Compute remainder term
+        clausen_term_remainder =
+            let π = Arb(π), α = ArbSeries((u0.α, 1), degree = u0.degree + 1)
+                (inv(2π)^α*cospi(α / 2)*(zeta(α, x / 2π)+zeta(α, 1 - x / 2π)))[u0.degree+1]
+            end
+        clausen_term[u0.degree+1] = clausen_term_remainder
 
         # The constant term is exactly zero
         @assert Arblib.contains_zero(clausen_term[0])
@@ -98,26 +107,58 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         clausen_term = clausen_term << 1
 
         # Expansion of α * gamma(α)
+        u0.degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
         gammamulα = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-            ArbSeries((1, -γ, γ^2 / 2 + π^2 / 12))
+            ArbSeries((1, -γ, γ^2 / 2 + π^2 / 12); u0.degree)
+        end
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure for a lower bound of α
+        if !iszero(u0.α)
+            error = let α = lbound(Arb, u0.α)
+                α * gamma(α) - gammamulα(α)
+            end
+            gammamulα[u0.degree] +=
+                Arblib.add_error!(zero(error), error / lbound(Arb, u0.α)^u0.degree)
         end
 
-        clausen_term *= gammamulα
+        clausen_term = mul_with_remainder(clausen_term, gammamulα, u0.α)
 
         # Divide a[0] by α, perform the multiplication and then
         # multiply by α. This makes sure the degree after the
         # multiplication is correct.
-        a0clausenterm = ((u0.a[0] << 1) * clausen_term) >> 1
+        a0clausenterm = mul_with_remainder(u0.a[0] << 1, clausen_term, u0.α) >> 1
 
-        zetamulα =
-            ArbSeries((-1, stieltjes(Arb, 0), stieltjes(Arb, 1), stieltjes(Arb, 2) / 2))
+        u0.degree <= 3 || throw(ArgumentError("only supports degree up to 3"))
+        zetamulα = ArbSeries(
+            (-1, stieltjes(Arb, 0), stieltjes(Arb, 1), stieltjes(Arb, 2) / 2);
+            u0.degree,
+        )
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure for a lower bound of α
+        if !iszero(u0.α)
+            error = let α = lbound(Arb, u0.α)
+                α * zeta(1 - α) - zetamulα(α)
+            end
+            zetamulα[u0.degree] +=
+                Arblib.add_error!(zero(error), error / lbound(Arb, u0.α)^u0.degree)
+        end
 
-        a0zeta_term = (u0.a[0] << 1) * zetamulα
+        a0zeta_term = mul_with_remainder(u0.a[0] << 1, zetamulα, u0.α)
 
         a0clausenterm - a0zeta_term
     end
 
-    res += sum(u0.a[j] * clausencmzeta(x, 1 - α + j * u0.p0) for j = 1:2)
+    let α = ArbSeries((0, 1); u0.degree)
+        for j = 1:2
+            # term = clausencmzeta(x, 1 - α + j * u0.p0)
+            # IMPROVE: This gives very bad bounds and might have to be
+            # improved.
+            term = compose_with_remainder(s -> clausencmzeta(x, s), 1 - α + j * u0.p0, u0.α)
+
+            # res += u0.a[j] * term
+            res += mul_with_remainder(u0.a[j], term, u0.α)
+        end
+    end
 
     return res
 end
