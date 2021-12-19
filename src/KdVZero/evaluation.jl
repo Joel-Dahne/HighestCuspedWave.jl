@@ -766,9 +766,10 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
         @assert Arblib.ref(q, 0) == Arb(-1 // 2)
 
         p2 = mul_with_remainder(p, p, u0.α)
+
         res = div_with_remainder(p2 / 2 + q, u0.w(x) * p, u0.α)
 
-        @assert iszero(Arblib.ref(res, 0))
+        @assert iszero(Arblib.ref(res, 0)) || !isfinite(Arblib.ref(res, 0))
         @assert Arblib.contains_zero(Arblib.ref(res, 1))
         res[1] = 0
 
