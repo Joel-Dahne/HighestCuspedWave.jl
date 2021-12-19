@@ -498,7 +498,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
             clausenc_x_plus_pi = clausenc(x + π, 2 - α)
         end
         primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi - clausenc(Arb(π), 2 - α)) / x
-        return primitive_mul_x(root)
+
         I_mul_x =
             primitive_mul_x_zero - 2primitive_mul_x(root) + primitive_mul_x_pi_div_x
 
