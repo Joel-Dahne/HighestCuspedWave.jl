@@ -342,17 +342,26 @@ times w.r.t. `s`.
 If `x` is a wide (real) ball, as determined by `iswide(x)`, it
 computes a tighter enclosure by using the monotonicity properties of
 the function. Currently this is only implemented for `β = 1`, `0 < x <
-2π` and `s = 2` or `s = 3`. The function has a critical point at `x =
-π`, one on the interval `0 < x < π` and one (due to being even around
-`π`) on `π < x < 2π`. The extrema can occur either on one of these
-critical points or on the endpoints of the ball. For efficiency
-reasons the critical point on `0 < x < π` is precomputed for `s = 2`
-and `s = 3` (the one on `π < x < 2π` is given by symmetry). In the
-wide case it computes the endpoints at a reduced precision given by
+2π` and `s = 0`, `s = 2` or `s = 3`.
+
+In all of the above cases the function has a critical point at `x =
+π`, since it is even around this point. For `s = 0` this is the only
+critical point, whereas for `s = 2` and `s = 3` it also has one on the
+interval `0 < x < π` and one (mirrored, due to being even around `π`)
+on `π < x < 2π`.
+- **PROVE:** That there are other critical points than those mentioned
+  here.
+
+For efficiency reasons the critical point on `0 < x < π` is
+precomputed for `s = 2` and `s = 3` (the one on `π < x < 2π` is given
+by symmetry).
+
+In the wide case it computes the endpoints at a reduced precision
+given by
+
 ```
 prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 ```
-- **PROVE:** That there is only once critical point.
 """
 function clausenc(x::Arb, s::Arb, β::Integer)
     if iszero(x) && s > 1
@@ -361,22 +370,25 @@ function clausenc(x::Arb, s::Arb, β::Integer)
         return zeta(s_series, one(s))[β] * factorial(β)
     end
 
-    if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 2 || s == 3)
+    if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 0 || s == 2 || s == 3)
         prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
         xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
         res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
-        if s == 2
-            critical_point =
-                Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]"; prec)
-        elseif s == 3
-            critical_point = Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]"; prec)
-        end
-        if Arblib.overlaps(x, critical_point) ||
-           Arblib.overlaps(x, 2Arb(π) - critical_point)
-            # Depending on the precision critical_point might count as
-            # wide so we explicitly call _clausenc_zeta to avoid
-            # infinite recursion.
-            res = union(res, _clausenc_polylog(critical_point, s, β))
+        if s == 2 || s == 3
+            if s == 2
+                critical_point =
+                    Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]"; prec)
+            elseif s == 3
+                critical_point =
+                    Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]"; prec)
+            end
+            if Arblib.overlaps(x, critical_point) ||
+               Arblib.overlaps(x, 2Arb(π) - critical_point)
+                # Depending on the precision critical_point might count as
+                # wide so we explicitly call _clausenc_zeta to avoid
+                # infinite recursion.
+                res = union(res, _clausenc_polylog(critical_point, s, β))
+            end
         end
 
         if Arblib.overlaps(x, Arb(π))
