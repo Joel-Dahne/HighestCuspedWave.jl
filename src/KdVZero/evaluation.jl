@@ -699,6 +699,15 @@ function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M:
     end
 end
 
+function D(u0::KdVZeroAnsatz, evaltype::Ball)
+    f = H(u0, evaltype)
+    return x -> begin
+        p = u0(x, evaltype)
+        p2 = mul_with_remainder(p, p, u0.α)
+        return p2 / 2 + f(x)
+    end
+end
+
 """
     F0(u0::KdVZeroAnsatz, ::Ball)
 
@@ -756,7 +765,8 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
         @assert isone(Arblib.ref(p, 0))
         @assert Arblib.ref(q, 0) == Arb(-1 // 2)
 
-        res = (p^2 / 2 + q) / (u0.w(x) * p)
+        p2 = mul_with_remainder(p, p, u0.α)
+        res = div_with_remainder(p2 / 2 + q, u0.w(x) * p, u0.α)
 
         @assert iszero(Arblib.ref(res, 0))
         @assert Arblib.contains_zero(Arblib.ref(res, 1))
@@ -798,6 +808,6 @@ function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
         num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
-        return num / den
+        return div_with_remainder(num, den, u0.α)
     end
 end
