@@ -505,7 +505,8 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         I_mul_x_div_pi = I_mul_x / π
 
         # The constant term should be exactly 1
-        @assert Arblib.contains(Arblib.ref(I_mul_x_div_pi, 0), 1)
+        @assert Arblib.contains(Arblib.ref(I_mul_x_div_pi, 0), 1) ||
+                !isfinite(Arblib.ref(I_mul_x_div_pi, 0))
         I_mul_x_div_pi[0] = 1
 
         if skip_div_u0
@@ -738,7 +739,8 @@ function T0(
         # The constant term should be exactly 1. This holds not matter
         # if we divide by u0 or not since the constant term of u0 is
         # exactly 1.
-        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1)
+        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1) ||
+                !isfinite(Arblib.ref(I_mul_x_onepα_div_pi, 0))
         res[0] = 1
 
         return res
