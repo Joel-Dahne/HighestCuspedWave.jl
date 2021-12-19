@@ -1,4 +1,4 @@
-using Arblib, HighestCuspedWave, SpecialFunctions, Test
+using Arblib, HighestCuspedWave, OffsetArrays, SpecialFunctions, Test
 
 setprecision(Arb, 128) do
     @testset "HighestCuspedWave" begin
@@ -9,6 +9,7 @@ setprecision(Arb, 128) do
 
         @testset "KdVZero" begin
             include("KdVZero/expansion.jl")
+            include("KdVZero/evaluation.jl")
         end
     end
 end
