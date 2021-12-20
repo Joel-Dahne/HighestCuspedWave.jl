@@ -123,11 +123,109 @@ div_with_remainder(
 )
 
 """
+    clausenc_with_remainder(x::Arb, s::ArbSeries, interval::Arb; degree)
+
+Compute an expansion of `clausenc(x, s)` in the parameter `s` with the
+last term being a remainder term ensuring that it gives an enclosure
+of `clausenc(x, s)` for all `s ∈ interval`.
+
+The only difference to calling `clausenc(x, s)` directly is that the
+last term works as a remainder term.
+
+Currently this is equivalent to `compose_with_remainder(s ->
+clausenc(x, s), s)`. The idea is that this will eventually implement
+certain optimizations for this special case.
+"""
+function clausenc_with_remainder(
+    x::Arb,
+    s::ArbSeries,
+    interval::Arb;
+    degree = Arblib.degree(s),
+)
+    # Compute expansion at s[0]
+    p = clausenc(x, ArbSeries((s[0], 1); degree))
+
+    # Compute remainder term
+    if s[0] == 2
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure at the endpoint of
+        # s(interval) furthest from s[0]
+        if !iszero(radius(interval))
+            s_lower, s_upper = getinterval(Arb, s(interval))
+            if abs(s_lower - s[0]) > abs(s_upper - s[0])
+                error = (clausenc(x, s_lower) - p(s_lower - s[0])) / (s_lower - s[0])^degree
+            else
+                error = (clausenc(x, s_upper) - p(s_upper - s[0])) / (s_upper - s[0])^degree
+            end
+            p[degree] += Arblib.add_error!(zero(interval), error)
+        end
+    else
+        remainder_term = clausenc(x, s(interval), degree) / factorial(degree)
+        p[degree] = remainder_term
+    end
+
+    # q - q[0]
+    sms0 = ArbSeries(s)
+    sms0[0] = 0
+
+    return compose_with_remainder(p, sms0, interval; degree)
+end
+
+"""
+    clausens_with_remainder(x::Arb, s::ArbSeries, interval::Arb; degree)
+
+Compute an expansion of `clausens(x, s)` in the parameter `s` with the
+last term being a remainder term ensuring that it gives an enclosure
+of `clausens(x, s)` for all `s ∈ interval`.
+
+The only difference to calling `clausens(x, s)` directly is that the
+last term works as a remainder term.
+
+Currently this is equivalent to `compose_with_remainder(s ->
+clausens(x, s), s)`. The idea is that this will eventually implement
+certain optimizations for this special case.
+"""
+function clausens_with_remainder(
+    x::Arb,
+    s::ArbSeries,
+    interval::Arb;
+    degree = Arblib.degree(s),
+)
+    # Compute expansion at s[0]
+    p = clausens(x, ArbSeries((s[0], 1); degree))
+
+    # Compute remainder term
+    if s[0] == 1
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure at the endpoint of
+        # s(interval) furthest from s[0]
+        if !iszero(radius(interval))
+            s_lower, s_upper = getinterval(Arb, s(interval))
+            if abs(s_lower - s[0]) > abs(s_upper - s[0])
+                error = (clausens(x, s_lower) - p(s_lower - s[0])) / (s_lower - s[0])^degree
+            else
+                error = (clausens(x, s_upper) - p(s_upper - s[0])) / (s_upper - s[0])^degree
+            end
+            p[degree] += Arblib.add_error!(zero(interval), error)
+        end
+    else
+        remainder_term = clausens(x, s(interval), degree) / factorial(degree)
+        p[degree] = remainder_term
+    end
+
+    # q - q[0]
+    sms0 = ArbSeries(s)
+    sms0[0] = 0
+
+    return compose_with_remainder(p, sms0, interval; degree)
+end
+
+"""
     clausencmzeta_with_remainder(x::Arb, s::ArbSeries, interval::Arb; degree)
 
 Compute an expansion of `clausencmzeta(x, s)` in the parameter `s`
 with the last term being a remainder term ensuring that it gives an
-enclosure of `clausenc(x, s)` for all `s ∈ interval`.
+enclosure of `clausencmzeta(x, s)` for all `s ∈ interval`.
 
 The only difference to calling `clausencmzeta(x, s)` directly is that
 the last term works as a remainder term.
@@ -146,8 +244,27 @@ function clausencmzeta_with_remainder(
     p = clausencmzeta(x, ArbSeries((s[0], 1); degree))
 
     # Compute remainder term
-    remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
-    p[degree] = remainder_term
+    if s[0] == 2
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure at the endpoint of
+        # s(interval) furthest from s[0]
+        if !iszero(radius(interval))
+            s_lower, s_upper = getinterval(Arb, s(interval))
+            if abs(s_lower - s[0]) > abs(s_upper - s[0])
+                error =
+                    (clausencmzeta(x, s_lower) - p(s_lower - s[0])) /
+                    (s_lower - s[0])^degree
+            else
+                error =
+                    (clausencmzeta(x, s_upper) - p(s_upper - s[0])) /
+                    (s_upper - s[0])^degree
+            end
+            p[degree] += Arblib.add_error!(zero(interval), error)
+        end
+    else
+        remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
+        p[degree] = remainder_term
+    end
 
     # q - q[0]
     sms0 = ArbSeries(s)
