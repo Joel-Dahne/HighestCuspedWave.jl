@@ -92,8 +92,8 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb; degree = 1)
             # for α = 0.
             f(t) =
                 if degree < 0
-                    clausenc(x * (1 - t), -u0.α, 1) + clausenc(x * (1 + t), -u0.α, 1) -
-                    2clausenc(x * t, -u0.α, 1)
+                    clausenc(x * (1 - t), -u0.α) + clausenc(x * (1 + t), -u0.α) -
+                    2clausenc(x * t, -u0.α)
                 else
                     clausenc(x * (1 - t), Arb(0), 1) + clausenc(x * (1 + t), Arb(0), 1) -
                     2clausenc(x * t, Arb(0), 1)
