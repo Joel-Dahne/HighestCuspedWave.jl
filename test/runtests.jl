@@ -10,6 +10,7 @@ setprecision(Arb, 128) do
         @testset "KdVZero" begin
             include("KdVZero/expansion.jl")
             include("KdVZero/evaluation.jl")
+            include("KdVZero/T0.jl")
         end
     end
 end
