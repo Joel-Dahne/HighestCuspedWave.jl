@@ -272,3 +272,42 @@ function clausencmzeta_with_remainder(
 
     return compose_with_remainder(p, sms0, interval; degree)
 end
+
+"""
+    abspow_with_remainder(x::Arb, y::ArbSeries, interval::Arb; degree)
+
+Compute an expansion of `abspow(x, y)` in the parameter `y` with the
+last term being a remainder term ensuring that it gives an enclosure
+of `abspow(x, y)` for all `y ∈ interval`.
+
+The only difference to calling `abspow(x, y)` directly is that the
+last term works as a remainder term.
+
+This is equivalent to `compose_with_remainder(s -> abspow(x, y), y,
+interval)`, with one specialised optimizations. If `Arblib.is_x(-y)`
+is true then instead of evaluating `y(interval)` it takes `-interval`
+directly. These two are obviously equivalent, the reason for doing
+this optimization is that in some cases we have an exponent which is
+non-positive but whose left endpoint is zero, in that case
+`y(interval)` is supposed to non-negative but naive evaluation doesn't
+preserve this.
+"""
+function abspow_with_remainder(
+    x::Arb,
+    y::ArbSeries,
+    interval::Arb;
+    degree = Arblib.degree(y),
+)
+    # Compute expansion at s[0]
+    p = abspow(x, ArbSeries((y[0], 1); degree))
+
+    # Compute remainder term
+    yinterval = Arblib.is_x(-y) ? -interval : y(interval)
+    p[degree] = abspow(x, (ArbSeries((yinterval, 1); degree)))[degree]
+
+    # y - y[0]
+    ymy0 = ArbSeries(y)
+    ymy0[0] = 0
+
+    return compose_with_remainder(p, ymy0, interval; degree)
+end

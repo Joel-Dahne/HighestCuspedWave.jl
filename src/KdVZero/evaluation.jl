@@ -20,7 +20,7 @@ function eval_expansion(
     for ((i, j, m), y) in expansion
         if !iszero(y)
             exponent = -(i + offset_i) * α + j * u0.p0 + (m + offset_m)
-            term = compose_with_remainder(e -> abspow(x, e), exponent, u0.α)
+            term = abspow_with_remainder(x, exponent, u0.α)
 
             res += mul_with_remainder(y, term, u0.α)
         end

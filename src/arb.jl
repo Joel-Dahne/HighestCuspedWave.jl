@@ -228,6 +228,8 @@ function abspow(x::Arb, y::ArbSeries)
     if Arblib.contains_zero(x)
         Arblib.contains_negative(Arblib.ref(y, 0)) && return nan(y)
 
+        # TODO: Handle the case y[0] = 0
+
         # Differentiate with respect to the parameter of y manually
         # and enclose the terms
 
