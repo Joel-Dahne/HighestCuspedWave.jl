@@ -200,7 +200,10 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
-Compute the integral \$T_0\$.
+Return an expansion of the integral \$T_0\$ in `α` around `α = 0` of
+degree `1`. The last term is a remainder term which ensures that
+evaluating the expansion gives an enclosure of `u0` for all values in
+the interval `α`.
 
 This method is similar to [`T0_p_one`](@ref) in that it explicitly
 computes the integral. It computes an expansion in `α` around `α = 0`
@@ -230,7 +233,7 @@ explicitly using that
     (clausenc(x * (1 + t), 2 - α) / x^2 + t * clausens(x * (1 + t), 1 - α) / x) -
     2(clausenc(x * t, 2 - α) / x^2 + t * clausens(x * t, 1 - α) / x)
 ```
-Call this function `primitive(t)`. The idea is to isolate the zero
+Call this function `primitive(t)`. The idea is to isolate the zero of
 ```
 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
@@ -246,17 +249,17 @@ I2 = primitive(π / x) - primitive(1)
 
 On the interval `[0, 1]` the expression inside the absolute value has
 a unique root, it is negative to the left of the root and positive to
-the right. If we let `root` correspond to this root then an enclosure
-of the integral on `[0, 1]` is given by
+the right. If we let `root` correspond to this root then the integral
+on `[0, 1]` is given by
 ```(
 I1 = -(primitive(root) - primitive(0)) + (primitive(1) - primitive(root))
-   = primitive(0) - 2primitive(root) + primitive(π / x)
+   = primitive(0) - 2primitive(root) + primitive(1)
 ```
 Putting this together we get
 ```
 I = I1 + I2 = primitive(0) - 2primitive(root) + primitive(π / x)
 ```
-We also get that
+Furthermore we get
 ```
 primitive(0) = 2clausencmzeta(x, 2 - α) / x^2
 ```
@@ -294,8 +297,8 @@ need to work a bit more to get the expansion of
 
 ## Computing the constant term
 To get the constant term we let `α = 0` in the above formulas. This
-means that we are computing with the parameters `1` and `2` in the
-Clausen functions, for which we have the explicit expressions
+means that we are computing with the parameters `s = 1` and `s = 2` in
+the Clausen functions, for which we have the explicit expressions
 ```
 clausenc(x, 2) = π^2 / 6 - π * x / 2 + x^2 / 4
 clausens(x, 1) = π / 2 - x / 2
@@ -355,7 +358,7 @@ primitive_mul_x(0) - 2primitive_mul_x(root) =
     π - x / 2
 ```
 
-For the case when `t = π / x` they above calculations do not apply
+For the case when `t = π / x` the above calculations do not apply
 since the argument of the first `clausenc` and `clausens` functions
 are negative and hence not on the interval `[0, 2π]. However we have
 already established that we can write the primitive function as
@@ -390,8 +393,8 @@ division by `π` the constant function should be exactly `1`.
 
 ## Computing expansion of `primitive_mul_x(root)`
 The constant term in the expansion can be computed directly. For the
-derivative with respect to `α` we by differentiating
-`primitive_mul_x(t)` with respect to `α` and treating `t` as a
+derivative with respect to `α` we begin by differentiating
+`primitive_mul_x(t)` with respect to `α` while treating `t` as a
 function of `α`
 ```
 (
@@ -423,9 +426,9 @@ for that root. What remains is
 ```
 Which is the same derivative we get if we treat `t` as a constant not
 depending on `α`. The derivative of the root with respect to `α` hence
-**does not** affect the derivative of the result.
-- **TODO:** If we only need one derivative then we wont have to
-  compute the expansion of the root at all. Saving some effort.
+**does not** affect the derivative of the result. It is therefore
+enough to compute only an enclosure of the root and we do not need to
+compute its expansion in `α`.
 - **TODO:** Improve enclosure for wide values of `x`. This we will
   most likely need to do in the end.
 - **TODO:** Handle remainder term in `α`.
@@ -436,68 +439,68 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
     return x::Arb -> begin
         # The derivative of the result doesn't depend on the
         # derivative of the root so we only compute it to first order.
-        root = _integrand_compute_root(u0, x, degree = 0)
+        root = _integrand_compute_root(u0, x, degree = 0)[0]
 
         primitive_mul_x(t::Arb) =
             (
-                clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
-                2clausenc(x * t, 2 - α)
+                clausenc_with_remainder(x * (1 - t), 2 - α, u0.α) +
+                clausenc_with_remainder(x * (1 + t), 2 - α, u0.α) -
+                2clausenc_with_remainder(x * t, 2 - α, u0.α)
             ) / x +
             t * (
-                -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
-                2clausens(x * t, 1 - α)
+                -clausens_with_remainder(x * (1 - t), 1 - α, u0.α) +
+                clausens_with_remainder(x * (1 + t), 1 - α, u0.α) -
+                2clausens_with_remainder(x * t, 1 - α, u0.α)
             )
 
-        primitive_mul_x(t::ArbSeries) =
-            let
-                # Compute the derivative considering the root as a constant
-                res = primitive_mul_x(t[0])
+        # primitive_mul_x(0)
+        primitive_mul_x_zero = 2clausencmzeta_with_remainder(x, 2 - α, u0.α) / x
 
-                # The derivative of res doesn't depend on the derivative
-                # of the root. So if the degree is at most 1 we have
-                # computed the correct value
-                Arblib.degree(res) <= 1 && return res
-
-                # TODO: If we need more derivatives we have to handle them
-                # manually.
-                error("degree at most 1 supported")
-            end
-
-        primitive_mul_x_zero = 2clausencmzeta(x, 2 - α) / x
-
-        # primitive(π / x)
+        # primitive_mul_x(π / x)
         # If x overlaps with π this gives an indeterminate result
         # which we handle specially
         if Arblib.overlaps(x, Arb(π))
+            # FIXME: Add remainder term
             # Use periodicity of 2π to evaluate at x - π which is
             # close to zero. Use the asymptotic expansion at x = 0 to
             # evaluate it.
             # To compute the expansion around x = 0 it uses the same
             # approach as the asymptotic version of T0 does.
             clausenc_x_plus_pi = let y = abs(x - π), s = 2 - α, M = 2
+                # Expansion of gamma(α - 1) * sinpi(α / 2)
                 gamma_sin = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-                    ArbSeries((
-                        -π / 2,
-                        (γ - 1) * π / 2,
-                        (-24π + 24γ * π - 12γ^2 * π - π^3) / 48,
-                    ))
+                    ArbSeries((-π / 2, (γ - 1) * π / 2))
+                end
+                # FIXME: Properly implement this. Now we just widen the last
+                # coefficient so that we get an enclosure for a lower bound of α
+                if !iszero(u0.α)
+                    error = let α = lbound(Arb, u0.α)
+                        gamma(α - 1) * sinpi(α / 2) - gamma_sin(α)
+                    end
+                    gamma_sin[1] +=
+                        Arblib.add_error!(zero(error), error / lbound(Arb, u0.α))
                 end
 
                 # Singular term
-                res = gamma_sin * abspow(y, 1 - α)
+                res = mul_with_remainder(
+                    gamma_sin,
+                    compose_with_remainder(e -> abspow(y, e), 1 - α, u0.α),
+                    u0.α,
+                )
                 # Analytic terms
                 res += sum(
-                    (-1)^m * zeta(s - 2m) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
+                    (-1)^m * compose_with_remainder(zeta, s - 2m, u0.α) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
                 )
                 # Remainder term
-                res += abspow(y, 2M) * clausenc_expansion_remainder(y, s, M)
+                res += abspow(y, 2M) * clausenc_expansion_remainder(y, s, M) # FIXME
 
                 res
             end
         else
-            clausenc_x_plus_pi = clausenc(x + π, 2 - α)
+            clausenc_x_plus_pi = clausenc_with_remainder(x + π, 2 - α, u0.α)
         end
-        primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi - clausenc(Arb(π), 2 - α)) / x
+        primitive_mul_x_pi_div_x =
+            2(clausenc_x_plus_pi - clausenc_with_remainder(Arb(π), 2 - α, u0.α)) / x
 
         I_mul_x =
             primitive_mul_x_zero - 2primitive_mul_x(root) + primitive_mul_x_pi_div_x
@@ -512,7 +515,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         if skip_div_u0
             return I_mul_x_div_pi
         else
-            return I_mul_x_div_pi / u0(x)
+            return div_with_remainder(I_mul_x_div_pi, u0(x), u0.α)
         end
     end
 end
