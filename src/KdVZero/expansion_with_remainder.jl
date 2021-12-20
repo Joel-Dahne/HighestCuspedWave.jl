@@ -121,3 +121,37 @@ div_with_remainder(
     interval;
     degree,
 )
+
+"""
+    clausencmzeta_with_remainder(x::Arb, s::ArbSeries, interval::Arb; degree)
+
+Compute an expansion of `clausencmzeta(x, s)` in the parameter `s`
+with the last term being a remainder term ensuring that it gives an
+enclosure of `clausenc(x, s)` for all `s ∈ interval`.
+
+The only difference to calling `clausencmzeta(x, s)` directly is that
+the last term works as a remainder term.
+
+Currently this is equivalent to `compose_with_remainder(s ->
+clausencmzeta(x, s), s)`. The idea is that this will eventually
+implement certain optimizations for this special case.
+"""
+function clausencmzeta_with_remainder(
+    x::Arb,
+    s::ArbSeries,
+    interval::Arb;
+    degree = Arblib.degree(s),
+)
+    # Compute expansion at s[0]
+    p = clausencmzeta(x, ArbSeries((s[0], 1); degree))
+
+    # Compute remainder term
+    remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
+    p[degree] = remainder_term
+
+    # q - q[0]
+    sms0 = ArbSeries(s)
+    sms0[0] = 0
+
+    return compose_with_remainder(p, sms0, interval; degree)
+end

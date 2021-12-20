@@ -154,7 +154,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             # term = clausencmzeta(x, 1 - α + j * u0.p0)
             # IMPROVE: This gives very bad bounds and might have to be
             # improved.
-            term = compose_with_remainder(s -> clausencmzeta(x, s), 1 - α + j * u0.p0, u0.α)
+            term = clausencmzeta_with_remainder(x, 1 - α + j * u0.p0, u0.α)
 
             # res += u0.a[j] * term
             res += mul_with_remainder(u0.a[j], term, u0.α)
@@ -392,11 +392,7 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                 # term = clausencmzeta(x, 1 - α + j * u0.p0)
                 # IMPROVE: This gives very bad bounds and might have to be
                 # improved.
-                term = compose_with_remainder(
-                    s -> clausencmzeta(x, s),
-                    1 - 2α + j * u0.p0,
-                    u0.α,
-                )
+                term = clausencmzeta_with_remainder(x, 1 - 2α + j * u0.p0, u0.α)
 
                 # res += u0.a[j] * term
                 res -= mul_with_remainder(u0.a[j], term, u0.α)
