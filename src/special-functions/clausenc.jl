@@ -163,6 +163,15 @@ function _clausenc_zeta(x::Arb, s::ArbSeries)
 end
 
 """
+    _clausenc_zeta(x::Arb, s::Arb, β::Integer)
+
+Evaluation of the `clausenc(x, s, β)` function through the zeta
+function.
+"""
+_clausenc_zeta(x::Arb, s::Arb, β::Integer) =
+    _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
+
+"""
     clausenc(x, s)
 
 Compute the Clausen function \$C_s(x)\$.
@@ -396,6 +405,14 @@ function clausenc(x::Arb, s::Arb, β::Integer)
         end
 
         return setprecision(res, precision(x))
+    end
+
+    # If s is not a non-negative integer and 0 < x < 2π call
+    # _clausenc_zeta(x, s, β)
+    if !Arblib.contains_int(s) || Arblib.isnegative(s)
+        if Arblib.ispositive(x) && x < 2Arb(π)
+            return _clausenc_zeta(x, s, β)
+        end
     end
 
     return _clausenc_polylog(x, s, β)
