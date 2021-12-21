@@ -218,15 +218,15 @@ function abspow(x::Arb, y::ArbSeries)
     iszero(y) && return one(y)
 
     if iszero(x)
-        Arblib.contains_negative(Arblib.ref(y, 0)) && return nan(y)
+        # If y[0] = 0 the constant term is zero but not the others. We
+        # therefore need y[0] > 0 to get exactly zero.
+        Arblib.contains_nonpositive(Arblib.ref(y, 0)) && return nan(y)
 
         return zero(y)
     end
 
     if Arblib.contains_zero(x)
-        Arblib.contains_negative(Arblib.ref(y, 0)) && return nan(y)
-
-        # TODO: Handle the case y[0] = 0
+        Arblib.contains_nonpositive(Arblib.ref(y, 0)) && return nan(y)
 
         # Differentiate with respect to the parameter of y manually
         # and enclose the terms
