@@ -9,6 +9,10 @@
     # Construct KdVZeroansatz for the interval
     u0 = KdVZeroAnsatz(α_interval)
 
+    # Ansatz on a smaller interval and on the tight interval 0
+    u0_narrow = KdVZeroAnsatz(Arb((-1e-10, 0)))
+    u0_tight = KdVZeroAnsatz(Arb(0))
+
     # Construct FractionalKdvansatz for each α
     u0s = map(αs) do α
         a = OffsetVector([HighestCuspedWave.finda0(α), HighestCuspedWave._finda1a2(α)...], 0:2)
@@ -40,13 +44,15 @@
         end
     end
 
-    @testset "Ball vs Asymptotic" begin
+    @testset "Ball vs Asymptotic - $type" for (u0, type) in
+                                              ((u0_narrow, "narrow"), (u0_tight, "tight"))
         f = T0(u0)
         g = T0(u0, Asymptotic())
         for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 50))
             p1 = f(x)
             p2 = g(x)
             @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
+            #@show p1 - p2
         end
     end
 end

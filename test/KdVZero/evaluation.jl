@@ -9,8 +9,9 @@
     # Construct KdVZeroansatz for the interval
     u0 = KdVZeroAnsatz(α_interval)
 
-    # Ansatz on a much smaller interval
-    u0_tight = KdVZeroAnsatz(Arb((-1e-10, 0)))
+    # Ansatz on a smaller interval and on the tight interval 0
+    u0_narrow = KdVZeroAnsatz(Arb((-1e-10, 0)))
+    u0_tight = KdVZeroAnsatz(Arb(0))
 
     # Construct FractionalKdvansatz for each α
     u0s = map(αs) do α
@@ -44,11 +45,14 @@
             end
         end
 
-        @testset "Ball vs Asymptotic" begin
-            expansion = u0_tight(Arb(1), AsymptoticExpansion())
+        @testset "Ball vs Asymptotic - $type" for (u0, type) in (
+            (u0_narrow, "narrow"),
+            (u0_tight, "tight"),
+        )
+            expansion = u0(Arb(1), AsymptoticExpansion())
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = u0_tight(x)
-                p2 = eval_expansion(u0_tight, expansion, x)
+                p2 = eval_expansion(u0, expansion, x)
                 @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
                 #@show p1 - p2
             end
@@ -74,9 +78,12 @@
             end
         end
 
-        @testset "Ball vs Asymptotic" begin
-            f = H(u0_tight)
-            expansion = H(u0_tight, AsymptoticExpansion())(Arb(1))
+        @testset "Ball vs Asymptotic - $type" for (u0, type) in (
+            (u0_narrow, "narrow"),
+            (u0_tight, "tight"),
+        )
+            f = H(u0)
+            expansion = H(u0, AsymptoticExpansion())(Arb(1))
             g = x -> eval_expansion(u0_tight, expansion, x)
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
@@ -107,9 +114,12 @@
         end
 
 
-        @testset "Ball vs Asymptotic" begin
-            f = D(u0_tight)
-            expansion = D(u0_tight, AsymptoticExpansion())(Arb(1))
+        @testset "Ball vs Asymptotic - $type" for (u0, type) in (
+            (u0_narrow, "narrow"),
+            (u0_tight, "tight"),
+        )
+            f = D(u0)
+            expansion = D(u0, AsymptoticExpansion())(Arb(1))
             g = x -> eval_expansion(u0_tight, expansion, x)
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
@@ -139,9 +149,12 @@
             end
         end
 
-        @testset "Ball vs Asymptotic" begin
-            f = F0(u0_tight)
-            g = F0(u0_tight, Asymptotic(), ϵ = Arb(1))
+        @testset "Ball vs Asymptotic - $type" for (u0, type) in (
+            (u0_narrow, "narrow"),
+            (u0_tight, "tight"),
+        )
+            f = F0(u0)
+            g = F0(u0, Asymptotic(), ϵ = Arb(1))
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
                 p2 = g(x)
