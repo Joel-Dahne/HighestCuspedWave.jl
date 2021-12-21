@@ -146,7 +146,8 @@ function clausenc_with_remainder(
     p = clausenc(x, ArbSeries((s[0], 1); degree))
 
     # Compute remainder term
-    if s[0] == 2
+    if s[0] == 0 || s[0] == 2
+        @warn "non-rigorous remainder" maxlog = 1
         # FIXME: Properly implement this. Now we just widen the last
         # coefficient so that we get an enclosure at the endpoint of
         # s(interval) furthest from s[0]
@@ -196,6 +197,7 @@ function clausens_with_remainder(
 
     # Compute remainder term
     if s[0] == 1
+        @warn "non-rigorous remainder" maxlog = 1
         # FIXME: Properly implement this. Now we just widen the last
         # coefficient so that we get an enclosure at the endpoint of
         # s(interval) furthest from s[0]
@@ -245,6 +247,7 @@ function clausencmzeta_with_remainder(
 
     # Compute remainder term
     if s[0] == 2
+        @warn "non-rigorous remainder" maxlog = 1
         # FIXME: Properly implement this. Now we just widen the last
         # coefficient so that we get an enclosure at the endpoint of
         # s(interval) furthest from s[0]

@@ -523,8 +523,11 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Asymptotic)
 
-Compute the integral \$T_0\$ in a way that works for `x` close to
-zero.
+Return an expansion of the integral \$T_0\$ in `α` around `α = 0` of
+degree `1`. Computed in a way that works for `x` close to zero. The
+last term is a remainder term which ensures that evaluating the
+expansion gives an enclosure of `u0` for all values in the interval
+`α`.
 
 The method is similar to the non-asymptotic version but it evaluates
 the terms that depend on `x` in an asymptotic way. From the
@@ -555,8 +558,7 @@ gamma(α - 1) * sinpi(α / 2) =
     -π / 2 + (γ - 1) * π / 2 * α +
     (-24π + 24γ * π - 12γ^2 * π - π^3) / 48 * α^2
 ```
-- **PROVE:** That this is the expansion, Mathematica gives this.
-- **TODO:** Handle remainder term in `α`.
+- **TODO:** Compute remainder term in `α`.
 
 For
 ```
@@ -573,15 +575,15 @@ singular term in the expansion in `x` is given by
 ```
 gamma(α) * sinpi(α / 2) * abspow(x, -α)
 ```
-which also has a removable singularity. The expansion is given by
+which also has a removable singularity. We can handle the singularity
+by noticing that
 ```
-gamma(α) * sinpi(α / 2) =
-    π / 2 - γ * π / 2 * α + (12γ^2 * π + π^3) / 48 * α^2
+gamma(α) * sinpi(α / 2) = (α - 1) * gamma(α - 1) * sinpi(α / 2)
 ```
-- **PROVE:** That this is the expansion, Mathematica gives this.
-- **TODO:** Handle remainder term in `α`.
+and using the expansion of `gamma(α - 1) * sinpi(α / 2)` computed above.
 
-**TODO:** Handle remainder term in `α**.
+**TODO:** I wrote this when somewhat tired so it is probably a good
+idea to double check it.
 """
 function T0(
     u0::KdVZeroAnsatz,
@@ -594,33 +596,46 @@ function T0(
 
     u0_expansion = u0(ϵ, AsymptoticExpansion())
 
+    # Expansion of gamma(α - 1) * sinpi(α / 2)
+    gamma_sin = let γ = Arb(Irrational{:γ}()), π = Arb(π)
+        ArbSeries((-π / 2, (γ - 1) * π / 2))
+    end
+    # FIXME: Properly implement this. Now we just widen the last
+    # coefficient so that we get an enclosure for a lower bound of α
+    if !iszero(u0.α)
+        error = let α = lbound(Arb, u0.α)
+            gamma(α - 1) * sinpi(α / 2) - gamma_sin(α)
+        end
+        gamma_sin[1] += Arblib.add_error!(zero(error), error / lbound(Arb, u0.α))
+    end
+
     return x::Arb -> begin
         x <= ϵ || throw(ArgumentError("x needs to be smaller than ϵ, got x = $x, ϵ = $ϵ"))
 
         # We only need an enclosure of the root, not the derivative
-        root = _integrand_compute_root(u0, x, degree = 0)
+        root = _integrand_compute_root(u0, x, degree = 0)[0]
 
-        # FIXME: Figure out how to handle remainder terms in α
         # Compute primitive_mul_x(t) * x^α = primitive(t) * x^(1 + α)
+        # TODO: Use _with_remainder
         primitive_mul_x_onepα(t::Arb) =
             let γ = Arb(Irrational{:γ}()), π = Arb(π)
                 part1 = let s = 2 - α
-                    gamma_sin = ArbSeries((
-                        -π / 2,
-                        (γ - 1) * π / 2,
-                        (-24π + 24γ * π - 12γ^2 * π - π^3) / 48,
-                    ))
-
                     # Singular term
-                    res =
-                        gamma_sin * (
-                            abspow(1 - t, 1 - α) + abspow(1 + t, 1 - α) - 2abspow(t, 1 - α)
-                        )
+                    res = mul_with_remainder(
+                        gamma_sin,
+                        abspow_with_remainder(1 - t, 1 - α, u0.α) +
+                        abspow_with_remainder(1 + t, 1 - α, u0.α) -
+                        2abspow_with_remainder(t, 1 - α, u0.α),
+                        u0.α,
+                    )
                     # Analytic terms
                     res += sum(
                         (-1)^m *
-                        zeta(s - 2m) *
-                        abspow(x, 2m - 1 + α) *
+                        mul_with_remainder(
+                            compose_with_remainder(zeta, s - 2m, u0.α),
+                            abspow_with_remainder(x, 2m - 1 + α, u0.α),
+                            u0.α,
+                        ) *
                         ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m) for
                         m = 1:M-1
                     )
@@ -628,33 +643,43 @@ function T0(
                     # Here we use that max(1 - t, 1 + t, t) = 1 + t so
                     # it is enough to compute the remainder term at x * (1 + t)
                     res +=
-                        abspow(x, 2M - 1 + α) *
-                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) *
-                        clausenc_expansion_remainder(x * (1 + t), s, M)
+                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) * mul_with_remainder(
+                            abspow_with_remainder(x, 2M - 1 + α, u0.α),
+                            clausenc_expansion_remainder(x * (1 + t), s, M), # FIXME
+                            u0.α,
+                        )
 
                     res
                 end
 
                 part2 = let s = 1 - α
-                    gamma_sin = ArbSeries((π / 2, -γ * π / 2, (12γ^2 * π + π^3) / 48))
-
                     # Singular term
-                    res =
-                        gamma_sin *
-                        (-abspow(1 - t, -α) + abspow(1 + t, -α) - 2abspow(t, -α))
+                    res = mul_with_remainder(
+                        mul_with_remainder((α - 1), gamma_sin, u0.α),
+                        -abspow_with_remainder(1 - t, -α, u0.α) +
+                        abspow_with_remainder(1 + t, -α, u0.α) -
+                        2abspow_with_remainder(t, -α, u0.α),
+                        u0.α,
+                    )
                     # Analytic terms
                     res += sum(
                         (-1)^m *
-                        zeta(s - 2m - 1) *
-                        abspow(x, 2m + 1 + α) *
+                        mul_with_remainder(
+                            zeta(s - 2m - 1),
+                            abspow_with_remainder(x, 2m + 1 + α, u0.α),
+                            u0.α,
+                        ) *
                         (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) /
                         factorial(2m + 1) for m = 0:M-1
                     )
                     # Remainder term
                     res +=
-                        abspow(x, 2M + 1 + α) *
                         ((1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
-                        clausens_expansion_remainder(x * (1 + t), s, M)
+                        mul_with_remainder(
+                            abspow_with_remainder(x, 2M + 1 + α, u0.α),
+                            clausens_expansion_remainder(x * (1 + t), s, M), # FIXME
+                            u0.α,
+                        )
 
                     t * res
                 end
@@ -662,67 +687,68 @@ function T0(
                 part1 + part2
             end
 
-        primitive_mul_x_onepα(t::ArbSeries) =
-            let
-                # Compute the derivative considering the root as a constant
-                res = primitive_mul_x_onepα(t[0])
-
-                # The derivative of res doesn't depend on the derivative
-                # of the root. So if the degree is at most 1 we have
-                # computed the correct value
-                Arblib.degree(res) <= 1 && return res
-
-                # TODO: If we need more derivatives we have to handle them
-                # manually.
-                error("degree at most 1 supported")
-            end
-
         # Compute primitive_mul_x_onepα(0) = 2clausencmzeta(x, 2 - α) / x^(1 - α)
-        # FIXME: Figure out how to handle remainder terms in α
         primitive_mul_x_onepα_zero = let γ = Arb(Irrational{:γ}()), π = Arb(π)
             s = 2 - α
-            gamma_sin = ArbSeries((
-                -π / 2,
-                (γ - 1) * π / 2,
-                (-24π + 24γ * π - 12γ^2 * π - π^3) / 48,
-            ))
 
             # Singular term
             res = gamma_sin
             # Analytic terms
             res += sum(
-                (-1)^m * zeta(s - 2m) * abspow(x, 2m - 1 + α) / factorial(2m) for m = 1:M-1
+                (-1)^m * mul_with_remainder(
+                    compose_with_remainder(zeta, s - 2m, u0.α),
+                    abspow_with_remainder(x, 2m - 1 + α, u0.α),
+                    u0.α,
+                ) / factorial(2m) for m = 1:M-1
             )
             # Remainder term
-            res += abspow(x, 2M - 1 + α) * clausenc_expansion_remainder(x, s, M)
+            res += mul_with_remainder(
+                abspow_with_remainder(x, 2M - 1 + α, u0.α),
+                clausenc_expansion_remainder(x, s, M), # FIXME
+                u0.α,
+            )
 
             2res
         end
 
         # Compute primitive_mul_x_onepα(π / x) =
         # 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(1 - α)
-        # FIXME: Figure out how to handle remainder terms in α
         primitive_mul_x_onepα_pi_div_x = let π = Arb(π)
             s = 2 - α
             res = zero(primitive_mul_x_onepα_zero)
 
-            # We start from n = 1 since the first is cancelled
+            # We start from m = 1 since the first is cancelled
+            # TODO: Handle the case x = 0 for m = 1 which is singular.
             for m = 1:M-1
                 # m-th derivative at x = π
-                deriv = (-1)^(m ÷ 2) * (iseven(m) ? clausenc(π, s - m) : clausens(π, s - m))
+                deriv =
+                    (-1)^(m ÷ 2) * (
+                        iseven(m) ? clausenc_with_remainder(π, s - m, u0.α) :
+                        clausens_with_remainder(π, s - m, u0.α)
+                    )
+
                 # We have x^(m - 1) since we divide by x
-                res += deriv / factorial(m) * abspow(x, m - 1 + α)
+                res +=
+                    mul_with_remainder(
+                        deriv,
+                        abspow_with_remainder(x, m - 1 + α, u0.α),
+                        u0.α,
+                    ) / factorial(m)
             end
 
             # Remainder term
             # Interval for the Taylor expansion
             interval = union(π, π + x)
             # Enclosure of M-th derivative on interval
+            # TODO: Is this enough to bound the remainder?
             deriv =
-                (-1)^(M ÷ 2) *
-                (iseven(M) ? clausenc(interval, s - M) : clausens(interval, s - M))
+                (-1)^(M ÷ 2) * (
+                    iseven(M) ? clausenc_with_remainder(interval, s - M, u0.α) :
+                    clausens_with_remainder(interval, s - M, u0.α)
+                )
             # Add enclosure of the remainder term
-            res += deriv / factorial(M) * abspow(x, M - 1 + α)
+            res +=
+                mul_with_remainder(deriv, abspow_with_remainder(x, M - 1 + α, u0.α), u0.α) / factorial(M)
 
             2res
         end
@@ -736,7 +762,11 @@ function T0(
         if skip_div_u0
             res = I_mul_x_onepα_div_pi
         else
-            res = I_mul_x_onepα_div_pi / eval_expansion(u0, u0_expansion, x, offset_i = -1)
+            res = div_with_remainder(
+                I_mul_x_onepα_div_pi,
+                eval_expansion(u0, u0_expansion, x, offset_i = -1),
+                u0.α,
+            )
         end
 
         # The constant term should be exactly 1. This holds not matter
