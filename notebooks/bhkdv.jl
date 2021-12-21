@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.17.3
 
 using Markdown
 using InteractiveUtils
@@ -87,7 +87,7 @@ end
 ϵ = 1e-5 * (1 + v0.α)
 
 # ╔═╡ 69dde124-8988-4f70-837d-01e940d199e4
-u0 = BHKdVAnsatz(midpoint(Arb, ϵ), BHAnsatz{Arb}(16; v0))
+u0 = BHKdVAnsatz(midpoint(Arb, ϵ), BHAnsatz{Arb}(16; v0), γ = Arb(0.5))
 
 # ╔═╡ 73ae2ee7-d722-4ad8-8fc7-a57781180d35
 let xs = Arb.(range(-4, 4, length = 101))
@@ -353,22 +353,22 @@ end
 # ╟─43ff127c-f7fa-4ff0-9827-36fc9507fb0b
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─3e6b7582-bb9f-46be-84de-f568dec6780e
-# ╠═f1dce520-a035-43e6-9e08-4696a14c5a54
-# ╠═22573416-3918-4bb9-9ec2-06b87d923c1d
+# ╟─f1dce520-a035-43e6-9e08-4696a14c5a54
+# ╟─22573416-3918-4bb9-9ec2-06b87d923c1d
 # ╠═61151255-15d4-45ec-a3ad-573c46d34d93
 # ╟─ab9d59df-3488-4f8a-a321-d23aab7e01d4
 # ╟─681e590a-a297-4dcc-8528-2f24e05df30f
 # ╟─87b3712f-1cf7-4d02-b1d1-d68d7f4464d6
-# ╠═de4546e1-4a9f-4d37-b59c-ee4509d09868
+# ╟─de4546e1-4a9f-4d37-b59c-ee4509d09868
 # ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 # ╟─89d54f92-8b3a-4913-875d-31068856fb62
 # ╟─5bc3a7c1-9acd-49c4-afd4-e0a94b3b02d7
 # ╠═25927755-307c-40b7-adc9-4577ab8c2f61
 # ╠═358b2691-3b1b-4733-a173-acf987a221ea
 # ╟─67aa36b0-b77c-4531-a248-f7d474ffd47d
-# ╠═b8c5ba34-748e-4c4b-be9c-135240287351
-# ╠═f88046ed-d4c4-4ce4-a424-96c87dc87711
-# ╠═1bb84607-4f0f-4e7b-a24f-258b4e581c2c
+# ╟─b8c5ba34-748e-4c4b-be9c-135240287351
+# ╟─f88046ed-d4c4-4ce4-a424-96c87dc87711
+# ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
 # ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
 # ╟─ac03e920-25ad-4127-ad87-00e907701da3
 # ╟─9e18768c-40d0-45a8-b1fe-01d092b50f52

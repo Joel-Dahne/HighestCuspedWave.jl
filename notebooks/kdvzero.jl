@@ -84,7 +84,7 @@ In what follows we compute enclosures of $\alpha_0$, $A$ and $B$.
 """
 
 # ╔═╡ f27e0113-5e77-44af-958a-4b9e4a13a40b
-ϵ = Arb(-1e-2)
+ϵ = Arb(-1e-8)
 
 # ╔═╡ 34009ff0-dadd-4464-9187-890723d94a3e
 u0 = KdVZeroAnsatz(Arb((ϵ, 0)))
@@ -156,7 +156,7 @@ We can now plot the coefficient in front of $\alpha^2$ as a function of $x$.
 """
 
 # ╔═╡ 51603714-bb7e-4691-b80d-7b18cf159b94
-A_xs, A_ys = let xs = range(Arb(0), π, length = 200)[2:end]
+A_xs, A_ys = let xs = range(Arb("1e-1"), π, length = 200)
     ys = similar(xs)
     f = let F0 = F0(u0)
         x -> begin
