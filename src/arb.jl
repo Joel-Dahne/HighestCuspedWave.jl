@@ -42,13 +42,12 @@ function stieltjes(::Type{Arb}, n::Integer)
     res = zero(Acb)
     a = one(Acb)
 
-    # This call uses fmpz from Nemo
     ccall(
         (:acb_dirichlet_stieltjes, Arblib.libarb),
         Cvoid,
-        (Ref{Arblib.acb_struct}, Ref{Nemo.fmpz}, Ref{Arblib.acb_struct}, Clong),
+        (Ref{Arblib.acb_struct}, Ref{fmpz_struct}, Ref{Arblib.acb_struct}, Clong),
         res,
-        convert(Nemo.fmpz, n),
+        fmpz_struct(convert(Int, n)),
         a,
         precision(res),
     )
@@ -66,12 +65,11 @@ integer. Otherwise return `false, 0`
 
 """
 function unique_integer(x::Arb)
-    # This call uses fmpz from Nemo
-    res = Nemo.fmpz()
+    res = fmpz_struct()
     unique = ccall(
         Arblib.@libarb(arb_get_unique_fmpz),
         Int,
-        (Ref{Nemo.fmpz}, Ref{Arblib.arb_struct}),
+        (Ref{fmpz_struct}, Ref{Arblib.arb_struct}),
         res,
         x,
     )

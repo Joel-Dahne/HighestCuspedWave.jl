@@ -7,8 +7,7 @@ using OffsetArrays
 using OrderedCollections
 using SpecialFunctions
 
-import Nemo
-
+include("fmpz.jl")
 include("arb.jl")
 include("special-functions/polylog.jl")
 include("special-functions/clausenc.jl")
