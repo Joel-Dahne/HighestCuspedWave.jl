@@ -1,17 +1,23 @@
 """
-    truncate_with_remainder(p::ArbPoly, interval::Arb; degree::Integer)
+    truncate_with_remainder(p::Union{ArbPoly,ArbSeries}, interval::Arb; degree::Integer)
 
 Return a `ArbSeries` corresponding to a truncated version of `p` with
 the last term being a remainder term which ensures that the truncated
 version gives an enclosure of `p(x)` for all `x ∈ interval`.
 """
-function truncate_with_remainder(p::ArbPoly, interval::Arb; degree::Integer)
+function truncate_with_remainder(
+    p::Union{ArbPoly,ArbSeries},
+    interval::Arb;
+    degree::Integer,
+)
     # Set the result to a truncated version of p
     res = ArbSeries(p; degree)
 
+    Arblib.degree(p) <= degree && return res
+
     # Set q to a p divided by x^degree and throwing away lower order
     # terms.
-    q = Arblib.shift_right!(zero(p), p, degree)
+    q = Arblib.shift_right!(ArbPoly(prec = precision(p)), p, degree)
 
     # Evaluate q on the given interval and set this as the remainder term
     res[degree] = q(interval)
