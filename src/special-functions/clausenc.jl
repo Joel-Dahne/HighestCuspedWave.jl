@@ -167,9 +167,30 @@ end
 
 Evaluation of the `clausenc(x, s, β)` function through the zeta
 function.
+
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure using a Taylor expansion in `s`.
+**IMPROVE:** The degree used in this expansion could be tuned more. At
+the moment it is set to a quite high value, but that seems to be
+beneficial for `KdVZeroansatz` with a wide interval for `α`. Possibly
+we want to use a higher value for higher values of `s` and also wider
+values of `s`.
 """
-_clausenc_zeta(x::Arb, s::Arb, β::Integer) =
-    _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
+function _clausenc_zeta(x::Arb, s::Arb, β::Integer)
+    if iswide(s)
+        f(s::Arb) = _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
+        f(s::ArbSeries) = Arblib.derivative(
+            _clausenc_zeta(x, ArbSeries(s, degree = Arblib.degree(s) + β)),
+            β,
+        )
+
+        res = Arb(ArbExtras.extrema_series(f, getinterval(s)..., degree = 10)[1:2])
+    else
+        res = _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
+    end
+
+    return res
+end
 
 """
     clausenc(x, s)

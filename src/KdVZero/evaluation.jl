@@ -152,8 +152,6 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
     let α = ArbSeries((0, 1); u0.degree)
         for j = 1:2
             # term = clausencmzeta(x, 1 - α + j * u0.p0)
-            # IMPROVE: This gives very bad bounds and might have to be
-            # improved.
             term = clausencmzeta_with_remainder(x, 1 - α + j * u0.p0, u0.α)
 
             # res += u0.a[j] * term
@@ -390,8 +388,6 @@ function H(u0::KdVZeroAnsatz, ::Ball)
         let α = ArbSeries((0, 1); u0.degree)
             for j = 1:2
                 # term = clausencmzeta(x, 1 - α + j * u0.p0)
-                # IMPROVE: This gives very bad bounds and might have to be
-                # improved.
                 term = clausencmzeta_with_remainder(x, 1 - 2α + j * u0.p0, u0.α)
 
                 # res += u0.a[j] * term
