@@ -539,11 +539,13 @@ function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
         let expansion1 = collect(expansion1)
             z = zero(first(expansion1)[2]) # Avoid allocating zero multiple times
             for (i, (key1, a1)) in enumerate(expansion1)
-                expansion[2 .* key1] = get(expansion, 2 .* key1, z) + a1^2 / 2
+                expansion[2 .* key1] =
+                    get(expansion, 2 .* key1, z) + mul_with_remainder(a1, a1, u0.α) / 2
                 for j = i+1:length(expansion1)
                     (key2, a2) = expansion1[j]
                     key = key1 .+ key2
-                    expansion[key] = get(expansion, key, z) + a1 * a2
+                    expansion[key] =
+                        get(expansion, key, z) + mul_with_remainder(a1, a2, u0.α)
                 end
             end
         end
