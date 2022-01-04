@@ -120,7 +120,7 @@
         )
             f = D(u0)
             expansion = D(u0, AsymptoticExpansion())(Arb(1))
-            g = x -> eval_expansion(u0_tight, expansion, x)
+            g = x -> eval_expansion(u0, expansion, x)
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
                 p2 = g(x)
