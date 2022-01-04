@@ -499,6 +499,15 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
     end
 end
 
+function D(u0::KdVZeroAnsatz, evaltype::Ball)
+    f = H(u0, evaltype)
+    return x -> begin
+        p = u0(x, evaltype)
+        p2 = mul_with_remainder(p, p, u0.α)
+        return p2 / 2 + f(x)
+    end
+end
+
 """
     D(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
 
@@ -685,15 +694,6 @@ function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M:
         res += a_enclosure[2] * clausen2
 
         return res
-    end
-end
-
-function D(u0::KdVZeroAnsatz, evaltype::Ball)
-    f = H(u0, evaltype)
-    return x -> begin
-        p = u0(x, evaltype)
-        p2 = mul_with_remainder(p, p, u0.α)
-        return p2 / 2 + f(x)
     end
 end
 
