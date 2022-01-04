@@ -559,11 +559,6 @@ function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
             expansion[key] = zero(y)
         end
 
-        # Zero all linear terms in α since they all cancel out
-        for (key, y) in expansion
-            y[1] = 0
-        end
-
         return expansion
     end
 end
