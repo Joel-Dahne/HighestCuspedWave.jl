@@ -741,8 +741,6 @@ functions.
 But the constant terms of the expansion in `α` are given by directly
 plugging in `α = 0`, in which case the two terms are clearly
 identical, which is what we wanted to show.
-
-- **TODO:** Handle remainder terms in `α`.
 """
 function F0(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
@@ -788,7 +786,8 @@ D(u0)(x) / (x * u0(x))
 ```
 we then explicitly cancel `x^(1 - α)` in `D(u0)` and `x^-α` in `u0`.
 
-- **TODO:** Handle remainder terms in `α`.
+Similarly to the non-asymptotic version both the constant and linear
+terms in the expansion are supposed to be zero, which we enforce.
 """
 function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
     D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
@@ -797,6 +796,10 @@ function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
     return x::Arb -> begin
         num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
+
+        @assert iszero(Arblib.ref(num, 0))
+        @assert Arblib.contains_zero(Arblib.ref(num, 1))
+        num[1] = 0
 
         return div_with_remainder(num, den, u0.α)
     end
