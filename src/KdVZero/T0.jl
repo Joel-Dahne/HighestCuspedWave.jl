@@ -616,7 +616,6 @@ function T0(
         root = _integrand_compute_root(u0, x, degree = 0)[0]
 
         # Compute primitive_mul_x(t) * x^α = primitive(t) * x^(1 + α)
-        # TODO: Use _with_remainder
         primitive_mul_x_onepα(t::Arb) =
             let γ = Arb(Irrational{:γ}()), π = Arb(π)
                 part1 = let s = 2 - α
@@ -665,7 +664,7 @@ function T0(
                     res += sum(
                         (-1)^m *
                         mul_with_remainder(
-                            zeta(s - 2m - 1),
+                            compose_with_remainder(zeta, s - 2m - 1, u0.α),
                             abspow_with_remainder(x, 2m + 1 + α, u0.α),
                             u0.α,
                         ) *
