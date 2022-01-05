@@ -7,7 +7,7 @@ gives an enclosure of `p0` for all values in the interval `α`.
 
 We are interested in finding `p0` solving
 ```
-gamma(2α - p0) cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
+gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
     2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
 ```
 
