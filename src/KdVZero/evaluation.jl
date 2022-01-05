@@ -19,9 +19,13 @@ function eval_expansion(
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
-            exponent = -(i + offset_i) * α + j * u0.p0 + (m + offset_m)
-            term = abspow_with_remainder(x, exponent, u0.α)
-
+            if iszero(i + offset_i) && iszero(j) && iszero(m + offset_m)
+                # Exponent is identically equal to zero
+                term = one(res)
+            else
+                exponent = -(i + offset_i) * α + j * u0.p0 + (m + offset_m)
+                term = abspow_with_remainder(x, exponent, u0.α)
+            end
             res += mul_with_remainder(y, term, u0.α)
         end
     end
