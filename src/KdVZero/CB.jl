@@ -11,80 +11,104 @@ p = 1 + p[1] * α
 satisfying that `p(α)` gives an enclosure of \$C_B\$ for every `α ∈
 u0.α`.
 
-For a given value of `x` [`T0`](@ref) gives us an expansion in `α`.
-From this expansion we compute `p₁(x)` such that
+For a given value of `x` [`T0`](@ref) gives us an expansion in `α` of
+the form
 ```
 1 + p₁(x) * α
 ```
-gives an enclosure of `T0(u0)(x)` for every `α ∈ u0.α`. We are then
-interested in computing the minimum value of `p₁(x)` for `x ∈ [0, π]`,
-we take the minimum value since `α` is negative.
-
-To compute `p₁(x)` we note that `T0(u0)(x)` returns `q::ArbSeries`
-such that `q(u0.α)` gives an enclosure for the specified `x`. We can
-reduce this to a first order enclosure by rewriting `q` as
-```
-q = 1 + q[1] * α + q[2] * α^2 + ...
-  = 1 + (q[1] + q[2] * α + ...) * α
-```
-and we see that it is enough to compute an enclosure of `q[1] + q[2]
-* α + ...`.
+that gives an enclosure of `T0(u0)(x)` for every `α ∈ u0.α`. We are
+then interested in computing the minimum value of `p₁(x)` for `x ∈ [0,
+π]`, we take the minimum value since `α` is negative.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
-On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
+On `[0 ϵ]` we use the asymptotic version of `T0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
+
+In practice the the minimum is attained at `x = 0`, we therefore
+compute the minimum on `[0, ϵ]` first and then only prove that this is
+a lower bound of the value on `[ϵ, π]`.
+
+The value for `ϵ` is chosen dynamically by first computing the value
+at `x = 0` and then trying to pick `ϵ` as large but so that the
+enclosure from the asymptotic version of `T0` is larger than the value
+at `x = 0`
 """
 function CB(
     u0::KdVZeroAnsatz;
-    ϵ::Arf = Arf(0.1),
     rtol = Arb(1e-3),
     maxevals = 1000, # TODO: This we can probably remove later
     threaded = true,
     verbose = false,
 )
-    ϵ = Arf(0.1)
+    # Compute the value at x = 0, this is the minimum in practice
+    p1_zero = T0(u0, Asymptotic())(Arb(0))[1]
 
-    # In both the below methods we compute the expansion, subtract 1
-    # and divide by α, evaluate the resulting series at u0.α. This
-    # gives us an enclosure of p₁(x).
+    # Determine a good choice of ϵ
+    ϵ = let T0_asymptotic = T0(u0, Asymptotic(), ϵ = Arb(π))
+        # We start trying at ϵ = 2
+        ϵ = Arb(2)
+        y = T0_asymptotic(ϵ)[1]
+
+        # Reduce ϵ until the value we get is finite and larger than
+        # the value at x = 0 plus the tolerance
+        while !(isfinite(y) && y > p1_zero + rtol)
+            if ϵ > 1
+                ϵ -= 0.05
+            else
+                ϵ /= 1.2
+            end
+            y = T0_asymptotic(ϵ)[1]
+            ϵ > 0.1 || error("could not determine working ϵ, last tried value was $ϵ")
+        end
+        ubound(ϵ)
+    end
+
+    verbose && @info "Determined ϵ" ϵ
 
     # Function for computing p₁(x) for x ∈ [0, ϵ]
-    T0_asymptotic = T0(u0, Asymptotic())
-    f(x) = ((T0_asymptotic(x) - 1) << 1)(u0.α)
-
-    # Function for computing p₁(x) for x ∈ [ϵ, π]
-    T0_nonasymptotic = T0(u0, Ball())
-    g(x) = ((T0_nonasymptotic(x) - 1) << 1)(u0.α)
+    T0_asymptotic = T0(u0, Asymptotic(), ϵ = Arb(ϵ + 0.1))
+    f(x) = T0_asymptotic(x)[1]
 
     # Compute an enclosure on [0, ϵ]
-    p1_asymptotic = ArbExtras.minimum_enclosure(
+    p1 = ArbExtras.minimum_enclosure(
         f,
         zero(ϵ),
         ϵ,
-        degree = -1;
+        degree = -1,
+        point_value_min = p1_zero; # Minimum in practice
         rtol,
-        maxevals,
         threaded,
         verbose,
     )
 
-    verbose && @info "Bound of p[1] on [0, ϵ]" p1_asymptotic
+    verbose && @info "Bound of p[1] on [0, ϵ]" p1
 
-    # Compute an enclosure on [0, ϵ]
-    p1_nonasymptotic = ArbExtras.minimum_enclosure(
+    # To prove that the value on [ϵ, π] is lower bounded by p1 we use
+    # ArbExtras.bounded_by. This only works for upper bounds so we
+    # instead prove that -p₁ < -p1
+
+    # Function for computing -p₁(x) for x ∈ [ϵ, π]
+    T0_nonasymptotic = T0(u0, Ball())
+    g(x) = -T0_nonasymptotic(x)[1]
+
+    # Prove that on the interval [ϵ, π] it is bounded by p1
+    check_bound = ArbExtras.bounded_by(
         g,
         ϵ,
         ubound(Arb(π)),
+        lbound(-p1),
         degree = -1;
-        rtol,
         maxevals,
         threaded,
         verbose,
     )
 
-    verbose && @info "Bound of p[1] on [ϵ, π]" p1_nonasymptotic
+    if !check_bound
+        @error "Could not prove bound on [ϵ, π]"
+        return ArbSeries((1, NaN))
+    end
 
-    p1 = max(p1_asymptotic, p1_nonasymptotic)
+    verbose && @info "Proved bound on [ϵ, π]"
 
     return ArbSeries((1, p1))
 end
