@@ -109,6 +109,32 @@ function _clausens_zeta(x::Arb, s::ArbSeries)
 
     res = let inv2π = inv(2Arb(π))
         gamma(v) * inv2π^v * sinpi(v / 2) * (zeta(v, x * inv2π) - zeta(v, 1 - x * inv2π))
+
+"""
+    _clausens_zeta(x::Arb, s::Arb, β::Integer)
+
+Evaluation of the `clausens(x, s, β)` function through the zeta
+function.
+
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure using a Taylor expansion in `s`.
+**IMPROVE:** The degree used in this expansion could be tuned more. At
+the moment it is set to a quite high value, but that seems to be
+beneficial for `KdVZeroansatz` with a wide interval for `α`. Possibly
+we want to use a higher value for higher values of `s` and also wider
+values of `s`.
+"""
+function _clausens_zeta(x::Arb, s::Arb, β::Integer)
+    if iswide(s)
+        f(s::Arb) = _clausens_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
+        f(s::ArbSeries) = Arblib.derivative(
+            _clausens_zeta(x, ArbSeries(s, degree = Arblib.degree(s) + β)),
+            β,
+        )
+
+        res = Arb(ArbExtras.extrema_series(f, getinterval(s)..., degree = 10)[1:2])
+    else
+        res = _clausens_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
     end
 
     return res
@@ -280,7 +306,15 @@ times w.r.t. `s`.
 - **IMPROVE**: Handle wide (real) balls better, similar to how
   `clausens(x, s)` does it.
 """
-clausens(x::Arb, s::Arb, β::Integer) = _clausens_polylog(x, s, β)
+function clausens(x::Arb, s::Arb, β::Integer)
+    if !Arblib.contains_int(s) || Arblib.isnegative(s)
+        if Arblib.ispositive(x) && x < 2Arb(π)
+            return _clausens_zeta(x, s, β)
+        end
+    end
+
+    return _clausens_polylog(x, s, β)
+end
 
 clausens(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
     convert(float(promote_type(S, T)), clausens(convert(Arb, x), convert(Arb, s), β))
