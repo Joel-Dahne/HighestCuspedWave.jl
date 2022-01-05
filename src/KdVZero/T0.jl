@@ -748,11 +748,11 @@ function T0(
             2res
         end
 
-        I_mul_x =
+        I_mul_x_onepα =
             primitive_mul_x_onepα_zero - 2primitive_mul_x_onepα(root) +
             primitive_mul_x_onepα_pi_div_x
 
-        I_mul_x_onepα_div_pi = I_mul_x / π
+        I_mul_x_onepα_div_pi = I_mul_x_onepα / π
 
         if skip_div_u0
             res = I_mul_x_onepα_div_pi
