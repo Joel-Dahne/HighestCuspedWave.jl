@@ -51,7 +51,7 @@
         for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 50))
             p1 = f(x)
             p2 = g(x)
-            @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
+            @test Arblib.overlaps(p1, p2)
             #@show p1 - p2
         end
     end

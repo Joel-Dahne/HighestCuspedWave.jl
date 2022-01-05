@@ -53,7 +53,7 @@
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = u0_tight(x)
                 p2 = eval_expansion(u0, expansion, x)
-                @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
+                @test Arblib.overlaps(p1, p2)
                 #@show p1 - p2
             end
         end
@@ -88,7 +88,7 @@
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
                 p2 = g(x)
-                @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
+                @test Arblib.overlaps(p1, p2)
                 #@show p1 - p2
             end
         end
@@ -124,7 +124,7 @@
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
                 p2 = g(x)
-                @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
+                @test Arblib.overlaps(p1, p2)
                 #@show p1 - p2
             end
         end
@@ -158,7 +158,7 @@
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
                 p2 = g(x)
-                @test all(Arblib.overlaps.(Arblib.coeffs(p1), Arblib.coeffs(p2)))
+                @test Arblib.overlaps(p1, p2)
                 #@show p1 - p2
             end
         end
