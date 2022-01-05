@@ -717,17 +717,17 @@ function T0(
             s = 2 - α
             res = zero(primitive_mul_x_onepα_zero)
 
-            # We start from m = 1 since the first is cancelled
-            # TODO: Handle the case x = 0 for m = 1 which is singular.
-            for m = 1:M-1
-                # m-th derivative at x = π
-                deriv =
-                    (-1)^(m ÷ 2) * (
-                        iseven(m) ? clausenc_with_remainder(π, s - m, u0.α) :
-                        clausens_with_remainder(π, s - m, u0.α)
-                    )
+            # The function is even around π so it is beneficial to
+            # always take an even number of terms
+            N = iseven(M) ? M : M + 1
 
-                # We have x^(m - 1) since we divide by x
+            # We skip m = 0 since it is cancelled. We take only even
+            # values of m since the function is even around x = π
+            for m = 2:2:N-1
+                # m-th derivative at x = π, note that m is always even
+                deriv = (-1)^(m ÷ 2) * clausenc_with_remainder(π, s - m, u0.α)
+
+                # We have x^(m - 1 + α) since we divide by x^(1 - α)
                 res +=
                     mul_with_remainder(
                         deriv,
@@ -739,16 +739,12 @@ function T0(
             # Remainder term
             # Interval for the Taylor expansion
             interval = union(π, π + x)
-            # Enclosure of M-th derivative on interval
-            # TODO: Is this enough to bound the remainder?
-            deriv =
-                (-1)^(M ÷ 2) * (
-                    iseven(M) ? clausenc_with_remainder(interval, s - M, u0.α) :
-                    clausens_with_remainder(interval, s - M, u0.α)
-                )
+            # Enclosure of N-th derivative on interval
+            deriv = (-1)^(N ÷ 2) * clausenc_with_remainder(interval, s - N, u0.α)
+
             # Add enclosure of the remainder term
             res +=
-                mul_with_remainder(deriv, abspow_with_remainder(x, M - 1 + α, u0.α), u0.α) / factorial(M)
+                mul_with_remainder(deriv, abspow_with_remainder(x, N - 1 + α, u0.α), u0.α) / factorial(N)
 
             2res
         end
