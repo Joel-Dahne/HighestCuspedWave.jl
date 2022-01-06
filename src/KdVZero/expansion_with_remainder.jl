@@ -253,9 +253,9 @@ enclosure of `clausencmzeta(x, s)` for all `s ∈ interval`.
 The only difference to calling `clausencmzeta(x, s)` directly is that
 the last term works as a remainder term.
 
-Currently this is equivalent to `compose_with_remainder(s ->
-clausencmzeta(x, s), s)`. The idea is that this will eventually
-implement certain optimizations for this special case.
+For wide values of `x` it computes each term in the expansion
+separately, allowing it to use [`ArbExtras.extrema_series`](@ref) to
+compute a tighter enclosure of the terms.
 """
 function clausencmzeta_with_remainder(
     x::Arb,
@@ -263,11 +263,28 @@ function clausencmzeta_with_remainder(
     interval::Arb;
     degree = Arblib.degree(s),
 )
-    # Compute expansion at s[0] with degree - 1
-    p = clausencmzeta(x, ArbSeries((s[0], 1), degree = degree - 1))
+    if iswide(x)
+        p = ArbSeries(; degree)
 
-    # Increase the degree of p to make room for the remainder term
-    p = ArbSeries(p; degree)
+        # For the constant term it already implements handling of
+        # monotonicity and we don't have to use
+        # ArbExtras.extrema_series
+        p[0] = clausencmzeta(x, s[0])
+
+        for β = 1:degree-1
+            p[β] = Arb((ArbExtras.extrema_series(
+                x -> clausencmzeta(x, s[0], β),
+                getinterval(x)...,
+                degree = 1,
+            )[1:2]))
+        end
+    else
+        # Compute expansion at s[0] with degree - 1
+        p = clausencmzeta(x, ArbSeries((s[0], 1), degree = degree - 1))
+
+        # Increase the degree of p to make room for the remainder term
+        p = ArbSeries(p; degree)
+    end
 
     # Compute remainder term
     if s[0] == 2
@@ -287,7 +304,15 @@ function clausencmzeta_with_remainder(
             union(clausencmzeta(x, s_lower, degree), clausencmzeta(x, s_upper, degree)) /
             factorial(degree)
     else
-        remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
+        if iswide(x)
+            remainder_term = Arb((ArbExtras.extrema_series(
+                x -> clausencmzeta(x, s(interval), degree),
+                getinterval(x)...,
+                degree = 1,
+            )[1:2]))
+        else
+            remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
+        end
     end
 
     p[degree] = remainder_term
