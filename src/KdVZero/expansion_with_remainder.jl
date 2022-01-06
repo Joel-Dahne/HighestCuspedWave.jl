@@ -17,7 +17,7 @@ function truncate_with_remainder(
 
     # Set q to a p divided by x^degree and throwing away lower order
     # terms.
-    q = Arblib.shift_right!(ArbPoly(prec = precision(p)), p, degree)
+    q = Arblib.shift_right!(ArbPoly(), p, degree)
 
     # Evaluate q on the given interval and set this as the remainder term
     res[degree] = q(interval)
@@ -72,8 +72,11 @@ function compose_with_remainder(
     interval::Arb;
     degree::Integer = Arblib.degree(q),
 )
-    # Compute expansion of f at q[0]
-    p = f(ArbSeries((q[0], 1); degree))
+    # Compute expansion of f at q[0] with degree - 1
+    p = f(ArbSeries((q[0], 1), degree = degree - 1))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p; degree)
 
     # Compute remainder term
     p[degree] = f(ArbSeries((q(interval), 1); degree))[degree]
@@ -148,8 +151,11 @@ function clausenc_with_remainder(
     interval::Arb;
     degree = Arblib.degree(s),
 )
-    # Compute expansion at s[0]
-    p = clausenc(x, ArbSeries((s[0], 1); degree))
+    # Compute expansion at s[0] with degree - 1
+    p = clausenc(x, ArbSeries((s[0], 1), degree = degree - 1))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p; degree)
 
     # Compute remainder term
     if s[0] == 0 || s[0] == 2
@@ -201,8 +207,11 @@ function clausens_with_remainder(
     interval::Arb;
     degree = Arblib.degree(s),
 )
-    # Compute expansion at s[0]
-    p = clausens(x, ArbSeries((s[0], 1); degree))
+    # Compute expansion at s[0] with degree - 1
+    p = clausens(x, ArbSeries((s[0], 1), degree = degree - 1))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p; degree)
 
     # Compute remainder term
     if s[0] == 1
@@ -254,8 +263,11 @@ function clausencmzeta_with_remainder(
     interval::Arb;
     degree = Arblib.degree(s),
 )
-    # Compute expansion at s[0]
-    p = clausencmzeta(x, ArbSeries((s[0], 1); degree))
+    # Compute expansion at s[0] with degree - 1
+    p = clausencmzeta(x, ArbSeries((s[0], 1), degree = degree - 1))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p; degree)
 
     # Compute remainder term
     if s[0] == 2
@@ -312,11 +324,17 @@ function abspow_with_remainder(
     interval::Arb;
     degree = Arblib.degree(y),
 )
-    # Compute expansion at s[0]
-    p = abspow(x, ArbSeries((y[0], 1); degree))
+    # Compute expansion at y[0] with degree - 1
+    p = abspow(x, ArbSeries((y[0], 1), degree = degree - 1))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p; degree)
 
     # Compute remainder term
+    # We compute the interval in this way to avoid spurious negative
+    # values of y in the special case Arblib.is_x(-y)
     yinterval = Arblib.is_x(-y) ? -interval : y(interval)
+
     p[degree] = abspow(x, (ArbSeries((yinterval, 1); degree)))[degree]
 
     # y - y[0]
