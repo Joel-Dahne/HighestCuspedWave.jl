@@ -154,24 +154,27 @@ function clausenc_with_remainder(
     # Compute remainder term
     if s[0] == 0 || s[0] == 2
         @warn "non-rigorous remainder" maxlog = 1
-        # FIXME: Properly implement this. Now we just widen the last
-        # coefficient so that we get an enclosure at the endpoint of
-        # s(interval) furthest from s[0]
-        if !iszero(radius(interval))
-            s_lower, s_upper = getinterval(Arb, s(interval))
-            if abs(s_lower - s[0]) > abs(s_upper - s[0])
-                error = (clausenc(x, s_lower) - p(s_lower - s[0])) / (s_lower - s[0])^degree
-            else
-                error = (clausenc(x, s_upper) - p(s_upper - s[0])) / (s_upper - s[0])^degree
-            end
-            p[degree] += Arblib.add_error!(zero(interval), error)
-        end
+        # FIXME: Properly implement this. For now it assumes
+        # monotonicity for clausenc(x, s, degree) in s, which is not
+        # true in general
+
+        # We evaluate s like this to make the endpoint exact if they
+        # are integers. Otherwise we typically get a value slightly
+        # smaller or larger than the exact integer, which gives much
+        # worse bounds.
+        s_lower, s_upper =
+            ArbExtras.extrema_polynomial(ArbPoly(s), getinterval(interval)...)
+
+        remainder_term =
+            union(clausenc(x, s_lower, degree), clausenc(x, s_upper, degree)) /
+            factorial(degree)
     else
         remainder_term = clausenc(x, s(interval), degree) / factorial(degree)
-        p[degree] = remainder_term
     end
 
-    # q - q[0]
+    p[degree] = remainder_term
+
+    # s - s[0]
     sms0 = ArbSeries(s)
     sms0[0] = 0
 
@@ -204,24 +207,27 @@ function clausens_with_remainder(
     # Compute remainder term
     if s[0] == 1
         @warn "non-rigorous remainder" maxlog = 1
-        # FIXME: Properly implement this. Now we just widen the last
-        # coefficient so that we get an enclosure at the endpoint of
-        # s(interval) furthest from s[0]
-        if !iszero(radius(interval))
-            s_lower, s_upper = getinterval(Arb, s(interval))
-            if abs(s_lower - s[0]) > abs(s_upper - s[0])
-                error = (clausens(x, s_lower) - p(s_lower - s[0])) / (s_lower - s[0])^degree
-            else
-                error = (clausens(x, s_upper) - p(s_upper - s[0])) / (s_upper - s[0])^degree
-            end
-            p[degree] += Arblib.add_error!(zero(interval), error)
-        end
+        # FIXME: Properly implement this. For now it assumes
+        # monotonicity for clausens(x, s, degree) in s, which is not
+        # true in general
+
+        # We evaluate s like this to make the endpoint exact if they
+        # are integers. Otherwise we typically get a value slightly
+        # smaller or larger than the exact integer, which gives much
+        # worse bounds.
+        s_lower, s_upper =
+            ArbExtras.extrema_polynomial(ArbPoly(s), getinterval(interval)...)
+
+        remainder_term =
+            union(clausens(x, s_lower, degree), clausens(x, s_upper, degree)) /
+            factorial(degree)
     else
         remainder_term = clausens(x, s(interval), degree) / factorial(degree)
-        p[degree] = remainder_term
     end
 
-    # q - q[0]
+    p[degree] = remainder_term
+
+    # s - s[0]
     sms0 = ArbSeries(s)
     sms0[0] = 0
 
@@ -254,28 +260,27 @@ function clausencmzeta_with_remainder(
     # Compute remainder term
     if s[0] == 2
         @warn "non-rigorous remainder" maxlog = 1
-        # FIXME: Properly implement this. Now we just widen the last
-        # coefficient so that we get an enclosure at the endpoint of
-        # s(interval) furthest from s[0]
-        if !iszero(radius(interval))
-            s_lower, s_upper = getinterval(Arb, s(interval))
-            if abs(s_lower - s[0]) > abs(s_upper - s[0])
-                error =
-                    (clausencmzeta(x, s_lower) - p(s_lower - s[0])) /
-                    (s_lower - s[0])^degree
-            else
-                error =
-                    (clausencmzeta(x, s_upper) - p(s_upper - s[0])) /
-                    (s_upper - s[0])^degree
-            end
-            p[degree] += Arblib.add_error!(zero(interval), error)
-        end
+        # FIXME: Properly implement this. For now it assumes
+        # monotonicity for clausencmzeta(x, s, degree) in s, which is
+        # not true in general
+
+        # We evaluate s like this to make the endpoint exact if they
+        # are integers. Otherwise we typically get a value slightly
+        # smaller or larger than the exact integer, which gives much
+        # worse bounds.
+        s_lower, s_upper =
+            ArbExtras.extrema_polynomial(ArbPoly(s), getinterval(interval)...)
+
+        remainder_term =
+            union(clausencmzeta(x, s_lower, degree), clausencmzeta(x, s_upper, degree)) /
+            factorial(degree)
     else
         remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
-        p[degree] = remainder_term
     end
 
-    # q - q[0]
+    p[degree] = remainder_term
+
+    # s - s[0]
     sms0 = ArbSeries(s)
     sms0[0] = 0
 
