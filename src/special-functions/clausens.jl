@@ -75,7 +75,7 @@ function. Looking at the difference the term `1 / (1 - v)` is
 cancelled and we get
 ```
 zeta(v, x / 2π) - zeta(v, 1 - x / 2π) =
-    zeta_deflated(v, x / 2π) - zeta_defated(v, 1 - x / 2π)
+    zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
 ```
 
 We can also note that for `s = 0` we have
@@ -334,7 +334,7 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         end
     end
 
-    # _clausenc(x, s) is only defined for 0 < x < 2π
+    # _clausenc_zeta(x, s) is only defined for 0 < x < 2π
     if Arblib.ispositive(x) && x < 2Arb(π)
         return _clausens_zeta(x, convert(Arb, s))
     else
