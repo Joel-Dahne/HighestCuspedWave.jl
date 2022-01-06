@@ -305,6 +305,13 @@ function _clausenc_zeta(x::Arb, s::ArbSeries)
     s0 = s[0]
 
     if iszero(s0)
+        # This implementation doesn't work if the degree of s is zero.
+        # In this case we just call _clausenc_zeta(x::Arb, s::Arb)
+        # directly
+        if iszero(Arblib.degree(s))
+            return ArbSeries(_clausenc_zeta(x, s0))
+        end
+
         zeta_deflated(s, a) = Arblib.zeta_series!(zero(s), s, a, 1, length(s))
 
         # Compute 2cospi(v / 2) / (v - 1) to the same degree as v
