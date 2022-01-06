@@ -613,7 +613,7 @@ function clausenc(x::Arb, s::Arb, β::Integer)
                 # Depending on the precision critical_point might count as
                 # wide so we explicitly call _clausenc_zeta to avoid
                 # infinite recursion.
-                res = union(res, _clausenc_polylog(critical_point, s, β))
+                res = union(res, _clausenc_zeta(critical_point, s, β))
             end
         end
 
