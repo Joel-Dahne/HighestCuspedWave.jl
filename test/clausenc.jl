@@ -1,6 +1,6 @@
 @testset "clausenc" begin
     # Check that the evaluation with polylog and zeta agree on (0, 2π)
-    for s in range(Arb(-4), Arb(4), length = 10)
+    for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
         for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
             res1 = HighestCuspedWave._clausenc_polylog(x, s)
             res2 = HighestCuspedWave._clausenc_zeta(x, s)
