@@ -18,6 +18,10 @@ Any expansions computed with this approximation are typically computed
 to the given degree, though some methods compute to a lower or higher
 degree.
 
+The value of `α` is assumed to be non-positive. However the enclosure
+for `α` might contain spurious positive parts. We explicitly remove
+these so that the right endpoint of the enclosure is non-negative.
+
 It stores precomputed expansions for `a` and `p0`. The expansions for
 `a` and `p0` are computed to the degree `degree` with the exception of
 `a[0]` which is computed to one degree higher, the reason for this is
@@ -42,6 +46,9 @@ struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
     degree::Int
 
     function KdVZeroAnsatz(α::Arb; degree::Integer = 2)
+        # α is non-positive, this removes any spurious positive parts
+        α = -Arblib.nonnegative_part!(zero(α), -α)
+
         a = expansion_as(KdVZeroAnsatz, α; degree)
         p0 = expansion_p0(KdVZeroAnsatz, α; degree)
         u0 = new(α, a, p0, degree)
