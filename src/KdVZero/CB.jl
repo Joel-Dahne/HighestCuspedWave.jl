@@ -33,13 +33,7 @@ at `x = 0` and then trying to pick `ϵ` as large but so that the
 enclosure from the asymptotic version of `T0` is larger than the value
 at `x = 0`
 """
-function CB(
-    u0::KdVZeroAnsatz;
-    rtol = Arb(1e-3),
-    maxevals = 1000, # TODO: This we can probably remove later
-    threaded = true,
-    verbose = false,
-)
+function CB(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = false)
     # Compute the value at x = 0, this is the minimum in practice
     p1_zero = T0(u0, Asymptotic())(Arb(0))[1]
 
@@ -97,8 +91,8 @@ function CB(
         ϵ,
         ubound(Arb(π)),
         lbound(-p1),
-        degree = -1;
-        maxevals,
+        degree = -1,
+        maxevals = 50000;
         threaded,
         verbose,
     )
