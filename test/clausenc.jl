@@ -56,7 +56,18 @@
 
     # TODO: Add tests for x::ArbSeries
 
-    # TODO: Add tests for s::ArbSeries
+    # s::ArbSeries
+    # Check that the evaluation with polylog and zeta agree on (0, 2π)
+    for s in [range(Arb(-4), Arb(4), length = 6); Arb.(-3:3)]
+        s_series = ArbSeries((s, 1), degree = 2)
+        for x in range(Arb(0), 2Arb(π), length = 20)[2:end-1]
+            res1 = HighestCuspedWave._clausenc_polylog(x, s_series)
+            res2 = HighestCuspedWave._clausenc_zeta(x, s_series)
+            @test isfinite(res1)
+            @test isfinite(res2)
+            @test Arblib.overlaps(res1, res2)
+        end
+    end
 
     # TODO: Add tests for clausenc(x, s, β)
 end

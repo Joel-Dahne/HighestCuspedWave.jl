@@ -252,18 +252,107 @@ end
 
 Evaluation of the `clausenc` function through the zeta function as a
 power series in `s`.
+
+It currently only handles `0 < x < 2π`.
+
+It supports non-negative integer values of `s` in a similar way as
+`_clausenc_zeta(x::Arb, s::Arb)` does.
+
+**TODO:** Handle `s` overlapping a non-negative integer but not being
+exact.
+
+# Handle `s = 0`
+In this case we want to compute
+```
+gamma(v) * inv(2π)^v * cospi(v / 2) * (
+    zeta_deflated(v, x / 2π) + zeta_deflated(v, 1 - x / 2π) - 2 / (1 - v)
+)
+```
+The only problematic part is `-2cospi(v / 2) / (1 - v) = 2cospi(v / 2)
+/ (v - 1)`. But since `v[0] = 1` we can compute this by simply
+shifting the expansion of `2cospi(v / 2)
+
+# Handling `s` being a positive integer
+In this case we want to compute the series of
+```
+cospi(v / 2) / rgamma(v)
+```
+and
+```
+(zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / rgamma(v)
+```
+This we do by computing them to a degree one higher than the input and
+then explicitly cancelling in the division.
 """
 function _clausenc_zeta(x::Arb, s::ArbSeries)
-    Arblib.ispositive(x) && x < 2Arb(π) ||
+    # Check that x > 0
+    Arblib.ispositive(x) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv2pi
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
+
+    # Check that 1 - x / 2π > 0, i.e. x < 2π
+    Arblib.ispositive(onemxinv2pi) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
     v = 1 - s
 
-    res = let inv2π = inv(2Arb(π))
-        gamma(v) * inv2π^v * cospi(v / 2) * (zeta(v, x * inv2π) + zeta(v, 1 - x * inv2π))
+    s0 = s[0]
+
+    if iszero(s0)
+        zeta_deflated(s, a) = Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+
+        # Compute 2cospi(v / 2) / (v - 1) to the same degree as v
+        cosdivv = let w = ArbSeries(v, degree = Arblib.degree(v) + 1)
+            2(cospi(w / 2) << 1) / ((w - 1) << 1)
+        end
+
+        return gamma(v) *
+               inv2pi^v *
+               (
+                   cospi(v / 2) *
+                   (zeta_deflated(v, xinv2pi) + zeta_deflated(v, onemxinv2pi)) + cosdivv
+               )
     end
 
-    return res
+    # Handle the case when s is exactly a non-negative integer.
+    if isinteger(s0) && Arblib.ispositive(s0)
+        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
+
+        # Compute rgamma(v) / (v - v[0]) to the same degree as v
+        denominator = Arblib.rgamma_series!(zero(w), w, length(w)) << 1
+
+        # Get the unique integer
+        unique, s_integer = unique_integer(s0)
+        @assert unique
+
+        if iseven(s_integer)
+            # Compute cospi(v / 2) / (v - v[0]) to the same degree as v
+            numerator = cospi(w / 2) << 1
+
+            return numerator / denominator *
+                   inv2pi^v *
+                   (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
+        else
+            # Compute (zeta(v, xinv2pi) + zeta(v, onemxinv2pi)) / (v -
+            # v[0]) to the same degree as v
+            numerator = let tmp = (zeta(w, xinv2pi) + zeta(w, onemxinv2pi))
+                # The constant term is typically not exactly zero
+                @assert Arblib.contains_zero(Arblib.ref(tmp, 0))
+                tmp[0] = 0
+                tmp << 1
+            end
+
+            return numerator / denominator * inv2pi^v * cospi(v / 2)
+        end
+    end
+
+    return gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
 end
 
 """
@@ -447,19 +536,19 @@ end
 Compute the Taylor series of the Clausen function \$C_s(x)\$ in the
 parameter `s`.
 
-It uses [`_clausenc_zeta`](@ref) in general and
-[`_clausenc_polylog`](@ref) when `s[0]` is an integer. It currently
-doesn't support `s[0]` overlapping an integer but not being exactly an
-integer.
+It uses [`_clausenc_zeta`](@ref) when `0 < x < 2π and
+[`_clausenc_polylog`](@ref) otherwise. It currently doesn't support
+`s[0]` overlapping an integer but not being exactly an integer.
 
 - **TODO:** Implement support for `s` overlapping integers. This will
   be needed to enclose remainder terms.
 """
 function clausenc(x::Arb, s::ArbSeries)
-    if isinteger(Arblib.ref(s, 0))
-        return _clausenc_polylog(x, s)
-    else
+    # _clausenc_zeta(x, s) is only defined for 0 < x < 2π
+    if Arblib.ispositive(x) && x < 2Arb(π)
         return _clausenc_zeta(x, s)
+    else
+        return _clausenc_polylog(x, s)
     end
 end
 
@@ -528,15 +617,12 @@ function clausenc(x::Arb, s::Arb, β::Integer)
         return setprecision(res, precision(x))
     end
 
-    # If s is not a non-negative integer and 0 < x < 2π call
-    # _clausenc_zeta(x, s, β)
-    if !Arblib.contains_int(s) || Arblib.isnegative(s)
-        if Arblib.ispositive(x) && x < 2Arb(π)
-            return _clausenc_zeta(x, s, β)
-        end
+    # _clausenc_zeta(x, s, β) is only defined for 0 < x < 2π
+    if Arblib.ispositive(x) && x < 2Arb(π)
+        return _clausenc_zeta(x, s, β)
+    else
+        return _clausenc_polylog(x, s, β)
     end
-
-    return _clausenc_polylog(x, s, β)
 end
 
 clausenc(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
