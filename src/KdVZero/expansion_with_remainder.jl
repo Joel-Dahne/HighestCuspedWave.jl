@@ -255,7 +255,10 @@ the last term works as a remainder term.
 
 For wide values of `x` it computes each term in the expansion
 separately, allowing it to use [`ArbExtras.extrema_series`](@ref) to
-compute a tighter enclosure of the terms.
+compute a tighter enclosure of the terms. While this could be done
+also for the remainder term it currently isn't, it doesn't give much
+improvement in the cases it could be relevant and comes with a big
+performance cost.
 """
 function clausencmzeta_with_remainder(
     x::Arb,
@@ -304,15 +307,7 @@ function clausencmzeta_with_remainder(
             union(clausencmzeta(x, s_lower, degree), clausencmzeta(x, s_upper, degree)) /
             factorial(degree)
     else
-        if iswide(x)
-            remainder_term = Arb((ArbExtras.extrema_series(
-                x -> clausencmzeta(x, s(interval), degree),
-                getinterval(x)...,
-                degree = 1,
-            )[1:2]))
-        else
-            remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
-        end
+        remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
     end
 
     p[degree] = remainder_term
