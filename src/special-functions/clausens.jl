@@ -58,11 +58,82 @@ end
 Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
 periodic zeta function and then taking the imaginary part.
 
-It currently only handles `0 < x < 2π` and `s` not overlapping any
-integer.
+The formula is well defined as long as `s` doesn't overlap with any
+non-negative integer. See further down for how those cases are
+handled.
+
+It currently only handles `0 < x < 2π`.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure using a Taylor expansion in `s`.
+
+# Handling `s = 0`
+If `s` is zero then both `zeta(v, x / 2π)` and `zeta(v, 1 - x / 2π)`
+blow up, however their difference is bounded. To see this let
+`zeta_deflated(s, a) = zeta(s, a) + 1 / (1 - s)` be the deflated zeta
+function. Looking at the difference the term `1 / (1 - v)` is
+cancelled and we get
+```
+zeta(v, x / 2π) - zeta(v, 1 - x / 2π) =
+    zeta_deflated(v, x / 2π) - zeta_defated(v, 1 - x / 2π)
+```
+
+We can also note that for `s = 0` we have
+```
+gamma(v) * inv(2π)^v * sinpi(v / 2) = inv(2π)
+```
+
+**TODO:** Handle `s` overlapping zero but not being exactly zero. We
+need to be able to compute an enclosure of
+```
+zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
+```
+Both terms are well defined but Arb doesn't compute `zeta_deflated`
+for `s` overlapping `1` but not exactly equal to `1`.
+
+# Handling `s` being a positive integer
+If `s` is a positive integer then `gamma(v)` diverges, if the
+integer is even then `zeta(v, x / 2π) - zeta(v, 1 - x / 2π)` is zero
+and if the integer is odd then `sinpi(v / 2)` is zero. To see that
+`zeta(v, x / 2π) - zeta(v, 1 - x / 2π)` is zero when `s` is an even
+non-negative integer, i.e. when `v` is an odd non-positive integer, we
+can use formula [25.11.14](https://dlmf.nist.gov/25.11.E14) together
+with [24.4.1](https://dlmf.nist.gov/24.4.E1).
+
+For even `s` we thus get, using L'Hopital,
+```
+gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) =
+    (zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / rgamma(v)=
+    (dzeta(v, x / 2π) - dzeta(v, 1 - x / 2π)) / drgamma(v)
+```
+where `rgamma` is the reciprocal gamma function and `drgamma(v)` its
+derivative. This gives us the formula
+```
+clausens(x, s) = let v = 1 - s
+    inv(2π)^v * sinpi(v / 2) * (dzeta(v, x / 2π) - dzeta(v, 1 - x / 2π)) / drgamma(v)
+end
+```
+For odd `s` we instead have
+```
+gamma(v) * sinpi(v / 2) = π / 2 * cospi(v / 2) / drgamma(v)
+```
+and we get
+```
+clausens(x, s) = let v = 1 - s
+    π / 2 * cospi(v / 2) / drgamma(v) * inv(2π)^v * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+end
+```
+
+**TODO:** Handle `s` overlapping a non-negative integer but not an
+exact integer. We need to be able to compute an enclosure of
+```
+gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+```
+in the even case and
+```
+gamma(v) * sinpi(v / 2)
+```
+in the odd case.
 """
 function _clausens_zeta(x::Arb, s::Arb)
     # Check that x > 0
@@ -83,6 +154,40 @@ function _clausens_zeta(x::Arb, s::Arb)
     v = let v = zero(x) # We do it like this to preserve the precision
         Arblib.neg!(v, s)
         Arblib.add!(v, v, 1)
+    end
+
+    if iszero(s)
+        # Function for enclosing zeta_deflated(s, a)
+        zeta_deflated(s, a) = Arblib.zeta_series!(ArbSeries(0), ArbSeries(v), a, 1, 1)[0]
+
+        return inv2pi * (zeta_deflated(v, xinv2pi) - zeta_deflated(v, onemxinv2pi))
+    end
+
+    if isinteger(s) && Arblib.ispositive(s)
+        # Handle the case when s is exactly a non-negative integer.
+        # Note that in this case s is never wide.
+
+        # Compute drgamma(v)
+        drgamma = let tmp = ArbSeries((v, 1))
+            Arblib.rgamma_series!(tmp, tmp, 2)[1]
+        end
+
+        # Get the unique integer
+        unique, s_integer = unique_integer(s)
+        @assert unique
+
+        if iseven(s_integer)
+            # Compute dzeta(v, x / 2π) + dzeta(v, 1 - x / 2π)
+            dzeta = let v_series = ArbSeries((v, 1))
+                zeta(v_series, xinv2pi)[1] - zeta(v_series, onemxinv2pi)[1]
+            end
+
+            return inv2pi^v * sinpi(v / 2) * dzeta / drgamma
+        else
+            return Arb(π, prec = precision(x)) / 2 * cospi(v / 2) / drgamma *
+                   inv2pi^v *
+                   (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+        end
     end
 
     f(v) = gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
@@ -200,10 +305,9 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         return setprecision(res, orig_prec)
     end
 
-    contains_nonnegative_int = s isa Arb && Arblib.contains_int(s) && !Arblib.isnegative(s)
-
     # Handle the case when s contains a non-negative integer but it
     # not exactly an integer
+    contains_nonnegative_int = s isa Arb && Arblib.contains_int(s) && !Arblib.isnegative(s)
     if contains_nonnegative_int && !iszero(Arblib.radref(s))
         if s > 1
             # Evaluate at midpoint
@@ -230,15 +334,12 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         end
     end
 
-    # If s is not a non-integer and 0 < x < 2π call _clausens_zeta(x,
-    # s)
-    if s isa Arb && !contains_nonnegative_int
-        if Arblib.ispositive(x) && x < 2Arb(π)
-            return _clausens_zeta(x, s)
-        end
+    # _clausenc(x, s) is only defined for 0 < x < 2π
+    if Arblib.ispositive(x) && x < 2Arb(π)
+        return _clausens_zeta(x, convert(Arb, s))
+    else
+        return _clausens_polylog(x, s)
     end
-
-    return _clausens_polylog(x, s)
 end
 
 clausens(x::Acb, s) = (polylog(s, exp(im * x)) - polylog(s, exp(-im * x))) / 2
