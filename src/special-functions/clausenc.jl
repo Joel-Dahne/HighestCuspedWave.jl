@@ -382,7 +382,7 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
 
     # _clausenc(x, s) is only defined for 0 < x < 2π
     if Arblib.ispositive(x) && x < 2Arb(π)
-        return _clausenc_zeta(x, s)
+        return _clausenc_zeta(x, convert(Arb, s))
     else
         return _clausenc_polylog(x, s)
     end

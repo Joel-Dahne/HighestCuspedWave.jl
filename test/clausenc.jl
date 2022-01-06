@@ -4,6 +4,8 @@
         for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
             res1 = HighestCuspedWave._clausenc_polylog(x, s)
             res2 = HighestCuspedWave._clausenc_zeta(x, s)
+            @test isfinite(res1)
+            @test isfinite(res2)
             @test Arblib.overlaps(res1, res2)
         end
     end
@@ -16,6 +18,8 @@
                 z = Acb(x, y)
                 res1 = (polylog(Acb(s), exp(im * z)) + polylog(Acb(s), exp(-im * z))) / 2
                 res2 = HighestCuspedWave._clausenc_zeta(z, s)
+                @test isfinite(res1)
+                @test isfinite(res2)
                 @test Arblib.overlaps(res1, res2)
             end
         end
