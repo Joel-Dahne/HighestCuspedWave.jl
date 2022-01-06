@@ -205,15 +205,99 @@ end
 
 Evaluation of the `clausens` function through the zeta function as a
 power series in `s`.
+
+It currently only handles `0 < x < 2π`.
+
+It supports non-negative integer values of `s` in a similar way as
+`_clausens_zeta(x::Arb, s::Arb)` does.
+
+**TODO:** Handle `s` overlapping a non-negative integer but not being
+exact.
+
+# Handle `s = 0`
+In this case we want to compute
+```
+gamma(v) * inv(2π)^v * sinpi(v / 2) * (
+    zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
+)
+```
+for which all factors are well defined.
+
+# Handling `s` being a positive integer
+In this case we want to compute the series of
+```
+(zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / rgamma(v)
+```
+and
+```
+sinpi(v / 2) / rgamma(v)
+```
+This we do by computing them to a degree one higher than the input and
+then explicitly cancelling in the division.
 """
 function _clausens_zeta(x::Arb, s::ArbSeries)
-    Arblib.ispositive(x) && x < 2Arb(π) ||
+    # Check that x > 0
+    Arblib.ispositive(x) ||
+        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+
+    inv2pi = inv(2Arb(π, prec = precision(x)))
+    xinv2pi = x * inv2pi
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
+
+    # Check that 1 - x / 2π > 0, i.e. x < 2π
+    Arblib.ispositive(onemxinv2pi) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
     v = 1 - s
 
-    res = let inv2π = inv(2Arb(π))
-        gamma(v) * inv2π^v * sinpi(v / 2) * (zeta(v, x * inv2π) - zeta(v, 1 - x * inv2π))
+    s0 = s[0]
+
+    if iszero(s0)
+        zeta_deflated(s, a) = Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+
+        return gamma(v) *
+               inv2pi^v *
+               sinpi(v / 2) *
+               (zeta_deflated(v, xinv2pi) - zeta_deflated(v, onemxinv2pi))
+    end
+
+    # Handle the case when s is exactly a non-negative integer.
+    if isinteger(s0) && Arblib.ispositive(s0)
+        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
+
+        # Compute rgamma(v) / (v - v[0]) to the same degree as v
+        denominator = Arblib.rgamma_series!(zero(w), w, length(w)) << 1
+
+        # Get the unique integer
+        unique, s_integer = unique_integer(s0)
+        @assert unique
+
+        if iseven(s_integer)
+            # Compute (zeta(v, xinv2pi) - zeta(v, onemxinv2pi)) / (v -
+            # v[0]) to the same degree as v
+            numerator = let tmp = (zeta(w, xinv2pi) - zeta(w, onemxinv2pi))
+                # The constant term is typically not exactly zero
+                @assert Arblib.contains_zero(Arblib.ref(tmp, 0))
+                tmp[0] = 0
+                tmp << 1
+            end
+
+            return numerator / denominator * inv2pi^v * sinpi(v / 2)
+        else
+            # Compute sinpi(v / 2) / (v - v[0]) to the same degree as v
+            numerator = sinpi(w / 2) << 1
+
+            return numerator / denominator *
+                   inv2pi^v *
+                   (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+        end
+    end
+
+    return gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+end
 
 """
     _clausens_zeta(x::Arb, s::Arb, β::Integer)
@@ -382,19 +466,19 @@ end
 Compute the Taylor series of the Clausen function \$S_s(x)\$ in the
 parameter `s`.
 
-It uses [`_clausens_zeta`](@ref) in general and
-[`_clausens_polylog`](@ref) when `s[0]` is an integer. It currently
-doesn't support `s[0]` overlapping an integer but not being exactly an
-integer.
+It uses [`_clausens_zeta`](@ref) when `0 < x < 2π and
+[`_clausens_polylog`](@ref) otherwise. It currently doesn't support
+`s[0]` overlapping an integer but not being exactly an integer.
 
 - **TODO:** Implement support for `s` overlapping integers. This will
   be needed to enclose remainder terms.
 """
 function clausens(x::Arb, s::ArbSeries)
-    if isinteger(Arblib.ref(s, 0))
-        return _clausens_polylog(x, s)
-    else
+    # _clausenc_zeta(x, s) is only defined for 0 < x < 2π
+    if Arblib.ispositive(x) && x < 2Arb(π)
         return _clausens_zeta(x, s)
+    else
+        return _clausens_polylog(x, s)
     end
 end
 
@@ -408,13 +492,12 @@ times w.r.t. `s`.
   `clausens(x, s)` does it.
 """
 function clausens(x::Arb, s::Arb, β::Integer)
-    if !Arblib.contains_int(s) || Arblib.isnegative(s)
-        if Arblib.ispositive(x) && x < 2Arb(π)
-            return _clausens_zeta(x, s, β)
-        end
+    # _clausenc_zeta(x, s, β) is only defined for 0 < x < 2π
+    if Arblib.ispositive(x) && x < 2Arb(π)
+        return _clausens_zeta(x, s, β)
+    else
+        return _clausens_polylog(x, s, β)
     end
-
-    return _clausens_polylog(x, s, β)
 end
 
 clausens(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
