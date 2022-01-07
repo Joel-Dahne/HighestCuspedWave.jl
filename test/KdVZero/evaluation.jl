@@ -161,7 +161,7 @@
 
         @testset "Asymptotic" begin
             for x in xs_asym
-                p = F0(u0, Asymptotic(); ϵ = x)(x)
+                p = F0(u0, Asymptotic())(x)
                 for (i, α) in enumerate(αs)
                     @test Arblib.overlaps(p(α), F0(u0s[i], Asymptotic())(x))
                     #@show p(α) - F0(u0s[i], Asymptotic())(x)
@@ -174,7 +174,7 @@
             (u0_tight, "tight"),
         )
             f = F0(u0)
-            g = F0(u0, Asymptotic(), ϵ = Arb(1))
+            g = F0(u0, Asymptotic())
             for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                 p1 = f(x)
                 p2 = g(x)
