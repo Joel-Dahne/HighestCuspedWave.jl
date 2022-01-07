@@ -38,9 +38,7 @@ function CB(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = fals
     p1_zero = T0(u0, Asymptotic())(Arb(0))[1]
 
     # Determine a good choice of ϵ
-    ϵ = let T0_asymptotic = T0(u0, Asymptotic(), ϵ = Arb(π))
-        # We start trying at ϵ = 2
-        ϵ = Arb(2)
+    ϵ = let ϵ = Arb(π), T0_asymptotic = T0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ))
         y = T0_asymptotic(ϵ)[1]
 
         # Reduce ϵ until the value we get is finite and larger than
