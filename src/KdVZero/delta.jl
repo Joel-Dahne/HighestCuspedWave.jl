@@ -36,18 +36,22 @@ function delta0(
     # Determine a good choice of ϵ. Take it as large as possible so
     # that the asymptotic version still satisfies the required
     # tolerance when evaluated at ϵ
-    ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ))
+    ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
         y = f(ϵ)[2]
+        z = g(ϵ)[2]
 
-        # Reduce ϵ until the value we get satisfies the required
-        # tolerance
-        while !ArbExtras.check_tolerance(y; rtol, atol)
+        # Reduce ϵ until the value we get either satisfies the
+        # required tolerance or is better than the non-asymptotic
+        # version.
+        while !ArbExtras.check_tolerance(y; rtol, atol) && radius(y) > radius(z)
             if ϵ > 1
                 ϵ -= 0.05
             else
                 ϵ /= 1.2
             end
+
             y = f(ϵ)[2]
+            z = g(ϵ)[2]
             ϵ > 0.1 || error("could not determine working ϵ, last tried value was $ϵ")
         end
         ubound(ϵ)
@@ -79,7 +83,8 @@ function delta0(
         zero(ϵ),
         ϵ,
         degree = -1,
-        abs_value = true;
+        abs_value = true,
+        maxevals = 10000;
         rtol,
         atol,
         threaded,
@@ -88,23 +93,30 @@ function delta0(
 
     verbose && @info "Bound of p[2] from [0, ϵ]" p2_asymptotic
 
-    # Compute an enclosure on [ϵ, π]
-    p2_nonasymptotic = ArbExtras.maximum_enclosure(
-        g,
-        ϵ,
-        ubound(Arb(π)),
-        degree = -1,
-        abs_value = true;
-        rtol,
-        atol,
-        maxevals,
-        threaded,
-        verbose,
-    )
+    if ϵ >= Arb(π)
+        # If ϵ = π then we don't need to compute any non-asymptotic
+        # part
+        verbose && @info "ϵ = π so [ϵ, π] is skipped"
+        p2 = p2_asymptotic
+    else
+        # Compute an enclosure on [ϵ, π]
+        p2_nonasymptotic = ArbExtras.maximum_enclosure(
+            g,
+            ϵ,
+            ubound(Arb(π)),
+            degree = -1,
+            abs_value = true;
+            rtol,
+            atol,
+            maxevals,
+            threaded,
+            verbose,
+        )
 
-    verbose && @info "Bound of p[2] on [ϵ, π]" p2_nonasymptotic
+        verbose && @info "Bound of p[2] on [ϵ, π]" p2_nonasymptotic
 
-    p2 = max(p2_asymptotic, p2_nonasymptotic)
+        p2 = max(p2_asymptotic, p2_nonasymptotic)
+    end
 
     return ArbSeries((0, 0, p2))
 end
