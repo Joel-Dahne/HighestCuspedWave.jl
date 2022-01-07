@@ -839,11 +839,13 @@ we then explicitly cancel `x^(1 - α)` in `D(u0)` and `x^-α` in `u0`.
 Similarly to the non-asymptotic version both the constant and linear
 terms in the expansion are supposed to be zero, which we enforce.
 """
-function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb, M::Integer = 3)
+function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 7)
     D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
 
     return x::Arb -> begin
+        x <= ϵ || throw(ArgumentError("need x <= ϵ, got x = $x with ϵ = $ϵ"))
+
         num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
