@@ -79,7 +79,18 @@ function compose_with_remainder(
     p = ArbSeries(p; degree)
 
     # Compute remainder term
-    p[degree] = f(ArbSeries((q(interval), 1); degree))[degree]
+    # We compute a tighter enclosure with the help of ArbExtras.extrema_series
+    g(x::Arb) = f(ArbSeries((x, 1); degree))[degree] * factorial(degree)
+    g(x::ArbSeries) =
+        if iszero(Arblib.degree(x))
+            ArbSeries(g(x[0]))
+        else
+            Arblib.derivative(f(ArbSeries(x, degree = Arblib.degree(x) + degree)), degree)
+        end
+    p[degree] =
+        Arb(ArbExtras.extrema_series(g, getinterval(q(interval))..., degree = 0)[1:2]) /
+        factorial(degree)
+    #p[degree] = f(ArbSeries((q(interval), 1); degree))[degree]
 
     # q - q[0]
     qmq0 = ArbSeries(q)
