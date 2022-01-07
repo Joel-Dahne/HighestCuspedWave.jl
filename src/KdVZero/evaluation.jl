@@ -189,7 +189,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 end
 
 """
-    (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
+    (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer)
 
 Return an expansion of `u0(x)` in `x` around zero where the
 coefficients in the expansion are themselves expansions in `α` around
@@ -224,7 +224,7 @@ expansion is given by
 where `γ` is the Euler constant.
 - **TODO:** Compute remainder term in `α`
 """
-function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 3)
+function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     α = ArbSeries((0, 1); u0.degree)
 
     expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
@@ -483,7 +483,7 @@ From Mathematica the expansion is given by
 where `γ` is the Euler constant.
 - **TODO:** Compute remainder term in `α`
 """
-function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
+function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
     α = ArbSeries((0, 1); u0.degree)
 
     return x::Arb -> begin
@@ -559,7 +559,7 @@ function D(u0::KdVZeroAnsatz, evaltype::Ball)
 end
 
 """
-    D(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 3)
+    D(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer)
 
 Return an expansion of `D(u0)(x)` in `x` around zero where the
 coefficients in the expansion are themselves expansions in `α` around
@@ -586,7 +586,7 @@ expansion in `α` is identically equal to zero. We can therefore set
 all linear terms to zero since they must cancel out in the end anyway.
 
 """
-function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
+function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 10)
     f = H(u0, evaltype; M)
     return x::Arb -> begin
         expansion1 = u0(x, evaltype; M)
@@ -684,7 +684,7 @@ the individual terms are fixed. We could compute tighter enclosures of
 for the other enclosures. We might not need to compute a tighter
 enclosure in the end though.
 """
-function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M::Integer = 3)
+function u0_div_xmα(u0::KdVZeroAnsatz, ::Asymptotic = Asymptotic(); ϵ::Arb, M::Integer = 10)
     # We can just as well use an upper bound for ϵ
     ϵ = ubound(Arb, ϵ)
 
@@ -839,7 +839,7 @@ we then explicitly cancel `x^(1 - α)` in `D(u0)` and `x^-α` in `u0`.
 Similarly to the non-asymptotic version both the constant and linear
 terms in the expansion are supposed to be zero, which we enforce.
 """
-function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 7)
+function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
     D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
 

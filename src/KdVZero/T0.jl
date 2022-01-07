@@ -589,7 +589,7 @@ function T0(
     u0::KdVZeroAnsatz,
     ::Asymptotic;
     ϵ::Arb = one(Arb),
-    M::Integer = 5,
+    M::Integer = 10,
     skip_div_u0 = false,
 )
     α = ArbSeries((0, 1), degree = 1)
