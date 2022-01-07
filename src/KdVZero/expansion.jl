@@ -400,7 +400,7 @@ from all of them. To get the higher order terms we factor out one more
 `α` from `v1` and `v2` and multiply it back afterwards.
 """
 function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
-    degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
+    degree <= 3 || throw(ArgumentError("only supports degree up to 3"))
 
     # Expansion of a[0] without remainder term
     a0 = ArbSeries(
@@ -412,7 +412,7 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
     # coefficient so that we get an enclosure for a lower bound of α
     if !iszero(α)
         error = finda0(lbound(Arb, α)) - a0(lbound(Arb, α))
-        a0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
+        a0[degree+1] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^(degree + 1))
     end
 
     # Compute expansions of p0
