@@ -274,8 +274,8 @@ want to find `a[1]` and `a[2]` such that the last two are also zero.
 
 The coefficient in front of `x^2` is given by
 ```
-L₁⁰ = -1 / 2 * sum(a[j] * zeta(1 - 2α + j * p0 - 2) for j = 0:u0.N0) =
-    -1 / 2 * (a[0] * zeta(1 - 2α - 2) + a[1] * zeta(1 - 2α + p0 - 2) + a[2] * zeta(1 - 2α + 2p0 - 2))
+-L₁⁰ = 1 / 2 * sum(a[j] * zeta(1 - 2α + j * p0 - 2) for j = 0:u0.N0) =
+    1 / 2 * (a[0] * zeta(1 - 2α - 2) + a[1] * zeta(1 - 2α + p0 - 2) + a[2] * zeta(1 - 2α + 2p0 - 2))
 ```
 and for `x^(-α + 2)`
 ```
@@ -284,16 +284,22 @@ a₀⁰ * K₁⁰ = gamma(α) * sinpi((1 - α) / 2) * a[0] * (-1 / 2) * sum(a[j]
         a[0] * zeta(1 - α - 2) + a[1] * zeta(1 - α + p0 - 2) + a[2] * zeta(1 - α + 2p0 - 2)
     )
 ```
+Since we are looking for zeros we cancel some of the factors and
+simplify to get the two equations
+```
+a[0] * zeta(-1 - 2α) + a[1] * zeta(-1 - 2α + p0) + a[2] * zeta(-1 - 2α + 2p0) = 0
+a[0] * zeta(-1 - α) + a[1] * zeta(-1 - α + p0) + a[2] * zeta(-1 - α + 2p0) = 0
+```
 
 If we let
 ```
-A1 = -zeta(1 - 2α + p0 - 2) / 2
-A2 = -zeta(1 - 2α + 2p0 - 2) / 2
-C1 = -a[0] * zeta(1 - 2α - 2) / 2
+A1 = zeta(-1 - 2α + p0)
+A2 = zeta(-1 - 2α + 2p0)
+C1 = a[0] * zeta(-1 - 2α)
 
-B1 = -gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + p0 - 2) / 2
-B2 = -gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + 2p0 - 2) / 2
-C2 = -gamma(α) * sinpi((1 - α) / 2) * a[0]^2 * zeta(1 - α - 2) / 2
+B1 = zeta(-1 - α + p0)
+B2 = zeta(-1 - α + 2p0)
+C2 = a[0] * zeta(-1 - α)
 ```
 we can write this as the linear system
 ```
@@ -317,53 +323,26 @@ a[1] = v1 / d
 a[2] = v2 / d
 ```
 
-# Simplifying the linear system
+# Simplifying `d`, `v1` and `v2`
 To make the linear system easier to evaluate we begin by simplifying
 some of the expressions.
 
 We have
 ```
 d = A1 * B2 - A2 * B1 =
-    (-zeta(1 - 2α + p0 - 2) / 2) * (-gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + 2p0 - 2) / 2)
-    - (-zeta(1 - 2α + 2p0 - 2) / 2) * (-gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + p0 - 2) / 2) =
-    zeta(1 - 2α + p0 - 2) * gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + 2p0 - 2) / 4
-    - zeta(1 - 2α + 2p0 - 2) * gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + p0 - 2) / 4 =
-    gamma(α) * sinpi((1 - α) / 2) * a[0] / 4 * (
-        zeta(1 - 2α + p0 - 2) * zeta(1 - α + 2p0 - 2) -
-        zeta(1 - 2α + 2p0 - 2) * zeta(1 - α + p0 - 2)
-    )
+    zeta(-1 - 2α + p0) * zeta(-1 - α + 2p0) - zeta(-1 - 2α + 2p0) * zeta(-1 - α + p0) =
 ```
-
-Then we also have
 ```
 v1 = -B2 * C1 + A2 * C2 =
-    -(-gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + 2p0 - 2) / 2) *
-    (-a[0] * zeta(1 - 2α - 2) / 2) +
-    (-zeta(1 - 2α + 2p0 - 2) / 2) *
-    (-gamma(α) * sinpi((1 - α) / 2) * a[0]^2 * zeta(1 - α - 2) / 2) =
-    gamma(α) * sinpi((1 - α) / 2) * a[0]^2 / 4 * (
-        zeta(1 - 2α + 2p0 - 2) * zeta(1 - α - 2) -
-        zeta(1 - α + 2p0 - 2) * zeta(1 - 2α - 2)
-    )
+    a[0] * (-zeta(-1 - α + 2p0) * zeta(-1 - 2α) + zeta(-1 - 2α + 2p0) * zeta(-1 - α))
 ```
 and
 ```
 v2 = B1 * C1 - A1 * C2 =
-    (-gamma(α) * sinpi((1 - α) / 2) * a[0] * zeta(1 - α + p0 - 2) / 2) *
-    (-a[0] * zeta(1 - 2α - 2) / 2) -
-    (-zeta(1 - 2α + p0 - 2) / 2) *
-    (-gamma(α) * sinpi((1 - α) / 2) * a[0]^2 * zeta(1 - α - 2) / 2) =
-    -gamma(α) * sinpi((1 - α) / 2) * a[0]^2 / 4 * (
-        zeta(1 - 2α + p0 - 2) * zeta(1 - α - 2) -
-        zeta(1 - α + p0 - 2) * zeta(1 - 2α - 2)
-    )
+    a[0] * (zeta(-1 - 2α + p0) * zeta(-1 - α) - zeta(-1 - α + p0) * zeta(-1 - 2α))
 ```
 
 If we let
-```
-q = gamma(α) * sinpi((1 - α) / 2) * a[0]
-```
-and
 ```
 z(i, j) = zeta(-1 - i * α + j * p0)
 
@@ -375,37 +354,15 @@ z3 = z(2, 1) * z(1, 0) - z(1, 1) * z(2, 0)
 ```
 we can write this as
 ```
-d = q / 4 * z1
-
-v1 = q * a[0] / 4 * z2
-
-v2 = -q * a[0] / 4 * z3
+d = z1
+v1 = a[0] * z2
+v2 = -a[0] * z3
 ```
 
 # Evaluating the linear system
 Unfortunately using the above formulas don't work for direct
 evaluation, there are several indeterminate values we have to take
 care of.
-
-## Handling `q`
-To begin with we can note that
-```
-q = gamma(α) * sinpi((1 - α) / 2) * a[0]
-```
-has a removable singularity. Plugging in the expression
-```
-a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
-```
-we can rewrite it as
-```
-q = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
-```
-Which also occurs in [`expansion_p0`](@ref) and the expansion its given
-by
-```
-q = 1 - γ * α + (γ^2 / 2 - π^2 / 8) * α^2 + O(α^3)
-```
-- **TODO:** Compute remainder term
 
 ## Handling `z(i, j)`s
 The constant term in the expansion of `z(i, j)` doesn't depend on the
@@ -422,9 +379,9 @@ all are zero since they exactly cancel out.
 ## Computing `d`, `v1` and `v2`
 Recall that
 ```
-d = q * z1 / 4
-v1 = q * a[0] * z2 / 4
-v2 = -q * a[0] * z3 / 4
+d = z1
+v1 = a[0] * z2
+v2 = -a[0] * z3
 ```
 If we naively compute these terms with `ArbSeries` the degree after
 the multiplication will be the minimum degree of all factors. By
@@ -458,24 +415,8 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
         a0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
     end
 
-    # TODO: Take care of remainder terms for a[1] and a[2]
-
     # Compute expansions of p0
     p0 = expansion_p0(KdVZeroAnsatz, α; degree)
-
-    # Expansion of gamma(α) * sinpi((1 - α) / 2) * a[0]
-    q = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8); degree)
-    end
-
-    # FIXME: Properly implement this. Now we just widen the last
-    # coefficient so that we get an enclosure for a lower bound of α
-    if !iszero(α)
-        error = let α = lbound(Arb, α)
-            gamma(α) * sinpi((1 - α) / 2) * finda0(α) - q(α)
-        end
-        q[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
-    end
 
     α_s = ArbSeries((0, 1); degree) # Series expansion of α
     z(i, j) = compose_with_remainder(zeta, -1 - i * α_s + j * p0, α)
@@ -489,16 +430,15 @@ function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
     @assert all(Arblib.contains_zero(z[0]) for z in (z1, z2, z3))
     z1[0] = z2[0] = z3[0] = 0
 
-    # Factor out α from z1 and multiply back afterwards
-    d = (mul_with_remainder(q, (z1 << 1) / 4, α)) >> 1
+    d = z1
     # Factor out α from a[0] and z2 and multiply back afterwards
-    v1 = (mul_with_remainder(mul_with_remainder(q, (a0 << 1), α), (z2 << 1) / 4, α)) >> 2
+    v1 = mul_with_remainder(a0 << 1, z2 << 1, α) >> 2
     # Factor out α from a[0] and z3 and multiply back afterwards
-    v2 = -(mul_with_remainder(mul_with_remainder(q, (a0 << 1), α), (z3 << 1) / 4, α)) >> 2
+    v2 = -mul_with_remainder(a0 << 1, z3 << 1, α) >> 2
 
     # Factor out α^2 from v1 and v2 and α from d, multiply back one α afterwards
-    a1 = (div_with_remainder((v1 << 2), (d << 1), α)) >> 1
-    a2 = (div_with_remainder((v2 << 2), (d << 1), α)) >> 1
+    a1 = div_with_remainder((v1 << 2), (d << 1), α) >> 1
+    a2 = div_with_remainder((v2 << 2), (d << 1), α) >> 1
 
     return OffsetVector([a0, a1, a2], 0:2)
 end
