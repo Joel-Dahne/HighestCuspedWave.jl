@@ -78,6 +78,14 @@ remove the pole and we have the expansion
 ```
 - **TODO:** Compute remainder term in `α`
 
+For wide values of `x` direct evaluation of `zeta(α, x / 2π) + zeta(α,
+1 - x / 2π)` gives a poor enclosure. To get better enclosures we use
+that all derivatives of that `zeta(α, x / 2π) + zeta(α, 1 - x / 2π)`
+are monotone on the interval `(0, π)`. We don't do this for the
+remainder term because it doesn't give much of an improvement
+- **PROVE:** That all derivatives of `zeta(α, x / 2π) + zeta(α, 1 - x
+  / 2π)` are monotone on `(0, π)`.
+
 For computing `a[0] * zeta(1 - α)` we rewrite it as
 ```
 (a[0] / α) * (α * zeta(1 - α))
@@ -94,7 +102,21 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         # Compute this to one degree higher since we divide it by α,
         # reducing the degree by one.
         clausen_term = let π = Arb(π), α = ArbSeries((0, 1), degree = u0.degree + 1)
-            inv(2π)^α * cospi(α / 2) * (zeta(α, x / 2π) + zeta(α, 1 - x / 2π))
+            if iswide(x) && 0 < x < π
+                z = ArbSeries(
+                    union.(
+                        Arblib.coeffs(
+                            zeta(α, lbound(Arb, x) / 2π) + zeta(α, 1 - lbound(Arb, x) / 2π),
+                        ),
+                        Arblib.coeffs(
+                            zeta(α, ubound(Arb, x) / 2π) + zeta(α, 1 - ubound(Arb, x) / 2π),
+                        ),
+                    ),
+                )
+            else
+                z = zeta(α, x / 2π) + zeta(α, 1 - x / 2π)
+            end
+            inv(2π)^α * cospi(α / 2) * z
         end
 
         # Compute remainder term
@@ -313,6 +335,14 @@ remove the pole and we have the expansion
 ```
 - **TODO:** Compute remainder term in `α`
 
+For wide values of `x` direct evaluation of `zeta(2α, x / 2π) +
+zeta(2α, 1 - x / 2π)` gives a poor enclosure. To get better enclosures
+we use that all derivatives of that `zeta(2α, x / 2π) + zeta(2α, 1 - x
+/ 2π)` are monotone on the interval `(0, π)`. We don't do this for the
+remainder term because it doesn't give much of an improvement
+- **PROVE:** That all derivatives of `zeta(2α, x / 2π) + zeta(2α, 1 -
+  x / 2π)` are monotone on `(0, π)`.
+
 For computing `a[0] * zeta(1 - 2α)` we rewrite it as
 ```
 (a[0] / α) * (α * zeta(1 - 2α))
@@ -360,13 +390,29 @@ function H(u0::KdVZeroAnsatz, ::Ball)
         res = let
             clausen_term =
                 let π = Arb(π), α = ArbSeries((0, 1), degree = u0.degree + 1)
-                    inv(2π)^2α * cospi(α) * (zeta(2α, x / 2π) + zeta(2α, 1 - x / 2π))
+                    if iswide(x) && 0 < x < π
+                        z = ArbSeries(
+                            union.(
+                                Arblib.coeffs(
+                                    zeta(2α, lbound(Arb, x) / 2π) +
+                                    zeta(2α, 1 - lbound(Arb, x) / 2π),
+                                ),
+                                Arblib.coeffs(
+                                    zeta(2α, ubound(Arb, x) / 2π) +
+                                    zeta(2α, 1 - ubound(Arb, x) / 2π),
+                                ),
+                            ),
+                        )
+                    else
+                        z = zeta(2α, x / 2π) + zeta(2α, 1 - x / 2π)
+                    end
+                    inv(2π)^2α * cospi(α) * z
                 end
 
             # Compute remainder term
             clausen_term_remainder =
                 let π = Arb(π), α = ArbSeries((u0.α, 1), degree = u0.degree + 1)
-                    (inv(2π)^α*cospi(α)*(zeta(2α, x / 2π)+zeta(2α, 1 - x / 2π)))[u0.degree+1]
+                    (inv(2π)^2α*cospi(α)*(zeta(2α, x / 2π)+zeta(2α, 1 - x / 2π)))[u0.degree+1]
                 end
             clausen_term[u0.degree+1] = clausen_term_remainder
 

@@ -26,22 +26,36 @@
         )
     end
 
+    # Take x exactly equal to 1.5 and x equal to 1.5 but with a radius
+    # large enough to make iswide(x) true
+    xs = [Arb(1.5), Arb(1.5)]
+    Arblib.add_error!(xs[2], ubound(sqrt(eps(xs[2]))))
+    @test HighestCuspedWave.iswide(xs[2])
+
+    # Take x exactly equal to 1e-10 and x equal to 1e-10 but with a
+    # radius large enough to make iswide(x) true
+    xs_asym = [Arb(1e-10), Arb(1e-10)]
+    Arblib.add_error!(xs_asym[2], ubound(sqrt(eps(xs_asym[2]))))
+    @test HighestCuspedWave.iswide(xs_asym[2])
+
     @testset "u0" begin
         @testset "Ball" begin
-            x = Arb(1.5)
-            p = u0(x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), u0s[i](x))
-                #@show p(α) - u0s[i](x)
+            for x in xs
+                p = u0(x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), u0s[i](x))
+                    #@show p(α) - u0s[i](x)
+                end
             end
         end
 
         @testset "Asymptotic" begin
-            x = Arb(1e-10)
-            p = eval_expansion(u0, u0(x, AsymptoticExpansion()), x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), u0s[i](x, Asymptotic()))
-                #@show p(α) - u0s[i](x, Asymptotic())
+            for x in xs_asym
+                p = eval_expansion(u0, u0(x, AsymptoticExpansion()), x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), u0s[i](x, Asymptotic()))
+                    #@show p(α) - u0s[i](x, Asymptotic())
+                end
             end
         end
 
@@ -61,20 +75,22 @@
 
     @testset "H(u0)" begin
         @testset "Ball" begin
-            x = Arb(1.5)
-            p = H(u0)(x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), H(u0s[i])(x))
-                #@show p(α) - H(u0s[i])(x)
+            for x in xs
+                p = H(u0)(x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), H(u0s[i])(x))
+                    #@show p(α) - H(u0s[i])(x)
+                end
             end
         end
 
         @testset "Asymptotic" begin
-            x = Arb(1e-10)
-            p = eval_expansion(u0, H(u0, AsymptoticExpansion())(x), x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), H(u0s[i], Asymptotic())(x))
-                #@show p(α) - H(u0s[i], Asymptotic())(x)
+            for x in xs_asym
+                p = eval_expansion(u0, H(u0, AsymptoticExpansion())(x), x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), H(u0s[i], Asymptotic())(x))
+                    #@show p(α) - H(u0s[i], Asymptotic())(x)
+                end
             end
         end
 
@@ -96,20 +112,22 @@
 
     @testset "D" begin
         @testset "Ball" begin
-            x = Arb(1.5)
-            p = D(u0)(x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), D(u0s[i])(x))
-                #@show p(α) - D(u0s[i])(x)
+            for x in xs
+                p = D(u0)(x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), D(u0s[i])(x))
+                    #@show p(α) - D(u0s[i])(x)
+                end
             end
         end
 
         @testset "Asymptotic" begin
-            x = Arb(1e-10)
-            p = eval_expansion(u0, D(u0, AsymptoticExpansion())(x), x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), D(u0s[i], Asymptotic())(x))
-                #@show p(α)  D(u0s[i], Asymptotic())(x)
+            for x in xs_asym
+                p = eval_expansion(u0, D(u0, AsymptoticExpansion())(x), x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), D(u0s[i], Asymptotic())(x))
+                    #@show p(α)  D(u0s[i], Asymptotic())(x)
+                end
             end
         end
 
@@ -132,20 +150,22 @@
 
     @testset "F0" begin
         @testset "Ball" begin
-            x = Arb(1.5)
-            p = F0(u0)(x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), F0(u0s[i])(x))
-                #@show p(α) - F0(u0s[i])(x)
+            for x in xs
+                p = F0(u0)(x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), F0(u0s[i])(x))
+                    #@show p(α) - F0(u0s[i])(x)
+                end
             end
         end
 
         @testset "Asymptotic" begin
-            x = Arb(1e-10)
-            p = F0(u0, Asymptotic(); ϵ = x)(x)
-            for (i, α) in enumerate(αs)
-                @test Arblib.overlaps(p(α), F0(u0s[i], Asymptotic())(x))
-                #@show p(α) - F0(u0s[i], Asymptotic())(x)
+            for x in xs_asym
+                p = F0(u0, Asymptotic(); ϵ = x)(x)
+                for (i, α) in enumerate(αs)
+                    @test Arblib.overlaps(p(α), F0(u0s[i], Asymptotic())(x))
+                    #@show p(α) - F0(u0s[i], Asymptotic())(x)
+                end
             end
         end
 
