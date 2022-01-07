@@ -38,23 +38,26 @@ function CB(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = fals
     p1_zero = T0(u0, Asymptotic())(Arb(0))[1]
 
     # Determine a good choice of ϵ
-    ϵ = let ϵ = Arb(π), T0_asymptotic = T0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ))
-        y = T0_asymptotic(ϵ)[1]
+    ϵ = let ϵ = Arb(π), f = T0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = T0(u0)
+        y = f(ϵ)[1]
+        z = g(ϵ)[1]
 
-        # Reduce ϵ until the value we get is finite and larger than
-        # the value at x = 0 plus the tolerance
-        while !(isfinite(y) && y > p1_zero + rtol)
+        # Reduce ϵ until the value we get either has a lower bound
+        # greater than the lower bound of the value at x = 0 or the
+        # asymptotic version gives a better enclosure than the
+        # non-asymptotic version.
+        while !(isfinite(y) && lbound(y) > lbound(p1_zero)) && radius(y) > radius(z)
             if ϵ > 1
                 ϵ -= 0.05
             else
                 ϵ /= 1.2
             end
-            y = T0_asymptotic(ϵ)[1]
+            y = f(ϵ)[1]
+            z = g(ϵ)[1]
             ϵ > 0.1 || error("could not determine working ϵ, last tried value was $ϵ")
         end
         ubound(ϵ)
     end
-
     verbose && @info "Determined ϵ" ϵ
 
     # Function for computing p₁(x) for x ∈ [0, ϵ]
