@@ -27,7 +27,7 @@ begin
     Pkg.activate("../")
     using Arblib, ArbExtras, HighestCuspedWave, Plots, PlutoUI
 
-    setprecision(Arb, 100)
+    setprecision(Arb, 128)
 
     nothing
 end
@@ -84,7 +84,7 @@ In what follows we compute enclosures of $\alpha_0$, $A$ and $B$.
 """
 
 # ╔═╡ f27e0113-5e77-44af-958a-4b9e4a13a40b
-ϵ = Arb(-1e-8)
+ϵ = Arb(-1e-3)
 
 # ╔═╡ 34009ff0-dadd-4464-9187-890723d94a3e
 u0 = KdVZeroAnsatz(Arb((ϵ, 0)))
@@ -156,11 +156,15 @@ We can now plot the coefficient in front of $\alpha^2$ as a function of $x$.
 """
 
 # ╔═╡ 51603714-bb7e-4691-b80d-7b18cf159b94
-A_xs, A_ys = let xs = range(Arb("1e-1"), π, length = 200)
+A_xs, A_ys = let xs = range(Arb(0), π, length = 200)
     ys = similar(xs)
-    f = let F0 = F0(u0)
+    f = let F0_nonasym = F0(u0), F0_asym = F0(u0, Asymptotic(), ϵ = Arb(π))
         x -> begin
-            expansion = F0(x)
+            if x < 1
+                expansion = F0_asym(x)
+            else
+                expansion = F0_nonasym(x)
+            end
             @assert iszero(expansion[0]) && iszero(expansion[1])
             expansion[2]
         end
@@ -191,7 +195,7 @@ A_xs_asym, A_ys_asym =
 
 # ╔═╡ 0044f472-bfd7-462a-aee8-256913beaad3
 A = if use_rigorous_bounds_δ0
-    delta0(u0, verbose = true, maxevals = 10000)[2]
+    delta0(u0, maxevals = 10000, verbose = true, atol = Arb(0.0025))[2]
 else
     max(maximum(abs.(A_ys)), maximum(abs.(A_ys_asym)))
 end
@@ -235,9 +239,13 @@ Note that the first coefficient in the expansion is $1$. We can plot the linear 
 # ╔═╡ 9a568a65-91d0-4758-9cbb-15cc088f9aef
 B_xs, B_ys = let xs = range(Arb(0), π, length = 200)[2:end]
     ys = similar(xs)
-    f = let T0 = T0(u0)
+    f = let T0_nonasym = T0(u0), T0_asym = T0(u0, Asymptotic())
         x -> begin
-            expansion = T0(x)
+            if x < 1
+                expansion = T0_asym(x)
+            else
+                expansion = T0_nonasym(x)
+            end
             @assert isone(expansion[0])
             expansion[1]
         end
@@ -249,21 +257,20 @@ B_xs, B_ys = let xs = range(Arb(0), π, length = 200)[2:end]
 end
 
 # ╔═╡ f01b115e-0f4a-403a-807c-92d876c7e7c6
-B_xs_asym, B_ys_asym =
-    let xs = exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), length = 200))
-        ys = similar(xs)
-        f = let T0 = T0(u0, Asymptotic(), ϵ = one(Arb))
-            x -> begin
-                expansion = T0(x)
-                @assert isone(expansion[0])
-                expansion[1]
-            end
+B_xs_asym, B_ys_asym = let xs = exp.(range(log(Arb("1e-10")), log(Arb(0.9)), length = 200))
+    ys = similar(xs)
+    f = let T0 = T0(u0, Asymptotic(), ϵ = one(Arb))
+        x -> begin
+            expansion = T0(x)
+            @assert isone(expansion[0])
+            expansion[1]
         end
-        Threads.@threads for i in eachindex(xs)
-            ys[i] = f(xs[i])
-        end
-        xs, ys
     end
+    Threads.@threads for i in eachindex(xs)
+        ys[i] = f(xs[i])
+    end
+    xs, ys
+end
 
 # ╔═╡ 17755368-cba0-446a-9d64-edcd32b11be2
 B = if use_rigorous_bounds_C_B
