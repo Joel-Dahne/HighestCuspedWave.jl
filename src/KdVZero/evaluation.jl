@@ -506,7 +506,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
         # coefficient so that we get an enclosure for a lower bound of α
         if !iszero(u0.α)
             error = let α = lbound(Arb, u0.α)
-                gamma(2α) * cospi(1 - α) * finda0(α) - a0singular_term(α)
+                gamma(2α) * cospi(α) * finda0(α) - a0singular_term(α)
             end
             a0singular_term[u0.degree] +=
                 Arblib.add_error!(zero(error), error / lbound(Arb, u0.α)^u0.degree)
