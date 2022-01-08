@@ -460,7 +460,6 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         # If x overlaps with π this gives an indeterminate result
         # which we handle specially
         if Arblib.overlaps(x, Arb(π))
-            # FIXME: Add remainder term
             # Use periodicity of 2π to evaluate at x - π which is
             # close to zero. Use the asymptotic expansion at x = 0 to
             # evaluate it.
@@ -492,7 +491,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
                     (-1)^m * compose_with_remainder(zeta, s - 2m, u0.α) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
                 )
                 # Remainder term
-                res += abspow(y, 2M) * clausenc_expansion_remainder(y, s, M) # FIXME
+                res += abspow(y, 2M) * clausenc_expansion_remainder(y, s, M)
 
                 res
             end
@@ -644,7 +643,7 @@ function T0(
                     res +=
                         ((1 - t)^2M + (1 + t)^2M - 2t^2M) * mul_with_remainder(
                             abspow_with_remainder(x, 2M - 1 + α, u0.α),
-                            clausenc_expansion_remainder(x * (1 + t), s, M), # FIXME
+                            clausenc_expansion_remainder(x * (1 + t), s, M),
                             u0.α,
                         )
 
@@ -676,7 +675,7 @@ function T0(
                         ((1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
                         mul_with_remainder(
                             abspow_with_remainder(x, 2M + 1 + α, u0.α),
-                            clausens_expansion_remainder(x * (1 + t), s, M), # FIXME
+                            clausens_expansion_remainder(x * (1 + t), s, M),
                             u0.α,
                         )
 
@@ -703,7 +702,7 @@ function T0(
             # Remainder term
             res += mul_with_remainder(
                 abspow_with_remainder(x, 2M - 1 + α, u0.α),
-                clausenc_expansion_remainder(x, s, M), # FIXME
+                clausenc_expansion_remainder(x, s, M),
                 u0.α,
             )
 
