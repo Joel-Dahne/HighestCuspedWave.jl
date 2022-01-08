@@ -467,8 +467,8 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
             # approach as the asymptotic version of T0 does.
             clausenc_x_plus_pi = let y = abs(x - π), s = 2 - α, M = 2
                 # Expansion of gamma(α - 1) * sinpi(α / 2)
-                gamma_sin = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-                    ArbSeries((-π / 2, (γ - 1) * π / 2))
+                gamma_sin = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
+                    (sinpi(α / 2) << 1) / (rgamma(α - 1) << 1)
                 end
                 # FIXME: Properly implement this. Now we just widen the last
                 # coefficient so that we get an enclosure for a lower bound of α
@@ -551,13 +551,10 @@ the coefficients. The only problematic term is the singular one given by
 gamma(α - 1) * sinpi(α / 2) * abspow(x, 1 - α)
 ```
 where there is a removable singularity for `gamma(α - 1) * sinpi(α /
-2)`. The expansion can be computed to be
-```
-gamma(α - 1) * sinpi(α / 2) =
-    -π / 2 + (γ - 1) * π / 2 * α +
-    (-24π + 24γ * π - 12γ^2 * π - π^3) / 48 * α^2
-```
-- **TODO:** Compute remainder term in `α`.
+2)`. We can handle this by rewriting it as `sinpi(α / 2) / rgamma(α -
+1)` and explicitly dealing with it.
+- **TODO:** Compute remainder term in `α` of `gamma(α - 1) * sinpi(α /
+    2)`
 
 For
 ```
@@ -596,8 +593,8 @@ function T0(
     u0_expansion = u0(ϵ, AsymptoticExpansion())
 
     # Expansion of gamma(α - 1) * sinpi(α / 2)
-    gamma_sin = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-        ArbSeries((-π / 2, (γ - 1) * π / 2))
+    gamma_sin = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
+        (sinpi(α / 2) << 1) / (rgamma(α - 1) << 1)
     end
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
