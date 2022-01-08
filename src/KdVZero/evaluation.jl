@@ -207,19 +207,13 @@ The value of `M` determines the number of terms in the expansion in
 Most of the terms can be computed by evaluating them directly. The
 exception is the singular term for the first Clausen function, given
 by `gamma(α) * cospi(α / 2)` which has a singularity at `α = 0`.
-However multiplication by `a[0]` removes the singularity and we have
-the expansion
+However multiplication by `a[0]` removes the singularity and we can
+compute it by rewriting it as
 ```
 a[0] * gamma(α) * cospi(α / 2) = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
 ```
-which is the same as the one occurring in [`expansion_p0`](@ref). The
-expansion is given by
-```
-2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2)) =
-    1 - γ * α + (γ^2 / 2 - π^2 / 8) * α^2 +
-    (-4γ^3 + 3γ * π^2 + 28 * polygamma(2, 1)) / 24 * α^3 + O(α^4)
-```
-where `γ` is the Euler constant.
+where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
+similarly to how it is done in [`expansion_as`](@ref).
 - **TODO:** Compute remainder term in `α`
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
@@ -234,9 +228,14 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
 
     # Handle main term
     # Compute the coefficient for the singular term
-    a0singular_term = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-        ArbSeries((1, -γ, γ^2 / 2 - π^2 / 8); u0.degree)
+    a0singular_term = let
+        # rgamma(α) / rgamma(2α) handling the removable singularity
+        g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
+            (rgamma(α) << 1) / (rgamma(2α) << 1)
+        end
+        2cospi(α) / cospi(α / 2) * g
     end
+
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
     if !iszero(u0.α)
@@ -477,14 +476,10 @@ by `gamma(2α) * cospi(α)` which has a singularity at `α = 0`. However
 multiplication by `a[0]` removes the singularity and we have
 ```
 a[0] * gamma(2α) * cospi(α) = 2gamma(2α)^2 * cospi(α)^2 / (gamma(α)^2 * cospi(α / 2)^2)
+    = 2(gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2)))^2
 ```
-From Mathematica the expansion is given by
-```
-2gamma(2α)^2 * cospi(α)^2 / (gamma(α)^2 * cospi(α / 2)^2) =
-    1 / 2 - γ * α + (γ^2 - π^2 / 8) * α^2 +
-    (-8γ^3 + 3γ * π^2 + 14polygamma(2, 1)) / 12 * α^3
-```
-where `γ` is the Euler constant.
+where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
+similarly to how it is done in [`expansion_as`](@ref).
 - **TODO:** Compute remainder term in `α`
 """
 function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
@@ -500,8 +495,12 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
 
         # Handle main term
         # Compute the coefficient for the singular term
-        a0singular_term = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-            ArbSeries((1 // 2, -γ, γ^2 - π^2 / 8); u0.degree)
+        a0singular_term = let
+            # rgamma(α) / rgamma(2α) handling the removable singularity
+            g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
+                (rgamma(α) << 1) / (rgamma(2α) << 1)
+            end
+            2(cospi(α) / cospi(α / 2) * g)^2
         end
         # FIXME: Properly implement this. Now we just widen the last
         # coefficient so that we get an enclosure for a lower bound of α
