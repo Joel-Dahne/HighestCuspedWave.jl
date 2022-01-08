@@ -168,9 +168,7 @@ function _clausens_zeta(x::Arb, s::Arb)
         # Note that in this case s is never wide.
 
         # Compute drgamma(v)
-        drgamma = let tmp = ArbSeries((v, 1))
-            Arblib.rgamma_series!(tmp, tmp, 2)[1]
-        end
+        drgamma = rgamma(ArbSeries((v, 1)))[1]
 
         # Get the unique integer
         unique, s_integer = unique_integer(s)
@@ -269,7 +267,7 @@ function _clausens_zeta(x::Arb, s::ArbSeries)
         w = ArbSeries(v, degree = Arblib.degree(v) + 1)
 
         # Compute rgamma(v) / (v - v[0]) to the same degree as v
-        denominator = Arblib.rgamma_series!(zero(w), w, length(w)) << 1
+        denominator = rgamma(w) << 1
 
         # Get the unique integer
         unique, s_integer = unique_integer(s0)
