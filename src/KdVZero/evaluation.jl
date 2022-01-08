@@ -72,11 +72,9 @@ zeta(0, x / 2π) + zeta(0, 1 - x / 2π) = (1 / 2 - x / 2π) + (1 / 2 - (1 - x / 
 where we have used [Equation
 25.11.13](https://dlmf.nist.gov/25.11.E13). We can thus extract a
 factor `α` from this. Putting the `α` together with `gamma(α)` we can
-remove the pole and we have the expansion
-```
-α * gamma(α) = 1 - γ * α + (γ^2 / 2 + π^2 / 12) * α^2 + O(α^3)
-```
-- **TODO:** Compute remainder term in `α`
+write it as `α * gamma(α) = α / rgamma(α)` where we can handle the
+removable singularity
+- **TODO:** Compute remainder term in `α` for `α * gamma(α)`.
 
 For wide values of `x` direct evaluation of `zeta(α, x / 2π) + zeta(α,
 1 - x / 2π)` gives a poor enclosure. To get better enclosures we use
@@ -92,7 +90,11 @@ For computing `a[0] * zeta(1 - α)` we rewrite it as
 ```
 and use the expansion
 ```
-α * zeta(1 - α) = -1 + stieltjes(0) * α + stieltjes(1) * α^2 + stieltjes(2) / 2 * α^3 + O(α^4)
+zeta(s) = 1 / (s - 1) + sum((-1)^n * stieltjes(n) / factorial(n) * (s - 1)^n for n = 0:Inf)
+```
+to get
+```
+α * zeta(1 - α) = -1 + sum(stieltjes(n) / factorial(n) * α^n for n = 0:Inf)
 ```
 - **TODO:** Compute remainder term in `α`
 """
@@ -134,10 +136,8 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         clausen_term = clausen_term << 1
 
         # Expansion of α * gamma(α)
-        u0.degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
-        gammamulα = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-            ArbSeries((1, -γ, γ^2 / 2 + π^2 / 12); u0.degree)
-        end
+        gammamulα = inv(rgamma(ArbSeries((0, 1), degree = u0.degree + 1)) << 1)
+
         # FIXME: Properly implement this. Now we just widen the last
         # coefficient so that we get an enclosure for a lower bound of α
         if !iszero(u0.α)
@@ -155,11 +155,9 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         # multiplication is correct.
         a0clausenterm = mul_with_remainder(u0.a[0] << 1, clausen_term, u0.α) >> 1
 
-        u0.degree <= 3 || throw(ArgumentError("only supports degree up to 3"))
-        zetamulα = ArbSeries(
-            (-1, stieltjes(Arb, 0), stieltjes(Arb, 1), stieltjes(Arb, 2) / 2);
-            u0.degree,
-        )
+        zetamulα =
+            ArbSeries([-1; [stieltjes(Arb, n) / factorial(n) for n = 0:u0.degree-1]])
+
         # FIXME: Properly implement this. Now we just widen the last
         # coefficient so that we get an enclosure for a lower bound of α
         if !iszero(u0.α)
@@ -329,6 +327,10 @@ zeta(0, x / 2π) + zeta(0, 1 - x / 2π) = (1 / 2 - x / 2π) + (1 / 2 - (1 - x / 
 where we have used [Equation
 25.11.13](https://dlmf.nist.gov/25.11.E13). We can thus extract a
 factor `α` from this. Putting the `α` together with `gamma(2α)` we can
+write it as `α * gamma(2α) = α / rgamma(2α)` where we can handle the
+removable singularity
+- **TODO:** Compute remainder term in `α` for `α * gamma(2α)`.
+
 remove the pole and we have the expansion
 ```
 α * gamma(2α) = 1 / 2 - γ * α + (γ^2 + π^2 / 6) * α^2 + O(α^3)
@@ -349,7 +351,11 @@ For computing `a[0] * zeta(1 - 2α)` we rewrite it as
 ```
 and use the expansion
 ```
-α * zeta(1 - 2α) = -1 / 2 + stieltjes(0) * α + 2stieltjes(1) * α^2 + 2stieltjes(2) * α^3 + O(α^4)
+zeta(s) = 1 / (s - 1) + sum((-1)^n * stieltjes(n) / factorial(n) * (s - 1)^n for n = 0:Inf)
+```
+to get
+```
+α * zeta(1 - 2α) = -1 / 2 + sum(2^n * stieltjes(n) / factorial(n) * α^n for n = 0:Inf)
 ```
 - **TODO:** Compute remainder term in `α`
 """
@@ -357,9 +363,8 @@ function H(u0::KdVZeroAnsatz, ::Ball)
     u0.degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
 
     # Expansion of α * gamma(2α)
-    gammamulα = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-        ArbSeries((1 // 2, -γ, γ^2 + π^2 / 6); u0.degree)
-    end
+    gammamulα = inv(rgamma(2ArbSeries((0, 1), degree = u0.degree + 1)) << 1)
+
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
     if !iszero(u0.α)
@@ -371,10 +376,9 @@ function H(u0::KdVZeroAnsatz, ::Ball)
     end
 
     # Expansion of α * zeta(1 - 2α)
-    zetamulα = ArbSeries(
-        (-1 // 2, stieltjes(Arb, 0), 2stieltjes(Arb, 1), 2stieltjes(Arb, 2));
-        u0.degree,
-    )
+    zetamulα =
+        ArbSeries([-1 // 2; [2^n * stieltjes(Arb, n) / factorial(n) for n = 0:u0.degree-1]])
+
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
     if !iszero(u0.α)
