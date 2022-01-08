@@ -11,7 +11,7 @@ gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)
     2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
 ```
 
-Expanding the right hand side around `α = 0` we get from Mathematica
+Expanding the right hand side around `α = 0` we get from Mathematica,
 with
 ```
 Series[2 Gamma[2 a]*Cos[Pi*a]/(Gamma[a]*Cos[Pi*a/2]), {a, 0, 3}]
@@ -22,7 +22,6 @@ Series[2 Gamma[2 a]*Cos[Pi*a]/(Gamma[a]*Cos[Pi*a/2]), {a, 0, 3}]
     (-4γ^3 + 3γ * π^2 + 28 * polygamma(2, 1)) / 24 * α^3 + O(α^4)
 ```
 where `γ` is the Euler constant.
-- **TODO:** Compute remainder term
 
 If we let `p0 = p00 + p01 * α + p02 * α^2`, insert this into the left
 hand side and expand in `α` we get, using
@@ -74,7 +73,7 @@ see that we must have
 ```
 digamma(-p00) + π / 2 * tan(p00 * π / 2) = -γ
 ```
-For `p01` we get (after multiplying by `8`)
+For `p01` we get, after multiplying by `8`,
 ```
 - 3π^2
 + 2p01 * π^2
@@ -86,7 +85,7 @@ For `p01` we get (after multiplying by `8`)
 + 2p01 * π^2 * tan(p00 * π / 2)^2
 = 4γ^2 - π^2
 ```
-And for `p02` we have after multiplication by 48
+And for `p02` we have, after multiplication by 48,
 ```
 + 12 * p02 * π^2
 - 18 * π^2 * digamma(-p00)
@@ -113,27 +112,9 @@ And for `p02` we have after multiplication by 48
 = -8γ^3 + 6γ * π^2 + 56 * polygamma(2, 1)
 ```
 
-we can solve for `p00` using numerical methods. for `p01` we can note
+We can solve for `p00` using numerical methods. for `p01` we can note
 that the equation is linear and we immediately get
 ```
-p01 = (
-    (4γ^2 - π^2)
-    - (
-        - 3π^2
-        + 4digamma(-p00)^2
-        + 12polygamma(1, -p00)
-        + 4π * digamma(-p00) * tan(p00 * π / 2)
-        - 2π^2 * tan(p00 * π / 2)^2
-    )
-) / (
-+ 2π^2
-- 8polygamma(1, -p00)
-+ 2π^2 * tan(p00 * π / 2)^2
-)
-
-=
-
-
 p01 = -(
     4γ^2 - π^2 -
     (-3π^2 + 4digamma(-p00)^2 + 12polygamma(1, -p00) + + 4π * digamma(-p00) * tan(p00 * π / 2) - 2π^2 * tan(p00 * π / 2)^2)
@@ -171,24 +152,20 @@ p02 = (
 )
 ```
 
-**TODO:** Possibly compute more terms in the expansion.
-**TODO:** Compute remainder term.
+- **IMPROVE:** Possibly compute more terms in the expansion.
+- **TODO:** Compute remainder term.
 """
 function expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
     degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
 
-    γ = Arb(Irrational{:γ}())
-
-    rhs = ArbSeries((1, -γ, γ^2 / 2 - Arb(π)^2 / 8))
-
-    p00 = let π = Arb(π)
+    p00 = let π = Arb(π), γ = Arb(Irrational{:γ}())
         f(p00) = digamma(-p00) + π / 2 * tan(p00 * π / 2) + γ
         roots, flags = ArbExtras.isolate_roots(f, Arf(1.4), Arf(1.5), depth = 20)
         @assert only(flags)
         ArbExtras.refine_root(f, Arb(roots[1]))
     end
 
-    p01 = let π = Arb(π)
+    p01 = let π = Arb(π), γ = Arb(Irrational{:γ}())
         -(
             4γ^2 - π^2 - (
                 -3π^2 +
@@ -199,7 +176,7 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
         ) / (-2π^2 + 8real(polygamma(Acb(1), Acb(-p00))) - 2π^2 * tan(p00 * π / 2)^2)
     end
 
-    p02 = let π = Arb(π)
+    p02 = let π = Arb(π), γ = Arb(Irrational{:γ}())
         (
             (-8γ^3 + 6γ * π^2 + 56 * real(polygamma(Acb(2), Acb(1)))) - (
                 -18 * π^2 * digamma(-p00) +
