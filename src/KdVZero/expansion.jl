@@ -253,11 +253,19 @@ and in many cases we divide `a[0]` by `α` and still want to have
 sufficiently high degree.
 
 # Computing `a[0]`
-From Mathematica we have
+We have
 ```
-a[0] = α - π^2 / 12 * a^3 + polygamma(2, 1) * a^4 - 11π^4 / 360 * a^5 + O(a^6)
+a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
-- **TODO:** Compute remainder term.
+At `α = 0` both gamma functions have a pole, we can instead rewrite it
+in terms of the reciprocal gamma function as
+```
+a[0] = 2rgamma(α)^2 * cospi(α) / (rgamma(2α) * cospi(α / 2)^2)
+```
+We can compute `2cospi(α) / cospi(α / 2)^2` whereas for `rgamma(α)^2 /
+rgamma(2α)` we have to handle the removable singularity.
+- **TODO:** Compute remainder term. The only problematic part is
+  `rgamma(α) / rgamma(2α)`. We want a very tight enclosure.
 
 # Setting up a linear system for `a[1]` and `a[2]`
 We can get the values for `a[1]` and `a[2]` in terms of a linear
@@ -400,13 +408,14 @@ from all of them. To get the higher order terms we factor out one more
 `α` from `v1` and `v2` and multiply it back afterwards.
 """
 function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
-    degree <= 3 || throw(ArgumentError("only supports degree up to 3"))
-
-    # Expansion of a[0] without remainder term
-    a0 = ArbSeries(
-        (0, 1, 0, -Arb(π)^2 / 12, real(polygamma(Acb(2), Acb(1))), -11Arb(π)^4 / 360),
-        degree = degree + 1,
-    )
+    # Expansion of a0 without remainder term
+    a0 = let α = ArbSeries((0, 1), degree = degree + 1)
+        # rgamma(α)^2 / rgamma(2α) handling the removable singularity
+        g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
+            (rgamma(α)^2 << 1) / (rgamma(2α) << 1)
+        end
+        2cospi(α) / cospi(α / 2)^2 * g
+    end
 
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
