@@ -1,4 +1,62 @@
 """
+    taylor_with_remainder(f, x0::Arb, interval::Arb; degree::Integer, enclosure_degree::Integer = 0)
+
+Compute the Taylor expansion of `f` at the point `x0` with the last
+term being a remainder term which ensures that the truncated version
+gives an enclosure of `f(x)` for all `x ∈ interval`.
+
+We require that `x0 ∈ interval`.
+
+It computes a tighter enclosure of the remainder term using
+[`ArbExtras.extrema_series`](@ref). The degree used for this can be
+set with `enclosure_degree`. Setting it to a negative number makes it
+compute it directly instead.
+"""
+function taylor_with_remainder(
+    f,
+    x0::Arb,
+    interval::Arb;
+    degree::Integer,
+    enclosure_degree::Integer = 0,
+)
+    contains(interval, x0) ||
+        throw(ArgumentError("expected x0 to be contained in interval"))
+
+    # Compute expansion without remainder term
+    res = f(ArbSeries((x0, 1), degree = degree - 1))
+
+    # Make room for remainder term
+    res = ArbSeries(res; degree)
+
+    # Compute remainder term
+    if enclosure_degree < 0
+        res[degree] = f(ArbSeries((interval, 1); degree))
+    else
+        # We compute a tighter enclosure with the help of ArbExtras.extrema_series
+        g(x::Arb) = f(ArbSeries((x, 1); degree))[degree] * factorial(degree)
+        g(x::ArbSeries) =
+            if iszero(Arblib.degree(x))
+                ArbSeries(g(x[0]))
+            else
+                Arblib.derivative(
+                    f(ArbSeries(x, degree = Arblib.degree(x) + degree)),
+                    degree,
+                )
+            end
+        res[degree] =
+            Arb(
+                ArbExtras.extrema_series(
+                    g,
+                    getinterval(interval)...,
+                    degree = enclosure_degree,
+                )[1:2],
+            ) / factorial(degree)
+    end
+
+    return res
+end
+
+"""
     truncate_with_remainder(p::Union{ArbPoly,ArbSeries}, interval::Arb; degree::Integer)
 
 Return a `ArbSeries` corresponding to a truncated version of `p` with
