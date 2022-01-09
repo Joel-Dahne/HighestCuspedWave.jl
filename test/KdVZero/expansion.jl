@@ -1,30 +1,33 @@
 @testset "expansion" begin
-    # Set up interval of α to test the expansions on and take a number
-    # of points on this interval
-    α_lower = Arb(-0.01)
-    α_upper = Arb(0)
-    α_interval = Arb((α_lower, α_upper))
-    αs = range(α_lower, α_upper, length = 100)[1:end-1]
+    α0s = [Arb(0), Arb((-1e-3))]
 
-    # Construct KdVZeroansatz for the interval
-    u0 = KdVZeroAnsatz(α_interval)
+    intervals = [
+        -Arblib.nonnegative_part!(zero(Arb), Arb((0, 1e-2))),
+        Arblib.add_error!(Arb(-1e-3), Arb(1e-6)),
+    ]
 
-    @testset "p0" begin
-        for α in αs
-            @test Arblib.overlaps(u0.p0(α), HighestCuspedWave.findp0(α))
+    for (α0, interval) in zip(α0s, intervals)
+        αs = range(getinterval(Arb, interval)..., 100)
+        if iszero(α0)
+            αs = αs[1:end-1]
         end
-    end
 
-    # Construct FractionalKdvansatz for each αs
-    #u0s = FractionalKdVAnsatz.(αs, 2, 0)
+        u0 = KdVZeroAnsatz(interval, α0)
 
-    @testset "as" begin
-        for α in αs
-            @test Arblib.overlaps(u0.a[0](α), HighestCuspedWave.finda0(α))
+        @testset "p0" begin
+            for α in αs
+                @test Arblib.overlaps(u0.p0(α - α0), HighestCuspedWave.findp0(α))
+            end
+        end
 
-            a1, a2 = HighestCuspedWave._finda1a2(α)
-            @test Arblib.overlaps(u0.a[1](α), a1)
-            @test Arblib.overlaps(u0.a[2](α), a2)
+        @testset "as" begin
+            for α in αs
+                @test Arblib.overlaps(u0.a[0](α - α0), HighestCuspedWave.finda0(α))
+
+                a1, a2 = HighestCuspedWave._finda1a2(α)
+                @test Arblib.overlaps(u0.a[1](α - α0), a1)
+                @test Arblib.overlaps(u0.a[2](α - α0), a2)
+            end
         end
     end
 end

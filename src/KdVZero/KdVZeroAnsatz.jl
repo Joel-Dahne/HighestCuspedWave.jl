@@ -59,8 +59,8 @@ struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
         # α is non-positive, this removes any spurious positive parts
         α = -Arblib.nonnegative_part!(zero(α), -α)
 
-        a = expansion_as(KdVZeroAnsatz, α, α0; degree)
-        p0 = expansion_p0(KdVZeroAnsatz, α, α0; degree)
+        a = expansion_as(KdVZeroAnsatz, α0, α; degree)
+        p0 = expansion_p0(KdVZeroAnsatz, α0, α; degree)
         u0 = new(α, α0, a, p0, degree)
 
         return u0

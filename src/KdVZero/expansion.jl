@@ -1,16 +1,86 @@
 """
-    expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
+    expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::Integer = 2)
 
-Compute an expansion for `p0` at `α = 0` of the given degree. The last
-term is a remainder term which ensures that evaluating the expansion
-gives an enclosure of `p0` for all values in the interval `α`.
+Compute an expansion for `p0` at the point `α0` of the given degree.
+The last term is a remainder term which ensures that evaluating the
+expansion gives an enclosure of `p0` for all `α ∈ interval`.
 
 We are interested in finding `p0` solving
 ```
 gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
     2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
 ```
+If we consider `p0` as a function of `α` with the expansion
+```
+p0(α) = p00 + p01 * (α - α) + p02 * (α - α0)^2 + ...
+```
+plugging this into the left hand side and expanding both sides at the
+point `α0` we can solve for the coefficients `p00, p01, p02, ...`.
 
+We split this into two cases, one for `α0 < 0` and one for `α0 = 0`.
+
+# `α0 < 0`
+Let
+```
+f(α, p0) = gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2))
+
+g(α) = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+```
+
+We can compute `p00` as the solution to `f(α0, p00) = g(α0)`, which we
+can compute directly using [`findp0`](@ref).
+
+For `p01` we differentiate the equation ones with respect to `α`,
+giving us
+```
+f_1(α, p0) + p0' * f_2(α, p0) = g'(α)
+```
+where `f_1` is `f` differentiated w.r.t to the first argument and
+`f_2` w.r.t the second argument. Plugging in `α0` we get
+```
+f_1(α0, p00) + p01 * f_2(α0, p00) = g'(α0)
+```
+Solving for `p01` we have
+```
+p01 = (g'(α0) - f_1(α0, p00)) / f_2(α0, p00)
+```
+We can compute all required derivatives using `ArbSeries`.
+
+For `p02` we differentiate the equation ones more w.r.t `α`, giving us
+```
+f_11(α, p0) + 2p0' * f_12(α, p0) + (p0')^2 * f_22(α, p0) + p0'' * f_2(α, p0) = g''(α)
+```
+Inserting `α0` we have
+```
+f_11(α0, p00) + 2p01 * f_12(α0, p00) + p01^2 * f_22(α0, p00) + 2 * p02 * f_2(α0, p00) = g''(α0)
+```
+and solving for `p02` gives
+```
+p02 = (g''(α0) - f_11(α0, p00) + 2p01 * f_12(α0, p00) + p01^2 * f_22(α0, p00)) / 2f_2(α0, p00)
+```
+We can compute most derivatives using `ArbSeries`, the exception is
+`f_12` since Arb doesn't support series in two variables. Instead we
+compute the derivative w.r.t. the second argument by hand and then
+different this w.r.t the first argument using `ArbSeries`.
+Differentiation gives
+```
+f_2(α, p0) =
+    gamma(2α - p0) * digamma(α - p0) * cospi((2α - p0) / 2) /
+    (gamma(α - p0) * cospi((α - p0) / 2)) -
+    (gamma(2α - p0) * digamma(2α - p0) * cospi((2α - p0) / 2)) /
+    (gamma(α - p0) * cospi((α - p0) / 2)) +
+    π * (gamma(2α - p0) * sinpi((2α - p0) / 2)) /
+    (2gamma(α - p0) * cospi((α - p0) / 2)) -
+    π * (gamma(2α - p0) * cospi((2α - p0) / 2) * tanpi((α - p0) / 2)) /
+    (2gamma(α - p0) * cospi((α - p0) / 2))
+```
+
+# `α0 = 0`
+Recall that we are interested in solving
+```
+gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
+    2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+```
 Expanding the right hand side around `α = 0` we get from Mathematica,
 with
 ```
@@ -152,95 +222,173 @@ p02 = (
 )
 ```
 
-- **IMPROVE:** Possibly compute more terms in the expansion.
 - **TODO:** Compute remainder term.
 """
-function expansion_p0(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
+function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::Integer = 2)
     degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
 
-    p00 = let π = Arb(π), γ = Arb(Irrational{:γ}())
-        f(p00) = digamma(-p00) + π / 2 * tan(p00 * π / 2) + γ
-        roots, flags = ArbExtras.isolate_roots(f, Arf(1.4), Arf(1.5), depth = 20)
-        @assert only(flags)
-        ArbExtras.refine_root(f, Arb(roots[1]))
+    p00 = if iszero(α0)
+
+    else
+
     end
 
-    p01 = let π = Arb(π), γ = Arb(Irrational{:γ}())
-        -(
-            4γ^2 - π^2 - (
-                -3π^2 +
-                4digamma(-p00)^2 +
-                12real(polygamma(Acb(1), Acb(-p00))) +
-                +4π * digamma(-p00) * tan(p00 * π / 2) - 2π^2 * tan(p00 * π / 2)^2
-            )
-        ) / (-2π^2 + 8real(polygamma(Acb(1), Acb(-p00))) - 2π^2 * tan(p00 * π / 2)^2)
-    end
+    if iszero(α0)
+        p00 = let π = Arb(π), γ = Arb(Irrational{:γ}())
+            f(p00) = digamma(-p00) + π / 2 * tan(p00 * π / 2) + γ
+            roots, flags = ArbExtras.isolate_roots(f, Arf(1.4), Arf(1.5), depth = 20)
+            @assert only(flags)
+            ArbExtras.refine_root(f, Arb(roots[1]))
+        end
 
-    p02 = let π = Arb(π), γ = Arb(Irrational{:γ}())
-        (
-            (-8γ^3 + 6γ * π^2 + 56 * real(polygamma(Acb(2), Acb(1)))) - (
-                -18 * π^2 * digamma(-p00) +
-                12 * p01 * π^2 * digamma(-p00) +
-                8 * digamma(-p00)^3 +
-                72 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) -
-                48 * p01 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) +
-                56 * real(polygamma(Acb(2), Acb(-p00))) -
-                72 * p01 * real(polygamma(Acb(2), Acb(-p00))) +
-                24 * p01^2 * real(polygamma(Acb(2), Acb(-p00))) +
-                5 * π^3 * tan(p00 * π / 2) - 12 * p01 * π^3 * tan(p00 * π / 2) +
-                6 * p01^2 * π^3 * tan(p00 * π / 2) +
-                12 * π * digamma(-p00)^2 * tan(p00 * π / 2) +
-                36 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) -
-                24 * p01 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) -
-                12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
-                12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
-                6 * π^3 * tan(p00 * π / 2)^3 - 12 * p01 * π^3 * tan(p00 * π / 2)^3 +
-                6 * p01^2 * π^3 * tan(p00 * π / 2)^3
+        p01 = let π = Arb(π), γ = Arb(Irrational{:γ}())
+            -(
+                4γ^2 - π^2 - (
+                    -3π^2 +
+                    4digamma(-p00)^2 +
+                    12real(polygamma(Acb(1), Acb(-p00))) +
+                    +4π * digamma(-p00) * tan(p00 * π / 2) - 2π^2 * tan(p00 * π / 2)^2
+                )
+            ) /
+            (-2π^2 + 8real(polygamma(Acb(1), Acb(-p00))) - 2π^2 * tan(p00 * π / 2)^2)
+        end
+
+        p02 = let π = Arb(π), γ = Arb(Irrational{:γ}())
+            (
+                (-8γ^3 + 6γ * π^2 + 56 * real(polygamma(Acb(2), Acb(1)))) - (
+                    -18 * π^2 * digamma(-p00) +
+                    12 * p01 * π^2 * digamma(-p00) +
+                    8 * digamma(-p00)^3 +
+                    72 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) -
+                    48 * p01 * digamma(-p00) * real(polygamma(Acb(1), Acb(-p00))) +
+                    56 * real(polygamma(Acb(2), Acb(-p00))) -
+                    72 * p01 * real(polygamma(Acb(2), Acb(-p00))) +
+                    24 * p01^2 * real(polygamma(Acb(2), Acb(-p00))) +
+                    5 * π^3 * tan(p00 * π / 2) - 12 * p01 * π^3 * tan(p00 * π / 2) +
+                    6 * p01^2 * π^3 * tan(p00 * π / 2) +
+                    12 * π * digamma(-p00)^2 * tan(p00 * π / 2) +
+                    36 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) -
+                    24 * p01 * π * real(polygamma(Acb(1), Acb(-p00))) * tan(p00 * π / 2) - 12 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
+                    12 * p01 * π^2 * digamma(-p00) * tan(p00 * π / 2)^2 +
+                    6 * π^3 * tan(p00 * π / 2)^3 - 12 * p01 * π^3 * tan(p00 * π / 2)^3 +
+                    6 * p01^2 * π^3 * tan(p00 * π / 2)^3
+                )
+            ) / (
+                +12 * π^2 - 48 * real(polygamma(Acb(1), Acb(-p00))) +
+                12 * π^2 * tan(p00 * π / 2)^2
             )
-        ) / (
-            +12 * π^2 - 48 * real(polygamma(Acb(1), Acb(-p00))) +
-            12 * π^2 * tan(p00 * π / 2)^2
-        )
+        end
+    else
+        p00 = findp0(α0)
+
+        rhs = let α = ArbSeries((α0, 1); degree)
+            2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+        end
+
+        f_1, f_11 = let α = ArbSeries((α0, 1), degree = 2), p0 = p00
+            res = (
+                gamma(2α - p0) * cospi((2α - p0) / 2) /
+                (gamma(α - p0) * cospi((α - p0) / 2))
+            )
+            res[1], 2res[2]
+        end
+
+        f_2, f_22 = let α = α0, p0 = ArbSeries((p00, 1), degree = 2)
+            res = (
+                gamma(2α - p0) * cospi((2α - p0) / 2) /
+                (gamma(α - p0) * cospi((α - p0) / 2))
+            )
+            res[1], 2res[2]
+        end
+
+        f_12 = let p0 = p00, α = ArbSeries((α0, 1), degree = 1)
+            res =
+                gamma(2α - p0) * digamma(α - p0) * cospi((2α - p0) / 2) /
+                (gamma(α - p0) * cospi((α - p0) / 2)) -
+                (gamma(2α - p0) * digamma(2α - p0) * cospi((2α - p0) / 2)) /
+                (gamma(α - p0) * cospi((α - p0) / 2)) +
+                Arb(π) * (gamma(2α - p0) * sinpi((2α - p0) / 2)) /
+                (2gamma(α - p0) * cospi((α - p0) / 2)) -
+                Arb(π) *
+                (gamma(2α - p0) * cospi((2α - p0) / 2) * tan(Arb(π) * (α - p0) / 2)) /
+                (2gamma(α - p0) * cospi((α - p0) / 2))
+
+            res[1]
+        end
+
+        p01 = (rhs[1] - f_1) / f_2
+
+        p02 = (2rhs[2] - f_11 - 2p01 * f_12 - p01^2 * f_22) / 2f_2
     end
 
     # Expansion without remainder term
     p0 = ArbSeries((p00, p01, p02); degree)
 
+    if !iszero(α0)
+        # We double check that solution solves the equation, this is
+        # only to catch potential bugs.
+        lhs = let α = ArbSeries((α0, 1); degree)
+            gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2))
+        end
+        rhs = let α = ArbSeries((α0, 1); degree)
+            2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+        end
+        @assert Arblib.overlaps(lhs, rhs)
+    end
+
     # FIXME: Properly implement this. Now we just widen the last
     # coefficient so that we get an enclosure for a lower bound of α
-    if !iszero(α)
-        error = findp0(lbound(Arb, α)) - p0(lbound(Arb, α))
-        p0[degree] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^degree)
+    if !iszero(radius(interval))
+        if iszero(α0)
+            # Check only lower bound of α
+            error = let α = lbound(Arb, interval)
+                (findp0(α) - p0(α - α0)) / (α - α0)^degree
+            end
+            p0[degree] += Arblib.add_error!(zero(error), error)
+        else
+            error1 = let α = lbound(Arb, interval)
+                (findp0(α) - p0(α - α0)) / abs(α - α0)^degree
+            end
+            error2 = let α = ubound(Arb, interval)
+                (findp0(α) - p0(α - α0)) / abs(α - α0)^degree
+            end
+            error = max(error1, error2)
+            p0[degree] += Arblib.add_error!(zero(error), error)
+        end
     end
 
     return p0
 end
 
 """
-    expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::integer = 2)
+    expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::integer = 2)
 
-Compute expansions for `a[i]` for `i = 1:3` at `α = 0` of the given
-degree. The last term is a remainder term which ensures that
-evaluating the expansion gives an enclosure of `a[i]` for all values
-in the interval `α`.
+Compute expansions for `a[i]` for `i = 1:3` at the point `α0` of the
+given degree. The last term is a remainder term which ensures that
+evaluating the expansion gives an enclosure of `a[i]` for all `α ∈
+interval`.
 
 The expansion of `a[0]` is computed to a degree one higher than the
-other. The reason for this is that the constant term in `a[0]` is zero
-and in many cases we divide `a[0]` by `α` and still want to have
-sufficiently high degree.
+other. The reason for this is that for `α0 = 0` the constant term in
+`a[0]` is zero and in many cases we divide `a[0]` by `α` and still
+want to have sufficiently high degree.
 
 # Computing `a[0]`
 We have
 ```
 a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
-At `α = 0` both gamma functions have a pole, we can instead rewrite it
-in terms of the reciprocal gamma function as
+For `α0 < 0` we can compute the expansion directly. At `α = 0` both
+gamma functions have a pole and direct evaluation fails. Instead we
+proceeds as follows.
+
+We can rewrite it in terms of the reciprocal gamma function as
 ```
 a[0] = 2rgamma(α)^2 * cospi(α) / (rgamma(2α) * cospi(α / 2)^2)
 ```
-We can compute `2cospi(α) / cospi(α / 2)^2` whereas for `rgamma(α)^2 /
-rgamma(2α)` we have to handle the removable singularity.
+We can compute `2cospi(α) / cospi(α / 2)^2` directly whereas for
+`rgamma(α)^2 / rgamma(2α)` we have to handle the removable
+singularity.
 - **TODO:** Compute remainder term. The only problematic part is
   `rgamma(α) / rgamma(2α)`. We want a very tight enclosure.
 
@@ -259,12 +407,12 @@ want to find `a[1]` and `a[2]` such that the last two are also zero.
 
 The coefficient in front of `x^2` is given by
 ```
--L₁⁰ = 1 / 2 * sum(a[j] * zeta(1 - 2α + j * p0 - 2) for j = 0:u0.N0) =
+1 / 2 * sum(a[j] * zeta(1 - 2α + j * p0 - 2) for j = 0:u0.N0) =
     1 / 2 * (a[0] * zeta(1 - 2α - 2) + a[1] * zeta(1 - 2α + p0 - 2) + a[2] * zeta(1 - 2α + 2p0 - 2))
 ```
 and for `x^(-α + 2)`
 ```
-a₀⁰ * K₁⁰ = gamma(α) * sinpi((1 - α) / 2) * a[0] * (-1 / 2) * sum(a[j] * zeta(1 - α + j * p0 - 2) for j = 0:u0.N0) =
+gamma(α) * sinpi((1 - α) / 2) * a[0] * (-1 / 2) * sum(a[j] * zeta(1 - α + j * p0 - 2) for j = 0:u0.N0) =
     -gamma(α) * sinpi((1 - α) / 2) * a[0] / 2 * (
         a[0] * zeta(1 - α - 2) + a[1] * zeta(1 - α + p0 - 2) + a[2] * zeta(1 - α + 2p0 - 2)
     )
@@ -345,9 +493,9 @@ v2 = -a[0] * z3
 ```
 
 # Evaluating the linear system
-Unfortunately using the above formulas don't work for direct
-evaluation, there are several indeterminate values we have to take
-care of.
+For `α0 < 0` we can directly evaluate `d`, `v1` and `v2`. For `α0 = 0`
+we have to handle several removable singularities. We describe the
+procedure for doing so below.
 
 ## Handling `z(i, j)`s
 The constant term in the expansion of `z(i, j)` doesn't depend on the
@@ -384,47 +532,80 @@ but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `α`
 from all of them. To get the higher order terms we factor out one more
 `α` from `v1` and `v2` and multiply it back afterwards.
 """
-function expansion_as(::Type{KdVZeroAnsatz}, α::Arb; degree::Integer = 2)
-    # Expansion of a0 without remainder term
-    a0 = let α = ArbSeries((0, 1), degree = degree + 1)
-        # rgamma(α)^2 / rgamma(2α) handling the removable singularity
-        g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
-            (rgamma(α)^2 << 1) / (rgamma(2α) << 1)
+function expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::Integer = 2)
+    a0 = if iszero(α0)
+        # Expansion of a0 without remainder term
+        a0 = let α = ArbSeries((α0, 1), degree = degree + 1)
+            # rgamma(α)^2 / rgamma(2α) handling the removable singularity
+            g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
+                (rgamma(α)^2 << 1) / (rgamma(2α) << 1)
+            end
+            2cospi(α) / cospi(α / 2)^2 * g
         end
-        2cospi(α) / cospi(α / 2)^2 * g
-    end
 
-    # FIXME: Properly implement this. Now we just widen the last
-    # coefficient so that we get an enclosure for a lower bound of α
-    if !iszero(α)
-        error = finda0(lbound(Arb, α)) - a0(lbound(Arb, α))
-        a0[degree+1] += Arblib.add_error!(zero(error), error / lbound(Arb, α)^(degree + 1))
+        # FIXME: Properly implement this. Now we just widen the last
+        # coefficient so that we get an enclosure for a lower bound of α
+        if !iszero(radius(interval))
+            error = finda0(lbound(Arb, interval)) - a0(lbound(Arb, interval))
+            a0[degree+1] += Arblib.add_error!(
+                zero(error),
+                error / lbound(Arb, interval)^(degree + 1),
+            )
+        end
+        a0
+    else
+        # We set enclosure_degree to a very high number since we don't
+        # really care about performance for this method, getting a
+        # good enclosure is more important.
+        taylor_with_remainder(
+            α -> 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))^2,
+            α0,
+            interval,
+            degree = degree + 1,
+            enclosure_degree = 20,
+        )
     end
 
     # Compute expansions of p0
-    p0 = expansion_p0(KdVZeroAnsatz, α; degree)
+    p0 = expansion_p0(KdVZeroAnsatz, α0, interval; degree)
 
-    α_s = ArbSeries((0, 1); degree) # Series expansion of α
-    z(i, j) = compose_with_remainder(zeta, -1 - i * α_s + j * p0, α)
+    α_s = ArbSeries((α0, 1); degree) # Series expansion around α0
+    z(i, j) = compose_with_remainder(zeta, -1 - i * α_s + j * p0, interval - α0)
 
-    z1 = mul_with_remainder(z(2, 1), z(1, 2), α) - mul_with_remainder(z(2, 2), z(1, 1), α)
-    z2 = mul_with_remainder(z(2, 2), z(1, 0), α) - mul_with_remainder(z(1, 2), z(2, 0), α)
-    z3 = mul_with_remainder(z(2, 1), z(1, 0), α) - mul_with_remainder(z(1, 1), z(2, 0), α)
+    z1 =
+        mul_with_remainder(z(2, 1), z(1, 2), interval - α0) -
+        mul_with_remainder(z(2, 2), z(1, 1), interval - α0)
+    z2 =
+        mul_with_remainder(z(2, 2), z(1, 0), interval - α0) -
+        mul_with_remainder(z(1, 2), z(2, 0), interval - α0)
+    z3 =
+        mul_with_remainder(z(2, 1), z(1, 0), interval - α0) -
+        mul_with_remainder(z(1, 1), z(2, 0), interval - α0)
 
-    # The constant coefficients for z1, z2 and z3 are all exactly
-    # equal to zero.
-    @assert all(Arblib.contains_zero(z[0]) for z in (z1, z2, z3))
-    z1[0] = z2[0] = z3[0] = 0
+    if iszero(α0)
+        # The constant coefficients for z1, z2 and z3 are all exactly
+        # equal to zero.
+        @assert all(Arblib.contains_zero(z[0]) for z in (z1, z2, z3))
+        z1[0] = z2[0] = z3[0] = 0
 
-    d = z1
-    # Factor out α from a[0] and z2 and multiply back afterwards
-    v1 = mul_with_remainder(a0 << 1, z2 << 1, α) >> 2
-    # Factor out α from a[0] and z3 and multiply back afterwards
-    v2 = -mul_with_remainder(a0 << 1, z3 << 1, α) >> 2
+        d = z1
+        # Compute v1 and v2 to one degree higher since we divide it by
+        # α
+        v1 = mul_with_remainder(a0, z2, interval - α0, degree = degree + 1)
+        v2 = -mul_with_remainder(a0, z3, interval - α0, degree = degree + 1)
 
-    # Factor out α^2 from v1 and v2 and α from d, multiply back one α afterwards
-    a1 = div_with_remainder((v1 << 2), (d << 1), α) >> 1
-    a2 = div_with_remainder((v2 << 2), (d << 1), α) >> 1
+        # Factor out α^2 from v1 and v2 and α from d, multiply back
+        # one α afterwards
+        a1 = div_with_remainder(v1 << 2, d << 1, interval - α0) >> 1
+        a2 = div_with_remainder(v2 << 2, d << 1, interval - α0) >> 1
+    else
+        d = z1
+        v1 = mul_with_remainder(a0, z2, interval - α0)
+        v2 = -mul_with_remainder(a0, z3, interval - α0)
+
+        a1 = div_with_remainder(v1, d, interval - α0)
+        a2 = div_with_remainder(v2, d, interval - α0)
+    end
 
     return OffsetVector([a0, a1, a2], 0:2)
 end
