@@ -1,7 +1,13 @@
 @testset "evaluation" begin
-    α0s = [Arb(0)]
+    α0s = [
+        Arb(0),
+        Arb((-1e-3)),
+    ]
 
-    intervals = [-Arblib.nonnegative_part!(zero(Arb), Arb((0, 1e-3)))]
+    intervals = [
+        -Arblib.nonnegative_part!(zero(Arb), Arb((0, 1e-3))),
+        Arblib.add_error!(Arb(-1e-3), Arb(1e-6)),
+    ]
 
     for (α0, interval) in zip(α0s, intervals)
         αs = range(getinterval(Arb, interval)..., 100)
