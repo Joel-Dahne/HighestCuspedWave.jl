@@ -19,8 +19,11 @@ function taylor_with_remainder(
     degree::Integer,
     enclosure_degree::Integer = 0,
 )
-    contains(interval, x0) ||
-        throw(ArgumentError("expected x0 to be contained in interval"))
+    contains(interval, x0) || throw(
+        ArgumentError(
+            "expected x0 to be contained in interval, got x0 = $x0, interval = $interval",
+        ),
+    )
 
     # Compute expansion without remainder term
     res = f(ArbSeries((x0, 1), degree = degree - 1))
