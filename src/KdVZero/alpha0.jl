@@ -7,24 +7,26 @@ u0.w(x) / 2u0(x)
 ```
 for `0 < x < π`, valid for the full range of `α`.
 
-Using that `u0.w(x) = x` we get
+The computation is done by computing the asymptotic expansion of `u0`.
+The terms in the expansion are then evaluated in `α`, giving us an
+expansion in `x` where the coefficients are just balls. We factor out
+`x^-α` from this expansion and compute
 ```
-x / 2u0(x)
-```
-Next using the method [`u0_div_xmα`](@ref) we can write `u0(x)` as
-```
-u0(x) = x^-α * f(x)
-```
-giving us
-```
-x / (2x^-α * f(x)) = x^(1 + α) / 2f(x)
+x^(1 + α) / 2(x^α * u0(x))
 ```
 """
 function alpha0(u0::KdVZeroAnsatz; verbose = false)
-    f = u0_div_xmα(u0, Asymptotic(), ϵ = Arb(3.5), M = 5)
+    # Compute expansion of u0 and evaluate the terms in α
+    expansion = let expansion = u0(Arb(3.2), AsymptoticExpansion())
+        res = empty(expansion, Arb)
+        for (key, value) in expansion
+            res[key] = value(u0.α - u0.α0)
+        end
+        res
+    end
 
-    # Function for computing x^(1 + α) / 2f(x)
-    g(x) = abspow(x, 1 + u0.α) / 2f(x)
+    # Function for computing x^(1 + α) / 2(x^α * u0(x))
+    g(x) = abspow(x, 1 + u0.α) / 2eval_expansion(u0, expansion, x, offset_i = -1)
 
     # This will typically not reach the tolerance because of the
     # overestimations in g. It simply terminates when it reaches the
