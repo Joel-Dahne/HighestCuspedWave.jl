@@ -121,12 +121,65 @@ G1(x) = -1 / ((1 - x^p0) * log(x)) *
 ```
 where the integration is taken from `0` to `1`.
 
-This term tends to zero as `α -> -1` and `x -> 0` and we therefore
-don't need to compute a very accurate upper bound.
+`G1(x)` tends to zero as `α -> -1` and `x -> 0` and we therefore don't
+need to compute a very accurate upper bound.
 
-**TODO:** Finish this. Possibly by multiplying and dividing by
-`gamma(1 + α)` to make the integrand no longer go to zero. And then
-splitting the log-term.
+As `α` goes to `-1` the factor `(1 - t)^(-α - 1) + (t + 1)^(-α - 1) -
+2t^(-α - 1)` of the integrand goes to zero, by factoring out `(1 + α)`
+we make it instead go to a non-zero function. This means we want to
+analyse
+```
+G1(x) = -(1 + α) / ((1 - x^p0) * log(x)) *
+            ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+The factor `(1 + α) / ((1 - x^p0) * log(x))` goes to zero and it is
+therefore enough to compute an enclosure of the integral. Let
+```
+J = ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
+        t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+
+## Simplifying the integrand
+We have
+```
+(1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
+= (exp(-log(t - 1) * (1 + α)) + exp(-log(t + 1) * (1 + α)) - 2exp(-log(t) * (1 + α)))
+= sum((-1)^n * (1 + α)^n * (log(t - 1)^n + log(t + 1)^n - 2log(t)^n) / factorial(n) for n = 1:Inf)
+```
+Taking out the first term we can write this as
+```
+-(1 + α) * (log(t - 1) + log(t + 1) - 2log(t)) +
+sum((-1)^n * (1 + α)^n * (log(t - 1)^n + log(t + 1)^n - 2log(t)^n) / factorial(n) for n = 2:Inf)
+```
+Call the sum `Σ`, we can the split the integral as
+```
+J1 = ∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+
+J2 = ∫ abs(Σ) / (1 + α) * t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+with `J <= J1 + J2`.
+
+## Computing `J1`
+Splitting the log-term in the weight as
+```
+log(c + inv(x * t)) = log((c * x * t + 1) / (x * t)) = log(1 + c * x * t) - log(x) - log(t)
+```
+we can split `J1` into three integrals
+```
+J11 = -log(x) * ∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) dt
+
+J12 = -∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) * log(t) dt
+
+J13 = ∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) * log(1 + c * x * t) dt
+```
+
+## Computing `J2`
+
+
+## Finishing
+**TODO:** We would need to cancel the `log(x)` and then enclose `(1 +
+  α) / (1 - x^p0)`.
 
 # The interval `[1, π / x]`
 On this interval `t - 1` is non-negative so the problem reduces to
