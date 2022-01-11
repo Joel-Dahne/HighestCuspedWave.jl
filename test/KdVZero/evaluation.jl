@@ -1,8 +1,5 @@
 @testset "evaluation" begin
-    α0s = [
-        Arb(0),
-        Arb((-1e-3)),
-    ]
+    α0s = [Arb(0), Arb((-1e-3))]
 
     intervals = [
         -Arblib.nonnegative_part!(zero(Arb), Arb((0, 1e-3))),
