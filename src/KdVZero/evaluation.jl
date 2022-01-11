@@ -1,5 +1,5 @@
 """
-    eval_expansion(u0::KdVZeroAnsatz, expansion, x)
+    eval_expansion(u0::KdVZeroAnsatz, expansion::AbstractDict{NTuple{3,Int},ArbSeries}, x::Arb)
 
 Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
 ```
@@ -27,6 +27,44 @@ function eval_expansion(
                 term = abspow_with_remainder(x, exponent, u0.α - u0.α0)
             end
             res += mul_with_remainder(y, term, u0.α - u0.α0)
+        end
+    end
+
+    return res
+end
+
+"""
+    eval_expansion(u0::KdVZeroAnsatz, expansion::AbstractDict{NTuple{3,Int},Arb}, x::Union{Arb,ArbSeries})
+
+Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
+```
+y*abs(x)^(-i * α + j * p0 + m)
+```
+
+Note that this takes a dictionary where the values are of type `Arb`
+and not `ArbSeries`. This methods doesn't compute an expansion in `α`
+like most methods for `KdVZeroansatz`. The benefit is that it allows
+evaluation with `x::ArbSeries`.
+"""
+function eval_expansion(
+    u0::KdVZeroAnsatz,
+    expansion::AbstractDict{NTuple{3,Int},Arb},
+    x::Union{Arb,ArbSeries};
+    offset_i::Integer = 0,
+    offset_m::Integer = 0,
+)
+    # Enclosure of p0 on the interval u0.α
+    p0 = u0.p0(u0.α - u0.α0)
+
+    res = zero(x)
+
+    for ((i, j, m), y) in expansion
+        if !iszero(y)
+            exponent = -(i + offset_i) * u0.α + j * p0 + (m + offset_m)
+            term = abspow(x, exponent)
+
+            res += y * term
+
         end
     end
 
@@ -918,5 +956,51 @@ function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
         end
 
         return div_with_remainder(num, den, u0.α - u0.α0)
+    end
+end
+
+"""
+    F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
+
+Return a function such that `F02(u0)(x)` computes
+```
+(u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
+```
+It uses an evaluation strategy that works asymptotically in `x`.
+
+Note that this methods doesn't compute an expansion in `α` like most
+methods for `KdVZeroansatz`. It only computes an enclosure, or an
+expansion in `x`. For this reason it make sense to use for `u0.α0 = 0`
+"""
+function F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
+    iszero(u0.α0) && @warn "F02 doesn't make sense for u0.α0 = 0"
+
+    # Compute the expansions and evaluate their terms in α
+    D_expansion = let expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+        res = empty(expansion, Arb)
+        for (key, value) in expansion
+            res[key] = value(u0.α - u0.α0)
+        end
+        res
+    end
+    u0_expansion = let expansion = u0(ϵ, AsymptoticExpansion(); M)
+        res = empty(expansion, Arb)
+        for (key, value) in expansion
+            res[key] = value(u0.α - u0.α0)
+        end
+        res
+    end
+
+    return x::Union{Arb,ArbSeries} -> begin
+        if x isa Arb
+            x <= ϵ || throw(ArgumentError("need x <= ϵ, got x = $x with ϵ = $ϵ"))
+        elseif x isa ArbSeries
+            x[0] <= ϵ || throw(ArgumentError("need x[0] <= ϵ, got x = $x with ϵ = $ϵ"))
+        end
+
+        num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
+        den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
+
+        return num / den
     end
 end
