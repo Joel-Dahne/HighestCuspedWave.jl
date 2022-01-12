@@ -1,5 +1,5 @@
 """
-    alpha0(u0::KdVZeroAnsatz; verbose)
+    alpha0(u0::KdVZeroAnsatz; rtol, verbose)
 
 Compute an upper bound of
 ```
@@ -15,7 +15,7 @@ expansion in `x` where the coefficients are just balls. We factor out
 x^(1 + α) / 2(x^α * u0(x))
 ```
 """
-function alpha0(u0::KdVZeroAnsatz; verbose = false)
+function alpha0(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
     # Compute expansion of u0 and evaluate the terms in α
     expansion = let expansion = u0(Arb(3.2), AsymptoticExpansion())
         res = empty(expansion, Arb)
@@ -38,6 +38,7 @@ function alpha0(u0::KdVZeroAnsatz; verbose = false)
         ubound(Arb(π)),
         abs_value = true,
         degree = 0;
+        rtol,
         verbose,
     )
 
