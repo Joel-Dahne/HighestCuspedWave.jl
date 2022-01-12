@@ -1,4 +1,100 @@
 """
+    _integrand_compute_root(u0::Fractionalkdvansatz, x::Arb)
+
+Compute the unique root of
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
+
+For wide values of `x` it uses that the root is decreasing in `x` to
+only have to evaluate at the endpoints.
+- **PROVE:** That the root is decreasing in `x`
+
+If the lower bound of `x` is zero or close to zero (smaller than
+`eps(x)`) it computes the root in the limiting case as `x` goes to
+zero. Expanding `clausenc(x, -α)` at `x = 0` gives us the expansion
+```
+gamma(1 + α) * sinpi(-α / 2) * abs(x)^(-α - 1) + sum((-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) for m = 0:Inf)
+```
+The limiting root can then be bound by computing the root of
+```
+(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+```
+- **PROVE:** That the root of the integrand converges to the root of
+  `(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)`.
+
+If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
+compute the root at `eps(x)` and use that as a lower bound. This
+avoids computing with very small values of `x`.
+"""
+function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
+    compute_root(x) =
+        let
+            # Function we are computing the root of
+            f =
+                t ->
+                    clausenc(x * (1 - t), -u0.α) + clausenc(x * (1 + t), -u0.α) -
+                    2clausenc(x * t, -u0.α)
+
+            # The root is lower bounded by 1 / 2, take a value
+            # slightly larger so that we can still isolate it even if
+            # it touches 1 / 2.
+            root_lower = Arf(0.5) - sqrt(eps(Arf))
+
+            # Find a crude upper bound for the root
+            δ = Arb(0.4)
+            # IMPROVE: We can remove this check if we can prove that
+            # the root is less than x + δ.
+            Arblib.ispositive(f(root_lower + δ)) || return Arblib.indeterminate!(zero(x))
+            while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
+                Arblib.mul_2exp!(δ, δ, -1)
+            end
+            root_upper = ubound(root_lower + δ)
+
+            # Improve the enclosure of the root
+            roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
+            if length(flags) == 1 && flags[1]
+                # Refine the unique root
+                root = ArbExtras.refine_root(f, Arb(only(roots)))
+            else
+                root = Arb((roots[1][1], roots[end][2]))
+            end
+
+            return root
+        end
+
+    compute_root_zero() =
+        let
+            # Function we are computing root of
+            f = t -> (1 - t)^(-u0.α - 1) + (1 + t)^(-u0.α - 1) - 2t^(-u0.α - 1)
+
+            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9))
+            length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
+
+            ArbExtras.refine_root(f, Arb(only(roots)))
+        end
+
+    xₗ, xᵤ = getinterval(Arb, x)
+    xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
+    ϵ = eps(x)
+
+    if iszero(x)
+        root = compute_root_zero()
+    elseif !iswide(x)
+        root = compute_root(x) # In this case x never overlaps zero
+    elseif xᵤ < ϵ
+        root = Arb((compute_root(ϵ), compute_root_zero()))
+    elseif xₗ < eps(Arb)
+        root = Arb((compute_root(xᵤ), compute_root_zero()))
+    else
+        root = Arb((compute_root(xᵤ), compute_root(xₗ)))
+    end
+
+    return root
+end
+
+"""
     T01(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1, δ2)
 
 Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
@@ -54,19 +150,15 @@ From the singular part we get the integral
 ```
 c_α = abs(gamma(1 + α) * sinpi(α / 2)) * ∫ abs((1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)) * t^p dt
 ```
-from `0` to `1`. The first step is to isolate the unique root `s` of
-```
-(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
-```
-on the interval `[0, 1]` and show that the function is negative on
-`[0, s]` and positive on `[s, 1]`.
-- **TODO:** Figure out how to prove that there are no roots close to
-    `x = 0` or `x = 1`.
+from `0` to `1`. We can isolate the unique root `r` on the interval
+`[0, 1]` using [`_integrand_compute_root`](@ref) with `x = 0`. The
+function is then negative on `[0, r]` and positive on `[r, 1]`.
+
 This allows us to remove the absolute value and compute the integral
 ```
 ∫ (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α) * t^p dt
 ```
-from `0` to `s` and from `s` to `1`.
+from `0` to `r` and from `r` to `1`.
 - **TODO:** Write down the formulas used for the integration.
 
 - **TODO:** Write down the expression for the tail and the formulas used
@@ -82,30 +174,17 @@ function T01(
     #@warn "T01(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
     α = u0.α
     p = u0.p
-    π = Arb(Irrational{:π}())
 
     # Compute c_α
-
-    # Find the unique zero of the integrand on [0, 1]
-    # FIXME: Prove that it is the unique one
-    f = t -> (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
-
-    roots, flags = ArbExtras.isolate_roots(f, Arf(0.01), Arf(0.99))
-    only(flags) || Throw(ErrorException("could not isolate a unique root"))
-    s = ArbExtras.refine_root(f, Arb(only(roots)))
-
-    # Show that f is positive on [0, s] and negative on [s, 1] by
-    # evaluating at a point in the interval.
-    Arblib.isnegative(f(s / 2)) || error("could not show negativity on [0, s]")
-    Arblib.ispositive(f((s + 1) / 2)) || error("could not show positivity on [s, 1]")
+    r = _integrand_compute_root(u0, Arb(0))
 
     c_α =
         abs(gamma(1 + α) * sinpi(α / 2)) * (
             (
                 hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α)) -
-                2s^(1 + p) * hypgeom_2f1(1 + p, 1 + α, 2 + p, -s)
-            ) / (1 + p) - 2beta_inc(1 + p, -α, s) +
-            (2 - 4s^(p - α)) / (α - p) +
+                2r^(1 + p) * hypgeom_2f1(1 + p, 1 + α, 2 + p, -r)
+            ) / (1 + p) - 2beta_inc(1 + p, -α, r) +
+            (2 - 4r^(p - α)) / (α - p) +
             gamma(-α) * gamma(1 + p) / gamma(1 - α + p)
         )
 
@@ -139,7 +218,7 @@ function T01(
         if nonasymptotic_u0
             # Version without asymptotically expanding u0(x)
             res = c_α * abspow(x, -α) + c_ϵ * abspow(x, 3)
-            return res / (π * u0(x))
+            return res / (Arb(π) * u0(x))
         end
 
         res = c_α + c_ϵ * abspow(x, 3 + α)
@@ -147,7 +226,7 @@ function T01(
         # Ball containing 1 + hat(u0)(x)
         L = Arblib.add_error!(one(α), c(u0, Arblib.abs_ubound(Arb, x)) * abspow(x, u0.p0))
 
-        return L / (π * a0(u0, 0)) * res
+        return L / (Arb(π) * a0(u0, 0)) * res
     end
 end
 
@@ -249,27 +328,10 @@ the integrand. The expression inside the absolute value is given by
 ```
 f(t) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-and it has a unique root on the interval `[0, 1]`. By isolating this
-root we can skip the absolute value for the parts of the interval
-where there is no roots. For the part enclosing the root we keep the
-absolute value.
-
-# Isolating the root
-For isolating the root on `[0, 1]` we make use of the fact that `f` is
-increasing on the interval
- - **PROVE:** That `f` is increasing on the interval `[0, 1]`.
-
-Further we notice that for `t = 1 / 2` we have
-```
-f(1 / 2) = clausenc(x / 2, -α) + clausenc(3x / 2, -α) - 2clausenc(x / 2, -α) =
-    clausenc(3x / 2, -α) - clausenc(x / 2, -α)
-```
-which is negative for all `0 < x < π`.
-- **PROVE:** Prove the above using the monotonicity of `clausenc`, it
-    is straight forward.
-It follows that the root is lower bounded by `1 / 2`. An enclosure of
-the root is then computed using [`ArbExtras.isolate_roots`](@ref) and
-[`ArbExtras.refine_root`](@ref).
+and it has a unique root on the interval `[0, 1]` which we can isolate
+using [`_integrand_compute_root`](@ref). By isolating this root we can
+skip the absolute value for the parts of the interval where there is
+no roots. For the part enclosing the root we keep the absolute value.
 """
 function T012(
     u0::FractionalKdVAnsatz{Arb},
@@ -334,27 +396,33 @@ function T012(
             end
         end
 
-        # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
-        # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα) using that
-        # it is lower bounded by 0.5.
-        f(t) =
-            clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
+        if false
+            # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
+            # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα) using that
+            # it is lower bounded by 0.5.
+            f(t) =
+                clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
 
-        roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), ubound(real(b)))
+            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), ubound(real(b)))
 
-        if length(flags) == 1 && flags[1]
-            # Refine the unique root
-            root = ArbExtras.refine_root(f, Arb(only(roots)))
-            # Get lower and upper bounds for the root
-            root_lower, root_upper = getinterval(root)
+            if length(flags) == 1 && flags[1]
+                # Refine the unique root
+                root = ArbExtras.refine_root(f, Arb(only(roots)))
+                # Get lower and upper bounds for the root
+                root_lower, root_upper = getinterval(root)
 
-            isolated_root = true
+                isolated_root = true
+            else
+                # Get lower and upper bounds for possible roots
+                root_lower = roots[1][1]
+                root_upper = roots[end][2]
+
+                isolated_root = false
+            end
         else
-            # Get lower and upper bounds for possible roots
-            root_lower = roots[1][1]
-            root_upper = roots[end][2]
+            root = _integrand_compute_root(u0, x)
 
-            isolated_root = false
+            root_lower, root_upper = getinterval(root)
         end
 
         res1 = abs(
@@ -381,13 +449,7 @@ function T012(
                 rtol = 2e-5,
                 atol = 2e-5,
                 warn_on_no_convergence = false,
-                opts = Arblib.calc_integrate_opt_struct(
-                    0,
-                    ifelse(isolated_root, 100, 2_000),
-                    0,
-                    0,
-                    0,
-                ),
+                opts = Arblib.calc_integrate_opt_struct(0, 100, 0, 0, 0),
             ),
         )
 

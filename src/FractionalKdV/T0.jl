@@ -81,9 +81,11 @@ I2 = primitive(π / x) - primitive(1)
 - **PROVE:** That the integrand is positive.
 
 On the interval `[0, 1]` the expression inside the absolute value has
-a unique root, it is negative to the left of the root and positive to
-the right. If we let `root_lower` and `root_upper` be lower and upper
-bounds of the roots respectively we have that the integral is given by
+a unique root which we can isolate with
+[`_integrand_compute_root`](@ref), it is negative to the left of the
+root and positive to the right. If we let `root_lower` and
+`root_upper` be lower and upper bounds of the roots respectively we
+have that the integral is given by
 ```
 I1 = -I11 + I12 + I13
 ```
@@ -139,34 +141,6 @@ x * I = primitive_mul_x(0) - primitive_mul_x(root_lower) + x * I12 -
   `x` by expanding with `ArbSeries` and enclosing that. This would
   require us to rewrite everything as a function explicitly depending
   on `x` but should otherwise be straight forward.
-
-# Isolating the root
-Let
-```
-f(t) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
-```
-be the expression inside the absolute value. For isolating the root on
-`[0, 1]` we make use of the fact that `f` is increasing on the interval
-- **PROVE:** That `f` is increasing on the interval `[0, 1]`.
-
-Further we notice that for `t = 1 / 2` we have
-```
-f(1 / 2) = clausenc(x / 2, -α) + clausenc(3x / 2, -α) - 2clausenc(x / 2, -α) =
-    clausenc(3x / 2, -α) - clausenc(x / 2, -α)
-```
-which is negative for all `0 < x < π`.
-- **PROVE:** Prove the above using the monotonicity of `clausenc`, it
-    is straight forward.
-It follows that the root is lower bounded by `1 / 2`. In practice the
-root is upper bounded by something around `0.8` or even lower. To find
-the root we therefore start at some point above this upper bound and
-check that the value is positive, we then check smaller and smaller
-points until we find a place where it becomes negative. As long as the
-value at the first point was positive this gives a crude enclosure of
-the root. The enclosure is then be refined using
-[`ArbExtras.isolate_roots`](@ref) and [`ArbExtras.refine_root`](@ref).
-- **IMPROVE:** We could possibly get better enclosures for the root
-  for wide values of `x`.
 """
 function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 = false)
     @assert isone(u0.p)
@@ -174,34 +148,8 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
     α = u0.α
 
     return x::Arb -> begin
-        # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
-        # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
-        f(t) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
-
-        # The root is lower bounded by 1 / 2
-        root_lower = Arf(0.5)
-
-        # Find a crude upper bound for the root
-        δ = Arb(0.4)
-        Arblib.ispositive(f(root_lower + δ)) || return Arblib.indeterminate!(zero(x))
-        while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
-            Arblib.mul_2exp!(δ, δ, -1)
-        end
-        root_upper = ubound(root_lower + δ)
-
-        # Improve the enclosure of the root
-        roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper, depth = 5)
-        if length(flags) == 1 && flags[1]
-            # Refine the unique root
-            root = ArbExtras.refine_root(f, Arb(only(roots)))
-            # Get lower and upper bounds for the root
-            root_lower, root_upper = getinterval(root)
-        else
-            # Get lower and upper bounds for possible roots
-            root_lower, root_upper = roots[1][1], roots[end][2]
-        end
-
-        root_lower, root_upper = Arb(root_lower), Arb(root_upper)
+        root = _integrand_compute_root(u0, x)
+        root_lower, root_upper = getinterval(Arb, root)
 
         integrand(t; analytic) = begin
             # Check that the real part of t is strictly between 0 and
