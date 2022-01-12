@@ -151,29 +151,7 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
         root = _integrand_compute_root(u0, x)
         root_lower, root_upper = getinterval(Arb, root)
 
-        integrand(t; analytic) = begin
-            # Check that the real part of t is strictly between 0 and
-            # 1 or return an indeterminate result
-            Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
-            return Arblib.indeterminate!(zero(t))
-
-            if isreal(t)
-                rt = Arblib.realref(t)
-
-                res = Acb(
-                    clausenc(x * (1 - rt), -α) + clausenc(x * (1 + rt), -α) -
-                    2clausenc(x * rt, -α),
-                )
-            else
-                res =
-                    clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) -
-                    2clausenc(x * t, -α)
-            end
-
-            return Arblib.real_abs!(res, res, analytic) * t
-        end
-
-        primitive_mul_x(t) =
+        primitive_mul_x(x, t) =
             (
                 clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
                 2clausenc(x * t, 2 - α)
@@ -183,10 +161,8 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
                 2clausens(x * t, 1 - α)
             )
 
-        #@assert Arblib.overlaps(x * primitive(Arb(0.5)), primitive_mul_x(Arb(0.5)))
-
         # primitive(0)
-        primitive_mul_x_zero = 2clausencmzeta(x, 2 - α) / x
+        primitive_mul_x_zero(x) = 2clausencmzeta(x, 2 - α) / x
 
         # primitive(π / x)
         # If x overlaps with π this gives an indeterminate result
@@ -199,34 +175,30 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
             M = 3
             C, e, P, E = clausenc_expansion(y, 2 - α, M)
             # Enclosure of clausenc(x + π, 2 - α)
-            clausenc_x_plus_pi = C * abspow(y, e) + P(y) + E * abspow(y, 2M)
+            # Note that it doesn't use the argument, it just returns
+            # an enclosure valid for the global x
+            clausenc_x_plus_pi = _ -> C * abspow(y, e) + P(y) + E * abspow(y, 2M)
         else
-            clausenc_x_plus_pi = clausenc(x + π, 2 - α)
+            clausenc_x_plus_pi = x -> clausenc(x + π, 2 - α)
         end
         # eta is only implemented for Acb in Arblib
-        primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi + real(eta(Acb(2 - α)))) / x
+        primitive_mul_x_pi_div_x(x) =
+            2(clausenc_x_plus_pi(x) + real(eta(Acb(2 - α)))) / x
 
-        I12 = real(
-            Arblib.integrate(
-                integrand,
-                root_lower,
-                root_upper,
-                check_analytic = true,
-                rtol = 1e-5,
-                atol = 1e-5,
-                opts = Arblib.calc_integrate_opt_struct(0, 1_000, 0, 0, 0),
-            ),
-        )
+        # Compute a tighter enclosure by expanding in x, only use
+        # degree = 0 since this is enough to pick up that it is
+        # monotone.
+        I_mul_x(x) =
+            primitive_mul_x_zero(x) - 2primitive_mul_x(x, root) +
+            primitive_mul_x_pi_div_x(x)
 
-        I_mul_x = (
-            primitive_mul_x_zero - primitive_mul_x(root_lower) + x * I12 -
-            primitive_mul_x(root_upper) + primitive_mul_x_pi_div_x
-        )
+        res =
+            Arb((ArbExtras.extrema_series(I_mul_x, getinterval(x)..., degree = 0)[1:2]))
 
         if skip_div_u0
-            return I_mul_x / π
+            return res / π
         else
-            return I_mul_x / (π * u0(x))
+            return res / (π * u0(x))
         end
     end
 end
