@@ -80,10 +80,6 @@ gives us
 root'(0) = -(clausenc(x * (1 - root(0)), -0, 2) + clausenc(x * (1 + root(0)), -0, 2) - 2clausenc(x * root(0), -0, 2)) /
     x * (-clausens(x * (1 - root(0)), -0 - 1, 1) + clausens(x * (1 + root(0)), -0 - 1, 1) - 2clausens(x * root(0), -0 - 1, 1))
 ```
-- **TODO:** Implement asymptotic evaluation of this. We might not need
-  it in the end.
-- **TODO:** Possibly compute more terms in the expansion. This might
-  not be needed in the end.
 """
 function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb; degree = 1)
     compute_root(x) =
@@ -138,22 +134,6 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb; degree = 1)
 
     # Compute the derivative of the root in α
     compute_derivative(t) =
-        let
-            num =
-                clausenc(x * (1 - t), Arb(0), 2) + clausenc(x * (1 + t), Arb(0), 2) -
-                2clausenc(x * t, Arb(0), 2)
-
-            den =
-                x * (
-                    -clausens(x * (1 - t), Arb(-1), 1) + clausens(x * (1 + t), Arb(-1), 1) -
-                    2clausens(x * t, Arb(-1), 1)
-                )
-
-            -num / den
-        end
-
-    # TODO: Implement this, if we need it in the end
-    compute_derivative_zero(t) =
         let
             num =
                 clausenc(x * (1 - t), Arb(0), 2) + clausenc(x * (1 + t), Arb(0), 2) -
@@ -429,7 +409,7 @@ depending on `α`. The derivative of the root with respect to `α` hence
 **does not** affect the derivative of the result. It is therefore
 enough to compute only an enclosure of the root and we do not need to
 compute its expansion in `α`.
-- **TODO:** Improve enclosure for wide values of `x`. This we will
+- **IMPROVE:** Improve enclosure for wide values of `x`. This we will
   most likely need to do in the end.
 - **TODO:** Handle remainder term in `α`.
 """
@@ -491,7 +471,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
                     (-1)^m * compose_with_remainder(zeta, s - 2m, u0.α) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
                 )
                 # Remainder term
-                res += abspow(y, 2M) * clausenc_expansion_remainder(y, s, M)
+                res += abspow(y, 2M) * clausenc_expansion_remainder(y, s, M) # FIXME
 
                 res
             end
@@ -640,7 +620,7 @@ function T0(
                     res +=
                         ((1 - t)^2M + (1 + t)^2M - 2t^2M) * mul_with_remainder(
                             abspow_with_remainder(x, 2M - 1 + α, u0.α),
-                            clausenc_expansion_remainder(x * (1 + t), s, M),
+                            clausenc_expansion_remainder(x * (1 + t), s, M), # FIXME
                             u0.α,
                         )
 
@@ -672,7 +652,7 @@ function T0(
                         ((1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
                         mul_with_remainder(
                             abspow_with_remainder(x, 2M + 1 + α, u0.α),
-                            clausens_expansion_remainder(x * (1 + t), s, M),
+                            clausens_expansion_remainder(x * (1 + t), s, M), # FIXME
                             u0.α,
                         )
 
@@ -699,7 +679,7 @@ function T0(
             # Remainder term
             res += mul_with_remainder(
                 abspow_with_remainder(x, 2M - 1 + α, u0.α),
-                clausenc_expansion_remainder(x, s, M),
+                clausenc_expansion_remainder(x, s, M), # FIXME
                 u0.α,
             )
 

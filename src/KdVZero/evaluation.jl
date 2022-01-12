@@ -316,7 +316,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     end
 
     # Add remainder term (in x)
-    remainder_term = clausenc_expansion_remainder(x, 1 - α, M)
+    remainder_term = clausenc_expansion_remainder(x, 1 - α, M) # FIXME
     expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[0], remainder_term, u0.α - u0.α0)
 
     # Handle tail terms
@@ -337,7 +337,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
         end
 
         # Add remainder term
-        remainder_term = clausenc_expansion_remainder(x, s, M)
+        remainder_term = clausenc_expansion_remainder(x, s, M) # FIXME
         expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[j], remainder_term, u0.α - u0.α0)
     end
 
@@ -390,12 +390,6 @@ factor `α` from this. Putting the `α` together with `gamma(2α)` we can
 write it as `α * gamma(2α) = α / rgamma(2α)` where we can handle the
 removable singularity
 - **TODO:** Compute remainder term in `α` for `α * gamma(2α)`.
-
-remove the pole and we have the expansion
-```
-α * gamma(2α) = 1 / 2 - γ * α + (γ^2 + π^2 / 6) * α^2 + O(α^3)
-```
-- **TODO:** Compute remainder term in `α`
 
 For wide values of `x` direct evaluation of `zeta(2α, x / 2π) +
 zeta(2α, 1 - x / 2π)` gives a poor enclosure. To get better enclosures
@@ -604,7 +598,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
         end
 
         # Add remainder term
-        remainder_term = clausenc_expansion_remainder(x, 1 - 2α, M)
+        remainder_term = clausenc_expansion_remainder(x, 1 - 2α, M) # FIXME
         expansion[(0, 0, 2M)] -=
             mul_with_remainder(u0.a[0], remainder_term, u0.α - u0.α0)
 
@@ -630,7 +624,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
             end
 
             # Add remainder term
-            remainder_term = clausenc_expansion_remainder(x, s, M)
+            remainder_term = clausenc_expansion_remainder(x, s, M) # FIXME
             expansion[(0, 0, 2M)] -=
                 mul_with_remainder(u0.a[j], remainder_term, u0.α - u0.α0)
         end
