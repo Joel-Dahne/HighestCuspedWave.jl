@@ -172,7 +172,7 @@ function delta0(
             f,
             zero(ϵ),
             ϵ,
-            abs_value = true,
+            abs_value = true;
             rtol,
             atol,
             threaded,
