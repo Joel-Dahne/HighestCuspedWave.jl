@@ -316,7 +316,11 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     end
 
     # Add remainder term (in x)
-    remainder_term = clausenc_expansion_remainder(x, 1 - α, M) # FIXME
+    remainder_term = compose_with_remainder(
+        α -> clausenc_expansion_remainder(x, 1 - α, M),
+        α,
+        u0.α - u0.α0,
+    )
     expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[0], remainder_term, u0.α - u0.α0)
 
     # Handle tail terms
@@ -337,7 +341,11 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
         end
 
         # Add remainder term
-        remainder_term = clausenc_expansion_remainder(x, s, M) # FIXME
+        remainder_term = compose_with_remainder(
+            s -> clausenc_expansion_remainder(x, s, M),
+            s,
+            u0.α - u0.α0,
+        )
         expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[j], remainder_term, u0.α - u0.α0)
     end
 
@@ -598,7 +606,11 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
         end
 
         # Add remainder term
-        remainder_term = clausenc_expansion_remainder(x, 1 - 2α, M) # FIXME
+        remainder_term = compose_with_remainder(
+            α -> clausenc_expansion_remainder(x, 1 - 2α, M),
+            α,
+            u0.α - u0.α0,
+        )
         expansion[(0, 0, 2M)] -=
             mul_with_remainder(u0.a[0], remainder_term, u0.α - u0.α0)
 
@@ -624,7 +636,11 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
             end
 
             # Add remainder term
-            remainder_term = clausenc_expansion_remainder(x, s, M) # FIXME
+            remainder_term = compose_with_remainder(
+                s -> clausenc_expansion_remainder(x, s, M),
+                s,
+                u0.α - u0.α0,
+            )
             expansion[(0, 0, 2M)] -=
                 mul_with_remainder(u0.a[j], remainder_term, u0.α - u0.α0)
         end

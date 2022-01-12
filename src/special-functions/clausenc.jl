@@ -803,8 +803,8 @@ function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
     @warn "remainder not rigorously bounded" maxlog = 1
 
     res = zero(s)
-    for m = M:10
-        term = (-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(2m)
+    for m = M:M+10
+        term = (-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(big(2m))
         res += term
     end
 
