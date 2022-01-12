@@ -15,6 +15,7 @@ function CB_bounded_by(
     u0::FractionalKdVAnsatz{Arb},
     C::Arf;
     ϵ::Arf = zero(Arf),
+    maxevals = 1000,
     threaded = false,
     verbose = false,
 )
@@ -68,7 +69,8 @@ function CB_bounded_by(
         ubound(Arb(π)),
         C,
         degree = -1,
-        depth_start = 8;
+        depth_start = ifelse(isone(u0.p), 4, 8);
+        maxevals,
         threaded,
         verbose,
     )
