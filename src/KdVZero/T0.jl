@@ -446,19 +446,25 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
             # To compute the expansion around x = 0 it uses the same
             # approach as the asymptotic version of T0 does.
             clausenc_x_plus_pi = let y = abs(x - π), s = 2 - α, M = 2
-                # Expansion of gamma(α - 1) * sinpi(α / 2)
-                gamma_sin = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
-                    (sinpi(α / 2) << 1) / (rgamma(α - 1) << 1)
-                end
-                # FIXME: Properly implement this. Now we just widen the last
-                # coefficient so that we get an enclosure for a lower bound of α
-                if !iszero(u0.α)
-                    error = let α = lbound(Arb, u0.α)
-                        gamma(α - 1) * sinpi(α / 2) - gamma_sin(α)
-                    end
-                    gamma_sin[1] +=
-                        Arblib.add_error!(zero(error), error / lbound(Arb, u0.α))
-                end
+                # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α
+                # / 2) / α) / (rgamma(α - 1) / α).
+                gamma_sin = div_with_remainder(
+                    taylor_with_remainder(
+                        α -> sinpi(α / 2),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = 2,
+                        enclosure_degree = 2,
+                    ) << 1,
+                    taylor_with_remainder(
+                        α -> rgamma(α - 1),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = 2,
+                        enclosure_degree = 2,
+                    ) << 1,
+                    u0.α - u0.α0,
+                )
 
                 # Singular term
                 res = mul_with_remainder(
@@ -536,10 +542,8 @@ the coefficients. The only problematic term is the singular one given by
 gamma(α - 1) * sinpi(α / 2) * abspow(x, 1 - α)
 ```
 where there is a removable singularity for `gamma(α - 1) * sinpi(α /
-2)`. We can handle this by rewriting it as `sinpi(α / 2) / rgamma(α -
-1)` and explicitly dealing with it.
-- **TODO:** Compute remainder term in `α` of `gamma(α - 1) * sinpi(α /
-    2)`
+2)`. We can handle this by rewriting it as `(sinpi(α / 2) / α) /
+(rgamma(α - 1) / α)` and explicitly dealing with it.
 
 For
 ```
@@ -577,18 +581,27 @@ function T0(
 
     u0_expansion = u0(ϵ, AsymptoticExpansion())
 
-    # Expansion of gamma(α - 1) * sinpi(α / 2)
-    gamma_sin = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
-        (sinpi(α / 2) << 1) / (rgamma(α - 1) << 1)
-    end
-    # FIXME: Properly implement this. Now we just widen the last
-    # coefficient so that we get an enclosure for a lower bound of α
-    if !iszero(u0.α)
-        error = let α = lbound(Arb, u0.α)
-            gamma(α - 1) * sinpi(α / 2) - gamma_sin(α)
-        end
-        gamma_sin[1] += Arblib.add_error!(zero(error), error / lbound(Arb, u0.α))
-    end
+    # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α / 2) / α) /
+    # (rgamma(α - 1) / α). We compute it to higher degree and then
+    # truncate to get a better enclosure.
+    gamma_sin = div_with_remainder(
+        taylor_with_remainder(
+            α -> sinpi(α / 2),
+            u0.α0,
+            u0.α - u0.α0,
+            degree = 4,
+            enclosure_degree = 2,
+        ) << 1,
+        taylor_with_remainder(
+            α -> rgamma(α - 1),
+            u0.α0,
+            u0.α - u0.α0,
+            degree = 4,
+            enclosure_degree = 2,
+        ) << 1,
+        u0.α - u0.α0,
+    )
+    gamma_sin = truncate_with_remainder(gamma_sin, u0.α - u0.α0, degree = 1)
 
     return x::Arb -> begin
         x <= ϵ || throw(ArgumentError("x needs to be smaller than ϵ, got x = $x, ϵ = $ϵ"))

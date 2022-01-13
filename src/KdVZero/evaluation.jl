@@ -113,9 +113,8 @@ zeta(0, x / 2π) + zeta(0, 1 - x / 2π) = (1 / 2 - x / 2π) + (1 / 2 - (1 - x / 
 where we have used [Equation
 25.11.13](https://dlmf.nist.gov/25.11.E13). We can thus extract a
 factor `α` from this. Putting the `α` together with `gamma(α)` we can
-write it as `α * gamma(α) = α / rgamma(α)` where we can handle the
-removable singularity
-- **TODO:** Compute remainder term in `α` for `α * gamma(α)`.
+write it as `α * gamma(α) = 1 / (rgamma(α) / α)` where we can handle
+the removable singularity
 
 For wide values of `x` direct evaluation of `zeta(α, x / 2π) + zeta(α,
 1 - x / 2π)` gives a poor enclosure. To get better enclosures we use
@@ -180,17 +179,18 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             # Divide clausen term by α
             clausen_term = clausen_term << 1
 
-            # Expansion of α * gamma(α)
-            gammamulα = inv(rgamma(ArbSeries((u0.α0, 1), degree = u0.degree + 1)) << 1)
-
-            # FIXME: Properly implement this. Now we just widen the last
-            # coefficient so that we get an enclosure for a lower bound of α
-            if !iszero(radius(u0.α))
-                error = let α = lbound(Arb, u0.α)
-                    (α * gamma(α) - gammamulα(α)) / α^u0.degree
-                end
-                gammamulα[u0.degree] += Arblib.add_error!(zero(error), error)
-            end
+            # Expansion of α * gamma(α) = 1 / (rgamma(α) / α)
+            gammamulα = compose_with_remainder(
+                inv,
+                taylor_with_remainder(
+                    rgamma,
+                    u0.α0,
+                    u0.α - u0.α0,
+                    degree = u0.degree + 1,
+                    enclosure_degree = 1,
+                ) << 1,
+                u0.α - u0.α0,
+            )
 
             clausen_term = mul_with_remainder(clausen_term, gammamulα, u0.α - u0.α0)
 
@@ -262,7 +262,6 @@ a[0] * gamma(α) * cospi(α / 2) = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(
 ```
 where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
 similarly to how it is done in [`expansion_as`](@ref).
-- **TODO:** Compute remainder term in `α`
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     α = ArbSeries((u0.α0, 1); u0.degree)
@@ -278,20 +277,42 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     # Compute the coefficient for the singular term
     if iszero(u0.α0)
         a0singular_term = let
-            # rgamma(α) / rgamma(2α) handling the removable singularity
-            g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
-                (rgamma(α) << 1) / (rgamma(2α) << 1)
-            end
-            2cospi(α) / cospi(α / 2) * g
-        end
+            # We compute a0 to a higher degree and then truncate, to
+            # get a tighter enclosure
 
-        # FIXME: Properly implement this. Now we just widen the last
-        # coefficient so that we get an enclosure for a lower bound of α
-        if !iszero(radius(u0.α))
-            error = let α = lbound(Arb, u0.α)
-                (gamma(α) * sinpi((1 - α) / 2) * finda0(α) - a0singular_term(α)) / α^u0.degree
-            end
-            a0singular_term[u0.degree] += Arblib.add_error!(zero(error), error)
+            # rgamma(α) / rgamma(2α) = (rgamma(α) / α) / (rgamma(2α) / α)
+            g = div_with_remainder(
+                taylor_with_remainder(
+                    rgamma,
+                    u0.α0,
+                    u0.α - u0.α0,
+                    degree = Arblib.degree(α) + 4,
+                ) << 1,
+                taylor_with_remainder(
+                    α -> rgamma(2α),
+                    u0.α0,
+                    u0.α - u0.α0,
+                    degree = Arblib.degree(α) + 4,
+                ) << 1,
+                u0.α - u0.α0,
+            )
+
+            a0singular_term = mul_with_remainder(
+                taylor_with_remainder(
+                    α -> 2cospi(α) / cospi(α / 2),
+                    u0.α0,
+                    u0.α - u0.α0,
+                    degree = Arblib.degree(α) + 3,
+                ),
+                g,
+                u0.α - u0.α0,
+            )
+
+            truncate_with_remainder(
+                a0singular_term,
+                u0.α - u0.α0,
+                degree = Arblib.degree(α),
+            )
         end
     else
         a0singular_term = let
@@ -395,9 +416,8 @@ zeta(0, x / 2π) + zeta(0, 1 - x / 2π) = (1 / 2 - x / 2π) + (1 / 2 - (1 - x / 
 where we have used [Equation
 25.11.13](https://dlmf.nist.gov/25.11.E13). We can thus extract a
 factor `α` from this. Putting the `α` together with `gamma(2α)` we can
-write it as `α * gamma(2α) = α / rgamma(2α)` where we can handle the
-removable singularity
-- **TODO:** Compute remainder term in `α` for `α * gamma(2α)`.
+write it as `α * gamma(2α) = 1 / (rgamma(2α) / α)` where we can handle
+the removable singularity
 
 For wide values of `x` direct evaluation of `zeta(2α, x / 2π) +
 zeta(2α, 1 - x / 2π)` gives a poor enclosure. To get better enclosures
@@ -462,17 +482,17 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                 clausen_term = clausen_term << 1
 
                 # Expansion of α * gamma(2α)
-                gammamulα =
-                    inv(rgamma(2ArbSeries((u0.α0, 1), degree = u0.degree + 1)) << 1)
-
-                # FIXME: Properly implement this. Now we just widen the last
-                # coefficient so that we get an enclosure for a lower bound of α
-                if !iszero(radius(u0.α))
-                    error = let α = lbound(Arb, u0.α)
-                        (α * gamma(2α) - gammamulα(α)) / α^u0.degree
-                    end
-                    gammamulα[u0.degree] += Arblib.add_error!(zero(error), error)
-                end
+                gammamulα = compose_with_remainder(
+                    inv,
+                    taylor_with_remainder(
+                        α -> rgamma(2α),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = u0.degree + 1,
+                        enclosure_degree = 1,
+                    ) << 1,
+                    u0.α - u0.α0,
+                )
 
                 clausen_term = mul_with_remainder(clausen_term, gammamulα, u0.α - u0.α0)
 
@@ -550,7 +570,6 @@ a[0] * gamma(2α) * cospi(α) = 2gamma(2α)^2 * cospi(α)^2 / (gamma(α)^2 * cos
 ```
 where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
 similarly to how it is done in [`expansion_as`](@ref).
-- **TODO:** Compute remainder term in `α`
 """
 function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
     α = ArbSeries((u0.α0, 1); u0.degree)
@@ -567,19 +586,47 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
         # Compute the coefficient for the singular term
         if iszero(u0.α0)
             a0singular_term = let
-                # rgamma(α) / rgamma(2α) handling the removable singularity
-                g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
-                    (rgamma(α) << 1) / (rgamma(2α) << 1)
-                end
-                2(cospi(α) / cospi(α / 2) * g)^2
-            end
-            # FIXME: Properly implement this. Now we just widen the last
-            # coefficient so that we get an enclosure for a lower bound of α
-            if !iszero(u0.α)
-                error = let α = lbound(Arb, u0.α)
-                    (gamma(2α) * cospi(α) * finda0(α) - a0singular_term(α)) / α^u0.degree
-                end
-                a0singular_term[u0.degree] += Arblib.add_error!(zero(error), error)
+                # We compute a0 to a higher degree and then truncate, to
+                # get a tighter enclosure
+
+                # rgamma(α) / rgamma(2α) = (rgamma(α) / α) / (rgamma(2α) / α)
+                g = div_with_remainder(
+                    taylor_with_remainder(
+                        rgamma,
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = Arblib.degree(α) + 4,
+                    ) << 1,
+                    taylor_with_remainder(
+                        α -> rgamma(2α),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = Arblib.degree(α) + 4,
+                    ) << 1,
+                    u0.α - u0.α0,
+                )
+
+                # rgamma(α) * cospi(α) / (rgamma(2α) * cospi(α / 2))
+                a0singular_term = mul_with_remainder(
+                    taylor_with_remainder(
+                        α -> cospi(α) / cospi(α / 2),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = Arblib.degree(α) + 3,
+                    ),
+                    g,
+                    u0.α - u0.α0,
+                )
+
+                # 2(rgamma(α) * cospi(α) / (rgamma(2α) * cospi(α / 2)))^2
+                a0singular_term =
+                    2mul_with_remainder(a0singular_term, a0singular_term, u0.α - u0.α0)
+
+                truncate_with_remainder(
+                    a0singular_term,
+                    u0.α - u0.α0,
+                    degree = Arblib.degree(α),
+                )
             end
         else
             a0singular_term = let

@@ -386,11 +386,9 @@ We can rewrite it in terms of the reciprocal gamma function as
 ```
 a[0] = 2rgamma(α)^2 * cospi(α) / (rgamma(2α) * cospi(α / 2)^2)
 ```
-We can compute `2cospi(α) / cospi(α / 2)^2` directly whereas for
-`rgamma(α)^2 / rgamma(2α)` we have to handle the removable
-singularity.
-- **TODO:** Compute remainder term. The only problematic part is
-  `rgamma(α) / rgamma(2α)`. We want a very tight enclosure.
+We can compute `2rgamma(α) * cospi(α) / cospi(α / 2)^2` directly
+whereas for `rgamma(α) / rgamma(2α)` we handle the removable
+singularity by writing it as `(rgamma(α) / α) / (rgamma(2α) / α)`.
 
 # Setting up a linear system for `a[1]` and `a[2]`
 We can get the values for `a[1]` and `a[2]` in terms of a linear
@@ -534,25 +532,33 @@ from all of them. To get the higher order terms we factor out one more
 """
 function expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::Integer = 2)
     a0 = if iszero(α0)
-        # Expansion of a0 without remainder term
-        a0 = let α = ArbSeries((α0, 1), degree = degree + 1)
-            # rgamma(α)^2 / rgamma(2α) handling the removable singularity
-            g = let α = ArbSeries(α, degree = Arblib.degree(α) + 1)
-                (rgamma(α)^2 << 1) / (rgamma(2α) << 1)
-            end
-            2cospi(α) / cospi(α / 2)^2 * g
-        end
+        # We compute a0 to a higher degree and then truncate, to
+        # get a tighter enclosure
 
-        # FIXME: Properly implement this. Now we just widen the last
-        # coefficient so that we get an enclosure for a lower bound of α
-        if !iszero(radius(interval))
-            error = finda0(lbound(Arb, interval)) - a0(lbound(Arb, interval))
-            a0[degree+1] += Arblib.add_error!(
-                zero(error),
-                error / lbound(Arb, interval)^(degree + 1),
-            )
-        end
-        a0
+        # rgamma(α) / rgamma(2α) = (rgamma(α) / α) / (rgamma(2α) / α)
+        g = div_with_remainder(
+            taylor_with_remainder(rgamma, α0, interval - α0, degree = degree + 4) << 1,
+            taylor_with_remainder(
+                α -> rgamma(2α),
+                α0,
+                interval - α0,
+                degree = degree + 4,
+            ) << 1,
+            interval - α0,
+        )
+
+        a0 = mul_with_remainder(
+            taylor_with_remainder(
+                α -> rgamma(α) * 2cospi(α) / cospi(α / 2)^2,
+                α0,
+                interval - α0,
+                degree = degree + 3,
+            ),
+            g,
+            interval - α0,
+        )
+
+        truncate_with_remainder(a0, interval - α0, degree = degree + 1)
     else
         # We set enclosure_degree to a very high number since we don't
         # really care about performance for this method, getting a
