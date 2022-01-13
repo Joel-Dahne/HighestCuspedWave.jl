@@ -408,9 +408,10 @@ enough to compute only an enclosure of the root and we do not need to
 compute its expansion in `α`.
 - **IMPROVE:** Improve enclosure for wide values of `x`. This we will
   most likely need to do in the end.
-- **TODO:** Handle remainder term in `α`.
 """
 function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
+    iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
+
     α = ArbSeries((0, 1), degree = 1)
 
     return x::Arb -> begin
@@ -502,7 +503,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         if skip_div_u0
             return I_mul_x_div_pi
         else
-            return div_with_remainder(I_mul_x_div_pi, u0(x), u0.α)
+            return div_with_remainder(I_mul_x_div_pi, u0(x), u0.α - u0.α0)
         end
     end
 end
@@ -563,9 +564,6 @@ by noticing that
 gamma(α) * sinpi(α / 2) = (α - 1) * gamma(α - 1) * sinpi(α / 2)
 ```
 and using the expansion of `gamma(α - 1) * sinpi(α / 2)` computed above.
-
-**TODO:** I wrote this when somewhat tired so it is probably a good
-idea to double check it.
 """
 function T0(
     u0::KdVZeroAnsatz,
@@ -574,6 +572,8 @@ function T0(
     M::Integer = 10,
     skip_div_u0 = false,
 )
+    iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
+
     α = ArbSeries((0, 1), degree = 1)
 
     u0_expansion = u0(ϵ, AsymptoticExpansion())
@@ -608,7 +608,7 @@ function T0(
 
         # Compute primitive_mul_x(t) * x^α = primitive(t) * x^(1 + α)
         primitive_mul_x_onepα(t::Arb) =
-            let γ = Arb(Irrational{:γ}()), π = Arb(π)
+            let
                 part1 = let s = 2 - α
                     # Singular term
                     res = mul_with_remainder(
@@ -686,11 +686,10 @@ function T0(
             end
 
         # Compute primitive_mul_x_onepα(0) = 2clausencmzeta(x, 2 - α) / x^(1 - α)
-        primitive_mul_x_onepα_zero = let γ = Arb(Irrational{:γ}()), π = Arb(π)
-            s = 2 - α
-
+        primitive_mul_x_onepα_zero = let s = 2 - α
             # Singular term
             res = gamma_sin
+
             # Analytic terms
             res += sum(
                 (-1)^m * mul_with_remainder(
@@ -699,6 +698,7 @@ function T0(
                     u0.α,
                 ) / factorial(2m) for m = 1:M-1
             )
+
             # Remainder term
             res += mul_with_remainder(
                 abspow_with_remainder(x, 2M - 1 + α, u0.α),
@@ -715,8 +715,7 @@ function T0(
 
         # Compute primitive_mul_x_onepα(π / x) =
         # 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(1 - α)
-        primitive_mul_x_onepα_pi_div_x = let π = Arb(π)
-            s = 2 - α
+        primitive_mul_x_onepα_pi_div_x = let s = 2 - α
             res = zero(primitive_mul_x_onepα_zero)
 
             # The function is even around π so it is beneficial to
@@ -727,7 +726,7 @@ function T0(
             # values of m since the function is even around x = π
             for m = 2:2:N-1
                 # m-th derivative at x = π, note that m is always even
-                deriv = (-1)^(m ÷ 2) * clausenc_with_remainder(π, s - m, u0.α)
+                deriv = (-1)^(m ÷ 2) * clausenc_with_remainder(Arb(π), s - m, u0.α)
 
                 # We have x^(m - 1 + α) since we divide by x^(1 - α)
                 res +=
@@ -740,7 +739,7 @@ function T0(
 
             # Remainder term
             # Interval for the Taylor expansion
-            interval = union(π, π + x)
+            interval = union(Arb(π), Arb(π) + x)
             # Enclosure of N-th derivative on interval
             deriv = (-1)^(N ÷ 2) * clausenc_with_remainder(interval, s - N, u0.α)
 
