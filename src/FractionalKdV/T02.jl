@@ -145,8 +145,7 @@ function T02(
     # coming from the interior integral then simplifies a lot.
     # TODO: Bound the tail - the terms go to zero extremely
     # fast so it should be negligible
-    # PROVE: That the value at x = 0 is indeed a bound of the
-    # sum. Could it be that this is not the case?
+    # FIXME: This doesn't hold! We need a better way to enclose it.
     c_ϵ = zero(α)
     for m = 1:10
         integral = 2 * binomial(2m, 2m - 2) * π^(2m - 1 + p) / (2m - 1 + p)
