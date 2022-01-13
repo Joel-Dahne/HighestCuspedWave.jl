@@ -671,7 +671,11 @@ function T0(
                         ((1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
                         mul_with_remainder(
                             abspow_with_remainder(x, 2M + 1 + α, u0.α),
-                            clausens_expansion_remainder(x * (1 + t), s, M), # FIXME
+                            compose_with_remainder(
+                                s -> clausens_expansion_remainder(x * (1 + t), s, M),
+                                s,
+                                u0.α - u0.α0,
+                            ),
                             u0.α,
                         )
 
