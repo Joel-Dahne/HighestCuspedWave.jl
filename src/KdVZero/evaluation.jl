@@ -128,15 +128,20 @@ For computing `a[0] * zeta(1 - α)` we rewrite it as
 ```
 (a[0] / α) * (α * zeta(1 - α))
 ```
-and use the expansion
+and then use Riemann's functional equation to get
+```
+zeta(1 - α) = zeta(α) / (2^α * π^(α - 1) * gamma(1 - α) * sinpi(α / 2))
+```
+We handle the removable singularity by writing it as
+```
+α * zeta(1 - α) = zeta(α) / (2^α * π^(α - 1) * gamma(1 - α) * (sinpi(α / 2) / α))
+```
+and explicitly dealing with `sinpi(α / 2) / α`. From the expansion
 ```
 zeta(s) = 1 / (s - 1) + sum((-1)^n * stieltjes(n) / factorial(n) * (s - 1)^n for n = 0:Inf)
 ```
-to get
-```
-α * zeta(1 - α) = -1 + sum(stieltjes(n) / factorial(n) * α^n for n = 0:Inf)
-```
-- **TODO:** Compute remainder term in `α`
+we can also notice that the constant term in the expansion is exactly
+`-1`.
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
     if iszero(u0.α0)
@@ -200,18 +205,52 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             a0clausenterm =
                 mul_with_remainder(u0.a[0] << 1, clausen_term, u0.α - u0.α0) >> 1
 
-            zetamulα = ArbSeries(
-                [-1; [stieltjes(Arb, n) / factorial(n) for n = 0:u0.degree-1]],
-            )
+            # Expansion of α * zeta(1 - α)
+            zetamulα = let
+                # zeta(α)
+                # The Arb implementation of zeta for ArbSeries doesn't
+                # work well for intervals around zero which are not
+                # symmetric, we therefore artificially make the
+                # interval symmetric by widening it. It doesn't seem
+                # to affect the computed bounds much.
+                f1 = taylor_with_remainder(
+                    zeta,
+                    u0.α0,
+                    union(u0.α - u0.α0, -(u0.α - u0.α0)),
+                    degree = u0.degree + 3,
+                )
 
-            # FIXME: Properly implement this. Now we just widen the last
-            # coefficient so that we get an enclosure for a lower bound of α
-            if !iszero(u0.α)
-                error = let α = lbound(Arb, u0.α)
-                    (α * zeta(1 - α) - zetamulα(α)) / α^u0.degree
-                end
-                zetamulα[u0.degree] += Arblib.add_error!(zero(error), error)
+                # sinpi(α / 2) / α
+                f2 =
+                    taylor_with_remainder(
+                        α -> sinpi(α / 2),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = u0.degree + 4,
+                    ) << 1
+
+                # 2^α * π^(α - 1) * gamma(1 - α)
+                f3 = taylor_with_remainder(
+                    α -> 2^α * Arb(π)^(α - 1) * gamma(1 - α),
+                    u0.α0,
+                    u0.α - u0.α0,
+                    degree = u0.degree + 3,
+                )
+
+                truncate_with_remainder(
+                    div_with_remainder(
+                        div_with_remainder(f1, f2, u0.α - u0.α0),
+                        f3,
+                        u0.α - u0.α0,
+                    ),
+                    u0.α - u0.α0,
+                    degree = u0.degree,
+                )
             end
+
+            # The constant term is exactly -1
+            @assert contains(zetamulα[0], -1)
+            zetamulα[0] = -1
 
             a0zeta_term = mul_with_remainder(u0.a[0] << 1, zetamulα, u0.α - u0.α0)
 
@@ -431,15 +470,20 @@ For computing `a[0] * zeta(1 - 2α)` we rewrite it as
 ```
 (a[0] / α) * (α * zeta(1 - 2α))
 ```
-and use the expansion
+and then use Riemann's function equation to get
 ```
-zeta(s) = 1 / (s - 1) + sum((-1)^n * stieltjes(n) / factorial(n) * (s - 1)^n for n = 0:Inf)
+zeta(1 - 2α) = zeta(2α) / (2^2α * π^(2α - 1) * gamma(1 - 2α) * sinpi(α))
 ```
 to get
 ```
-α * zeta(1 - 2α) = -1 / 2 + sum(2^n * stieltjes(n) / factorial(n) * α^n for n = 0:Inf)
+α * zeta(1 - 2α) = zeta(2α) / (2^2α * π^(2α - 1) * gamma(1 - 2α) * (sinpi(α) / α))
 ```
-- **TODO:** Compute remainder term in `α`
+and explicitly dealing with `sinpi(α) / α`. From the expansion
+```
+zeta(s) = 1 / (s - 1) + sum((-1)^n * stieltjes(n) / factorial(n) * (s - 1)^n for n = 0:Inf)
+```
+we can also notice that the constant term in the expansion is exactly
+`1 / 2`.
 """
 function H(u0::KdVZeroAnsatz, ::Ball)
     return x::Arb -> begin
@@ -503,21 +547,51 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                     mul_with_remainder(u0.a[0] << 1, clausen_term, u0.α - u0.α) >> 1
 
                 # Expansion of α * zeta(1 - 2α)
-                zetamulα = ArbSeries(
-                    [
-                        -1 // 2
-                        [2^n * stieltjes(Arb, n) / factorial(n) for n = 0:u0.degree-1]
-                    ],
-                )
+                zetamulα = let
+                    # zeta(2α)
+                    # The Arb implementation of zeta for ArbSeries doesn't
+                    # work well for intervals around zero which are not
+                    # symmetric, we therefore artificially make the
+                    # interval symmetric by widening it. It doesn't seem
+                    # to affect the computed bounds much.
+                    f1 = taylor_with_remainder(
+                        α -> zeta(2α),
+                        u0.α0,
+                        union(u0.α - u0.α0, -(u0.α - u0.α0)),
+                        degree = u0.degree + 3,
+                    )
 
-                # FIXME: Properly implement this. Now we just widen the last
-                # coefficient so that we get an enclosure for a lower bound of α
-                if !iszero(radius(u0.α))
-                    error = let α = lbound(Arb, u0.α)
-                        (α * zeta(1 - 2α) - zetamulα(α)) / α^u0.degree
-                    end
-                    zetamulα[u0.degree] += Arblib.add_error!(zero(error), error)
+                    # sinpi(α) / α
+                    f2 =
+                        taylor_with_remainder(
+                            sinpi,
+                            u0.α0,
+                            u0.α - u0.α0,
+                            degree = u0.degree + 4,
+                        ) << 1
+
+                    # 2^2α * π^(2α - 1) * gamma(1 - 2α)
+                    f3 = taylor_with_remainder(
+                        α -> 2^2α * Arb(π)^(2α - 1) * gamma(1 - 2α),
+                        u0.α0,
+                        u0.α - u0.α0,
+                        degree = u0.degree + 3,
+                    )
+
+                    truncate_with_remainder(
+                        div_with_remainder(
+                            div_with_remainder(f1, f2, u0.α - u0.α0),
+                            f3,
+                            u0.α - u0.α0,
+                        ),
+                        u0.α - u0.α0,
+                        degree = u0.degree,
+                    )
                 end
+
+                # The constant term is exactly -1 / 2
+                @assert contains(zetamulα[0], Arb(-1 // 2))
+                zetamulα[0] = -1 // 2
 
                 a0zeta_term = mul_with_remainder(u0.a[0] << 1, zetamulα, u0.α - u0.α)
 
