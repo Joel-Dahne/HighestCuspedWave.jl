@@ -362,13 +362,9 @@ This is the integral
 ```
 from `a` to `π`. We should have `x < a < π`.
 
-On this interval
-```
-clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)
-```
-is positive so we can skip the absolute value.
-- **PROVE:** That `clausenc(y - x, -α) + clausenc(y + x, -α) -
-  2clausenc(y, -α)` is positive on the interval `[x, π]`.
+Notice that due to lemma [`lemma_integrand_2`](@ref) the expression
+inside the absolute value is always positive, so we can remove the
+absolute value.
 """
 T022(u0::FractionalKdVAnsatz, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
 

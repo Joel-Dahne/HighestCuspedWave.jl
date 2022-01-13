@@ -7,6 +7,9 @@ clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
 in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
 
+The existence and uniqueness of the root is based on lemma
+[`lemma_integrand_1`](@ref).
+
 If `degree >= 0` it computes an expansion of the root in `α` around `α
 = 0`. Currently it only supports `degree <= 1`. If `degree < 0` it
 computes an enclosure of the root on `u0.α`, this will only work if
@@ -33,22 +36,17 @@ which is the function we compute the root of.
 
 For wide values of `x` it uses that the root is decreasing in `x` to
 only have to evaluate at the endpoints.
-- **PROVE:** That the root is decreasing in `x`
 
 If the lower bound of `x` is zero or close to zero (smaller than
 `eps(x)`) it computes the root in the limiting case as `x` goes to
-zero. Expanding `clausenc(x, 0, 1)` at `x = 0` gives us the expansion
+zero. In that case we can use the formulation
 ```
-π / 2 * abs(x)^-1 + sum(dzeta(-2m) * x^(2m) / factorial(2m) for m = 0:Inf)
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-- **PROVE:** That this is the correct expansion, we just differentiate
-  the one for `clausenc(x, s)` with respect to `s`.
-The limiting root can then be bound by computing the root of
+and expand at `x = 0` to get that the limiting root is the root of
 ```
 (1 - t)^(-1) + (1 + t)^(-1) - 2t^(-1)
 ```
-- **PROVE:** That the root of the integrand converges to the root of
-  `(1 - t)^(-1) + (1 + t)^(-1) - 2t^(-1)`.
 
 If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
 compute the root at `eps(x)` and use that as a lower bound. This
@@ -221,11 +219,10 @@ We can then integrate explicitly using `primitive(t)` with this zero
 as one of the endpoints.
 
 On the interval `[1, π / x]` the expression inside the absolute value
-is positive and we can just remove it. This gives us the integral
-```
+is positive, due to lemma [`lemma_integrand_2`](@ref) and we can just
+remove it. This gives us the integral ```
 I2 = primitive(π / x) - primitive(1)
 ```
-- **PROVE:** That the integrand is positive.
 
 On the interval `[0, 1]` the expression inside the absolute value has
 a unique root, it is negative to the left of the root and positive to

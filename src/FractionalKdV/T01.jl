@@ -7,22 +7,19 @@ clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
 in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
 
+The existence and uniqueness of the root is based on lemma
+[`lemma_integrand_1`](@ref).
+
 For wide values of `x` it uses that the root is decreasing in `x` to
 only have to evaluate at the endpoints.
-- **PROVE:** That the root is decreasing in `x`
 
 If the lower bound of `x` is zero or close to zero (smaller than
-`eps(x)`) it computes the root in the limiting case as `x` goes to
-zero. Expanding `clausenc(x, -α)` at `x = 0` gives us the expansion
-```
-gamma(1 + α) * sinpi(-α / 2) * abs(x)^(-α - 1) + sum((-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) for m = 0:Inf)
-```
-The limiting root can then be bound by computing the root of
+`eps(x)`) it computes an upper bound of the root by considering the
+limiting case as `x` goes to zero. The limiting root can then be bound
+by computing the root of
 ```
 (1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
 ```
-- **PROVE:** That the root of the integrand converges to the root of
-  `(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)`.
 
 If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
 compute the root at `eps(x)` and use that as a lower bound. This

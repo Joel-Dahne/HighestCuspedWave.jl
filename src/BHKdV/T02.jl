@@ -1649,8 +1649,9 @@ thin ball to not give problems with the integration.
 This is done by directly computing the integral with the integrator in
 Arb.
 
-Notice that the expression inside the absolute value is always
-positive, so we can remove the absolute value.
+Notice that due to lemma [`lemma_integrand_2`](@ref) the expression
+inside the absolute value is always positive, so we can remove the
+absolute value.
 """
 function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     # Lower and upper bounds of s = -α
