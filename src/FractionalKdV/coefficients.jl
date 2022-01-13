@@ -10,8 +10,7 @@ function a0(u0::FractionalKdVAnsatz, j::Integer)
     f(s) = gamma(1 - s) * sinpi(s / 2)
 
     if iswide(s)
-        return u0.a[j] *
-               Arb(ArbExtras.extrema_series(f, Arblib.getinterval(s)..., degree = 2)[1:2])
+        return u0.a[j] * ArbExtras.enclosure_series(f, s, degree = 2)
     end
 
     return u0.a[j] * f(s)
@@ -28,10 +27,7 @@ function K0(u0::FractionalKdVAnsatz, m::Integer)
     for j = 0:u0.N0
         s = 1 - u0.α + j * u0.p0 - 2m
         if iswide(s)
-            res +=
-                u0.a[j] * Arb(
-                    ArbExtras.extrema_series(zeta, Arblib.getinterval(s)..., degree = 2)[1:2],
-                )
+            res += u0.a[j] * ArbExtras.enclosure_series(zeta, s, degree = 2)
         else
             res += u0.a[j] * zeta(s)
         end
@@ -76,8 +72,7 @@ function A0(u0::FractionalKdVAnsatz, j::Integer)
     f(s) = gamma(1 - s) * sinpi(s / 2)
 
     if iswide(s)
-        return u0.a[j] *
-               Arb(ArbExtras.extrema_series(f, Arblib.getinterval(s)..., degree = 2)[1:2])
+        return u0.a[j] * ArbExtras.enclosure_series(f, s, degree = 2)
     end
 
     return u0.a[j] * f(s)
@@ -94,10 +89,7 @@ function L0(u0::FractionalKdVAnsatz, m::Integer)
     for j = 0:u0.N0
         s = 1 - 2 * u0.α + j * u0.p0 - 2m
         if iswide(s)
-            res +=
-                u0.a[j] * Arb(
-                    ArbExtras.extrema_series(zeta, Arblib.getinterval(s)..., degree = 2)[1:2],
-                )
+            res += u0.a[j] * ArbExtras.enclosure_series(zeta, s, degree = 2)
         else
             res += u0.a[j] * zeta(s)
         end

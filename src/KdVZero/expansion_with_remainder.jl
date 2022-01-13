@@ -8,7 +8,7 @@ gives an enclosure of `f(x)` for all `x ∈ interval`.
 We require that `x0 ∈ interval`.
 
 It computes a tighter enclosure of the remainder term using
-[`ArbExtras.extrema_series`](@ref). The degree used for this can be
+[`ArbExtras.enclosure_series`](@ref). The degree used for this can be
 set with `enclosure_degree`. Setting it to a negative number makes it
 compute it directly instead.
 """
@@ -35,7 +35,7 @@ function taylor_with_remainder(
     if enclosure_degree < 0
         res[degree] = f(ArbSeries((interval, 1); degree))
     else
-        # We compute a tighter enclosure with the help of ArbExtras.extrema_series
+        # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
         g(x::Arb) = f(ArbSeries((x, 1); degree))[degree] * factorial(degree)
         g(x::ArbSeries) =
             if iszero(Arblib.degree(x))
@@ -47,13 +47,8 @@ function taylor_with_remainder(
                 )
             end
         res[degree] =
-            Arb(
-                ArbExtras.extrema_series(
-                    g,
-                    getinterval(interval)...,
-                    degree = enclosure_degree,
-                )[1:2],
-            ) / factorial(degree)
+            ArbExtras.enclosure_series(g, interval, degree = enclosure_degree) /
+            factorial(degree)
     end
 
     return res
@@ -140,7 +135,7 @@ function compose_with_remainder(
     p = ArbSeries(p; degree)
 
     # Compute remainder term
-    # We compute a tighter enclosure with the help of ArbExtras.extrema_series
+    # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
     g(x::Arb) = f(ArbSeries((x, 1); degree))[degree] * factorial(degree)
     g(x::ArbSeries) =
         if iszero(Arblib.degree(x))
@@ -148,9 +143,7 @@ function compose_with_remainder(
         else
             Arblib.derivative(f(ArbSeries(x, degree = Arblib.degree(x) + degree)), degree)
         end
-    p[degree] =
-        Arb(ArbExtras.extrema_series(g, getinterval(q(interval))..., degree = 0)[1:2]) /
-        factorial(degree)
+    p[degree] = ArbExtras.enclosure_series(g, q(interval)) / factorial(degree)
     #p[degree] = f(ArbSeries((q(interval), 1); degree))[degree]
 
     # q - q[0]
@@ -326,7 +319,7 @@ The only difference to calling `clausencmzeta(x, s)` directly is that
 the last term works as a remainder term.
 
 For wide values of `x` it computes each term in the expansion
-separately, allowing it to use [`ArbExtras.extrema_series`](@ref) to
+separately, allowing it to use [`ArbExtras.enclosure_series`](@ref) to
 compute a tighter enclosure of the terms. While this could be done
 also for the remainder term it currently isn't, it doesn't give much
 improvement in the cases it could be relevant and comes with a big
@@ -343,15 +336,11 @@ function clausencmzeta_with_remainder(
 
         # For the constant term it already implements handling of
         # monotonicity and we don't have to use
-        # ArbExtras.extrema_series
+        # ArbExtras.enclosure_series
         p[0] = clausencmzeta(x, s[0])
 
         for β = 1:degree-1
-            p[β] = Arb((ArbExtras.extrema_series(
-                x -> clausencmzeta(x, s[0], β),
-                getinterval(x)...,
-                degree = 1,
-            )[1:2]))
+            p[β] = ArbExtras.enclosure_series(x -> clausencmzeta(x, s[0], β), x, degree = 1)
         end
     else
         # Compute expansion at s[0] with degree - 1

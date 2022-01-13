@@ -185,15 +185,12 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
         primitive_mul_x_pi_div_x(x) =
             2(clausenc_x_plus_pi(x) + real(eta(Acb(2 - α)))) / x
 
-        # Compute a tighter enclosure by expanding in x, only use
-        # degree = 0 since this is enough to pick up that it is
-        # monotone.
+        # Compute a tighter enclosure by expanding in x
         I_mul_x(x) =
             primitive_mul_x_zero(x) - 2primitive_mul_x(x, root) +
             primitive_mul_x_pi_div_x(x)
 
-        res =
-            Arb((ArbExtras.extrema_series(I_mul_x, getinterval(x)..., degree = 0)[1:2]))
+        res = ArbExtras.enclosure_series(I_mul_x, x)
 
         if skip_div_u0
             return res / π

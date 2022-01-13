@@ -190,8 +190,7 @@ function _clausenc_zeta(x::Arb, s::Arb)
     f(v) = gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
 
     if iswide(s)
-        res = ArbExtras.extrema_series(f, getinterval(v)..., degree = 2)[1:2]
-        return Arb(res)
+        return ArbExtras.enclosure_series(f, v, degree = 2)
     end
 
     return f(v)
@@ -385,7 +384,7 @@ function _clausenc_zeta(x::Arb, s::Arb, β::Integer)
             )
         end
 
-        res = Arb(ArbExtras.extrema_series(f, getinterval(s)..., degree = 10)[1:2])
+        res = ArbExtras.enclosure_series(f, s, degree = 10)
     else
         res = _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
     end
@@ -708,12 +707,10 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
 
         if !contains_int
             if iswide(s)
-                C = Arb(
-                    ArbExtras.extrema_series(
-                        s -> gamma(1 - s) * sinpi(s / 2),
-                        getinterval(s)...,
-                        degree = 2,
-                    )[1:2],
+                C = ArbExtras.enclosure_series(
+                    s -> gamma(1 - s) * sinpi(s / 2),
+                    s,
+                    degree = 2,
                 )
             else
                 C = gamma(1 - s) * sinpi(s / 2)
@@ -740,9 +737,8 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     start = skip_constant ? 1 : 0
     for m = start:M-1
         if iswide(s)
-            z = Arb(
-                ArbExtras.extrema_series(s -> zeta(s - 2m), getinterval(s)..., degree = 2)[1:2],
-            )
+            z = ArbExtras.enclosure_series(s -> zeta(s - 2m), s, degree = 2)
+
             if !isfinite(z)
                 # TODO: In some cases, when s overlaps zero (but not
                 # always), the above returns NaN but the evaluation
@@ -957,8 +953,7 @@ function _clausencmzeta_zeta(x::Arb, s::Arb)
         zeta(onem(v))
 
     if iswide(s)
-        res = ArbExtras.extrema_series(f, getinterval(v)..., degree = 2)[1:2]
-        return Arb(res)
+        return ArbExtras.enclosure_series(f, v, degree = 2)
     end
 
     return f(v)

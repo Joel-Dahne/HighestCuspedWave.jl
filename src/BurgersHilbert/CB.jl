@@ -17,10 +17,7 @@ performance reasons.
 The first optimization is to notice that even though `T0(u0)` doesn't
 support evaluation on `ArbSeries`, and hence we can't use higher order
 methods, `u0` does. We can thus get a much tighter enclosure of `u0`
-but bounding it with [`ArbExtras.extrema_series`](@ref). We can also
-notice that it's enough to do this using `degree = 1` since most of
-the time it will pick up that `u0` is monotone on the interval and
-only evaluate it on the endpoints.
+by enclosing it with [`ArbExtras.enclosure_series`](@ref).
 
 The second optimization comes from noticing that the enclosure for
 `u0` that we get using the above strategy means that we get a much
@@ -62,14 +59,7 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
 
         isfinite(res) || return res
 
-        # Compute a tighter enclosure of u0 by using evaluation with
-        # ArbSeries. In practice this will pick up that u0 is monotone
-        # on the interval and therefore very efficient.
-        invu0 = inv(
-            Arb(
-                ArbExtras.extrema_series(u0, Arblib.getinterval(Arf, x)..., degree = 0)[1:2],
-            ),
-        )
+        invu0 = inv(ArbExtras.enclosure_series(u0, x))
 
         return res * invu0
     end

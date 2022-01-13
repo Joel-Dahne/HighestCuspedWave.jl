@@ -191,8 +191,7 @@ function _clausens_zeta(x::Arb, s::Arb)
     f(v) = gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
 
     if iswide(s)
-        res = ArbExtras.extrema_series(f, Arblib.getinterval(v)..., degree = 2)[1:2]
-        return Arb(res)
+        return ArbExtras.enclosure_series(f, v, degree = 2)
     end
 
     return f(v)
@@ -322,7 +321,7 @@ function _clausens_zeta(x::Arb, s::Arb, β::Integer)
             )
         end
 
-        res = Arb(ArbExtras.extrema_series(f, getinterval(s)..., degree = 10)[1:2])
+        res = ArbExtras.enclosure_series(f, s, degree = 10)
     else
         res = _clausens_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
     end

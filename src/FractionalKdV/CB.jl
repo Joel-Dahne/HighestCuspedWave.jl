@@ -51,11 +51,7 @@ function CB_bounded_by(
 
         isfinite(res) || return res
 
-        # Compute a tighter enclosure of u0 by using evaluation with
-        # ArbSeries. In practice this will pick up that u0 is monotone
-        # on the interval and therefore very efficient.
-        u0x =
-            Arb(ArbExtras.extrema_series(u0, Arblib.getinterval(x)..., degree = 0)[1:2])
+        u0x = ArbExtras.enclosure_series(u0, x)
 
         res /= u0x
 

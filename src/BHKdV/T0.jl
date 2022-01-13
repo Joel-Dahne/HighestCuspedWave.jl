@@ -149,10 +149,9 @@ primitive_mul_x(b) - primitive_mul_x(a) =
 ```
 There are two main terms which both are positive (if we include the
 minus sign in the second term) so there are no cancellations between
-them and we therefore enclose them separately. For most values of `x`
-the two terms are monotone in `x` and we can therefore compute an
-enclosure using `ArbExtras.extrema_series` with `degree = 0` which
-picks up the monotonicity.
+them and we therefore enclose them separately. We compute a tighter
+enclosure using [`enclosure_series`](@ref) which typically picks up
+the monotonicity.
 
 # Value at `t = π / x`
 In the special case that `t = π / x` this simplifies to
@@ -216,9 +215,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                         clausencmzeta(x * (1 - t), s2) + clausencmzeta(x * (1 + t), s2) - 2clausencmzeta(x * t, s2)
                     ) / x
 
-                term1 = Arb(
-                    ArbExtras.extrema_series(term1_f, getinterval(x)..., degree = 0)[1:2],
-                )
+                term1 = ArbExtras.enclosure_series(term1_f, x)
 
                 # Compute enclosure of all clausens terms using ArbSeries
                 term2_f(x) =
@@ -227,9 +224,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                         2clausens(x * t, s1)
                     )
 
-                term2 = Arb(
-                    ArbExtras.extrema_series(term2_f, getinterval(x)..., degree = 0)[1:2],
-                )
+                term2 = ArbExtras.enclosure_series(term2_f, x)
 
                 return term1 - term2
             end
@@ -248,9 +243,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                             clausencmzeta(x * (1 + a), s2) - 2clausencmzeta(x * a, s2)
                         )
                     ) / x
-                term1 = Arb(
-                    ArbExtras.extrema_series(term1_f, getinterval(x)..., degree = 0)[1:2],
-                )
+                term1 = ArbExtras.enclosure_series(term1_f, x)
 
                 # Compute enclosure of all clausens terms using ArbSeries
                 term2_f(x) = (
@@ -263,9 +256,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                         2clausens(x * a, s1)
                     )
                 )
-                term2 = Arb(
-                    ArbExtras.extrema_series(term2_f, getinterval(x)..., degree = 0)[1:2],
-                )
+                term2 = ArbExtras.enclosure_series(term2_f, x)
 
                 return term1 - term2
             end
