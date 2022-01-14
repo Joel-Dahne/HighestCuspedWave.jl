@@ -361,7 +361,7 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
 end
 
 """
-    expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::integer = 2)
+    expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::integer = 2, p0)
 
 Compute expansions for `a[i]` for `i = 1:3` at the point `α0` of the
 given degree. The last term is a remainder term which ensures that
@@ -530,7 +530,13 @@ but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `α`
 from all of them. To get the higher order terms we factor out one more
 `α` from `v1` and `v2` and multiply it back afterwards.
 """
-function expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::Integer = 2)
+function expansion_as(
+    ::Type{KdVZeroAnsatz},
+    α0::Arb,
+    interval::Arb;
+    degree::Integer = 2,
+    p0 = expansion_p0(KdVZeroAnsatz, α0, interval; degree),
+)
     a0 = if iszero(α0)
         # We compute a0 to a higher degree and then truncate, to
         # get a tighter enclosure
@@ -571,9 +577,6 @@ function expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
             enclosure_degree = 20,
         )
     end
-
-    # Compute expansions of p0
-    p0 = expansion_p0(KdVZeroAnsatz, α0, interval; degree)
 
     α_s = ArbSeries((α0, 1); degree) # Series expansion around α0
     z(i, j) = compose_with_remainder(zeta, -1 - i * α_s + j * p0, interval - α0)
