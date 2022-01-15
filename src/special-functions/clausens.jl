@@ -332,14 +332,32 @@ end
 """
     clausens(x, s)
 
-Compute the Clausen function \$S_s(x)\$.
+Compute the Clausen function ``S_s(x)``.
 
-If `x` is a wide (real) ball, as determined by `iswide(x)`, it
-computes a tighter enclosure by first checking if the derivative
-doesn't contains zero, if not it uses monotonicity to only evaluate at
-endpoints. If the derivative does contain zero it uses a zeroth order
-approximation instead. In the wide case it computes the endpoints at a
-reduced precision given by
+It first performs an argument reduction of `x`, using that the
+function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
+
+If `x` contains zero and we don't have `s > 1` it returns an
+indeterminate result, except in the case that `s` is exactly an odd
+negative integer in which case the result is exactly zero.
+
+If `x` contains zero and `s > 1` it looks at the lower and upper bound
+of `x` to check if `x` includes the critical points on ``(0, π)`` or
+``(-π, 0)``. This is done by checking that the points have not passed
+`-π` or `π` respectively and that derivative in `x` at the points is
+positive, in this case it doens't include the critical point.
+- **PROVE:** That the above is correct. More precisely it is enough to
+    prove that there is a unique critical point on ``(0, π)``.
+If it doesn't include any of the critical points it evaluates at the
+endpoints of `x`. Otherwise it uses the trivial upper bound of the
+absolute value given by `zeta(s)`.
+
+If `x` is a wide ball (not containing zero), as determined by
+`iswide(x)`, it computes a tighter enclosure by first checking if the
+derivative doesn't contains zero, if not it uses monotonicity to only
+evaluate at endpoints. If the derivative does contain zero it uses a
+zeroth order approximation instead. In the wide case it computes the
+endpoints at a reduced precision given by
 ```
 prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 ```
@@ -349,38 +367,82 @@ integer, in which case higher precision is typically needed.
 - **IMPROVE:** This could be tuned more, but is probably not needed.
 
 The case when `s` is a wide ball is in general handled by the
-underlying methods [`_clausens_polylog`](@ref) and
-[`_clausens_zeta`](@ref). The exception is when `s` overlaps with a
-non-negative integer, in which case both the above methods give
-indeterminate results. In that case we compute at the midpoint of `s`
+underlying method [`_clausens_zeta`](@ref). The exception is when `s`
+overlaps with a non-negative integer, in which case it gives an
+indeterminate result. In that case we compute at the midpoint of `s`
 and bound the error by using a bound for the derivative in `s`. For s
-> 1 the derivative in `s` is bounded by `dzeta(s)`, this can be
-seen by looking at the Fourier series for `clausens(x, s, 1)` and
-noticing that it is always bounded by `dzeta(s)`.
+> 1 the derivative in `s` is bounded by `dzeta(s)`, this can be seen
+by looking at the Fourier series for `clausens(x, s, 1)` and noticing
+that it is always bounded by `dzeta(s)`.
 - **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
   this case the derivative in `s` blows up at `x = 0` so we can't use
   a uniform bound. For now we compute a bound assuming monotonicity in
   `s`, which is not true.
+- **TODO:** Move the logic for handling `s` overlapping integers to
+  [`_clausenc_zeta`](@ref).
 """
-function clausens(x::Arb, s::Union{Arb,Integer})
+function clausens(x::Arb, s::Arb)
+    x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
+
+    @assert !(has2pi && !haszero)
+
+    # Handle the special case when x contains zero
+    if haszero
+        if !(s > 1)
+            # Identically equal to zero for odd negative integers,
+            # otherwise not finite
+            if isinteger(s) && isodd(unique_integer(s)[2])
+                return zero(x)
+            else
+                return Arblib.indeterminate!(zero(x))
+            end
+        elseif haspi
+            # We could give a better bound by checking if we should
+            # include use the positive or negative version. But this
+            # is likely not so important.
+            z = zeta(s) # Trivial upper bound
+            return union(-z, z)
+        elseif iszero(x)
+            return zero(x)
+        else
+            xₗ, xᵤ = getinterval(Arb, x)
+            # Check for inclusion of critical point on (-π, 0)
+            if iszero(xₗ)
+                res_left = zero(x)
+            elseif Arblib.ispositive(clausenc(xₗ, s - 1))
+                res_left = clausens(xₗ, s)
+            else
+                res_left = -zeta(s) # Trivial lower bound
+            end
+
+            # Check for inclusion of critical point on (0, π)
+            if iszero(xᵤ)
+                res_right = zero(x)
+            elseif Arblib.ispositive(clausenc(xᵤ, s - 1))
+                res_right = clausens(xᵤ, s)
+            else
+                res_right = zeta(s) # Trivial upper bound
+            end
+
+            return Arb((res_left, res_right))
+        end
+    end
+
+    # We can now assume that 0 < x < 2π
+
     if iswide(x)
         orig_prec = precision(x)
-        f64_s = Float64(s)
-        if abs(f64_s - round(f64_s)) < 1e-2
-            min_prec = 64
-        else
-            min_prec = 32
-        end
+        s_f64 = Float64(s)
+        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
         prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
         x = setprecision(x, prec)
+
         # Compute derivative
         dclausens = clausenc(x, s - 1)
         if Arblib.contains_zero(dclausens)
             # Use a zero order approximation
-            res = Arblib.add_error!(
-                clausens(Arblib.midpoint(Arb, x), s),
-                (x - Arblib.midpoint(Arb, x)) * dclausens,
-            )
+            mid = Arblib.midpoint(Arb, x)
+            res = Arblib.add_error!(clausens(mid, s), (x - mid) * dclausens)
         else
             # Use that it's monotone
             xₗ, xᵤ = Arblib.getinterval(Arb, x)
@@ -391,7 +453,8 @@ function clausens(x::Arb, s::Union{Arb,Integer})
 
     # Handle the case when s contains a non-negative integer but it
     # not exactly an integer
-    contains_nonnegative_int = s isa Arb && Arblib.contains_int(s) && !Arblib.isnegative(s)
+    # TODO: This should optimally be handled internally by _clausenc_zeta
+    contains_nonnegative_int = Arblib.contains_int(s) && !Arblib.isnegative(s)
     if contains_nonnegative_int && !iszero(Arblib.radref(s))
         if s > 1
             # Evaluate at midpoint
@@ -418,20 +481,13 @@ function clausens(x::Arb, s::Union{Arb,Integer})
         end
     end
 
-    # _clausenc_zeta(x, s) is only defined for 0 < x < 2π
-    if Arblib.ispositive(x) && x < 2Arb(π)
-        return _clausens_zeta(x, convert(Arb, s))
-    else
-        return _clausens_polylog(x, s)
-    end
+    return _clausens_zeta(x, s)
 end
 
 clausens(x::Acb, s) = (polylog(s, exp(im * x)) - polylog(s, exp(-im * x))) / 2
 
-clausens(x::S, s::T) where {S<:Real,T<:Real} = convert(
-    float(promote_type(S, T)),
-    clausens(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
-)
+clausens(x::S, s::T) where {S<:Real,T<:Real} =
+    convert(float(promote_type(S, T)), clausens(convert(Arb, x), convert(Arb, s)))
 
 """
     clausens(x::ArbSeries, s)

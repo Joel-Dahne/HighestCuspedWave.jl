@@ -465,14 +465,25 @@ end
 """
     clausenc(x, s)
 
-Compute the Clausen function \$C_s(x)\$.
+Compute the Clausen function ``C_s(x)``.
 
-If `x` is a wide (real) ball, as determined by `iswide(x)`, it
-computes a tighter enclosure by using that the function is
-`2π`-periodic, monotonic for `x ∈ [0, π]` and even, so that it's
-enough to evaluate on the endpoints and possibly at zero or `π` if `x`
-contains points on the form `2kπ` or (2k + 1)π` respectively. In the
-wide case it computes the endpoints at a reduced precision given by
+It first performs an argument reduction of `x`, using that the
+function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
+
+If `x` contains zero and we don't have `s > 1` it returns an
+indeterminate result. If `s > 1` it computes an enclosure using that
+the extrema is attained at `x = 0`, `abs_ubound(x)` or `π`, where we
+have `clausenc(0, s) = zeta(s)` and `clausenc(π, s) = -eta(s)`.
+
+If `x` doesn't contain zero we are assured by
+[`_reduce_argument_clausen`](@ref) that `0 < x < 2π`.
+
+If `x` is a wide ball (not containing zero), as determined by
+`iswide(x)`, it computes a tighter enclosure by using that the
+function is `2π`-periodic, monotone for `x ∈ [0, π]` and even, so that
+it's enough to evaluate on the endpoints and possibly at `π` if it is
+contained in `x`. In this case it computes the endpoints at a reduced
+precision given by
 ```
 prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 ```
@@ -482,37 +493,52 @@ integer, in which case higher precision is typically needed.
 - **IMPROVE:** This could be tuned more, but is probably not needed.
 
 The case when `s` is a wide ball is in general handled by the
-underlying methods [`_clausenc_polylog`](@ref) and
 [`_clausenc_zeta`](@ref). The exception is when `s` overlaps with a
-non-negative integer, in which case both the above methods give
-indeterminate results. In that case we compute at the midpoint of `s`
-and bound the error by using a bound for the derivative in `s`. For s
-> 1 the derivative in `s` is bounded by `dzeta(s)`, this can be
-seen by looking at the Fourier series for `clausenc(x, s, 1)` and
-noticing that it attains it maximum at `x = 0` where it precisely
-equals `dzeta(s)`.
+non-negative integer, in which case it gives an indeterminate result.
+In that case we compute at the midpoint of `s` and bound the error by
+using a bound for the derivative in `s`. For s > 1 the derivative in
+`s` is bounded by `dzeta(s)`, this can be seen by looking at the
+Fourier series for `clausenc(x, s, 1)` and noticing that it attains it
+maximum at `x = 0` where it precisely equals `dzeta(s)`.
 - **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
   this case the derivative in `s` blows up at `x = 0` so we can't use
   a uniform bound. For now we compute a bound assuming monotonicity in
   `s`, which is not true.
+- **TODO:** Move the logic for handling `s` overlapping integers to
+  [`_clausenc_zeta`](@ref).
 """
-function clausenc(x::Arb, s::Union{Arb,Integer})
-    if iswide(x)
-        f64_s = Float64(s)
-        if abs(f64_s - round(f64_s)) < 1e-2
-            min_prec = 64
+function clausenc(x::Arb, s::Arb)
+    x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
+
+    @assert !(has2pi && !haszero)
+
+    # Handle the special case when x contains zero
+    if haszero
+        if !(s > 1)
+            # Only finite for s > 1
+            return Arblib.indeterminate!(zero(x))
+        elseif haspi
+            # Extrema at x = 0 and x = π
+            return union(zeta(s), -Arblib.realref(eta(Acb(s))))
+        elseif iszero(x)
+            return zeta(s)
         else
-            min_prec = 32
+            # Extrema at x = 0 and upper bound of x
+            return union(zeta(s), clausenc(abs_ubound(x), s))
         end
+    end
+
+    # We can now assume that 0 < x < 2π
+
+    if iswide(x)
+        s_f64 = Float64(s)
+        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
+
         prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 
         xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
-        (include_zero, include_pi) = contains_pi(xₗ, xᵤ)
         res = union(clausenc(xₗ, s), clausenc(xᵤ, s))
-        if include_zero
-            res = union(res, clausenc(zero(xₗ), s))
-        end
-        if include_pi
+        if haspi
             res = union(res, clausenc(Arb(π; prec), s))
         end
         return setprecision(res, precision(x))
@@ -520,7 +546,8 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
 
     # Handle the case when s contains a non-negative integer but it
     # not exactly an integer
-    contains_nonnegative_int = s isa Arb && Arblib.contains_int(s) && !Arblib.isnegative(s)
+    # TODO: This should optimally be handled internally by _clausenc_zeta
+    contains_nonnegative_int = Arblib.contains_int(s) && !Arblib.isnegative(s)
     if contains_nonnegative_int && !iszero(Arblib.radref(s))
         if s > 1
             # Evaluate at midpoint
@@ -546,12 +573,7 @@ function clausenc(x::Arb, s::Union{Arb,Integer})
         end
     end
 
-    # _clausenc(x, s) is only defined for 0 < x < 2π
-    if Arblib.ispositive(x) && x < 2Arb(π)
-        return _clausenc_zeta(x, convert(Arb, s))
-    else
-        return _clausenc_polylog(x, s)
-    end
+    return _clausenc_zeta(x, s)
 end
 
 function clausenc(x::Acb, s::Arb)
@@ -575,10 +597,8 @@ function clausenc(x::Acb, s::Union{Acb,Integer})
     end
 end
 
-clausenc(x::S, s::T) where {S<:Real,T<:Real} = convert(
-    float(promote_type(S, T)),
-    clausenc(convert(Arb, x), s isa Integer ? s : convert(Arb, s)),
-)
+clausenc(x::S, s::T) where {S<:Real,T<:Real} =
+    convert(float(promote_type(S, T)), clausenc(convert(Arb, x), convert(Arb, s)))
 
 """
     clausenc(x::ArbSeries, s)
