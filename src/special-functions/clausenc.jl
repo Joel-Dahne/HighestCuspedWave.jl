@@ -1,6 +1,76 @@
 export clausenc, clausencmzeta
 
 """
+    _reduce_argument_clausen(x::Arb)
+
+Perform argument reduction for the Clausen functions. It returns `(y,
+haszero, haspi, has2pi)` where `y` is the reduced argument, `haszero`,
+and `has2pi` are true if `y` overlaps with zero, and `2π`
+respectively, `haspi` is true if `x` overlaps with `π` **or** `-π`.
+
+The possible results are divided into three cases
+1. `x` covers a full period, i.e. the radius is at least `π`. In this
+  case it returns the full interval ``[0, 2π]`` and `haszero, haspi,
+  has2pi` are all true.
+2. `x` doesn't contain a multiple of `2π`. In this case the result
+  satisfies `0 < y < 2π`, `haszero` and `has2pi` are false and `haspi`
+  is true if `y` contains `π`.
+3. `x` contains precisely one multiple of `2π`. In this case `-2π < y
+  < 2π` and `haszero` is true while `has2pi` is false, `haspi` is true
+  if `y` contains `-π` or `π`.
+
+Note that if `haszero` is false then `y` is guaranteed to satisfy `0 <
+y < 2π`. This is used by many of the functions.
+"""
+function _reduce_argument_clausen(x::Arb)
+    pi = Arb(π)
+    twopi = let tmp = Arb(π)
+        Arblib.mul_2exp!(tmp, tmp, 1)
+    end
+
+    if Arblib.ispositive(x) && x < twopi
+        # Happy path, when 0 < x < 2π
+        y = copy(x)
+        haszero = has2pi = false
+        haspi = contains(x, pi)
+    else
+        xdiv2pi = x / twopi
+
+        if Arblib.cmp_2exp(Arblib.radref(xdiv2pi), -1) >= 0
+            # If the radius of x / 2π is not less than 1 / 2 then y
+            # spans the full interval [0, 2π]
+            y = Arb((0, twopi))
+            haszero = haspi = has2pi = true
+        else
+            # Add/subtract a multiple of 2π so that the midpoint is on
+            # the interval [0, 2π]
+            k = Arblib.floor!(zero(Arf), Arblib.midref(xdiv2pi))
+            y = x - k * twopi
+
+            # We want to avoid the case when y overlaps 2π
+            if contains(y, twopi)
+                y -= twopi
+            end
+
+            haszero = Arblib.contains_zero(y)
+            haspi = contains(y, pi) || contains(y, -pi)
+            has2pi = contains(y, twopi)
+
+            # Neither of these checks should be required
+            # mathematically, though overestimations might lead to
+            # issues here?
+
+            # We guarantee this
+            @assert haszero || 0 < y < twopi
+            # It should never contain -2π or 2π in this case
+            @assert !(contains(y, -twopi) || has2pi)
+        end
+    end
+
+    return y, haszero, haspi, has2pi
+end
+
+"""
     _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
 
 Evaluation of the `clausenc` function through the polylog function.

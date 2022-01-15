@@ -1,3 +1,38 @@
+@testset "_reduce_argument_clausen" begin
+    pi = Arb(π)
+    twopi = let tmp = Arb(π)
+        Arblib.mul_2exp!(tmp, tmp, 1)
+    end
+
+
+    xs1 = range(Arb(-20), 20, length = 100)
+    xs2 = Arblib.add_error!.(deepcopy(xs1), Arb(0.1))
+    xs3 = Arb(π) * collect(-100:100)
+    xs4 = [Arb((i * Arb(π), (i + 1) * Arb(π))) for i = -100:100]
+    xs5 = [
+        Arblib.nonnegative_part!(Arb(), Arb((0, π))),
+        Arblib.nonnegative_part!(Arb(), Arb((0, 2Arb(π)))),
+    ]
+
+    for x in [xs1; xs2; xs3; xs4; xs5]
+        y, haszero, haspi, has2pi = HighestCuspedWave._reduce_argument_clausen(x)
+
+        @test Arblib.contains_int((x - y) / twopi)
+
+        @test haszero == Arblib.contains_zero(y)
+        @test haspi == (contains(y, pi) || contains(y, -pi))
+        @test has2pi == contains(y, twopi)
+        @test !contains(y, -twopi)
+
+        @test !has2pi || (has2pi && haszero)
+
+        # Check that radius is not too much higher, the value used
+        # here is somewhat random
+        @test radius(Arb, y) <= 2radius(Arb, x) + sqrt(eps(Arb))
+    end
+
+end
+
 @testset "clausenc" begin
     # Check that the evaluation with polylog and zeta agree on (0, 2π)
     for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
