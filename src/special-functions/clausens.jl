@@ -567,11 +567,13 @@ order `2M - 1`, meaning that the error term is of order `2M + 1`.
 
 It returns four things, the coefficient `C` and exponent `e` for the
 non-analytic term, the analytic terms as a `ArbSeries` `P` and the
-error term `E`. The `M` is the same as in Lemma 2.1 in
+remainder term `E`. The `M` is the same as in Lemma 2.1 in
 arXiv:1810.10935.
 
 It satisfies that `clausens(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M + 1)` for
 all `|y| <= |x|`.
+
+It requires that `x < 2π` to give a finite remainder term.
 
 Note that this method doesn't handle wide values of `s` in any special
 way. This has not been needed anywhere so far.
@@ -580,8 +582,6 @@ function clausens_expansion(x::Arb, s::Arb, M::Integer)
     Arblib.ispositive(s) || throw(ArgumentError("s must be positive, got s = $s"))
     M > (s + 1) / 2 ||
         throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
-
-    π = oftype(x, pi)
 
     # Non-analytic term
     C = gamma(1 - s) * cospi(s / 2)
@@ -594,7 +594,13 @@ function clausens_expansion(x::Arb, s::Arb, M::Integer)
     end
 
     # Error term
-    E = Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
+    E = let π = Arb(π)
+        if abs(x) < 2π
+            Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
+        else
+            Arblib.indeterminate!(zero(x))
+        end
+    end
 
     return (C, e, P, E)
 end

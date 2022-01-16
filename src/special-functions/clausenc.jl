@@ -787,11 +787,13 @@ order `2M - 2`, meaning that the error term is of order `2M`.
 
 It returns four things, the coefficient `C` and exponent `e` for the
 non-analytic term, the analytic terms as a `ArbSeries` `P` and the
-error term `E`. The `M` is the same as in Lemma 2.1 in
+remainder term `E`. The `M` is the same as in Lemma 2.1 in
 arXiv:1810.10935.
 
 It satisfies that `clausenc(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for
 all `|y| <= |x|`.
+
+It requires that `x < 2π` to give a finite remainder term.
 
 If `skip_constant = true` it doesn't compute the constant term in the
 expansion. This is useful if you want to compute the expansion for
@@ -812,11 +814,9 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     M > (s + 1) / 2 ||
         throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
 
-    π = oftype(x, pi)
-
     # Non-analytic term
     if s == 2
-        C = -π / 2
+        C = -Arb(π) / 2
     else
         contains_int, n = unique_integer(s)
 
@@ -867,7 +867,13 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     end
 
     # Error term
-    E = Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
+    E = let π = Arb(π)
+        if abs(x) < 2π
+            Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
+        else
+            Arblib.indeterminate!(zero(x))
+        end
+    end
 
     return (C, e, P, E)
 end
