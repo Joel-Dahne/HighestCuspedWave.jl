@@ -247,8 +247,8 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
     # on [0, ϵ / π]. Arb is not able to evaluate this directly so
     # instead we use that it is monotone so we only have to evaluate
     # it at the endpoints.
-    Dᵤ = log(sinc(ArbSeries([0, 1, 0])))[2]
-    Dₗ = log(sinc(ArbSeries([ϵ / π, 1, 0])))[2]
+    Dᵤ = log(sinc(ArbSeries((0, 1, 0))))[2]
+    Dₗ = log(sinc(ArbSeries((ϵ / π, 1, 0))))[2]
     D = Arb((Dₗ, Dᵤ))
 
     return x -> begin

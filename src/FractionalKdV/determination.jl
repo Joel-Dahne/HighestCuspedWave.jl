@@ -61,7 +61,7 @@ function findp0(α::Arb)
     # Perform some Newton iterations at higher precision
     p0_approx = let n = 3, p0 = Arb(p0_approx, prec = precision(α))
         for i = 1:n
-            y = f(ArbSeries([p0, one(p0)]))
+            y = f(ArbSeries((p0, 1)))
             p0 = Arblib.midpoint(Arb, p0 - y[0] / y[1])
         end
         p0
@@ -71,7 +71,7 @@ function findp0(α::Arb)
     # definitely contains a root. We do this in a very simple way by
     # widening it step by step until refine_root succeeds. This is
     # definitely not the most efficient way, but good enough.
-    fp0 = f(ArbSeries([p0_approx, 1]))
+    fp0 = f(ArbSeries((p0_approx, 1)))
     step = max(eps(p0_approx), abs(fp0[0] / fp0[1]))
 
     p0 = let p0_approx = copy(p0_approx)

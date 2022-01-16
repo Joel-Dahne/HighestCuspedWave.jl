@@ -379,7 +379,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
         J2 = let
             # Bound the constant C₂ using ArbSeries. We compute the
             # error term for log(1 - a) for a in [0, 1 // 4]
-            C₂ = log(1 - ArbSeries([Arb((0, 1 // 4)), 1, 0]))[2]
+            C₂ = log(1 - ArbSeries((Arb((0, 1 // 4)), 1, 0)))[2]
 
             if check_results
                 for t in range(Arb(2), 1 / x, length = 1000)

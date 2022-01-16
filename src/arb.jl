@@ -35,7 +35,7 @@ iswide(::Number; cutoff = 10) = false
 
 Compute the Zeta function differentiated once with respect to `s`.
 """
-dzeta(s::Arb) = zeta(ArbSeries([s, 1]))[1]
+dzeta(s::Arb) = zeta(ArbSeries((s, 1)))[1]
 dzeta(s) = convert(float(typeof(s)), dzeta(Arb(s)))
 
 function stieltjes(::Type{Arb}, n::Integer)
@@ -320,9 +320,9 @@ We required that `a ∈ x`.
 function taylor_with_error(f, a::Arb, X::Arb, N::Integer)
     @assert contains(X, a)
 
-    P = f(ArbSeries([a, one(a)], degree = N))
+    P = f(ArbSeries((a, 1), degree = N))
 
-    E = f(ArbSeries([X, one(a)], degree = N + 1))[N]
+    E = f(ArbSeries((X, 1), degree = N + 1))[N]
 
     return P, E
 end

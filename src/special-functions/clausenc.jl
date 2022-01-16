@@ -692,7 +692,7 @@ prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
 function clausenc(x::Arb, s::Arb, β::Integer)
     if iszero(x) && s > 1
         isone(β) && return dzeta(s)
-        s_series = ArbSeries([s, 1], degree = β)
+        s_series = ArbSeries((s, 1), degree = β)
         return zeta(s_series, one(s))[β] * factorial(β)
     end
 
@@ -1092,7 +1092,7 @@ function clausencmzeta(x::Union{Arb,ArbSeries}, s, β::Integer)
     if isone(β)
         return clausenc(x, s, β) - dzeta(Arb(s))
     else
-        return clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+        return clausenc(x, s, β) - zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
     end
 end
 
@@ -1101,6 +1101,6 @@ function clausencmzeta(x, s, β::Integer)
     if isone(β)
         return clausenc(x, s, β) - dzeta(s)
     else
-        return clausenc(x, s, β) - zeta(ArbSeries([s, 1], degree = β))[β] * factorial(β)
+        return clausenc(x, s, β) - zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
     end
 end
