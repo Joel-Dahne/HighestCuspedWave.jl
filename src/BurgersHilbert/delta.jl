@@ -31,7 +31,7 @@ allocations in that case.
 """
 function delta0(
     u0::BHAnsatz{Arb};
-    rtol = 1e-3,
+    rtol = Arb(1e-3),
     degree = 4,
     maxevals = 5000,
     verbose = false,
