@@ -131,7 +131,7 @@ end
 """
     beta_inc(a, b, z)
 
-Compute the (not regularised) incomplete beta function \$B(a, b; z)\$.
+Compute the (not regularised) incomplete beta function ``B(a, b; z)``.
 
 Note that this method is different than
 [`SpecialFunctions.beta_inc`](@ref) both in that it returns the
@@ -143,7 +143,7 @@ beta_inc(a::Arb, b::Arb, z::Arb) = Arblib.hypgeom_beta_lower!(zero(z), a, b, z, 
 """
     beta_inc_zeroone(a, b, z)
 
-Compute the (not regularised) incomplete beta function \$B(a, b; z)\$
+Compute the (not regularised) incomplete beta function ``B(a, b; z)``
 assuming that `0 <= z <= 1`, discarding any other numbers in the
 interval.
 

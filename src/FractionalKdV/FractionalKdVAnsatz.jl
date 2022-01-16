@@ -7,11 +7,11 @@ Represents an ansatz for a an approximate solution for the fractional
 KdV equations with `α ∈ (-1, 0)`. It has the following parameters
 
 - `α`: the parameter defining the equation.
-- `p0`: a numerical approximation of \$p_0\$.
+- `p0`: a numerical approximation of ``p_0``.
 - `a`: vector with the coefficients in front of the Clausen functions,
-  corresponding to \$a_j\$ in the paper. Notice that this vector is
+  corresponding to ``a_j`` in the paper. Notice that this vector is
   indexed starting from `0` and not `1`.
-- `b`: vector with the Fourier coefficients, corresponding to \$b_n\$
+- `b`: vector with the Fourier coefficients, corresponding to ``b_n``
   in the paper.
 - `p`: exponent for the weight, which is given by `abs(x)^p`.
 - `zeroterms`: list of terms in the asymptotic expansion of `D(u0)`

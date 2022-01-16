@@ -95,7 +95,7 @@ end
     T01(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1, δ2)
 
 Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
-integral \$T_{0,1}\$ from the paper.
+integral ``T_{0,1}`` from the paper.
 
 The integral is split into three parts, one on `[0, δ1]`, one on `[δ1,
 1 - δ2]` and one on `[1 - δ2, 1]`. These are These are given by
@@ -134,7 +134,7 @@ end
     T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic)
 
 Returns a function such that `T01(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral \$T_{0,1}\$ from the paper using an
+**upper bound** of the integral ``T_{0,1}`` from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
 
 It splits the Clausen functions into the main singular part and the
@@ -231,7 +231,7 @@ end
     T011(u0::FractionalKdVAnstaz{Arb}, evaltype = Ball(); δ0)
 
 Returns a function such that `T011(u0; δ0)(x)` computes the integral
-\$T_{0,1,1}\$ from the paper.
+``T_{0,1,1}`` from the paper.
 
 The strategy for evaluation is to compute an expansion for the
 integrand which is then integrated termwise on the interval. The first
@@ -314,7 +314,7 @@ end
     T012(u0::FractionalKdVAnsatz{Arb}, evaltype = Ball(); δ0, δ1)
 
 Returns a function such that `T012(u0; δ0, δ1)(x)` computes the
-integral \$T_{0,1,2}\$ from the paper. This is the integral
+integral ``T_{0,1,2}`` from the paper. This is the integral
 ```
 x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^p dt
 ```
@@ -479,7 +479,7 @@ end
     T013(u0::FractionalKdVAnstaz{Arb}, evaltype = Ball(); δ1)
 
 Returns a function such that `T013(u0; δ1)(x)` computes the integral
-\$T_{0,1,3}\$ from the paper.
+``T_{0,1,3}`` from the paper.
 
 The strategy for evaluation is the same as for [`T011`](@ref) except
 that the first term is singular and the last two are analytic and

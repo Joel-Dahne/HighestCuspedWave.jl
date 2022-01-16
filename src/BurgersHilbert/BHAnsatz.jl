@@ -7,8 +7,8 @@ export BHAnsatz
 Construct an ansatz for use with the Burgers-Hilbert equation. It
 stores three parameters
 - `a0` which is the coefficient in front of the leading Clausen
-  function. Corresponds to \$a_0\$ in the paper.
-- `b` which is a vector of Fourier coefficients. Corresponds to \$b_n\$
+  function. Corresponds to ``a_0`` in the paper.
+- `b` which is a vector of Fourier coefficients. Corresponds to ``b_n``
   in the paper.
 - `v0` which can either be `nothing` or a `FractionalKdVAnsatz`. If it
   is the latter then the non-leading Clausen terms from that are added

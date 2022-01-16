@@ -1,7 +1,7 @@
 """
     CB_bounded_by(u0::AbstractAnsatz{Arb}, C::Arf; ϵ = 0, ...)
 
-Attempt to prove that \$C_B\$ is bounded by `C`. Returns `true` on
+Attempt to prove that ``C_B`` is bounded by `C`. Returns `true` on
 success and `false` on failure.
 
 If `ϵ = 0` it tries to determine an optimal choice of `ϵ` by starting

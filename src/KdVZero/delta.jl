@@ -20,7 +20,7 @@ More precisely it returns an `ArbSeries` `p` of the form
 ```
 p = 0 + 0 * α + p[2] * α^2
 ```
-satisfying that `p(α)` gives an enclosure of \$δ_0\$ for every `α ∈
+satisfying that `p(α)` gives an enclosure of ``δ_0`` for every `α ∈
 u0.α`.
 
 For a given value of `x` [`F0`](@ref) gives us an expansion in `α`.

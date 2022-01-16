@@ -2,7 +2,7 @@
     T02(u0::FractionalKdVAnsatz{Arb}; δ2)
 
 Returns a function such that `T02(u0; δ2, ϵ)(x)` computes the integral
-\$T_{0,2}\$ from the paper.
+``T_{0,2}`` from the paper.
 
 If `x` is close to π (`π - x < ϵ`) then use only the asymptotic
 expansion for the full integral.
@@ -57,7 +57,7 @@ end
     T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic)
 
 Returns a function such that `T02(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral \$T_{0,2}\$ from the paper using an
+**upper bound** of the integral ``T_{0,2}`` from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
 
 It splits the Clausen functions into the main singular part and the
@@ -354,7 +354,7 @@ end
 """
     T022(u0::FractionalKdVAnsatz{Arb}, a::Arb, x::Arb)
 
-Compute the (not yet existing) integral \$T_{0,2,2}\$ from the paper.
+Compute the (not yet existing) integral ``T_{0,2,2}`` from the paper.
 
 This is the integral
 ```

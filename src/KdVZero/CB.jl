@@ -8,7 +8,7 @@ More precisely it returns an `ArbSeries` `p` of the form
 ```
 p = 1 + p[1] * α
 ```
-satisfying that `p(α)` gives an enclosure of \$C_B\$ for every `α ∈
+satisfying that `p(α)` gives an enclosure of ``C_B`` for every `α ∈
 u0.α`.
 
 For a given value of `x` [`T0`](@ref) gives us an expansion in `α` of
@@ -116,7 +116,7 @@ form
 ```
 p = 1 + p[1] * α
 ```
-such that `p(α)` gives an estimate of \$C_B\$ for the given `α ∈
+such that `p(α)` gives an estimate of ``C_B`` for the given `α ∈
 u0.α`.
 """
 function CB_estimate(

@@ -178,7 +178,7 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
-Return an expansion of the integral \$T_0\$ in `α` around `α = 0` of
+Return an expansion of the integral ``T_0`` in `α` around `α = 0` of
 degree `1`. The last term is a remainder term which ensures that
 evaluating the expansion gives an enclosure of `u0` for all values in
 the interval `α`.
@@ -511,7 +511,7 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Asymptotic)
 
-Return an expansion of the integral \$T_0\$ in `α` around `α = 0` of
+Return an expansion of the integral ``T_0`` in `α` around `α = 0` of
 degree `1`. Computed in a way that works for `x` close to zero. The
 last term is a remainder term which ensures that evaluating the
 expansion gives an enclosure of `u0` for all values in the interval

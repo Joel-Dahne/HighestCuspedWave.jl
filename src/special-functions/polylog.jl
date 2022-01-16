@@ -3,7 +3,7 @@ export polylog
 """
     polylog(s, z)
 
-Compute the polylogarithm \$Li_s(z)\$.
+Compute the polylogarithm ``Li_s(z)``.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure using a Taylor expansion in `s`.

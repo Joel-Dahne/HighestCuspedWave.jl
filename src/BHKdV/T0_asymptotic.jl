@@ -1055,7 +1055,7 @@ end
     T0_asymptotic(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
 
 Returns a function `f` such that `f(x)` computes an **upper bound** of
-the integral \$T_0\$ from the paper using an evaluation strategy
+the integral ``T_0`` from the paper using an evaluation strategy
 that works asymptotically as `x` goes to `0`.
 
 The integral in question is given by

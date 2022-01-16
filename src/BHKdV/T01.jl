@@ -2,7 +2,7 @@
     T01(u0::BHKdVAnsatz, ::Ball; δ1, δ2, skip_div_u0)
 
 Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
-integral \$T_{0,1}\$ from the paper.
+integral ``T_{0,1}`` from the paper.
 
 If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
@@ -28,7 +28,7 @@ end
     T01(u0::BHKdVAnsatz, ::Asymptotic)
 
 Returns a function such that `T01(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral \$T_{0,1}\$ from the paper using an
+**upper bound** of the integral ``T_{0,1}`` from the paper using an
 evaluation strategy that works asymptotically as `x` goes to `0`.
 
 It precomputes the expansions of `u0` and for that reason a number `ϵ`
@@ -338,7 +338,7 @@ end
 """
     T011(u0::BHKdVAnsatz; δ0)
 
-Computes the integral \$T_{0,1,1}\$ from the paper.
+Computes the integral ``T_{0,1,1}`` from the paper.
 
 It uses the fact that the integrand is strictly increasing on the
 interval `[0, 0.05]` for every value of `x` and 0 at `x = 0`. This
@@ -380,7 +380,7 @@ end
     T012(u0::BHKdVAnsatz; δ0, δ1)
 
 Returns a function such that `T012(u0; δ0, δ1)(x; tol)` computes the
-integral \$T_{0,1,2}\$ from the paper using the prescribed tolerance
+integral ``T_{0,1,2}`` from the paper using the prescribed tolerance
 in the integration.
 """
 function T012(
@@ -423,7 +423,7 @@ end
 """
     T013(u0::BHKdVAnsatz; δ1)
 
-Computes the integral \$T_{0,1,3}\$ from the paper.
+Computes the integral ``T_{0,1,3}`` from the paper.
 
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole

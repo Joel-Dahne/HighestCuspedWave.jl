@@ -42,7 +42,7 @@ end
 """
     T0_p_one(u0, Ball())
 
-Compute the integral \$T_0\$ for `u0` with `u0.p == 1`.
+Compute the integral ``T_0`` for `u0` with `u0.p == 1`.
 
 In this case the integral is given by
 ```

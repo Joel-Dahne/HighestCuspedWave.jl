@@ -613,7 +613,7 @@ clausenc(x::S, s::T) where {S<:Real,T<:Real} =
 """
     clausenc(x::ArbSeries, s)
 
-Compute the Taylor series of the Clausen function \$C_s(x)\$.
+Compute the Taylor series of the Clausen function ``C_s(x)``.
 
 It's computed by directly computing the Taylor coefficients by
 differentiating `clausenc` and then composing with `x`.
@@ -640,7 +640,7 @@ end
 """
     clausenc(x::Arb, s::ArbSeries)
 
-Compute the Taylor series of the Clausen function \$C_s(x)\$ in the
+Compute the Taylor series of the Clausen function ``C_s(x)`` in the
 parameter `s`.
 
 It uses [`_clausenc_zeta`](@ref) when `0 < x < 2π and
@@ -753,11 +753,11 @@ clausenc(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
 """
     clausenc(x::ArbSeries, s, β)
 
-Compute the Taylor series with respect to `x` of \$C_s^{(β)}(x)\$,
+Compute the Taylor series with respect to `x` of ``C_s^{(β)}(x)``,
 that is `clausenc(x, s)` differentiated `β` times w.r.t. `s`.
 
 It's computed by directly computing the Taylor coefficients by
-differentiating \$C_s^{(\beta)}\$ and then composing with `x`.
+differentiating ``C_s^{(\beta)}`` and then composing with `x`.
 """
 function clausenc(x::ArbSeries, s, β::Integer)
     res = zero(x)

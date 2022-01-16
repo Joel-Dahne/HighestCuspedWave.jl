@@ -2,7 +2,7 @@
     T02(u0::BHKdVAnsatz; δ2, skip_div_u0)
 
 Returns a function such that T02(u0; δ2, ϵ)(x) computes the
-integral \$T_{0,2}\$ from the paper.
+integral ``T_{0,2}`` from the paper.
 
 The interval of integration is `[x, π]`. Since the integrand is
 singular at `y = x` we split the interval into two parts, `[x, a]` and
@@ -46,7 +46,7 @@ end
     T02(u0::BHKdVAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
 
 Returns a function such that `T02(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral \$T_{0,2}\$ from the paper using an
+**upper bound** of the integral ``T_{0,2}`` from the paper using an
 evaluation strategy that works asymptotically as `x` goes to 0.
 
 It precomputes the expansions of `u0` and for that reason a number `ϵ`
@@ -710,7 +710,7 @@ end
     T02_alternative(u0::BHKdVAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
 
 Returns a function such that `T02_alternative(u0, Asymptotic())(x)`
-computes an **upper bound** of the integral \$T_{0,2}\$ from the paper
+computes an **upper bound** of the integral ``T_{0,2}`` from the paper
 using an evaluation strategy that works asymptotically as `x` goes to
 0.
 
@@ -1156,7 +1156,7 @@ end
     T02_alternative2(u0::BHKdVAnsatz, ::Asymptotic; ϵ = Arb(2e-1))
 
 Returns a function such that `T02_alternative(u0, Asymptotic())(x)`
-computes an **upper bound** of the integral \$T_{0,2}\$ from the paper
+computes an **upper bound** of the integral ``T_{0,2}`` from the paper
 using an evaluation strategy that works asymptotically as `x` goes to
 0.
 
@@ -1538,7 +1538,7 @@ end
 """
     T021(u0::BHKdVAnsatz)
 
-Computes the (not yet existing) integral \$T_{0,2,1}\$ from the paper.
+Computes the (not yet existing) integral ``T_{0,2,1}`` from the paper.
 
 The interval of integration is `[x, a]`. Both `x` and `a` are assumed
 to be less than or equal to `π`, if they are balls which overlap `π`
@@ -1599,7 +1599,7 @@ end
 """
     T022(u0::BHKdVAnsatz)
 
-Computes the (not yet existing) integral \$T_{0,2,2}\$ from the paper.
+Computes the (not yet existing) integral ``T_{0,2,2}`` from the paper.
 
 It returns a function `f` such that `f(x, a; tol)` computes the
 integral on `[a, π]` for the given value of `x` and it uses the

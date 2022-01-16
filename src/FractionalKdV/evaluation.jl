@@ -297,7 +297,7 @@ end
 """
     c(u0::FractionalKdVAnsatz{T}, ϵ)
 
-Compute the constant \$c_{\\epsilon,\\hat{u}_0}\$ from Lemma 3.3.
+Compute the constant ``c_{\\epsilon,\\hat{u}_0}`` from Lemma 3.3.
 
 This constant satisfies that for all `abs(x) < ϵ` we have
 ```

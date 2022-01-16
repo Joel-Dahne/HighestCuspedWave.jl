@@ -483,7 +483,7 @@ clausens(x::S, s::T) where {S<:Real,T<:Real} =
 """
     clausens(x::ArbSeries, s)
 
-Compute the Taylor series of the Clausen function \$S_s(x)\$.
+Compute the Taylor series of the Clausen function ``S_s(x)``.
 
 It's computed by directly computing the Taylor coefficients by
 differentiating `clausens` and then composing with `x`.
@@ -510,7 +510,7 @@ end
 """
     clausens(x::Arb, s::ArbSeries)
 
-Compute the Taylor series of the Clausen function \$S_s(x)\$ in the
+Compute the Taylor series of the Clausen function ``S_s(x)`` in the
 parameter `s`.
 
 It uses [`_clausens_zeta`](@ref) when `0 < x < 2π and

@@ -3,7 +3,7 @@
 """
     a0(u0::FractionalKdVAnsatz, j::Integer)
 
-Compute \$a_j^0\$ from Lemma 3.2.
+Compute ``a_j^0`` from Lemma 3.2.
 """
 function a0(u0::FractionalKdVAnsatz, j::Integer)
     s = 1 - u0.α + j * u0.p0
@@ -19,7 +19,7 @@ end
 """
     K0(u0::FractionalKdVAnsatz, m::Integer)
 
-Compute \$K_m^0\$ from Lemma 3.2.
+Compute ``K_m^0`` from Lemma 3.2.
 """
 function K0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)
@@ -64,7 +64,7 @@ end
 """
     A0(u0::FractionalKdVAnsatz, j::Integer)
 
-Compute \$A_j^0\$ from Lemma 3.2.
+Compute ``A_j^0`` from Lemma 3.2.
 """
 function A0(u0::FractionalKdVAnsatz, j::Integer)
     s = 1 - 2u0.α + j * u0.p0
@@ -81,7 +81,7 @@ end
 """
     L0(u0::FractionalKdVAnsatz, m::Integer)
 
-Compute \$L_m^0\$ from Lemma 3.2.
+Compute ``L_m^0`` from Lemma 3.2.
 """
 function L0(u0::FractionalKdVAnsatz, m::Integer)
     res = zero(u0.α)

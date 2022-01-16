@@ -3,7 +3,7 @@
 """
     E(u0::FractionalKdVAnsatz{Arb}, M::Integer)
 
-Compute an enclosure of \$E_{u_0}(x)\$ from the paper, skipping the
+Compute an enclosure of ``E_{u_0}(x)`` from the paper, skipping the
 `x^2M` factor.
 """
 function E(u0::FractionalKdVAnsatz{Arb}, M::Integer)
@@ -31,7 +31,7 @@ end
 """
     EH(u0::FractionalKdVAnsatz{Arb}, M::Integer)
 
-Compute an enclosure of \$E_{H^{-\alpha}u_0}(x)\$ from the paper,
+Compute an enclosure of ``E_{H^{-\alpha}u_0}(x)`` from the paper,
 skipping the `x^2M` factor.
 """
 function EH(u0::FractionalKdVAnsatz{Arb}, M::Integer)
