@@ -662,74 +662,89 @@ end
 """
     clausenc(x, s, β)
 
-Compute \$C_s^{(β)}(x)\$, that is `clausenc(x, s)` differentiated `β`
+Compute ``C_s^{(β)}(x)``, that is `clausenc(x, s)` differentiated `β`
 times w.r.t. `s`.
 
-If `x` is a wide (real) ball, as determined by `iswide(x)`, it
-computes a tighter enclosure by using the monotonicity properties of
-the function. Currently this is only implemented for `β = 1`, `0 < x <
-2π` and `s = 0`, `s = 2` or `s = 3`.
+It first performs an argument reduction of `x`, using that the
+function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 
-In all of the above cases the function has a critical point at `x =
-π`, since it is even around this point. For `s = 0` this is the only
-critical point, whereas for `s = 2` and `s = 3` it also has one on the
-interval `0 < x < π` and one (mirrored, due to being even around `π`)
-on `π < x < 2π`.
-- **PROVE:** That there are other critical points than those mentioned
-  here.
+If `x` contains zero and we don't have `s > 1` it returns an
+indeterminate result. If `s > 1` and `x`is not exactly zero it
+computes an extremely naive enclosure using that `abs(clausenc(x, s,
+β)) < abs(clausenc(0, s, β))`
+- **IMPROVE:** Compute a tighter enclosure in this case. Either
+  checking the derivative at the endpoint, similarly to
+  [`clausens`](@ref), or expanding at `x = 0`.
 
-For efficiency reasons the critical point on `0 < x < π` is
-precomputed for `s = 2` and `s = 3` (the one on `π < x < 2π` is given
-by symmetry).
-
-In the wide case it computes the endpoints at a reduced precision
-given by
-
+If `x` is a wide ball (not containing zero), as determined by
+`iswide(x)`, it computes a tighter enclosure by first checking if the
+derivative doesn't contains zero, if not it uses monotonicity to only
+evaluate at endpoints. If the derivative does contain zero it uses a
+zeroth order approximation instead. In the wide case it computes the
+endpoints at a reduced precision given by
 ```
-prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
+prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 ```
+where `min_prec` is `32` in general but `64` if `s` is close to an
+integer, determined by checking if the midpoint withing `1e-2` of an
+integer, in which case higher precision is typically needed.
 """
 function clausenc(x::Arb, s::Arb, β::Integer)
-    if iszero(x) && s > 1
-        isone(β) && return dzeta(s)
-        s_series = ArbSeries((s, 1), degree = β)
-        return zeta(s_series, one(s))[β] * factorial(β)
-    end
+    # The function is even and this avoids issues with very small
+    # negative x
+    x = abs(x)
 
-    if iswide(x) && β == 1 && 0 < x < 2Arb(π) && (s == 0 || s == 2 || s == 3)
-        prec = min(max(Arblib.rel_accuracy_bits(x) + 32, 32), precision(x))
-        xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
-        res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
-        if s == 2 || s == 3
-            if s == 2
-                critical_point =
-                    Arb("[1.010782703526315549251222370194235400 +/- 7.10e-37]"; prec)
-            elseif s == 3
-                critical_point =
-                    Arb("[1.219556773337345811161114646108970 +/- 5.13e-34]"; prec)
-            end
-            if Arblib.overlaps(x, critical_point) ||
-               Arblib.overlaps(x, 2Arb(π) - critical_point)
-                # Depending on the precision critical_point might count as
-                # wide so we explicitly call _clausenc_zeta to avoid
-                # infinite recursion.
-                res = union(res, _clausenc_zeta(critical_point, s, β))
+    x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
+
+    @assert !(has2pi && !haszero)
+
+    # Handle the special case when x contains zero
+    if haszero
+        if !(s > 1)
+            # Only finite for s > 1
+            return Arblib.indeterminate!(zero(x))
+        else
+            # Value at x = 0
+            z = isone(β) ? dzeta(s) : zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
+            if haspi
+                # Absolute value upper bounded by value at x = 0
+                return union(-z, z)
+            elseif iszero(x)
+                return z
+            else
+                # IMPROVE: Expand at x = 0? Check derivative at abs_ubound(x)?
+                # Absolute value upper bounded by value at x = 0
+                return union(-z, z)
             end
         end
+    end
 
-        if Arblib.overlaps(x, Arb(π))
-            res = union(res, clausenc(Arb(π; prec), s, β))
+    # We can now assume that 0 < x < 2π
+
+    if iswide(x)
+        orig_prec = precision(x)
+        s_f64 = Float64(s)
+        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
+        prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
+        x = setprecision(x, prec)
+
+        # Compute derivative. We here call _clausens_zeta directly to
+        # avoid potentially infinite recursion. This is okay since 0 <
+        # x < 2π.
+        dclausenc = -_clausens_zeta(x, s - 1, β)
+        if Arblib.contains_zero(dclausenc)
+            # Use a zero order approximation
+            mid = Arblib.midpoint(Arb, x)
+            res = Arblib.add_error!(clausenc(mid, s, β), (x - mid) * dclausenc)
+        else
+            # Use that it's monotone
+            xₗ, xᵤ = Arblib.getinterval(Arb, x)
+            res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
         end
-
-        return setprecision(res, precision(x))
+        return setprecision(res, orig_prec)
     end
 
-    # _clausenc_zeta(x, s, β) is only defined for 0 < x < 2π
-    if Arblib.ispositive(x) && x < 2Arb(π)
-        return _clausenc_zeta(x, s, β)
-    else
-        return _clausenc_polylog(x, s, β)
-    end
+    return _clausenc_zeta(x, s, β)
 end
 
 clausenc(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =

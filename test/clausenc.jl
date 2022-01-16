@@ -35,25 +35,73 @@
 end
 
 @testset "clausenc" begin
-    # Check that the evaluation with polylog and zeta agree on (0, 2π)
-    for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
-        for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
-            res1 = HighestCuspedWave._clausenc_polylog(x, s)
-            res2 = HighestCuspedWave._clausenc_zeta(x, s)
-            @test isfinite(res1)
-            @test isfinite(res2)
-            @test Arblib.overlaps(res1, res2)
+    @testset "clausenc(x, s)" begin
+        # Check that the evaluation with polylog and zeta agree on (0, 2π)
+        for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
+            for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
+                res1 = HighestCuspedWave._clausenc_polylog(x, s)
+                res2 = HighestCuspedWave._clausenc_zeta(x, s)
+                @test isfinite(res1)
+                @test isfinite(res2)
+                @test Arblib.overlaps(res1, res2)
+            end
         end
-    end
 
-    # Check that the evaluation with polylog and zeta agree for
-    # complex values
-    for s in range(Arb(-4), Arb(4), length = 10)[2:end-1]
-        for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
-            for y in range(Arb(-10), Arb(10), length = 10)
-                z = Acb(x, y)
-                res1 = (polylog(Acb(s), exp(im * z)) + polylog(Acb(s), exp(-im * z))) / 2
-                res2 = HighestCuspedWave._clausenc_zeta(z, s)
+        # Check that the evaluation with polylog and zeta agree for
+        # complex values
+        for s in range(Arb(-4), Arb(4), length = 10)[2:end-1]
+            for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
+                for y in range(Arb(-10), Arb(10), length = 10)
+                    z = Acb(x, y)
+                    res1 =
+                        (polylog(Acb(s), exp(im * z)) + polylog(Acb(s), exp(-im * z))) / 2
+                    res2 = HighestCuspedWave._clausenc_zeta(z, s)
+                    @test isfinite(res1)
+                    @test isfinite(res2)
+                    @test Arblib.overlaps(res1, res2)
+                end
+            end
+        end
+
+        # Check that _clausen_zeta throws an error outside of the domain
+        @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(-1), Arb(2.5))
+        @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(7), Arb(2.5))
+
+        # Check evaluation with integer s
+        for s in Arb.(-4:4)
+            @test isfinite(clausenc(zero(s), s)) == (s > 1)
+            @test isfinite(clausenc(one(s), s))
+        end
+
+        # Check evaluation on wide intervals
+        for s in Arb[-2.5, 2.5]
+            for lower in range(Arb(-10), 8, length = 10)
+                for upper in range(lower + 0.01, 10, length = 10)
+                    interval = Arb((lower, upper))
+                    y = clausenc(interval, s)
+                    @test isfinite(y) || !(s > 1)
+                    for x in range(lower, upper, length = 10)
+                        @test Arblib.overlaps(clausenc(x, s), y)
+                    end
+                end
+            end
+        end
+
+        # Check evaluation with other types
+        @test clausenc(1.5, 2) == Float64(clausenc(Arb(1.5), 2))
+        @test clausenc(2, 2) == Float64(clausenc(Arb(2), 2))
+
+        # TODO: Add tests for wide values of s
+
+        # TODO: Add tests for x::ArbSeries
+
+        # s::ArbSeries
+        # Check that the evaluation with polylog and zeta agree on (0, 2π)
+        for s in [range(Arb(-4), Arb(4), length = 6); Arb.(-3:3)]
+            s_series = ArbSeries((s, 1), degree = 2)
+            for x in range(Arb(0), 2Arb(π), length = 20)[2:end-1]
+                res1 = HighestCuspedWave._clausenc_polylog(x, s_series)
+                res2 = HighestCuspedWave._clausenc_zeta(x, s_series)
                 @test isfinite(res1)
                 @test isfinite(res2)
                 @test Arblib.overlaps(res1, res2)
@@ -61,51 +109,56 @@ end
         end
     end
 
-    # Check that _clausen_zeta throws an error outside of the domain
-    @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(-1), Arb(2.5))
-    @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(7), Arb(2.5))
-
-    # Check evaluation with integer s
-    for s = -4:4
-        @test isfinite(clausenc(one(Arb), s))
-        @test isfinite(clausenc(one(Arb), Arb(s)))
-    end
-
-    # Check evaluation on wide intervals
-    for s in (-2.5, 2.5)
-        for lower in range(Arb(-10), 8, length = 10)
-            for upper in range(lower + 1, 10, length = 10)
-                interval = Arb((lower, upper))
-                y = clausenc(interval, s)
-                for x in range(lower, upper, length = 10)
-                    @test Arblib.overlaps(clausenc(x, s), y)
+    @testset "clausenc(x, s, β)" begin
+        # Check that the evaluation with polylog and zeta agree on (0, 2π)
+        for β in [1, 2]
+            for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
+                for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
+                    res1 = HighestCuspedWave._clausenc_polylog(x, s, β)
+                    res2 = HighestCuspedWave._clausenc_zeta(x, s, β)
+                    @test isfinite(res1)
+                    @test isfinite(res2)
+                    @test Arblib.overlaps(res1, res2)
                 end
             end
         end
-    end
 
-    # Check evaluation with other types
-    @test clausenc(1.5, 2) == Float64(clausenc(Arb(1.5), 2))
-    @test clausenc(2, 2) == Float64(clausenc(Arb(2), 2))
-
-    # TODO: Add tests for wide values of s
-
-    # TODO: Add tests for x::ArbSeries
-
-    # s::ArbSeries
-    # Check that the evaluation with polylog and zeta agree on (0, 2π)
-    for s in [range(Arb(-4), Arb(4), length = 6); Arb.(-3:3)]
-        s_series = ArbSeries((s, 1), degree = 2)
-        for x in range(Arb(0), 2Arb(π), length = 20)[2:end-1]
-            res1 = HighestCuspedWave._clausenc_polylog(x, s_series)
-            res2 = HighestCuspedWave._clausenc_zeta(x, s_series)
-            @test isfinite(res1)
-            @test isfinite(res2)
-            @test Arblib.overlaps(res1, res2)
+        # Check evaluation on wide intervals
+        for β in [1, 2]
+            for s in Arb[-2.5, 2.5]
+                for lower in range(Arb(-10), 8, length = 10)
+                    for upper in range(lower + 0.01, 10, length = 10)
+                        interval = Arb((lower, upper))
+                        y = clausenc(interval, s, β)
+                        @test isfinite(y) || !(s > 1)
+                        for x in range(lower, upper, length = 10)
+                            @test Arblib.overlaps(clausenc(x, s, β), y)
+                        end
+                    end
+                end
+            end
         end
-    end
 
-    # TODO: Add tests for clausenc(x, s, β)
+        # Check that _clausen_zeta throws an error outside of the domain
+        @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(-1), Arb(2.5), 1)
+        @test_throws DomainError HighestCuspedWave._clausenc_zeta(Arb(7), Arb(2.5), 1)
+
+        # Check evaluation with integer s
+        for β in [1, 2]
+            for s in Arb.(-4:4)
+                @test isfinite(clausenc(zero(s), s, β)) == (s > 1)
+                @test isfinite(clausenc(one(s), s, β))
+            end
+        end
+
+        # Check evaluation with other types
+        @test clausenc(1.5, 2) == Float64(clausenc(Arb(1.5), 2))
+        @test clausenc(2, 2) == Float64(clausenc(Arb(2), 2))
+
+        # TODO: Add tests for wide values of s
+
+        # TODO: Add tests for x::ArbSeries
+    end
 end
 
 @testset "clausenc_expansion" begin
@@ -140,7 +193,7 @@ end
     # Check evaluation on wide intervals
     for s in (1.5, 2.5)
         for lower in range(Arb(-10), 8, length = 10)
-            for upper in range(lower + 1, 10, length = 10)
+            for upper in range(lower + 0.01, 10, length = 10)
                 interval = Arb((lower, upper))
                 y = clausencmzeta(interval, s)
                 for x in range(lower, upper, length = 10)
