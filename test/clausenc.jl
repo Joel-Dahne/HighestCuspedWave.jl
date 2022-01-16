@@ -124,15 +124,11 @@ end
     # agree on (0, 2π)
     for s in range(Arb(1), Arb(4), length = 5)
         for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
-            res1 = HighestCuspedWave._clausencmzeta_zeta(x, s)
+            res1 = clausencmzeta(x, s)
             res2 = clausenc(x, s) - zeta(s)
             @test Arblib.overlaps(res1, res2)
         end
     end
-
-    # Check that _clausen_zeta throws an error outside of the domain
-    @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(-1), Arb(2.5))
-    @test_throws DomainError HighestCuspedWave._clausencmzeta_zeta(Arb(7), Arb(2.5))
 
     # We only really care about s > 1 in this case
     for s = 2:5
