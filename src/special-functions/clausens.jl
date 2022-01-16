@@ -2,6 +2,8 @@ export clausens
 
 """
     _clausens_polylog(x::Arb, s::Union{Arb,Integer})
+    _clausens_polylog(x::Arb, s::ArbSeries)
+    _clausens_polylog(x::Arb, s::Arb, β::Integer)
 
 Evaluation of the `clausens` function through the polylog function.
 
@@ -16,29 +18,11 @@ function _clausens_polylog(x::Arb, s::Union{Arb,Integer})
     return imag(polylog(s, z))
 end
 
-"""
-    _clausens_polylog(x::Arb, s::Union{Arb,Integer})
-
-Evaluation of the `clausens` function through the polylog function as
-a power series in `s`.
-"""
 function _clausens_polylog(x::Arb, s::ArbSeries)
     z = exp(Acb(0, x, prec = precision(x)))
     return ArbSeries(imag.(Arblib.coeffs(polylog(AcbSeries(s), z))))
 end
 
-"""
-    _clausens_polylog(x::Arb, s::Arb, β::Integer)
-
-Evaluation of the `clausens(x, s, β)` function through the polylog
-function.
-
-It uses the formula
-```
-clausens(x, s) = imag(polylog(s, exp(im * x)))
-```
-and computes the derivative with respect to `s` using `AcbSeries`.
-"""
 function _clausens_polylog(x::Arb, s::Arb, β::Integer)
     z = exp(Acb(0, x, prec = precision(x)))
     return imag(polylog(AcbSeries([s, 1], degree = β), z)[β]) * factorial(β)

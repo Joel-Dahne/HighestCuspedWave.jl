@@ -78,6 +78,8 @@ end
 
 """
     _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
+    _clausenc_polylog(x::Arb, s::ArbSeries)
+    _clausenc_polylog(x::Arb, s::Arb, β::Integer)
 
 Evaluation of the `clausenc` function through the polylog function.
 
@@ -92,29 +94,11 @@ function _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
     return real(polylog(s, z))
 end
 
-"""
-    _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
-
-Evaluation of the `clausenc` function through the polylog function as
-a power series in `s`.
-"""
 function _clausenc_polylog(x::Arb, s::ArbSeries)
     z = exp(Acb(0, x, prec = precision(x)))
     return ArbSeries(real.(Arblib.coeffs(polylog(AcbSeries(s), z))))
 end
 
-"""
-    _clausenc_polylog(x::Arb, s::Arb, β::Integer)
-
-Evaluation of the `clausenc(x, s, β)` function through the polylog
-function.
-
-It uses the formula
-```
-clausenc(x, s) = real(polylog(s, exp(im * x)))
-```
-and computes the derivative with respect to `s` using `AcbSeries`.
-"""
 function _clausenc_polylog(x::Arb, s::Arb, β::Integer)
     z = exp(Acb(0, x, prec = precision(x)))
     return real(polylog(AcbSeries([s, 1], degree = β), z)[β]) * factorial(β)
