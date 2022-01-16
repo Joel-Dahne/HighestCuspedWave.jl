@@ -12,6 +12,7 @@
     xs5 = [
         Arblib.nonnegative_part!(Arb(), Arb((0, π))),
         Arblib.nonnegative_part!(Arb(), Arb((0, 2Arb(π)))),
+        Arb("[-2.9387358858138341719519480363289240901e-38 +/- 8.65e-77]"), # Failed before
     ]
 
     for x in [xs1; xs2; xs3; xs4; xs5]
@@ -20,9 +21,9 @@
         @test Arblib.contains_int((x - y) / twopi)
 
         @test haszero == Arblib.contains_zero(y)
-        @test haspi == (contains(y, pi) || contains(y, -pi))
-        @test has2pi == contains(y, twopi)
-        @test !contains(y, -twopi)
+        @test haspi == (Arblib.overlaps(y, pi) || Arblib.overlaps(y, -pi))
+        @test has2pi == Arblib.overlaps(y, twopi)
+        @test !Arblib.overlaps(y, -twopi)
 
         @test !has2pi || (has2pi && haszero)
 

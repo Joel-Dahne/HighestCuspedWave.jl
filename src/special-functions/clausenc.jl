@@ -32,7 +32,7 @@ function _reduce_argument_clausen(x::Arb)
         # Happy path, when 0 < x < 2π
         y = copy(x)
         haszero = has2pi = false
-        haspi = contains(x, pi)
+        haspi = Arblib.overlaps(x, pi)
     else
         xdiv2pi = x / twopi
 
@@ -48,22 +48,22 @@ function _reduce_argument_clausen(x::Arb)
             y = x - k * twopi
 
             # We want to avoid the case when y overlaps 2π
-            if contains(y, twopi)
+            if Arblib.overlaps(y, twopi)
                 y -= twopi
             end
 
             haszero = Arblib.contains_zero(y)
-            haspi = contains(y, pi) || contains(y, -pi)
-            has2pi = contains(y, twopi)
+            haspi = Arblib.overlaps(y, pi) || Arblib.overlaps(y, -pi)
+            has2pi = Arblib.overlaps(y, twopi)
 
             # Neither of these checks should be required
             # mathematically, though overestimations might lead to
             # issues here?
 
             # We guarantee this
-            @assert haszero || 0 < y < twopi
+            @assert haszero || 0 < y < twopi "$x $y"
             # It should never contain -2π or 2π in this case
-            @assert !(contains(y, -twopi) || has2pi)
+            @assert !(Arblib.overlaps(y, -twopi) || has2pi)
         end
     end
 
