@@ -21,6 +21,12 @@ The possible results are divided into three cases
 
 Note that if `haszero` is false then `y` is guaranteed to satisfy `0 <
 y < 2π`. This is used by many of the functions.
+
+It has issues with very small but negative values of `x`. In this case
+`x + 2π < 2π` in theory but due to overestimations we might get that
+they overlap. For this reason it can be beneficial to pass the
+absolute value of `x` to this function and handle the sign outside of
+it.
 """
 function _reduce_argument_clausen(x::Arb)
     pi = Arb(π)
@@ -508,6 +514,10 @@ maximum at `x = 0` where it precisely equals `dzeta(s)`.
   [`_clausenc_zeta`](@ref).
 """
 function clausenc(x::Arb, s::Arb)
+    # The function is even and this avoids issues with very small
+    # negative x
+    x = abs(x)
+
     x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
 
     @assert !(has2pi && !haszero)
