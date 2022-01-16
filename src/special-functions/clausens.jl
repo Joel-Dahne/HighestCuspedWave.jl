@@ -341,16 +341,10 @@ If `x` contains zero and we don't have `s > 1` it returns an
 indeterminate result, except in the case that `s` is exactly an odd
 negative integer in which case the result is exactly zero.
 
-If `x` contains zero and `s > 1` it looks at the lower and upper bound
-of `x` to check if `x` includes the critical points on ``(0, π)`` or
-``(-π, 0)``. This is done by checking that the points have not passed
-`-π` or `π` respectively and that derivative in `x` at the points is
-positive, in this case it doens't include the critical point.
-- **PROVE:** That the above is correct. More precisely it is enough to
-    prove that there is a unique critical point on ``(0, π)``.
-If it doesn't include any of the critical points it evaluates at the
-endpoints of `x`. Otherwise it uses the trivial upper bound of the
-absolute value given by `zeta(s)`.
+If `x` contains zero and `s > 1` it uses the asymptotic expansion at
+`x = 0` from [`clausens_expansion`](@ref). This is unless `x` is wide
+enough to also include `π`, in which case it uses the trivial upper
+bound of the absolute value given by `zeta(s)`.
 
 If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by first checking if the
@@ -405,26 +399,23 @@ function clausens(x::Arb, s::Arb)
         elseif iszero(x)
             return zero(x)
         else
-            xₗ, xᵤ = getinterval(Arb, x)
-            # Check for inclusion of critical point on (-π, 0)
-            if iszero(xₗ)
-                res_left = zero(x)
-            elseif Arblib.ispositive(clausenc(xₗ, s - 1))
-                res_left = clausens(xₗ, s)
-            else
-                res_left = -zeta(s) # Trivial lower bound
+            # Compute asymptotic expansion
+            M = 4
+            C, e, P, E = clausens_expansion(x, s, M)
+
+            # IMPROVE: We could compute tighter enclosures by
+            # evaluating these more carefully, but this is likely not
+            # needed.
+            # Evaluate asymptotic expansion on [lbound(x), 0]
+            res_left = let x = Arb((lbound(x), 0))
+                -C * abspow(x, e) + P(x) + E * x^(2M + 1)
+            end
+            # Evaluate asymptotic expansion on [0, ubound(x)]
+            res_right = let x = Arb((0, ubound(x)))
+                C * abspow(x, e) + P(x) + E * x^(2M + 1)
             end
 
-            # Check for inclusion of critical point on (0, π)
-            if iszero(xᵤ)
-                res_right = zero(x)
-            elseif Arblib.ispositive(clausenc(xᵤ, s - 1))
-                res_right = clausens(xᵤ, s)
-            else
-                res_right = zeta(s) # Trivial upper bound
-            end
-
-            return Arb((res_left, res_right))
+            return union(res_left, res_right)
         end
     end
 
@@ -570,8 +561,11 @@ non-analytic term, the analytic terms as a `ArbSeries` `P` and the
 remainder term `E`. The `M` is the same as in Lemma 2.1 in
 arXiv:1810.10935.
 
-It satisfies that `clausens(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M + 1)` for
-all `|y| <= |x|`.
+It satisfies that
+```
+clausens(y, s) ∈ C * sign(y) * abs(y)^e + P(y) + E * y^(2M + 1)
+```
+for all `|y| <= |x|`.
 
 It requires that `x < 2π` to give a finite remainder term.
 
