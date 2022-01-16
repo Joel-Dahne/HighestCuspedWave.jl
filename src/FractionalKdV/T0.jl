@@ -74,44 +74,27 @@ absolute value (taking the appropriate sign) and integrate explicitly
 using `primitive(t)`.
 
 On the interval `[1, π / x]` the expression inside the absolute value
-is positive and we can just remove it. This gives us the integral
+is positive, see [lemma_integrand_2`](@ref), and we can just remove
+it. This gives us the integral
 ```
 I2 = primitive(π / x) - primitive(1)
 ```
-- **PROVE:** That the integrand is positive.
 
 On the interval `[0, 1]` the expression inside the absolute value has
 a unique root which we can isolate with
 [`_integrand_compute_root`](@ref), it is negative to the left of the
-root and positive to the right. If we let `root_lower` and
-`root_upper` be lower and upper bounds of the roots respectively we
-have that the integral is given by
+root and positive to the right. If we let `r` be the root then the
+integral is given by
 ```
-I1 = -I11 + I12 + I13
+I1 = -I11 + I13
 ```
-where
-```
-I11 = primitive(root_lower) - primitive(0)
-```
-is the integral on `[0, root_lower]`.
-```
-I12
-```
-is the integral on `[root_lower, root_upper]` which we enclose
-directly.
-```
-I13 = primitive(1) - primitive(root_upper)
-```
+where `I11 = primitive(root_lower) - primitive(0)` is the integral on
+`[0, r]` and `I12 = primitive(1) - primitive(r)` is the integral on
+`[r, 1]`.
 
-Putting all of this together we get
+Putting all of this together and simplify we get
 ```
-I1 + I2 = -(primitive(root_lower) - primitive(0)) + I12 +
-    primitive(1) - primitive(root_upper) + primitive(π / x) - primitive(1)
-```
-which we can simplify to
-```
-I = I1 + I2 = primitive(0) - primitive(root_lower) + I12 -
-    primitive(root_upper) + primitive(π / x)
+I1 + I2 = primitive(0) - 2primitive(r) + primitive(x / π)
 ```
 We also get that
 ```
@@ -124,9 +107,8 @@ primitive(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(Arb(π), 2 - α)) / x^
 where `clausenc(Arb(π), 2 - α)` can also be given as the negated
 alternating zeta function, `-eta(2 - α)`.
 
-We can notice that all terms in the result, except the `I12` term,
-contains a division by `x` and that we in the end multiply with `x` If
-we let
+We can notice that all terms in the result contains a division by `x`
+and that we in the end multiply with `x` If we let
 ```
 primitive_mul_x(t) = (clausenc(x * (1 - t), 2 - α) / x - t * clausens(x * (1 - t), 1 - α)) +
     (clausenc(x * (1 + t), 2 - α) / x + t * clausens(x * (1 + t), 1 - α)) -
@@ -134,61 +116,37 @@ primitive_mul_x(t) = (clausenc(x * (1 - t), 2 - α) / x - t * clausens(x * (1 - 
 ```
 we get
 ```
-x * I = primitive_mul_x(0) - primitive_mul_x(root_lower) + x * I12 -
-    primitive_mul_x(root_upper) + primitive_mul_x(π / x)
+x * (I1 + I2) = primitive_mul_x(0) - 2primitive_mul_x(r) + primitive_mul_x(x / π)
 ```
-- **IMPROVE:** We could get much better enclosures for wide values of
-  `x` by expanding with `ArbSeries` and enclosing that. This would
-  require us to rewrite everything as a function explicitly depending
-  on `x` but should otherwise be straight forward.
 """
 function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 = false)
     @assert isone(u0.p)
 
-    α = u0.α
-
     return x::Arb -> begin
-        root = _integrand_compute_root(u0, x)
-        root_lower, root_upper = getinterval(Arb, root)
-
-        primitive_mul_x(x, t) =
-            (
-                clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
-                2clausenc(x * t, 2 - α)
-            ) / x +
-            t * (
-                -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
-                2clausens(x * t, 1 - α)
-            )
+        r = _integrand_compute_root(u0, x)
 
         # primitive(0)
-        primitive_mul_x_zero(x) = 2clausencmzeta(x, 2 - α) / x
+        primitive_mul_x_zero(x) = 2clausencmzeta(x, 2 - u0.α) / x
+
+        # primitive(r)
+        primitive_mul_x_r(x) =
+            (
+                clausenc(x * (1 - r), 2 - u0.α) + clausenc(x * (1 + r), 2 - u0.α) -
+                2clausenc(x * r, 2 - u0.α)
+            ) / x +
+            r * (
+                -clausens(x * (1 - r), 1 - u0.α) + clausens(x * (1 + r), 1 - u0.α) -
+                2clausens(x * r, 1 - u0.α)
+            )
 
         # primitive(π / x)
-        # If x overlaps with π this gives an indeterminate result
-        # which we handle specially
-        if Arblib.overlaps(x, Arb(π))
-            # Use periodicity of 2π to evaluate at x - π which is
-            # close to zero. Use the asymptotic expansion to evaluate
-            # it.
-            y = x - π
-            M = 3
-            C, e, P, E = clausenc_expansion(y, 2 - α, M)
-            # Enclosure of clausenc(x + π, 2 - α)
-            # Note that it doesn't use the argument, it just returns
-            # an enclosure valid for the global x
-            clausenc_x_plus_pi = _ -> C * abspow(y, e) + P(y) + E * abspow(y, 2M)
-        else
-            clausenc_x_plus_pi = x -> clausenc(x + π, 2 - α)
-        end
         # eta is only implemented for Acb in Arblib
         primitive_mul_x_pi_div_x(x) =
-            2(clausenc_x_plus_pi(x) + real(eta(Acb(2 - α)))) / x
+            2(clausenc(x + π, 2 - u0.α) + real(eta(Acb(2 - u0.α)))) / x
 
         # Compute a tighter enclosure by expanding in x
         I_mul_x(x) =
-            primitive_mul_x_zero(x) - 2primitive_mul_x(x, root) +
-            primitive_mul_x_pi_div_x(x)
+            primitive_mul_x_zero(x) - 2primitive_mul_x_r(x) + primitive_mul_x_pi_div_x(x)
 
         res = ArbExtras.enclosure_series(I_mul_x, x)
 
