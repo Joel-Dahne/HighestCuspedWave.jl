@@ -476,9 +476,9 @@ It's computed by directly computing the Taylor coefficients by
 differentiating `clausens` and then composing with `x`.
 """
 function clausens(x::ArbSeries, s)
-    res = zero(x)
-    x₀ = x[0]
+    x₀ = _reduce_argument_clausen(x[0])[1]
 
+    res = zero(x)
     for i = 0:Arblib.degree(x)
         if i % 2 == 0
             res[i] = (-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
