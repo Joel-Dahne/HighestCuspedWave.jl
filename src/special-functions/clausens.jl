@@ -462,7 +462,11 @@ function clausens(x::Arb, s::Arb)
     return _clausens_zeta(x, s)
 end
 
-clausens(x::Acb, s) = (polylog(s, exp(im * x)) - polylog(s, exp(-im * x))) / 2
+# Rarely used - only naive implementation
+function clausens(x::Acb, s::Union{Acb,Integer})
+    @warn "Apparently this method is used!" x s maxlog = 1
+    (polylog(s, exp(im * x)) - polylog(s, exp(-im * x))) / 2
+end
 
 clausens(x::S, s::T) where {S<:Real,T<:Real} =
     convert(float(promote_type(S, T)), clausens(convert(Arb, x), convert(Arb, s)))

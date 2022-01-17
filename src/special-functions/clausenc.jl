@@ -305,46 +305,28 @@ end
 Evaluation of the `clausenc` function through the zeta function.
 
 This uses the same formula as the method with `x::Arb`.
+- **TODO:** Check if this formula holds for complex `x`, it seems to
+  give correct results at least.
 
 It currently only handles `0 < real(x) < 2π`. If `s` overlaps with any
 non-negative integer the result will be indeterminate.
 
-Not that this does **not** handle wide values of `s` in any special
-way. This method is currently only used in the integration for
-bounding the error term and in that case getting the most accurate
-bound is not important. It could be something to consider later on.
-
-- **TODO:** Check if this formula holds for complex `x`, it seems to
-   give correct results at least.
+This method is only used in the integration for bounding the error
+term. It is therefore not as optimized as many of the other methods.
 """
 function _clausenc_zeta(x::Acb, s::Arb)
-    # Check that real(x) > 0
-    Arblib.ispositive(Arblib.realref(x)) ||
-        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
+    0 < real(x) < 2Arb(π) || throw(
+        DomainError(x, "method only supports x with real part on the interval (0, 2π)"),
+    )
 
-    inv2pi = inv(2Arb(π, prec = precision(x)))
-    xinv2pi = x * inv2pi
-    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
-        Arblib.neg!(onemxinv2pi, xinv2pi)
-        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
-    end
+    inv2pi = inv(2Arb(π))
+    v = 1 - s
 
-    # Check that real(1 - x / 2π) > 0, i.e. real(x) < 2π
-    Arblib.ispositive(Arblib.realref(onemxinv2pi)) ||
-        throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
-
-    v = let v = Arb(prec = precision(x)) # We do it like this to preserve the precision
-        Arblib.neg!(v, s)
-        Arblib.add!(v, v, 1)
-    end
-
-    f(v) =
-        gamma(v) *
-        inv2pi^v *
-        cospi(v / 2) *
-        (zeta(Acb(v), xinv2pi) + zeta(Acb(v), onemxinv2pi))
-
-    return f(v)
+    return ArbExtras.enclosure_series(
+        v -> gamma(v) * inv2pi^v * cospi(v / 2),
+        v,
+        degree = 2,
+    ) * (zeta(Acb(v), x * inv2pi) + zeta(Acb(v), 1 - x * inv2pi))
 end
 
 """
@@ -587,19 +569,20 @@ function clausenc(x::Arb, s::Arb)
 end
 
 function clausenc(x::Acb, s::Arb)
-    # If s is not a non-negative integer and 0 < real(x) < 2π call
-    # _clausenc_zeta(x, s)
-    if Arblib.contains_int(s) && !Arblib.isnegative(s)
-        if Arblib.ispositive(Arblib.realref(x)) && Arblib.realref(x) < 2Arb(π)
-            return _clausenc_zeta(x, s)
-        end
-    end
+    x_real, haszero, _, _ = _reduce_argument_clausen(real(x))
+    x = Acb(x_real, imag(x))
 
-    s = Acb(s)
-    return (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+    # If x overlaps zero or s s is a non-negative use polylog formulation
+    if haszero || (isinteger(s) && Arblib.isnonnegative(s))
+        s = Acb(s)
+        return (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+    else
+        return _clausenc_zeta(x, s)
+    end
 end
 
 function clausenc(x::Acb, s::Union{Acb,Integer})
+    @warn "Apparently this method is used!" x s maxlog = 1
     if s isa Acb && isreal(s)
         clausenc(x, real(s))
     else
