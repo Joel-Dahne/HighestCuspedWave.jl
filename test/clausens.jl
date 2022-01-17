@@ -73,6 +73,21 @@
                 @test Arblib.overlaps(res1, res2)
             end
         end
+
+        # Wide s around integer
+        for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
+            for s0 in Arb.(-1:4)
+                s0_interval = Arblib.add_error!(copy(s0), Arb(1e-10))
+                s = ArbSeries((s0_interval, 1), degree = 2)
+                y1 = clausens(x, s)
+                @test isfinite(y1)
+                for ss in [s0; range(getinterval(Arb, s0_interval)..., length = 10)]
+                    y2 = clausens(x, ArbSeries((ss, 1), degree = 2))
+                    @test isfinite(y2)
+                    @test Arblib.overlaps(y1, y2)
+                end
+            end
+        end
     end
 
     @testset "clausens(x, s, β)" begin

@@ -335,38 +335,17 @@ end
 Evaluation of the `clausenc` function through the zeta function as a
 power series in `s`.
 
-It currently only handles `0 < x < 2π`.
-
-It supports non-negative integer values of `s` in a similar way as
-`_clausenc_zeta(x::Arb, s::Arb)` does.
-
-**TODO:** Handle `s` overlapping a non-negative integer but not being
-exact.
-
-# Handle `s = 0`
-In this case we want to compute
-```
-gamma(v) * inv(2π)^v * cospi(v / 2) * (
-    zeta_deflated(v, x / 2π) + zeta_deflated(v, 1 - x / 2π) - 2 / (1 - v)
-)
-```
-The only problematic part is `-2cospi(v / 2) / (1 - v) = 2cospi(v / 2)
-/ (v - 1)`. But since `v[0] = 1` we can compute this by simply
-shifting the expansion of `2cospi(v / 2)
-
-# Handling `s` being a positive integer
-In this case we want to compute the series of
-```
-cospi(v / 2) / rgamma(v)
-```
-and
-```
-(zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / rgamma(v)
-```
-This we do by computing them to a degree one higher than the input and
-then explicitly cancelling in the division.
+It supports `s` overlapping non-negative integers in the same way
+`_clausenc_zeta(x::Arb, s::Arb)` does, computing an expansion with a
+remainder term at the integer and using that to compute an enclosure.
+- **TODO:** Handle evaluation of `zeta_deflated` for `s` not exactly
+  zero.
 """
 function _clausenc_zeta(x::Arb, s::ArbSeries)
+    # Handle the case when s has degree 0, so that we can assume that
+    # the degree is positive from here on.
+    iszero(Arblib.degree(s)) && return ArbSeries(_clausenc_zeta(x, s[0]))
+
     # Check that x > 0
     Arblib.ispositive(x) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
@@ -386,62 +365,85 @@ function _clausenc_zeta(x::Arb, s::ArbSeries)
 
     s0 = s[0]
 
-    if iszero(s0)
-        # This implementation doesn't work if the degree of s is zero.
-        # In this case we just call _clausenc_zeta(x::Arb, s::Arb)
-        # directly
-        if iszero(Arblib.degree(s))
-            return ArbSeries(_clausenc_zeta(x, s0))
+    unique, s0_integer = unique_integer(s0)
+
+    if unique && s0_integer == 0
+        zeta_deflated(s::ArbSeries, a::Arb) =
+            Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+        zeta_deflated(s::Arb, a::Arb) = zeta_deflated(ArbSeries(s), a)[0]
+
+        v0 = 1 - s0
+        v0_integer = 1 - s0_integer
+
+        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
+        w[0] = v0_integer
+
+        cos_v0 = compose_with_remainder(v -> cospi(v / 2), w, v0 - v0_integer)
+        cosdivv = collapse_from_remainder(
+            div_with_remainder(cos_v0 << 1, (w - 1) << 1, v0 - v0_integer),
+            v0 - v0_integer,
+        )
+
+        z = let
+            # FIXME: Compute remainder term for expansion
+            !iszero(s) && @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
+            zeta_v0_1 = zeta_deflated(w, xinv2pi)
+            zeta_v0_2 = zeta_deflated(w, onemxinv2pi)
+
+            collapse_from_remainder(
+                zeta_v0_1 + zeta_v0_2,
+                v0 - v0_integer,
+                degree = Arblib.degree(v),
+            )
         end
 
-        zeta_deflated(s, a) = Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+        return gamma(v) * inv2pi^v * (cospi(v / 2) * z + 2cosdivv)
+    elseif unique && s0_integer > 0
+        v0 = 1 - s0
+        v0_integer = 1 - s0_integer
 
-        # Compute 2cospi(v / 2) / (v - 1) to the same degree as v
-        cosdivv = let w = ArbSeries(v, degree = Arblib.degree(v) + 1)
-            2(cospi(w / 2) << 1) / ((w - 1) << 1)
+        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
+        w[0] = v0_integer
+
+        rgamma_v0 = compose_with_remainder(rgamma, w, v0 - v0_integer)
+
+        if iseven(s0_integer)
+            cos_v0 = compose_with_remainder(v -> cospi(v / 2), w, v0 - v0_integer)
+
+            gammacos_v0 = div_with_remainder(cos_v0 << 1, rgamma_v0 << 1, v0 - v0_integer)
+
+            # Enclosure of gamma(v) * cospi(v / 2)
+            gammacos = collapse_from_remainder(gammacos_v0, v0 - v0_integer)
+
+            rest = inv2pi^v * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
+
+            return gammacos * rest
+        else
+            zeta_v0 = compose_with_remainder(
+                v -> zeta(v, xinv2pi) + zeta(v, onemxinv2pi),
+                w,
+                v0 - v0_integer,
+            )
+
+            @assert Arblib.contains_zero(zeta_v0[0])
+            zeta_v0[0] = 0
+
+            gammazeta_v0 = div_with_remainder(zeta_v0 << 1, rgamma_v0 << 1, v0 - v0_integer)
+
+            # Enclosure of
+            # gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+            gammazeta = collapse_from_remainder(gammazeta_v0, v0 - v0_integer)
+
+            rest = inv2pi^v * cospi(v / 2)
+
+            return gammazeta * rest
         end
-
+    else
         return gamma(v) *
                inv2pi^v *
-               (
-                   cospi(v / 2) *
-                   (zeta_deflated(v, xinv2pi) + zeta_deflated(v, onemxinv2pi)) + cosdivv
-               )
+               cospi(v / 2) *
+               (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
     end
-
-    # Handle the case when s is exactly a non-negative integer.
-    if isinteger(s0) && Arblib.ispositive(s0)
-        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
-
-        # Compute rgamma(v) / (v - v[0]) to the same degree as v
-        denominator = rgamma(w) << 1
-
-        # Get the unique integer
-        unique, s_integer = unique_integer(s0)
-        @assert unique
-
-        if iseven(s_integer)
-            # Compute cospi(v / 2) / (v - v[0]) to the same degree as v
-            numerator = cospi(w / 2) << 1
-
-            return numerator / denominator *
-                   inv2pi^v *
-                   (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
-        else
-            # Compute (zeta(v, xinv2pi) + zeta(v, onemxinv2pi)) / (v -
-            # v[0]) to the same degree as v
-            numerator = let tmp = (zeta(w, xinv2pi) + zeta(w, onemxinv2pi))
-                # The constant term is typically not exactly zero
-                @assert Arblib.contains_zero(Arblib.ref(tmp, 0))
-                tmp[0] = 0
-                tmp << 1
-            end
-
-            return numerator / denominator * inv2pi^v * cospi(v / 2)
-        end
-    end
-
-    return gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
 end
 
 """
@@ -611,19 +613,28 @@ end
 Compute the Taylor series of the Clausen function ``C_s(x)`` in the
 parameter `s`.
 
-It uses [`_clausenc_zeta`](@ref) when `0 < x < 2π and
-[`_clausenc_polylog`](@ref) otherwise. It currently doesn't support
-`s[0]` overlapping an integer but not being exactly an integer.
+It first performs an argument reduction of `x`, using that the
+function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 
-- **TODO:** Implement support for `s` overlapping integers. This will
-  be needed to enclose remainder terms.
+If `x` contains zero it returns an indeterminate result. For `s > 1`
+it would be possible to compute a finite result, but this has not been
+needed.
 """
 function clausenc(x::Arb, s::ArbSeries)
-    # _clausenc_zeta(x, s) is only defined for 0 < x < 2π
-    if Arblib.ispositive(x) && x < 2Arb(π)
-        return _clausenc_zeta(x, s)
+    # The function is even and this avoids issues with very small
+    # negative x
+    x = abs(x)
+
+    x, haszero, _, _ = _reduce_argument_clausen(x)
+
+    if haszero
+        res = zero(s)
+        for i = 0:Arblib.degree(res)
+            res[0] = Arblib.indeterminate!(zero(x))
+        end
+        return res
     else
-        return _clausenc_polylog(x, s)
+        return _clausenc_zeta(x, s)
     end
 end
 
