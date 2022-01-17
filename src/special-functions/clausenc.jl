@@ -119,15 +119,16 @@ Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
 periodic zeta function and then taking the real part.
 
 The formula is well defined as long as `s` doesn't overlap with any
-non-negative integer. See further down for how those cases are
-handled.
+non-negative integer. See further down for how to handle the case when
+`s` overlaps a unique non-negative integer. If `s` overlaps with more
+than one non-negative integer we just get an indeterminate result.
 
 It currently only handles `0 < x < 2π`.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
-enclosure using a Taylor expansion in `s`.
+enclosure using [`enclosure_series`](@ref).
 
-# Handling `s = 0`
+# Handling `s` overlapping zero
 If `s` is zero then `zeta(v, x / 2π) + zeta(v, 1 - x / 2π)` diverges
 but `cospi(v / 2)` goes to zero. To compute their product we use the
 following approach. Let `zeta_deflated(s, a) = zeta(s, a) + 1 / (1 -
@@ -135,27 +136,16 @@ s)` be the deflated zeta function. We can then write the product as
 ```
 cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) =
     cospi(v / 2) * (zeta_deflated(v, x / 2π) + zeta_deflated(v, 1 - x / 2π))
-    - 2cospi(v / 2) / (1 - v)
+    + 2cospi(v / 2) / (v - 1)
 ```
-The first term is zero since `zeta_deflated(1, a)` is finite and
-`cospi(1 / 2)` is zero. For the second term we get, using L'Hoptial,
-```
--2cospi(v / 2) / (1 - v) = -π * sinpi(v / 2)
-```
-Multiplying it with `gamma(v) * inv(2π)^v` and setting `v = 1` gives
-us `-1 / 2`.
+The first term is well defined and can be evaluated directly. The
+second term has a removable singularity, this is handled by expanding
+at `v = 1`, including a remainder term, and explicitly cancel the
+removable singularity.
+- **TODO:** Handle evaluation of `zeta_deflated` for `s` not exactly
+  zero.
 
-**TODO:** Handle `s` overlapping zero but not being exactly zero. We
-need to be able to compute an enclosure of `cospi(v / 2) / (1 - v)`
-and
-```
-cospi(v / 2) * (zeta_deflated(v, x / 2π) + zeta_deflated(v, 1 - x / 2π))
-```
-The former should be straight forward. The latter might be harder,
-both factors are well defined but Arb doesn't compute `zeta_deflated`
-for `s` overlapping `1` but not exactly equal to `1`.
-
-# Handling `s` being a positive integer
+# Handling `s` overlapping a positive integer
 If `s` is a positive integer then `gamma(v)` diverges, if the
 integer is even then `cospi(v / 2)` is zero and if the integer is odd
 then `zeta(v, x / 2π) + zeta(v, 1 - x / 2π)` is zero. To see that
@@ -164,44 +154,25 @@ non-negative integer, i.e. when `v` is an even non-positive integer,
 we can use formula [25.11.14](https://dlmf.nist.gov/25.11.E14)
 together with [24.4.1](https://dlmf.nist.gov/24.4.E1).
 
-For even `s` we thus get, using L'Hopital,
-```
-gamma(v) * cospi(v / 2) = cospi(v / 2) / rgamma(v) = -π / 2 * sinpi(v / 2) / drgamma(v)
-```
-where `rgamma` is the reciprocal gamma function and `drgamma(v)` its
-derivative. This gives us the formula
-```
-clausenc(x, s) = let v = 1 - s
-    -π / 2 * sinpi(v / 2) / drgamma(v) * inv(2π)^v * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
-end
-```
-For odd `s` we instead have
-```
-gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) = (dzeta(v, x / 2π) + dzeta(v, 1 - x / 2π)) / drgamma(v)
-```
-and we get
-```
-clausenc(x, s) = let v = 1 - s
-    inv(2π)^v * cospi(v / 2) * (dzeta(v, x / 2π) + dzeta(v, 1 - x / 2π)) / drgamma(v)
-end
-```
-
-**TODO:** Handle `s` overlapping a non-negative integer but not an
-exact integer. We need to be able to compute an enclosure of
+For even `s` we thus want to compute an enclosure of
 ```
 gamma(v) * cospi(v / 2)
 ```
-in the even case and
+and for odd `s` we want to compute an enclosure of
 ```
 gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
 ```
-in the odd case.
+In both cases we rewrite them using the reciprocal gamma function
+[`rgamma`](@ref), giving us
+```
+cospi(v / 2) / rgamma(v)
+
+(zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / rgamma(v)
+```
+We then expand in `v` at the integer, including a remainder term, and
+explicitly cancel the removable singularity.
 """
 function _clausenc_zeta(x::Arb, s::Arb)
-    # For s = 0 we don't have to check 0 < x < 2π and can return
-    # directly
-    iszero(s) && return Arb(-1 // 2)
-
     # Check that x > 0
     Arblib.ispositive(x) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
@@ -222,38 +193,110 @@ function _clausenc_zeta(x::Arb, s::Arb)
         Arblib.add!(v, v, 1)
     end
 
-    # Handle the case when s is exactly a non-negative integer.
-    if isinteger(s) && Arblib.ispositive(s)
-        # Note that in this case s is never wide.
+    unique, s_integer = unique_integer(s)
 
-        # Compute drgamma(v)
-        drgamma = rgamma(ArbSeries((v, 1)))[1]
+    if unique && s_integer == 0
+        # Function for enclosing zeta_deflated(s, a)
+        zeta_deflated(s::ArbSeries, a::Arb) =
+            Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+        zeta_deflated(s::Arb, a::Arb) = zeta_deflated(ArbSeries(s), a)[0]
 
-        # Get the unique integer
-        unique, s_integer = unique_integer(s)
-        @assert unique
+        cos_expansion = taylor_with_remainder(v -> cospi(v / 2), Arb(1), v, degree = 2)
+
+        # Enclosure of cospi(v / 2) / (v - 1)
+        cosdivv = (cos_expansion << 1)(v - 1)
+
+        # Enclosure of zeta_deflated(v, x / 2π) + zeta_deflated(v, 1 - x / 2π)
+        z = let
+            # FIXME: Compute remainder term in expansion or find
+            # another way to enclose zeta_deflated
+            !iszero(s) && @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
+            zeta_expansion1 = zeta_deflated(ArbSeries((1, 1), degree = 2), xinv2pi)
+            zeta_expansion2 = zeta_deflated(ArbSeries((1, 1), degree = 2), onemxinv2pi)
+
+            zeta_expansion1(v - 1) + zeta_expansion2(v - 1)
+        end
+
+        rest = ArbExtras.enclosure_series(v -> gamma(v) * inv2pi^v, v, degree = 2)
+
+        return rest * (cospi(v / 2) * z + 2cosdivv)
+    elseif unique && s_integer > 0
+        v_integer = 1 - s_integer
+
+        rgamma_expansion = taylor_with_remainder(rgamma, Arb(v_integer), v, degree = 2)
 
         if iseven(s_integer)
-            return -Arb(π, prec = precision(x)) / 2 * sinpi(v / 2) / drgamma *
-                   inv2pi^v *
-                   (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
-        else
-            # Compute dzeta(v, x / 2π) + dzeta(v, 1 - x / 2π)
-            dzeta = let v_series = ArbSeries((v, 1))
-                zeta(v_series, xinv2pi)[1] + zeta(v_series, onemxinv2pi)[1]
+            # Enclosure of gamma(v) * cospi(v / 2)
+            gammacos = let
+                # Expansion around v_integer
+                cos_expansion = taylor_with_remainder(
+                    v -> cospi(v / 2),
+                    Arb(v_integer),
+                    v,
+                    degree = 2,
+                )
+
+                expansion = div_with_remainder(
+                    cos_expansion << 1,
+                    rgamma_expansion << 1,
+                    v - v_integer,
+                )
+
+                expansion(v - v_integer)
             end
 
-            return inv2pi^v * cospi(v / 2) * dzeta / drgamma
+            if iswide(s)
+                rest = ArbExtras.enclosure_series(
+                    v -> inv2pi^v * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi)),
+                    v,
+                    degree = 2,
+                )
+            else
+                rest = inv2pi^v * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
+            end
+
+            return gammacos * rest
+        else
+            # Enclosure of
+            # gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+            gammazeta = let
+                zeta_expansion = taylor_with_remainder(
+                    v -> zeta(v, xinv2pi) + zeta(v, onemxinv2pi),
+                    Arb(v_integer),
+                    v,
+                    degree = 2,
+                )
+                @assert Arblib.contains_zero(zeta_expansion[0])
+                zeta_expansion[0] = 0
+
+                expansion = div_with_remainder(
+                    zeta_expansion << 1,
+                    rgamma_expansion << 1,
+                    v - v_integer,
+                )
+
+                expansion(v - v_integer)
+            end
+
+            if iswide(s)
+                rest =
+                    ArbExtras.enclosure_series(v -> inv2pi^v * cospi(v / 2), v, degree = 2)
+            else
+                rest = inv2pi^v * cospi(v / 2)
+            end
+
+            return gammazeta * rest
+        end
+    else
+        f(v) =
+            gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
+
+        if iswide(s)
+            return ArbExtras.enclosure_series(f, v, degree = 2)
+        else
+            return f(v)
         end
     end
-
-    f(v) = gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
-
-    if iswide(s)
-        return ArbExtras.enclosure_series(f, v, degree = 2)
-    end
-
-    return f(v)
 end
 
 """
@@ -536,35 +579,6 @@ function clausenc(x::Arb, s::Arb)
             res = union(res, clausenc(Arb(π; prec), s))
         end
         return setprecision(res, precision(x))
-    end
-
-    # Handle the case when s contains a non-negative integer but it
-    # not exactly an integer
-    # TODO: This should optimally be handled internally by _clausenc_zeta
-    contains_nonnegative_int = Arblib.contains_int(s) && !Arblib.isnegative(s)
-    if contains_nonnegative_int && !iszero(Arblib.radref(s))
-        if s > 1
-            # Evaluate at midpoint
-            smid = midpoint(Arb, s)
-            res = clausenc(x, smid)
-
-            # Bound derivative in s using derivative of zeta function
-            derivative = dzeta(s)
-            error = (s - smid) * abs(derivative)
-
-            return res + error
-        end
-
-        # FIXME: For now we bound it assuming monotonicity in s, this
-        # is not true in practice. We only do this for s close to 0
-        # and 1
-        @warn "Incorrect bound for clausenc with s = $s, it assumes monotonicity" maxlog = 1
-        if Arblib.radref(s) < 1e-2
-            # s is not negative and not greater than 1, since the
-            # radius is small it must therefore contain either 0 or 1.
-            sₗ, sᵤ = getinterval(Arb, s)
-            return union(clausenc(x, sₗ), clausenc(x, sᵤ))
-        end
     end
 
     return _clausenc_zeta(x, s)

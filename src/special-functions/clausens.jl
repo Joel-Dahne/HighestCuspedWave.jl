@@ -49,7 +49,7 @@ handled.
 It currently only handles `0 < x < 2π`.
 
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
-enclosure using a Taylor expansion in `s`.
+enclosure using [`enclosure_series`](@ref).
 
 # Handling `s = 0`
 If `s` is zero then both `zeta(v, x / 2π)` and `zeta(v, 1 - x / 2π)`
@@ -61,21 +61,10 @@ cancelled and we get
 zeta(v, x / 2π) - zeta(v, 1 - x / 2π) =
     zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
 ```
+- **TODO:** Handle evaluation of `zeta_deflated` for `s` not exactly
+  zero.
 
-We can also note that for `s = 0` we have
-```
-gamma(v) * inv(2π)^v * sinpi(v / 2) = inv(2π)
-```
-
-**TODO:** Handle `s` overlapping zero but not being exactly zero. We
-need to be able to compute an enclosure of
-```
-zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
-```
-Both terms are well defined but Arb doesn't compute `zeta_deflated`
-for `s` overlapping `1` but not exactly equal to `1`.
-
-# Handling `s` being a positive integer
+# Handling `s` overlapping a unique positive integer
 If `s` is a positive integer then `gamma(v)` diverges, if the
 integer is even then `zeta(v, x / 2π) - zeta(v, 1 - x / 2π)` is zero
 and if the integer is odd then `sinpi(v / 2)` is zero. To see that
@@ -84,40 +73,23 @@ non-negative integer, i.e. when `v` is an odd non-positive integer, we
 can use formula [25.11.14](https://dlmf.nist.gov/25.11.E14) together
 with [24.4.1](https://dlmf.nist.gov/24.4.E1).
 
-For even `s` we thus get, using L'Hopital,
-```
-gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) =
-    (zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / rgamma(v)=
-    (dzeta(v, x / 2π) - dzeta(v, 1 - x / 2π)) / drgamma(v)
-```
-where `rgamma` is the reciprocal gamma function and `drgamma(v)` its
-derivative. This gives us the formula
-```
-clausens(x, s) = let v = 1 - s
-    inv(2π)^v * sinpi(v / 2) * (dzeta(v, x / 2π) - dzeta(v, 1 - x / 2π)) / drgamma(v)
-end
-```
-For odd `s` we instead have
-```
-gamma(v) * sinpi(v / 2) = π / 2 * cospi(v / 2) / drgamma(v)
-```
-and we get
-```
-clausens(x, s) = let v = 1 - s
-    π / 2 * cospi(v / 2) / drgamma(v) * inv(2π)^v * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
-end
-```
-
-**TODO:** Handle `s` overlapping a non-negative integer but not an
-exact integer. We need to be able to compute an enclosure of
+For even `s` we thus want to compute an enclosure of
 ```
 gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
 ```
-in the even case and
+and for odd `s` we want to compute an enclosure of
 ```
 gamma(v) * sinpi(v / 2)
 ```
-in the odd case.
+In both cases we rewrite them using the reciprocal gamma function
+[`rgamma`](@ref), giving us
+```
+(zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / rgamma(v)
+
+sinpi(v / 2) / rgamma(v)
+```
+We then expand in `v` at the integer, including a remainder term, and
+explicitly cancel the removable singularity.
 """
 function _clausens_zeta(x::Arb, s::Arb)
     # Check that x > 0
@@ -140,45 +112,109 @@ function _clausens_zeta(x::Arb, s::Arb)
         Arblib.add!(v, v, 1)
     end
 
-    if iszero(s)
+    unique, s_integer = unique_integer(s)
+
+    if unique && s_integer == 0
         # Function for enclosing zeta_deflated(s, a)
-        zeta_deflated(s, a) = Arblib.zeta_series!(ArbSeries(0), ArbSeries(v), a, 1, 1)[0]
+        zeta_deflated(s::ArbSeries, a::Arb) =
+            Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+        zeta_deflated(s::Arb, a::Arb) = zeta_deflated(ArbSeries(s), a)[0]
 
-        return inv2pi * (zeta_deflated(v, xinv2pi) - zeta_deflated(v, onemxinv2pi))
-    end
+        # Enclosure of zeta(v, x / 2π) - zeta(v, 1 - x / 2π)
+        z = let
+            # FIXME: Compute remainder term in expansion or find
+            # another way to enclose zeta_deflated
+            !iszero(s) && @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
+            zeta_expansion1 = zeta_deflated(ArbSeries((1, 1), degree = 2), xinv2pi)
+            zeta_expansion2 = zeta_deflated(ArbSeries((1, 1), degree = 2), onemxinv2pi)
 
-    if isinteger(s) && Arblib.ispositive(s)
-        # Handle the case when s is exactly a non-negative integer.
-        # Note that in this case s is never wide.
+            zeta_expansion1(v - 1) - zeta_expansion2(v - 1)
+        end
 
-        # Compute drgamma(v)
-        drgamma = rgamma(ArbSeries((v, 1)))[1]
+        rest = ArbExtras.enclosure_series(
+            v -> gamma(v) * inv2pi^v * sinpi(v / 2),
+            v,
+            degree = 2,
+        )
 
-        # Get the unique integer
-        unique, s_integer = unique_integer(s)
-        @assert unique
+        return rest * z
+    elseif unique && s_integer > 0
+        v_integer = 1 - s_integer
+
+        rgamma_expansion = taylor_with_remainder(rgamma, Arb(v_integer), v, degree = 2)
 
         if iseven(s_integer)
-            # Compute dzeta(v, x / 2π) + dzeta(v, 1 - x / 2π)
-            dzeta = let v_series = ArbSeries((v, 1))
-                zeta(v_series, xinv2pi)[1] - zeta(v_series, onemxinv2pi)[1]
+            # Enclosure of gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+            gammazeta = let
+                zeta_expansion = taylor_with_remainder(
+                    v -> zeta(v, xinv2pi) - zeta(v, onemxinv2pi),
+                    Arb(v_integer),
+                    v,
+                    degree = 2,
+                )
+                @assert Arblib.contains_zero(zeta_expansion[0])
+                zeta_expansion[0] = 0
+
+                expansion = div_with_remainder(
+                    zeta_expansion << 1,
+                    rgamma_expansion << 1,
+                    v - v_integer,
+                )
+
+                expansion(v - v_integer)
             end
 
-            return inv2pi^v * sinpi(v / 2) * dzeta / drgamma
+            if iswide(s)
+                rest =
+                    ArbExtras.enclosure_series(v -> inv2pi^v * sinpi(v / 2), v, degree = 2)
+            else
+                rest = inv2pi^v * sinpi(v / 2)
+            end
+
+            return gammazeta * rest
         else
-            return Arb(π, prec = precision(x)) / 2 * cospi(v / 2) / drgamma *
-                   inv2pi^v *
-                   (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+            # Enclosure of gamma(v) * sinpi(v / 2)
+            gammasin = let
+                # Expansion around v_integer
+                sin_expansion = taylor_with_remainder(
+                    v -> sinpi(v / 2),
+                    Arb(v_integer),
+                    v,
+                    degree = 2,
+                )
+
+                expansion = div_with_remainder(
+                    sin_expansion << 1,
+                    rgamma_expansion << 1,
+                    v - v_integer,
+                )
+
+                expansion(v - v_integer)
+            end
+
+            if iswide(s)
+                rest = ArbExtras.enclosure_series(
+                    v -> inv2pi^v * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi)),
+                    v,
+                    degree = 2,
+                )
+            else
+                rest = inv2pi^v * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+            end
+
+            return gammasin * rest
+        end
+    else
+
+        f(v) =
+            gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+
+        if iswide(s)
+            return ArbExtras.enclosure_series(f, v, degree = 2)
+        else
+            return f(v)
         end
     end
-
-    f(v) = gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
-
-    if iswide(s)
-        return ArbExtras.enclosure_series(f, v, degree = 2)
-    end
-
-    return f(v)
 end
 
 """
@@ -424,36 +460,6 @@ function clausens(x::Arb, s::Arb)
             res = union(clausens(xₗ, s), clausens(xᵤ, s))
         end
         return setprecision(res, orig_prec)
-    end
-
-    # Handle the case when s contains a non-negative integer but it
-    # not exactly an integer
-    # TODO: This should optimally be handled internally by _clausenc_zeta
-    contains_nonnegative_int = Arblib.contains_int(s) && !Arblib.isnegative(s)
-    if contains_nonnegative_int && !iszero(Arblib.radref(s))
-        if s > 1
-            # Evaluate at midpoint
-            smid = Arblib.midpoint(Arb, s)
-            res = clausens(x, smid)
-
-            # Bound derivative in s using derivative of zeta function
-            derivative = dzeta(s)
-            error = (s - smid) * abs(derivative)
-
-            return res + error
-        end
-
-        # FIXME: For now we bound it assuming monotonicity in s, this
-        # is not true in practice. We only do this for s close to 0
-        # and 1
-        @warn "Incorrect bound for clausens with s = $s, it assumes monotonicity" maxlog =
-            100
-        if Arblib.radref(s) < 1e-2
-            # s is not negative and not greater than 1, since the
-            # radius is small it must therefore contain either 0 or 1.
-            sₗ, sᵤ = getinterval(Arb, s)
-            return union(clausens(x, sₗ), clausens(x, sᵤ))
-        end
     end
 
     return _clausens_zeta(x, s)

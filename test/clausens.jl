@@ -17,6 +17,10 @@
 
         # Check evaluation with integer s
         for s in Arb.(-4:4)
+            @test Arblib.overlaps(
+                HighestCuspedWave._clausens_polylog(one(s), s),
+                HighestCuspedWave._clausens_zeta(one(s), s),
+            )
             @test isfinite(clausenc(zero(s), s)) == (s > 1)
             @test isfinite(clausenc(one(s), s))
         end
@@ -38,7 +42,20 @@
         @test clausens(1.5, 2) == Float64(clausens(Arb(1.5), 2))
         @test clausens(2, 2) == Float64(clausens(Arb(2), 2))
 
-        # TODO: Add tests for wide values of s
+        # Test s overlapping integers
+        for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
+            for s in Arb.(-1:4)
+                s_interval = Arblib.add_error!(copy(s), Arb(0.0001))
+                y1 = clausens(x, s_interval)
+                @test isfinite(y1)
+                for ss in [s; range(getinterval(Arb, s_interval)..., length = 10)]
+                    y2 = clausens(x, ss)
+                    @test isfinite(y2)
+                    @test Arblib.overlaps(y1, y2)
+                end
+            end
+        end
+
 
         # TODO: Add tests for x::ArbSeries
 
