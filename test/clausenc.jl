@@ -109,7 +109,10 @@ end
             end
         end
 
-        # TODO: Add tests for x::ArbSeries
+        # x::ArbSeries
+        # Very simple tests - just check that it runs and is finite
+        @test isfinite(clausenc(ArbSeries((2, 1, 0)), Arb(2)))
+        @test isfinite(clausenc(ArbSeries((2, 1, 0)), Arb(2.5)))
 
         # s::ArbSeries
         # Check that the evaluation with polylog and zeta agree on (0, 2π)
