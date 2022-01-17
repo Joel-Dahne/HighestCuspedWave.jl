@@ -358,13 +358,16 @@ It first performs an argument reduction of `x`, using that the
 function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 
 If `x` contains zero and we don't have `s > 1` it returns an
-indeterminate result, except in the case that `s` is exactly an odd
-negative integer in which case the result is exactly zero.
+indeterminate result.
+- **IMPROVE:** Use that for odd negative integers it is exactly zero.
 
 If `x` contains zero and `s > 1` it uses the asymptotic expansion at
 `x = 0` from [`clausens_expansion`](@ref). This is unless `x` is wide
 enough to also include `π`, in which case it uses the trivial upper
 bound of the absolute value given by `zeta(s)`.
+
+If `x` doesn't contain zero we are assured by
+[`_reduce_argument_clausen`](@ref) that `0 < x < 2π`.
 
 If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by first checking if the
@@ -403,13 +406,7 @@ function clausens(x::Arb, s::Arb)
     # Handle the special case when x contains zero
     if haszero
         if !(s > 1)
-            # Identically equal to zero for odd negative integers,
-            # otherwise not finite
-            if isinteger(s) && isodd(unique_integer(s)[2])
-                return zero(x)
-            else
-                return Arblib.indeterminate!(zero(x))
-            end
+            return Arblib.indeterminate!(zero(x))
         elseif haspi
             # We could give a better bound by checking if we should
             # include use the positive or negative version. But this

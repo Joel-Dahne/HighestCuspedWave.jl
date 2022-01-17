@@ -504,7 +504,10 @@ It first performs an argument reduction of `x`, using that the
 function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 
 If `x` contains zero and we don't have `s > 1` it returns an
-indeterminate result. If `s > 1` it computes an enclosure using that
+indeterminate result.
+- **IMPROVE:** Use that for even negative integers it is exactly zero.
+
+If `x` contains zero and `s > 1` it computes an enclosure using that
 the extrema is attained at `x = 0`, `abs_ubound(x)` or `π`, where we
 have `clausenc(0, s) = zeta(s)` and `clausenc(π, s) = -eta(s)`.
 
@@ -552,7 +555,6 @@ function clausenc(x::Arb, s::Arb)
     # Handle the special case when x contains zero
     if haszero
         if !(s > 1)
-            # Only finite for s > 1
             return Arblib.indeterminate!(zero(x))
         elseif haspi
             # Extrema at x = 0 and x = π
