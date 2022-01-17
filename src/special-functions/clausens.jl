@@ -382,21 +382,6 @@ where `min_prec` is `32` in general but `64` if `s` is close to an
 integer, determined by checking if the midpoint withing `1e-2` of an
 integer, in which case higher precision is typically needed.
 - **IMPROVE:** This could be tuned more, but is probably not needed.
-
-The case when `s` is a wide ball is in general handled by the
-underlying method [`_clausens_zeta`](@ref). The exception is when `s`
-overlaps with a non-negative integer, in which case it gives an
-indeterminate result. In that case we compute at the midpoint of `s`
-and bound the error by using a bound for the derivative in `s`. For s
-> 1 the derivative in `s` is bounded by `dzeta(s)`, this can be seen
-by looking at the Fourier series for `clausens(x, s, 1)` and noticing
-that it is always bounded by `dzeta(s)`.
-- **TODO:** Figure out how to bound this for `s = 1` and `s = 0`. In
-  this case the derivative in `s` blows up at `x = 0` so we can't use
-  a uniform bound. For now we compute a bound assuming monotonicity in
-  `s`, which is not true.
-- **TODO:** Move the logic for handling `s` overlapping integers to
-  [`_clausenc_zeta`](@ref).
 """
 function clausens(x::Arb, s::Arb)
     x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
