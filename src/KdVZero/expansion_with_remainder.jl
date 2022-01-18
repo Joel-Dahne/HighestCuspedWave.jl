@@ -223,25 +223,7 @@ function clausenc_with_remainder(
     p = ArbSeries(p; degree)
 
     # Compute remainder term
-    if s[0] == 0 || s[0] == 2
-        @warn "non-rigorous remainder" maxlog = 1
-        # FIXME: Properly implement this. For now it assumes
-        # monotonicity for clausenc(x, s, degree) in s, which is not
-        # true in general
-
-        # We evaluate s like this to make the endpoint exact if they
-        # are integers. Otherwise we typically get a value slightly
-        # smaller or larger than the exact integer, which gives much
-        # worse bounds.
-        s_lower, s_upper =
-            ArbExtras.extrema_polynomial(ArbPoly(s), getinterval(interval)...)
-
-        remainder_term =
-            union(clausenc(x, s_lower, degree), clausenc(x, s_upper, degree)) /
-            factorial(degree)
-    else
-        remainder_term = clausenc(x, s(interval), degree) / factorial(degree)
-    end
+    remainder_term = clausenc(x, s(interval), degree) / factorial(degree)
 
     p[degree] = remainder_term
 
@@ -279,25 +261,7 @@ function clausens_with_remainder(
     p = ArbSeries(p; degree)
 
     # Compute remainder term
-    if s[0] == 1
-        @warn "non-rigorous remainder" maxlog = 1
-        # FIXME: Properly implement this. For now it assumes
-        # monotonicity for clausens(x, s, degree) in s, which is not
-        # true in general
-
-        # We evaluate s like this to make the endpoint exact if they
-        # are integers. Otherwise we typically get a value slightly
-        # smaller or larger than the exact integer, which gives much
-        # worse bounds.
-        s_lower, s_upper =
-            ArbExtras.extrema_polynomial(ArbPoly(s), getinterval(interval)...)
-
-        remainder_term =
-            union(clausens(x, s_lower, degree), clausens(x, s_upper, degree)) /
-            factorial(degree)
-    else
-        remainder_term = clausens(x, s(interval), degree) / factorial(degree)
-    end
+    remainder_term = clausens(x, s(interval), degree) / factorial(degree)
 
     p[degree] = remainder_term
 
@@ -351,25 +315,7 @@ function clausencmzeta_with_remainder(
     end
 
     # Compute remainder term
-    if s[0] == 2
-        @warn "non-rigorous remainder" maxlog = 1
-        # FIXME: Properly implement this. For now it assumes
-        # monotonicity for clausencmzeta(x, s, degree) in s, which is
-        # not true in general
-
-        # We evaluate s like this to make the endpoint exact if they
-        # are integers. Otherwise we typically get a value slightly
-        # smaller or larger than the exact integer, which gives much
-        # worse bounds.
-        s_lower, s_upper =
-            ArbExtras.extrema_polynomial(ArbPoly(s), getinterval(interval)...)
-
-        remainder_term =
-            union(clausencmzeta(x, s_lower, degree), clausencmzeta(x, s_upper, degree)) /
-            factorial(degree)
-    else
-        remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
-    end
+    remainder_term = clausencmzeta(x, s(interval), degree) / factorial(degree)
 
     p[degree] = remainder_term
 
