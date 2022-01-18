@@ -145,7 +145,7 @@ end
 @testset "clausens_expansion" begin
     s = Arb(0.5)
     for M in [3, 6]
-        for x in range(Arb(0), 2Arb(π), length = 100)
+        for x in range(Arb(0), 2Arb(π), length = 100)[1:end-1]
             C, e, P, E = HighestCuspedWave.clausens_expansion(x, s, M)
             @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^(2M + 1), clausens(x, s))
         end

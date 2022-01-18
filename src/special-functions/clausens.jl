@@ -625,36 +625,25 @@ It satisfies that
 ```
 clausens(y, s) ∈ C * sign(y) * abs(y)^e + P(y) + E * y^(2M + 1)
 ```
-for all `|y| <= |x|`.
-
-It requires that `x < 2π` to give a finite remainder term.
+for all `abs(y) <= abs(x)`.
 
 Note that this method doesn't handle wide values of `s` in any special
-way. This has not been needed anywhere so far.
+way and doesn't support `s` overlapping positive integers, this has
+not been needed.
 """
 function clausens_expansion(x::Arb, s::Arb, M::Integer)
-    Arblib.ispositive(s) || throw(ArgumentError("s must be positive, got s = $s"))
-    M > (s + 1) / 2 ||
-        throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
-
     # Non-analytic term
     C = gamma(1 - s) * cospi(s / 2)
     e = s - 1
 
-    # Analytic term
+    # Analytic terms
     P = ArbSeries(degree = 2M - 1, prec = precision(x))
     for m = 0:M-1
         P[2m+1] = (-1)^m * zeta(s - 2m - 1) / factorial(2m + 1)
     end
 
     # Error term
-    E = let π = Arb(π)
-        if abs(x) < 2π
-            Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
-        else
-            Arblib.indeterminate!(zero(x))
-        end
-    end
+    E = clausens_expansion_remainder(x, s, M)
 
     return (C, e, P, E)
 end
@@ -668,16 +657,25 @@ remainder is of order `2M + 1`.
 
 This is the `E` occurring in [`clausens_expansion`](@ref).
 
-An upper bound for the absolute value of the remainder is given by
+It requires that `abs(x) < 2π`, `s > 0` and that `M > (s + 1) / 2`. In
+this case an upper bound for the absolute value of the remainder is
+given by
 ```
 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2)
 ```
 and this functions returns a ball centered at zero with this radius.
 """
-clausens_expansion_remainder(x::Arb, s::Arb, M::Integer) =
-    let π = Arb(π, prec = precision(x))
-        Arblib.add_error!(zero(x), 2(2π)^(s - 2M) * zeta(2M + 2 - s) / (4π^2 - x^2))
-    end
+function clausens_expansion_remainder(x::Arb, s::Arb, M::Integer)
+    pi = Arb(π)
+
+    abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
+    Arblib.ispositive(s) || throw(DomainError(s, "s must be positive"))
+    M > (s + 1) / 2 ||
+        throw(DomainError(M, "M must be larger than (s + 1) / 2, got s = $s"))
+
+    return Arblib.add_error!(zero(x), 2(2pi)^(s - 2M) * zeta(2M + 2 - s) / (4pi^2 - x^2))
+end
+
 
 """
     clausens_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
@@ -701,8 +699,8 @@ function clausens_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
     @warn "remainder not rigorously bounded" maxlog = 1
 
     res = zero(s)
-    for m = M:9
-        term = (-1)^m * zeta(s - 2m - 1) * x^(2(m - M)) / factorial(2m + 1)
+    for m = M:M+10
+        term = (-1)^m * zeta(s - 2m - 1) * x^(2(m - M)) / factorial(big(2m + 1))
         res += term
     end
 

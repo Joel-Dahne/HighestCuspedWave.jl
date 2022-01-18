@@ -769,10 +769,11 @@ non-analytic term, the analytic terms as a `ArbSeries` `P` and the
 remainder term `E`. The `M` is the same as in Lemma 2.1 in
 arXiv:1810.10935.
 
-It satisfies that `clausenc(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)` for
-all `|y| <= |x|`.
-
-It requires that `x < 2π` to give a finite remainder term.
+It satisfies that
+```
+clausenc(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)
+```
+for all `abs(y) <= abs(x)`.
 
 If `skip_constant = true` it doesn't compute the constant term in the
 expansion. This is useful if you want to compute the expansion for
@@ -781,52 +782,53 @@ expansion. This is useful if you want to compute the expansion for
 If `s` is wide, as determined by `iswide(s)` it computes a tighter
 enclosure of the coefficients using a Taylor expansion in `s`.
 
-- **TODO:** Handle the case when `s` overlaps an even integer. In that
-  `gamma(1 - s) * sinpi(s / 2)` has a removable singularity.
-- **TODO:** Handle the case when `s` overlaps an odd integer. In that
-  case the non-analytic term coincides with one of the analytic
-  terms. Their coefficients blow up in different directions. We
-  might just not handle this case?
+The coefficient `C` is given by `gamma(1 - s) * sinpi(s / 2)` has a
+singularity for positive integer values of `s` where the `gamma`
+function blows up.
+
+For even values this singularity is removable and in this case we can
+still compute an enclosure of `C` by expanding at the integer,
+including a remainder term, and explicitly cancel the removable
+singularity. To do this we rewrite it using the reciprocal gamma
+function [`rgamma`](@ref) as `sin(s / 2) / rgamma(1 - s)`
+
+For odd values of `s` the singularity is not removable, instead the
+non-analytic term coincides with one of the analytic terms, with their
+coefficients blowing up in different directions. This case is
+currently not handled in any special way and it just returns an
+indeterminate result. Note that it is not clear how to handle this
+case if we want to allow `s` overlapping odd integers.
 """
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
-    Arblib.ispositive(s) || throw(ArgumentError("s must be positive, got s = $s"))
-    M > (s + 1) / 2 ||
-        throw(ArgumentError("M must be larger that (s + 1) / 2, got M = $M, s = $s"))
+    unique, s_integer = unique_integer(s)
 
     # Non-analytic term
-    if s == 2
-        C = -Arb(π) / 2
-    else
-        contains_int, n = unique_integer(s)
+    if unique && s_integer > 0
+        if iseven(s_integer)
+            rgamma_expansion =
+                taylor_with_remainder(s -> rgamma(1 - s), Arb(s_integer), s, degree = 2)
 
-        if !contains_int
-            if iswide(s)
-                C = ArbExtras.enclosure_series(
-                    s -> gamma(1 - s) * sinpi(s / 2),
-                    s,
-                    degree = 2,
-                )
-            else
-                C = gamma(1 - s) * sinpi(s / 2)
-            end
+            sin_expansion =
+                taylor_with_remainder(s -> sinpi(s / 2), Arb(s_integer), s, degree = 2)
+
+            # Expansion of gamma(1 - s) * sin(s / 2) with remainder term
+            expansion =
+                div_with_remainder(sin_expansion << 1, rgamma_expansion << 1, s - s_integer)
+
+            C = expansion(s - s_integer)
         else
-            if iseven(n)
-                # FIXME: This assumes monotonicity with respect to
-                # `s`. In practice this is true close to even
-                # integers, but it is not always true
-                @warn "Incorrect bound for leading term for Clausen with s = $s, it assumes monotonicity" maxlog =
-                    1
-                sₗ, sᵤ = getinterval(Arb, s)
-                C = union(gamma(1 - sₗ) * sinpi(sₗ / 2), gamma(1 - sᵤ) * sinpi(sᵤ / 2))
-            else
-                # TODO: How should we handle this case? Just return NaN?
-                C = Arblib.indeterminate!(zero(s))
-            end
+            C = Arblib.indeterminate!(zero(s))
+        end
+    else
+        if iswide(s)
+            C = ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s, degree = 2)
+        else
+            C = gamma(1 - s) * sinpi(s / 2)
         end
     end
     e = s - 1
 
-    # Analytic term
+    # Analytic terms
     P = ArbSeries(degree = 2M - 2, prec = precision(x))
     start = skip_constant ? 1 : 0
     for m = start:M-1
@@ -834,9 +836,9 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
             z = ArbExtras.enclosure_series(s -> zeta(s - 2m), s, degree = 2)
 
             if !isfinite(z)
-                # TODO: In some cases, when s overlaps zero (but not
+                # In some cases, when s overlaps zero (but not
                 # always), the above returns NaN but the evaluation
-                # below works. Take a look at this.
+                # below works.
                 z = zeta(s - 2m)
             end
         else
@@ -846,13 +848,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     end
 
     # Error term
-    E = let π = Arb(π)
-        if abs(x) < 2π
-            Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
-        else
-            Arblib.indeterminate!(zero(x))
-        end
-    end
+    E = clausenc_expansion_remainder(x, s, M)
 
     return (C, e, P, E)
 end
@@ -866,16 +862,27 @@ remainder is of order `2M`.
 
 This is the `E` occurring in [`clausenc_expansion`](@ref).
 
-An upper bound for the absolute value of the remainder is given by
+It requires that `abs(x) < 2π`, `s > 0` and that `M > (s + 1) / 2`. In
+this case an upper bound for the absolute value of the remainder is
+given by
 ```
 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2)
 ```
 and this functions returns a ball centered at zero with this radius.
 """
-clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer) =
-    let π = Arb(π, prec = precision(x))
-        Arblib.add_error!(zero(x), 2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2))
-    end
+function clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer)
+    pi = Arb(π)
+
+    abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
+    Arblib.ispositive(s) || throw(DomainError(s, "s must be positive"))
+    M > (s + 1) / 2 ||
+        throw(DomainError(M, "M must be larger than (s + 1) / 2, got s = $s"))
+
+    return Arblib.add_error!(
+        zero(x),
+        2(2pi)^(1 + s - 2M) * zeta(2M + 1 - s) / (4pi^2 - x^2),
+    )
+end
 
 """
     clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
