@@ -305,7 +305,7 @@ end
 Evaluation of the `clausenc` function through the zeta function.
 
 This uses the same formula as the method with `x::Arb`.
-- **TODO:** Check if this formula holds for complex `x`, it seems to
+- **PROVE:** Check if this formula holds for complex `x`, it seems to
   give correct results at least.
 
 It currently only handles `0 < real(x) < 2π`. If `s` overlaps with any
