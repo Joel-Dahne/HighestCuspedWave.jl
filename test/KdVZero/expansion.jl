@@ -2,7 +2,7 @@
     α0s = [Arb(0), Arb((-1e-3))]
 
     intervals = [
-        -Arblib.nonnegative_part!(zero(Arb), Arb((0, 1e-2))),
+        -Arblib.nonnegative_part!(zero(Arb), Arb((0, 1e-3))),
         Arblib.add_error!(Arb(-1e-3), Arb(1e-6)),
     ]
 
