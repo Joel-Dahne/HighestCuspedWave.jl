@@ -406,8 +406,9 @@ depending on `α`. The derivative of the root with respect to `α` hence
 **does not** affect the derivative of the result. It is therefore
 enough to compute only an enclosure of the root and we do not need to
 compute its expansion in `α`.
-- **IMPROVE:** Improve enclosure for wide values of `x`. This we will
-  most likely need to do in the end.
+- **TODO:** Check if we really don't need to compute a remainder term
+  for the root. It seems odd to me that we don't have to care about it
+  at all.
 """
 function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
     iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
