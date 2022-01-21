@@ -862,11 +862,10 @@ remainder is of order `2M`.
 
 This is the `E` occurring in [`clausenc_expansion`](@ref).
 
-It requires that `abs(x) < 2π`, `s > 0` and that `M > (s + 1) / 2`. In
-this case an upper bound for the absolute value of the remainder is
-given by
+It requires that `abs(x) < 2π` and `2M >= s + 1`. In this case an
+upper bound for the absolute value of the remainder is given by
 ```
-2(2π)^(1 + s - 2M) * zeta(2M + 1 - s) / (4π^2 - x^2)
+2(2π)^(1 + s - 2M) * abs(sinpi(s / 2)) * zeta(2M + 1 - s) / (4π^2 - x^2)
 ```
 and this functions returns a ball centered at zero with this radius.
 """
@@ -874,13 +873,11 @@ function clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer)
     pi = Arb(π)
 
     abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
-    Arblib.ispositive(s) || throw(DomainError(s, "s must be positive"))
-    M > (s + 1) / 2 ||
-        throw(DomainError(M, "M must be larger than (s + 1) / 2, got s = $s"))
+    2M >= s + 1 || throw(DomainError(M, "must have 2M >= s + 1, got s = $s"))
 
     return Arblib.add_error!(
         zero(x),
-        2(2pi)^(1 + s - 2M) * zeta(2M + 1 - s) / (4pi^2 - x^2),
+        2(2pi)^(1 + s - 2M) * abs(sinpi(s / 2)) * zeta(2M + 1 - s) / (4pi^2 - x^2),
     )
 end
 
