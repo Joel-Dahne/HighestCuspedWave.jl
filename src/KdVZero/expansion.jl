@@ -246,17 +246,19 @@ derivative of `g(α, R)` in `α`. For `α0 != 0` we take `k = degree +
 is that we needed to differentiate the whole equation once when
 solving for `p00, p01, p02`.
 - **TODO:** Check if the above approach is correct and explain it
-  better. Why do we have to consider the `k`th derivative? Why do we
-  have to use a different value for `k` for `α0 = 0`?
+  better. Why do we have to consider the `k`th derivative? Why not
+  just work with `g` directly, without differentiating? Why do we have
+  to use a different value for `k` for `α0 = 0`?
 
-Given a guess for `R` we can verify it by checking that
+Let `dg(α, R)` denote the `k`th derivative of `g` w.r.t. `α` . Given a
+guess for `R` we can verify it by checking that
 ```
-g(interval, lbound(R)) < 0 < g(interval, ubound(R))
+dg(interval, lbound(R)) < 0 < dg(interval, ubound(R))
 ```
 Or possibly reversing the inequalities.
 
 We can get a guess for `R` by computing the zeros of
-`g(lbound(interval), R)` and `g(ubound(α), R)` and taking the convex
+`dg(lbound(interval), R)` and `dg(ubound(α), R)` and taking the convex
 hull of them. When computing these zeros we don't have access to
 derivatives w.r.t. `R` since we have to use `ArbSeries` to compute the
 derivatives w.r.t. `α`, we therefore use
@@ -264,8 +266,8 @@ derivatives w.r.t. `α`, we therefore use
 to the derivative.
 
 For `α0 != 0` we can evaluate `g(α, R)` directly using `ArbSeries`.
-For `α0 = 0` we have handle the removable singularity from `gamma(2α)
-/ gamma(α)`.
+For `α0 = 0` we have to handle the removable singularity from
+`gamma(2α) / gamma(α)`.
 """
 function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::Integer = 2)
     degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
@@ -383,32 +385,24 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
         # Function which derivative we are finding the zero of
         g(α::ArbSeries, R::Arb) =
             let p0 = p00 + p01 * (α - α0) + p02 * (α - α0)^2 + R * (α - α0)^3
-                if Arblib.contains_zero(α[0]) || abs(α[0]) < Arb(1e-5)
-                    # α[0] widened to include zero
-                    q = if Arblib.contains_zero(α[0])
-                        α[0]
-                    else
-                        union(α[0], Arb(0))
-                    end
+                if Arblib.contains_zero(α[0])
+                    # Enclosure of rgamma(α) / α
+                    rgamma1_div_v = fx_div_x(α -> rgamma(α), α, extra_degree = 2)
 
-                    # Enclose gamma(2α) / gamma(α) by expanding at α = 0
-                    w = ArbSeries(α, degree = Arblib.degree(α) + 2)
-                    w[0] = 0
+                    # Enclosure of rgamma(2α) / α
+                    rgamma2_div_v = fx_div_x(α -> rgamma(2α), α, extra_degree = 2)
 
-                    # Expand at zero
-                    rgamma_expansion_1 = compose_with_remainder(rgamma, w, q)
-
-                    rgamma_expansion_2 = compose_with_remainder(α -> rgamma(2α), w, q)
-
-                    gammadivgamma_expansion = div_with_remainder(
-                        rgamma_expansion_1 << 1,
-                        rgamma_expansion_2 << 1,
-                        q,
-                    )
-
-                    gammadivgamma = collapse_from_remainder(gammadivgamma_expansion, q)
+                    # Enclosure of gamma(2α) / gamma(α)
+                    gammadivgamma = rgamma1_div_v / rgamma2_div_v
                 else
-                    gammadivgamma = gamma(2α) / gamma(α)
+                    # Enclosure of gamma(2α) / gamma(α)
+                    # Use higher precision to allow for accurate
+                    # evaluation near the removable singularity
+                    gammadivgamma = let α = setprecision(α, 4precision(α))
+                        # Write in terms of rgamma instead of gamma
+                        # since this gives better enclosures
+                        rgamma(α) / rgamma(2α)
+                    end
                 end
 
                 gamma(2α - p0) * cospi((2α - p0) / 2) /
