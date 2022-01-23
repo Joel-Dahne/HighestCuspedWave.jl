@@ -441,7 +441,19 @@ function zeta_deflated(s::ArbSeries, a::Arb)
 
         # Assume monotonicity
         sₗ, sᵤ = copy(s), copy(s)
-        sₗ[0], sᵤ[0] = getinterval(Arb, s0)
+        s0ₗ, s0ᵤ = getinterval(Arb, s0)
+        # If s0ₗ or s0ᵤ is very close to 1 we get very bad enclosures.
+        # If one of them is very close take it to have the same
+        # distance as the other one, this still would given an
+        # enclosure but is obviously larger than it needs to be.
+        if 1 - s0ₗ < Arb("1e-10")
+            s0ₗ = 1 - (s0ᵤ - 1)
+        end
+        if s0ᵤ - 1 < Arb("1e-10")
+            s0ᵤ = 1 + (1 - s0ₗ)
+        end
+        sₗ[0], sᵤ[0] = s0ₗ, s0ᵤ
+
         res1 = zeta_deflated(sₗ, a)
         res2 = zeta_deflated(sᵤ, a)
         return ArbSeries(union.(Arblib.coeffs(res1), Arblib.coeffs(res2)))
