@@ -139,11 +139,9 @@ cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) =
     + 2cospi(v / 2) / (v - 1)
 ```
 The first term is well defined and can be evaluated directly. The
-second term has a removable singularity, this is handled by expanding
-at `v = 1`, including a remainder term, and explicitly cancel the
-removable singularity.
-- **TODO:** Handle evaluation of `zeta_deflated` for `s` not exactly
-  zero.
+second term has a removable singularity and is handled by rewriting it
+as `2cospi((t + 1) / 2) / t` to place the removable singularity at `t
+= 0` and then use [`fx_div_x`](@ref).
 
 # Handling `s` overlapping a positive integer
 If `s` is a positive integer then `gamma(v)` diverges, if the
@@ -162,15 +160,20 @@ and for odd `s` we want to compute an enclosure of
 ```
 gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
 ```
-In both cases we rewrite them using the reciprocal gamma function
-[`rgamma`](@ref), giving us
+In both cases rewrite them using the reciprocal gamma function
+[`rgamma`](@ref) as
 ```
 cospi(v / 2) / rgamma(v)
 
 (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / rgamma(v)
 ```
-We then expand in `v` at the integer, including a remainder term, and
-explicitly cancel the removable singularity.
+To be able to use [`fx_div_x`](@ref) we let `t = v - v_integer`, where
+`v_integer` is the integer that `v` overlaps with, and write them as
+```
+(cospi((t + v_integer) / 2) / t) / (rgamma(t + v_integer) / t)
+
+((zeta(t + v_integer, x / 2π) + zeta(t + v_integer, 1 - x / 2π)) / t) / (rgamma(t + v_integer) / t)
+```
 """
 function _clausenc_zeta(x::Arb, s::Arb)
     # Check that x > 0
@@ -196,54 +199,28 @@ function _clausenc_zeta(x::Arb, s::Arb)
     unique, s_integer = unique_integer(s)
 
     if unique && s_integer == 0
-        # Function for enclosing zeta_deflated(s, a)
-        zeta_deflated(s::ArbSeries, a::Arb) =
-            Arblib.zeta_series!(zero(s), s, a, 1, length(s))
-        zeta_deflated(s::Arb, a::Arb) = zeta_deflated(ArbSeries(s), a)[0]
-
-        cos_expansion = taylor_with_remainder(v -> cospi(v / 2), Arb(1), v, degree = 2)
-
         # Enclosure of cospi(v / 2) / (v - 1)
-        cosdivv = (cos_expansion << 1)(v - 1)
+        cos_div_v = fx_div_x(t -> cospi((t + 1) / 2), v - 1, extra_degree = 2)
 
         # Enclosure of zeta_deflated(v, x / 2π) + zeta_deflated(v, 1 - x / 2π)
-        z = let
-            # FIXME: Compute remainder term in expansion or find
-            # another way to enclose zeta_deflated
-            !iszero(s) && @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
-            zeta_expansion1 = zeta_deflated(ArbSeries((1, 1), degree = 2), xinv2pi)
-            zeta_expansion2 = zeta_deflated(ArbSeries((1, 1), degree = 2), onemxinv2pi)
-
-            zeta_expansion1(v - 1) + zeta_expansion2(v - 1)
-        end
+        z = zeta_deflated(v, xinv2pi) + zeta_deflated(v, onemxinv2pi)
 
         rest = ArbExtras.enclosure_series(v -> gamma(v) * inv2pi^v, v, degree = 2)
 
-        return rest * (cospi(v / 2) * z + 2cosdivv)
+        return rest * (cospi(v / 2) * z + 2cos_div_v)
     elseif unique && s_integer > 0
         v_integer = 1 - s_integer
 
-        rgamma_expansion = taylor_with_remainder(rgamma, Arb(v_integer), v, degree = 2)
+        # Enclosure of rgamma(v) / (v - v_integer)
+        rgamma_div_v = fx_div_x(t -> rgamma(t + v_integer), v - v_integer, extra_degree = 2)
 
         if iseven(s_integer)
+            # Enclosure of cospi(v / 2) / (v - v_integer)
+            cos_div_v =
+                fx_div_x(t -> cospi((t + v_integer) / 2), v - v_integer, extra_degree = 2)
+
             # Enclosure of gamma(v) * cospi(v / 2)
-            gammacos = let
-                # Expansion around v_integer
-                cos_expansion = taylor_with_remainder(
-                    v -> cospi(v / 2),
-                    Arb(v_integer),
-                    v,
-                    degree = 2,
-                )
-
-                expansion = div_with_remainder(
-                    cos_expansion << 1,
-                    rgamma_expansion << 1,
-                    v - v_integer,
-                )
-
-                expansion(v - v_integer)
-            end
+            gammacos = cos_div_v / rgamma_div_v
 
             if iswide(s)
                 rest = ArbExtras.enclosure_series(
@@ -257,26 +234,16 @@ function _clausenc_zeta(x::Arb, s::Arb)
 
             return gammacos * rest
         else
-            # Enclosure of
-            # gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
-            gammazeta = let
-                zeta_expansion = taylor_with_remainder(
-                    v -> zeta(v, xinv2pi) + zeta(v, onemxinv2pi),
-                    Arb(v_integer),
-                    v,
-                    degree = 2,
-                )
-                @assert Arblib.contains_zero(zeta_expansion[0])
-                zeta_expansion[0] = 0
+            # Enclosure of (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / (v - v_integer)
+            zeta_div_v = fx_div_x(
+                t -> zeta(t + v_integer, xinv2pi) + zeta(t + v_integer, onemxinv2pi),
+                v - v_integer,
+                extra_degree = 2,
+                force = true,
+            )
 
-                expansion = div_with_remainder(
-                    zeta_expansion << 1,
-                    rgamma_expansion << 1,
-                    v - v_integer,
-                )
-
-                expansion(v - v_integer)
-            end
+            # Enclosure of gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+            gammazeta = zeta_div_v / rgamma_div_v
 
             if iswide(s)
                 rest =
@@ -336,10 +303,8 @@ Evaluation of the `clausenc` function through the zeta function as a
 power series in `s`.
 
 It supports `s` overlapping non-negative integers in the same way
-`_clausenc_zeta(x::Arb, s::Arb)` does, computing an expansion with a
-remainder term at the integer and using that to compute an enclosure.
-- **TODO:** Handle evaluation of `zeta_deflated` for `s` not exactly
-  zero.
+`_clausenc_zeta(x::Arb, s::Arb)` does, using [`fx_div_x`](@ref) to
+handle the removable singularities.
 """
 function _clausenc_zeta(x::Arb, s::ArbSeries)
     # Handle the case when s has degree 0, so that we can assume that
@@ -368,71 +333,43 @@ function _clausenc_zeta(x::Arb, s::ArbSeries)
     unique, s0_integer = unique_integer(s0)
 
     if unique && s0_integer == 0
-        zeta_deflated(s::ArbSeries, a::Arb) =
-            Arblib.zeta_series!(zero(s), s, a, 1, length(s))
-        zeta_deflated(s::Arb, a::Arb) = zeta_deflated(ArbSeries(s), a)[0]
+        cos_div_v = fx_div_x(t -> cospi((t + 1) / 2), v - 1, extra_degree = 1)
 
-        v0 = 1 - s0
-        v0_integer = 1 - s0_integer
-
-        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
-        w[0] = v0_integer
-
-        cos_v0 = compose_with_remainder(v -> cospi(v / 2), w, v0 - v0_integer)
-        cosdivv = collapse_from_remainder(
-            div_with_remainder(cos_v0 << 1, (w - 1) << 1, v0 - v0_integer),
-            v0 - v0_integer,
-        )
-
-        z = let
-            # FIXME: Compute remainder term for expansion
-            !iszero(s) && @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
-            zeta_v0_1 = zeta_deflated(w, xinv2pi)
-            zeta_v0_2 = zeta_deflated(w, onemxinv2pi)
-
-            collapse_from_remainder(
-                zeta_v0_1 + zeta_v0_2,
-                v0 - v0_integer,
-                degree = Arblib.degree(v),
-            )
-        end
-
-        return gamma(v) * inv2pi^v * (cospi(v / 2) * z + 2cosdivv)
+        return gamma(v) *
+               inv2pi^v *
+               (
+                   cospi(v / 2) *
+                   (zeta_deflated(v, xinv2pi) + zeta_deflated(v, onemxinv2pi)) + 2cos_div_v
+               )
     elseif unique && s0_integer > 0
-        v0 = 1 - s0
         v0_integer = 1 - s0_integer
 
-        w = ArbSeries(v, degree = Arblib.degree(v) + 1)
-        w[0] = v0_integer
-
-        rgamma_v0 = compose_with_remainder(rgamma, w, v0 - v0_integer)
+        # Enclosure of rgamma(v) / (v - v_integer)
+        rgamma_div_v =
+            fx_div_x(t -> rgamma(t + v0_integer), v - v0_integer, extra_degree = 2)
 
         if iseven(s0_integer)
-            cos_v0 = compose_with_remainder(v -> cospi(v / 2), w, v0 - v0_integer)
-
-            gammacos_v0 = div_with_remainder(cos_v0 << 1, rgamma_v0 << 1, v0 - v0_integer)
+            # Enclosure of cospi(v / 2) / (v - v_integer)
+            cos_div_v =
+                fx_div_x(t -> cospi((t + v0_integer) / 2), v - v0_integer, extra_degree = 2)
 
             # Enclosure of gamma(v) * cospi(v / 2)
-            gammacos = collapse_from_remainder(gammacos_v0, v0 - v0_integer)
+            gammacos = cos_div_v / rgamma_div_v
 
             rest = inv2pi^v * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
 
             return gammacos * rest
         else
-            zeta_v0 = compose_with_remainder(
-                v -> zeta(v, xinv2pi) + zeta(v, onemxinv2pi),
-                w,
-                v0 - v0_integer,
+            # Enclosure of (zeta(v, x / 2π) + zeta(v, 1 - x / 2π)) / (v - v_integer)
+            zeta_div_v = fx_div_x(
+                t -> zeta(t + v0_integer, xinv2pi) + zeta(t + v0_integer, onemxinv2pi),
+                v - v0_integer,
+                extra_degree = 2,
+                force = true,
             )
 
-            @assert Arblib.contains_zero(zeta_v0[0])
-            zeta_v0[0] = 0
-
-            gammazeta_v0 = div_with_remainder(zeta_v0 << 1, rgamma_v0 << 1, v0 - v0_integer)
-
-            # Enclosure of
-            # gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
-            gammazeta = collapse_from_remainder(gammazeta_v0, v0 - v0_integer)
+            # Enclosure of gamma(v) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+            gammazeta = zeta_div_v / rgamma_div_v
 
             rest = inv2pi^v * cospi(v / 2)
 

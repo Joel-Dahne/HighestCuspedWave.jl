@@ -405,6 +405,52 @@ rgamma(x::Arb) = Arblib.rgamma!(zero(x), x)
 rgamma(x::ArbSeries) = Arblib.rgamma_series!(zero(x), x, length(x))
 
 """
+    zeta_deflated(s::Arb, a::Arb)
+    zeta_deflated(s::ArbSeries, a::Arb)
+
+Compute the deflated zeta function.
+
+The deflated zeta function is defined by
+```
+zeta_deflated(s, a) = zeta(s, a) + 1 / (1 - s)
+```
+
+**TODO:** Arb doesn't support evaluation for `s` overlapping one.
+Since this is the main case where we need this function we currently
+implement a non-rigorous enclosure for that case. This should be
+updated with a rigorous enclosure.
+"""
+function zeta_deflated(s::Arb, a::Arb)
+    if contains(s, 1) && !isone(s)
+        @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
+
+        # Assume monotonicity
+        sₗ, sᵤ = getinterval(Arb, s)
+        return Arb((zeta_deflated(sₗ, a), zeta_deflated(sᵤ, a)))
+    end
+
+    res = ArbSeries(s)
+    Arblib.zeta_series!(res, res, a, 1, length(res))
+    return res[0]
+end
+
+function zeta_deflated(s::ArbSeries, a::Arb)
+    s0 = Arblib.ref(s, 0)
+    if contains(s0, 1) && !isone(s0)
+        @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
+
+        # Assume monotonicity
+        sₗ, sᵤ = copy(s), copy(s)
+        sₗ[0], sᵤ[0] = getinterval(Arb, s0)
+        res1 = zeta_deflated(sₗ, a)
+        res2 = zeta_deflated(sᵤ, a)
+        return ArbSeries(union.(Arblib.coeffs(res1), Arblib.coeffs(res2)))
+    end
+
+    return Arblib.zeta_series!(zero(s), s, a, 1, length(s))
+end
+
+"""
     fx_div_x(f, x::Arb; extra_degree::Integer = 0, force = false)
     fx_div_x(f, x::ArbSeries; extra_degree::Integer = 0, force = false)
 
