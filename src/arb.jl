@@ -403,3 +403,64 @@ gamma(x)`.
 """
 rgamma(x::Arb) = Arblib.rgamma!(zero(x), x)
 rgamma(x::ArbSeries) = Arblib.rgamma_series!(zero(x), x, length(x))
+
+"""
+    fx_div_x(f, x::Arb; extra_degree::Integer = 0, force = false)
+    fx_div_x(f, x::ArbSeries; extra_degree::Integer = 0, force = false)
+
+Compute an enclosure of `f(x) / x` for a function `f` with a zero at
+the origin.
+
+Setting `extra_degree` to a value higher than `0` makes it use a
+higher order expansion to enclose the value, this can give tighter
+bounds in many cases.
+
+If `force = false` it requires that the enclosure of `f` at zero is
+exactly zero. If `f` is known to be exactly zero at zero but the
+enclosure might be wider it can be forced to be zero by setting `force
+= true`
+"""
+function fx_div_x(f, x::Arb; extra_degree::Integer = 0, force = false)
+    @assert Arblib.contains_zero(x)
+    @assert extra_degree >= 0
+
+    expansion = taylor_with_remainder(f, zero(Arb), x, degree = 1 + extra_degree)
+
+    if force
+        @assert Arblib.contains_zero(expansion[0])
+        expansion[0] = 0
+    end
+
+    return (expansion << 1)(x)
+end
+
+function fx_div_x(f, x::ArbSeries; extra_degree::Integer = 0, force = false)
+    @assert Arblib.contains_zero(x[0])
+    @assert extra_degree >= 0
+
+    expansion = taylor_with_remainder(
+        f,
+        zero(Arb),
+        x[0],
+        degree = Arblib.degree(x) + 1 + extra_degree,
+    )
+
+    if force
+        @assert Arblib.contains_zero(expansion[0])
+        expansion[0] = 0
+    end
+
+    expansion_div_x = expansion << 1
+
+    # Set the result to the Taylor series of f(x) / x on interval
+    res = ArbSeries(degree = Arblib.degree(x))
+    for i = 0:Arblib.degree(res)
+        res[i] = Arblib.derivative(expansion_div_x, i)(x[0]) / factorial(i)
+    end
+
+    # Compose the Taylor series for the result with that of the input
+    x_tmp = copy(x)
+    x_tmp[0] = 0
+
+    return Arblib.compose(res, x_tmp)
+end
