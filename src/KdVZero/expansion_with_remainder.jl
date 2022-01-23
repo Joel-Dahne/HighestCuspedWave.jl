@@ -370,26 +370,3 @@ function abspow_with_remainder(
 
     return compose_with_remainder(p, ymy0, interval; degree)
 end
-
-"""
-    collapse_from_remainder(p::ArbSeries, interval::Arb; degree = Arblib.degree(p))
-
-Given an expansion `p` with a remainder term valid on `interval` of
-some function `f` compute an expansion `q` such that all coefficients
-of `q` are enclosures of the respective coefficients for the function
-`f` on `interval`.
-
-It computes `q[i]` by differentiating `p` `i` times and evaluating on
-`interval`, dividing by a factor `factorial(i)`.
-- **PROVE:** That this gives an enclosure of the coefficients
-"""
-function collapse_from_remainder(p::ArbSeries, interval::Arb; degree = Arblib.degree(p))
-    res = ArbSeries(prec = precision(p); degree)
-    q = copy(p)
-    res[0] = q(interval)
-    for i = 1:degree
-        Arblib.derivative!(q, q)
-        res[i] = q(interval) / factorial(i)
-    end
-    return res
-end
