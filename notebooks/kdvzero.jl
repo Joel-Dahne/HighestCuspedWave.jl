@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.3
+# v0.17.5
 
 using Markdown
 using InteractiveUtils
@@ -45,7 +45,7 @@ where $H^{-\alpha}[u]$ is the fractional Hilbert transform of $u$. For the detai
 
 # ╔═╡ fa84cc84-d9af-4f76-b01b-a088572626bf
 md"""
-What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like 
+What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like
 
 $u(x) = |x|^{-\alpha} + \mathcal{O}(|x|).$
 
@@ -72,7 +72,7 @@ The value $\alpha_0$ converges to a finite non-zero value as $\alpha \to 0$ and 
 
 As $\alpha \to 0$ we have that $\delta_0$ converges to zero, which is good in terms of satisfying the inequality. However $C_B \to 1$ from below and hence $\beta \to \infty$ which is bad in terms of satisfying the inequality. It is therefore not possible to compute any uniform enclosure of $\delta_0$ or $C_B$ such that the inequality holds on the whole interval.
 
-Since a uniform enclosure is not enough we will instead compute an enclosure which is paratemtric in $\alpha$. More preciely we will find intervals $A$ and $B$ such that 
+Since a uniform enclosure is not enough we will instead compute an enclosure which is paratemtric in $\alpha$. More preciely we will find intervals $A$ and $B$ such that
 
 $\delta_0 \in A \alpha^2 \text{ and } C_B \in 1 - B \alpha$
 
@@ -84,10 +84,13 @@ In what follows we compute enclosures of $\alpha_0$, $A$ and $B$.
 """
 
 # ╔═╡ f27e0113-5e77-44af-958a-4b9e4a13a40b
-ϵ = Arb(-1e-3)
+ϵ = Arb(-1.2e-3)
 
 # ╔═╡ 34009ff0-dadd-4464-9187-890723d94a3e
 u0 = KdVZeroAnsatz(Arb((ϵ, 0)))
+
+# ╔═╡ 62580f95-e507-44b7-8b61-8967a50a7473
+u0.p0[end]
 
 # ╔═╡ 5a06011d-4fd2-47fd-adc0-e8828c0696eb
 md"""
@@ -138,8 +141,10 @@ Compute an enclosure of $\alpha_0$
 
 # ╔═╡ 28f1459b-ac86-4316-9523-cb50b0b3a692
 let pl = plot(legend = :bottomright)
-    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :dot, ms = 1)
+    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :circle, ms = 1)
     hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
+    savefig(pl, "../figures/publication/KdVZero-N.pdf")
+    pl
 end
 
 # ╔═╡ 073a34c8-a2e9-434c-b047-d1f1fffd590b
@@ -158,9 +163,9 @@ We can now plot the coefficient in front of $\alpha^2$ as a function of $x$.
 # ╔═╡ 51603714-bb7e-4691-b80d-7b18cf159b94
 A_xs, A_ys = let xs = range(Arb(0), π, length = 200)
     ys = similar(xs)
-    f = let F0_nonasym = F0(u0), F0_asym = F0(u0, Asymptotic(), ϵ = Arb(π))
+    f = let F0_nonasym = F0(u0), F0_asym = F0(u0, Asymptotic(), ϵ = Arb(π), M = 10)
         x -> begin
-            if x < 1
+            if x < π
                 expansion = F0_asym(x)
             else
                 expansion = F0_nonasym(x)
@@ -202,9 +207,11 @@ end
 
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
 let pl = plot(legend = :bottomright)
-    plot!(pl, A_xs, A_ys, ribbon = radius.(Arb, A_ys), label = "", m = :dot, ms = 1)
+    plot!(pl, A_xs, A_ys, ribbon = radius.(Arb, A_ys), label = "", m = :circle, ms = 1)
     hline!([A], ribbon = [radius(Arb, A)], color = :green, label = "A bound")
     hline!([-A], ribbon = [radius(Arb, A)], color = :green, label = "")
+    savefig(pl, "../figures/publication/KdVZero-F.pdf")
+    pl
 end
 
 # ╔═╡ 17860367-ec0a-4dd4-8650-7bd99c5320c6
@@ -215,7 +222,7 @@ let pl = plot(legend = :bottomright)
         A_ys_asym,
         ribbon = radius.(Arb, A_ys_asym),
         label = "",
-        m = :dot,
+        m = :circle,
         ms = 1,
         xaxis = :log10,
     )
@@ -281,8 +288,10 @@ end
 
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
 let pl = plot(legend = :bottomright)
-    plot!(pl, B_xs, B_ys, ribbon = radius.(Arb, B_ys), label = "", m = :dot, ms = 1)
+    plot!(pl, B_xs, B_ys, ribbon = radius.(Arb, B_ys), label = "", m = :circle, ms = 1)
     hline!([B], ribbon = [radius(Arb, B)], color = :green, label = "A bound")
+    savefig(pl, "../figures/publication/KdVZero-T.pdf")
+    pl
 end
 
 # ╔═╡ 89599cbf-2571-4475-a360-bc4e165d71d8
@@ -293,12 +302,15 @@ let pl = plot(legend = :topleft)
         B_ys_asym,
         ribbon = radius.(Arb, B_ys_asym),
         label = "",
-        m = :dot,
+        m = :circle,
         ms = 1,
         xaxis = :log10,
     )
     hline!([B], ribbon = [radius(Arb, B)], color = :green, label = "A bound")
 end
+
+# ╔═╡ 0ba5ede7-9c13-46c4-b288-47ef301ad092
+lbound(B)
 
 # ╔═╡ 11e831ac-4e18-4822-bc53-ee99394ab64f
 md"""
@@ -315,12 +327,13 @@ B^2 / 4α0
 A < B^2 / 4α0
 
 # ╔═╡ Cell order:
-# ╟─28ec11ff-acb6-4be8-9cdd-45c42cfb839d
+# ╠═28ec11ff-acb6-4be8-9cdd-45c42cfb839d
 # ╟─4e3eaa14-583c-11ec-0fa5-e12df02e492f
 # ╟─fa84cc84-d9af-4f76-b01b-a088572626bf
 # ╟─6055dad1-da62-4048-a6fb-e8da26b5ef9a
 # ╠═f27e0113-5e77-44af-958a-4b9e4a13a40b
 # ╠═34009ff0-dadd-4464-9187-890723d94a3e
+# ╠═62580f95-e507-44b7-8b61-8967a50a7473
 # ╟─5a06011d-4fd2-47fd-adc0-e8828c0696eb
 # ╟─f101b712-69a4-4f38-add8-f3a43a43a5d6
 # ╟─c6207967-17ea-41ff-8049-5e940d62374e
@@ -332,7 +345,7 @@ A < B^2 / 4α0
 # ╟─073a34c8-a2e9-434c-b047-d1f1fffd590b
 # ╠═054103ee-ac90-4310-afa3-55291712829d
 # ╟─38e338b0-f7e7-45e6-b84d-45c6946736b3
-# ╟─51603714-bb7e-4691-b80d-7b18cf159b94
+# ╠═51603714-bb7e-4691-b80d-7b18cf159b94
 # ╟─616c4ebf-b2ca-4c5d-a300-30f4c1918223
 # ╠═0044f472-bfd7-462a-aee8-256913beaad3
 # ╟─03cf0016-f828-4049-90ae-5ce560ab644b
@@ -345,6 +358,7 @@ A < B^2 / 4α0
 # ╠═17755368-cba0-446a-9d64-edcd32b11be2
 # ╟─feb38bc2-3963-4143-8e1c-9077a967fba4
 # ╟─89599cbf-2571-4475-a360-bc4e165d71d8
+# ╠═0ba5ede7-9c13-46c4-b288-47ef301ad092
 # ╟─11e831ac-4e18-4822-bc53-ee99394ab64f
 # ╠═e21e7ba1-7bd9-47c6-aa75-cebc4e413c4d
 # ╠═b142ad21-e34e-42b5-b73f-8a32e71feb26

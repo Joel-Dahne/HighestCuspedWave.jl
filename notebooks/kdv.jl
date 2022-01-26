@@ -44,7 +44,7 @@ where $H^{-\alpha}[u]$ is the fractional Hilbert transform of $u$. For the detai
 
 # ╔═╡ b0ed36f7-7252-4c50-b840-ec09760691fa
 md"""
-What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like 
+What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like
 
 $u(x) = |x|^{-\alpha} + \mathcal{O}(|x|^p).$
 
@@ -69,7 +69,7 @@ The first step is to set the value of $\alpha$ that we use.
 """
 
 # ╔═╡ b376a940-bb33-4e6d-bd26-5406ecee51b8
-α = Arblib.add_error!(Arb(-0.6), Arb(1e-6))
+α = Arblib.add_error!(Arb(-0.3), Arb(1e-6))
 
 # ╔═╡ 3e54d065-f8d7-4660-b2c2-4b53e5ade4f5
 md"""
@@ -155,6 +155,12 @@ Now we can compute the required bound for $C_B$.
 # ╔═╡ 9f7fbf89-e36b-412d-9bfc-9e51537747ec
 C_B_goal = 1 - 2Arblib.sqrtpos!(zero(α₀), α₀ * δ₀)
 
+# ╔═╡ c3427f8e-9c4c-424a-adc1-0c378fb2613a
+norm_zero = T0(u0, Asymptotic())(Arb(0))
+
+# ╔═╡ ca251b0a-ee3c-4754-bc84-dab89a46c8da
+norm_zero < C_B_goal
+
 # ╔═╡ a60681bc-905c-4d9e-89b1-1e28b8ae270f
 md"""
 We then prove that $C_B$ is bounded by this value and also plot $C_B$ together with this bound.
@@ -192,8 +198,16 @@ C_B_xs, C_B_ys = let xs = range(Arb(0), π, length = 100)[2:end]
 end
 
 # ╔═╡ 58f1233b-30d1-4f8c-abf4-078df6ccbee4
-let pl = plot(legend = :bottomright, ylims = (0, 1))
-    plot!(pl, C_B_xs, C_B_ys, ribbon = radius.(Arb, C_B_ys), label = "", m = :dot, ms = 1)
+let pl = plot(legend = :bottomright, ylims = (NaN, 1))
+    plot!(
+        pl,
+        C_B_xs,
+        C_B_ys,
+        ribbon = radius.(Arb, C_B_ys),
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
     hline!(
         pl,
         [C_B_goal],
@@ -204,7 +218,7 @@ let pl = plot(legend = :bottomright, ylims = (0, 1))
 end
 
 # ╔═╡ Cell order:
-# ╟─906f72a8-f912-11eb-15d0-ef321ee21aa5
+# ╠═906f72a8-f912-11eb-15d0-ef321ee21aa5
 # ╟─bf052495-c3a5-4c75-9fb6-24e113c9aedf
 # ╟─b0ed36f7-7252-4c50-b840-ec09760691fa
 # ╟─4854d9df-785c-484d-96c5-ca5942a01a69
@@ -215,15 +229,17 @@ end
 # ╟─cef61488-2c3c-43a5-bcc3-c33fee24419c
 # ╟─1e1392ee-0439-4a72-b112-5a2795a06fbc
 # ╠═36d31c09-9882-4add-9a51-2c1d43c6d64a
-# ╟─35cc4d3c-2ec8-4e08-b721-cca697141276
+# ╠═35cc4d3c-2ec8-4e08-b721-cca697141276
 # ╟─28915e75-308c-4a93-aedd-e1ed1955603f
 # ╠═141836ea-b6cd-4696-a86d-7dc7d1964131
 # ╠═44d3ee74-e7e3-45a9-9d09-e0d3565dd4e5
 # ╟─131ee414-0b04-4fc2-b4c4-c15d78ddce0b
 # ╟─9b1a28fa-23ed-4012-a86f-f4bb0cc7d279
-# ╟─9f7fbf89-e36b-412d-9bfc-9e51537747ec
+# ╠═9f7fbf89-e36b-412d-9bfc-9e51537747ec
+# ╠═c3427f8e-9c4c-424a-adc1-0c378fb2613a
+# ╠═ca251b0a-ee3c-4754-bc84-dab89a46c8da
 # ╟─a60681bc-905c-4d9e-89b1-1e28b8ae270f
-# ╟─b2a15239-cedf-4143-bacc-e7a0fb53943e
+# ╠═b2a15239-cedf-4143-bacc-e7a0fb53943e
 # ╟─8ec4333e-7eee-4dc3-a5eb-1154866bbaf4
-# ╟─da412f46-bb81-44a1-a12e-98a542db8320
-# ╟─58f1233b-30d1-4f8c-abf4-078df6ccbee4
+# ╠═da412f46-bb81-44a1-a12e-98a542db8320
+# ╠═58f1233b-30d1-4f8c-abf4-078df6ccbee4

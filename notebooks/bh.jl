@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.3
+# v0.17.5
 
 using Markdown
 using InteractiveUtils
@@ -46,7 +46,7 @@ The wave in question looks like this
 
 # ╔═╡ 6c2a16c7-2bcf-4a2b-9466-38309a36b937
 md"""
-What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like 
+What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like
 
 $u(x) = |x|\log(|x|) + \mathcal{O}(|x|\log(|x|)^{1/2}).$
 
@@ -122,7 +122,7 @@ let xs = range(Arb(0), π, length = 100)
     Threads.@threads for i in eachindex(xs)
         ys[i] = u0(xs[i])
     end
-    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "", m = :dot, ms = 1)
+    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "", m = :circle, ms = 1)
 end
 
 # ╔═╡ 43ff127c-f7fa-4ff0-9827-36fc9507fb0b
@@ -176,8 +176,10 @@ end
 
 # ╔═╡ ab9d59df-3488-4f8a-a321-d23aab7e01d4
 let pl = plot(legend = :bottomright)
-    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :dot, ms = 1)
+    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :circle, ms = 1)
     hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
+    savefig(pl, "../figures/publication/BH-N.pdf")
+    pl
 end
 
 # ╔═╡ 87b3712f-1cf7-4d02-b1d1-d68d7f4464d6
@@ -208,10 +210,12 @@ let pl = plot(legend = :bottomright)
         C_B_ys,
         ribbon = Arblib.radius.(Arb, C_B_ys),
         label = "",
-        m = :dot,
+        m = :circle,
         ms = 1,
     )
     hline!(pl, [C_B], ribbon = [Arblib.radius(Arb, C_B)], color = :green, label = "C_B")
+    savefig(pl, "../figures/publication/BH-T.pdf")
+    pl
 end
 
 # ╔═╡ 5bc3a7c1-9acd-49c4-afd4-e0a94b3b02d7
@@ -251,7 +255,7 @@ end
 
 # ╔═╡ fb6c12ad-3391-4623-a201-412335742930
 δ0_very_asym_xs, δ0_very_asym_ys =
-    let xs = exp.(range(log(Arb("1e-100000")), log(Arb("1e-100")), length = 200))
+    let xs = exp.(range(log(Arb("1e-20000")), log(Arb("1e-100")), length = 200))
         ys = similar(xs)
         f = F0(u0, Asymptotic(), ϵ = 2xs[end])
         Threads.@threads for i in eachindex(xs)
@@ -274,7 +278,7 @@ let pl = plot()
         δ0_xs,
         δ0_ys,
         ribbon = Arblib.radius.(Arb, δ0_ys),
-        m = :dot,
+        m = :circle,
         ms = 1,
         label = "defect",
     )
@@ -282,6 +286,8 @@ let pl = plot()
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
+    savefig(pl, "../figures/publication/BH-F.pdf")
+    pl
 end
 
 # ╔═╡ 15e21dde-fb44-47d8-83d8-9f5ffffab74d
@@ -291,7 +297,7 @@ let pl = plot()
         δ0_asym_xs,
         δ0_asym_ys,
         ribbon = Arblib.radius.(Arb, δ0_asym_ys),
-        m = :dot,
+        m = :circle,
         ms = 1,
         label = "defect",
         xaxis = :log10,
@@ -306,18 +312,20 @@ end
 let pl = plot()
     plot!(
         pl,
-        log.(δ0_very_asym_xs),
+        log.(δ0_very_asym_xs) ./ log(Arb(10)),
         δ0_very_asym_ys,
         ribbon = Arblib.radius.(Arb, δ0_very_asym_ys),
-        m = :dot,
+        m = :circle,
         ms = 1,
         label = "defect",
-        xlabel = "log(x)",
+        xlabel = "log10(x)",
     )
     hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ₀ bound")
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
+    savefig(pl, "../figures/publication/BH-F-asymptotic.pdf")
+    pl
 end
 
 # ╔═╡ Cell order:
@@ -347,8 +355,8 @@ end
 # ╟─67aa36b0-b77c-4531-a248-f7d474ffd47d
 # ╟─b8c5ba34-748e-4c4b-be9c-135240287351
 # ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
-# ╟─fb6c12ad-3391-4623-a201-412335742930
+# ╠═fb6c12ad-3391-4623-a201-412335742930
 # ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
 # ╠═ac03e920-25ad-4127-ad87-00e907701da3
 # ╟─15e21dde-fb44-47d8-83d8-9f5ffffab74d
-# ╟─f5ee2d3b-4a4c-411b-9e46-35164f6e3e83
+# ╠═f5ee2d3b-4a4c-411b-9e46-35164f6e3e83

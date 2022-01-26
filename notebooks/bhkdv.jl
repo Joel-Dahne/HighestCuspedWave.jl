@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.3
+# v0.17.7
 
 using Markdown
 using InteractiveUtils
@@ -34,7 +34,7 @@ end
 
 # ╔═╡ 3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
 md"""
-# From Burgers Hilberts to KdV 
+# From Burgers Hilberts to KdV
 This notebook contains the computer assisted part of the proof for $\alpha \in (-1, -1 + \epsilon)$
 
 $u_t + \left(\frac{u}{2}\right)_x = H^\alpha[u]$
@@ -44,7 +44,7 @@ The approximation of the wave looks like this
 
 # ╔═╡ 6c2a16c7-2bcf-4a2b-9466-38309a36b937
 md"""
-What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like 
+What we actually prove is that there is $2\pi$ periodic, even solution which at $x = 0$ behaves like
 
 $u(x) = |x|^{-\alpha} + \mathcal{O}(|x|\log|x|).$
 
@@ -115,7 +115,7 @@ let xs = range(Arb(0), π, length = 100)
     Threads.@threads for i in eachindex(xs)
         ys[i] = u0(xs[i])
     end
-    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "", m = :dot, ms = 1)
+    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "", m = :circle, ms = 1)
 end
 
 # ╔═╡ 43ff127c-f7fa-4ff0-9827-36fc9507fb0b
@@ -181,7 +181,7 @@ end
 
 # ╔═╡ ab9d59df-3488-4f8a-a321-d23aab7e01d4
 let pl = plot(legend = :bottomright)
-    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :dot, ms = 1)
+    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :circle, ms = 1)
     hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
 end
 
@@ -193,7 +193,7 @@ let pl = plot(legend = :bottomleft, xaxis = :log10)
         α0_asym_ys,
         ribbon = radius.(Arb, α0_asym_ys),
         label = "",
-        m = :dot,
+        m = :circle,
         ms = 1,
     )
     hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
@@ -227,7 +227,7 @@ let pl = plot(legend = :bottomright)
         C_B_ys,
         ribbon = Arblib.radius.(Arb, C_B_ys),
         label = "",
-        m = :dot,
+        m = :circle,
         ms = 1,
     )
     hline!(pl, [C_B], ribbon = [Arblib.radius(Arb, C_B)], color = :green, label = "C_B")
@@ -293,7 +293,7 @@ let pl = plot()
         δ0_xs,
         δ0_ys,
         ribbon = Arblib.radius.(Arb, δ0_ys),
-        m = :dot,
+        m = :circle,
         ms = 1,
         label = "defect",
     )
@@ -310,7 +310,7 @@ let pl = plot()
         δ0_little_asym_xs,
         δ0_little_asym_ys,
         ribbon = Arblib.radius.(Arb, δ0_little_asym_ys),
-        m = :dot,
+        m = :circle,
         ms = 1,
         label = "defect",
         xaxis = :log10,
@@ -328,7 +328,7 @@ let pl = plot(legend = :bottomright)
         δ0_asym_xs,
         δ0_asym_ys,
         ribbon = Arblib.radius.(Arb, δ0_asym_ys),
-        m = :dot,
+        m = :circle,
         ms = 1,
         label = "defect upper bound",
         xaxis = :log10,
