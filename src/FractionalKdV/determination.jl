@@ -95,7 +95,7 @@ end
 Compute `a[0]` such that `a0(u0, 0)^2/2 - A0(u0, 0)` is zero. That is,
 compute
 ```
-a[0] = 2Γ(2α)*sinpi((1 - 2α)/2)/(Γ(α)^2*sinpi((1 - α)/2)^2)
+a[0] = 2gamma(2α) * sinpi(α) / (gamma(α)^2 * sinpi(α / 2)^2)
 ```
 It makes use of the monotinicity to get good enclosures for wide
 balls.
@@ -108,8 +108,8 @@ function finda0(α)
         α_low, α_upp = Arblib.getinterval(Arb, α)
         return Arb((finda0(α_low), finda0(α_upp)))
     end
-    Γ = gamma
-    return 2Γ(2α) * cospi(α) / (Γ(α)^2 * cospi(α / 2)^2)
+
+    return 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 end
 
 function _findas(u0::FractionalKdVAnsatz)
