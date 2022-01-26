@@ -370,6 +370,7 @@ and write it as
     * (rgamma(α) / (1 + α))^2
     * inv(sinpi((1 - α) / 2) / (1 + α))^2
     * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α)
+    / factorial(2m)
 ```
 , where `rgamma` is the reciprocal gamma function given by `rgamma(s)
 = inv(gamma(s))`, and use [`fx_div_x`](@ref) to compute enclosures of
@@ -1494,10 +1495,13 @@ end
 """
     inv_u0_bound(u0::BHKdVAnsatz{Arb})
 
-Return a function `F` such that `F(x)` gives an upper bound of
+Return a function `f` such that `f(x)` gives an upper bound of
 ```
 gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
 ```
+
+It assumes that `x` is non-negative, any negative parts of `x` are
+ignored.
 
 We start by computing the asymptotic expansion of `u0`. We then split
 the expansion into the leading term and a tail. In practice both the
@@ -1530,28 +1534,49 @@ F2 = (1 - x^p0) /
     (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
 ```
 
-For `F1` we can get an enclosure using that it converges to `-π^2 / 2`
-as `α -> -1` and is increasing in `α`.
-- **PROVE:** That `gamma(1 + α) / a0` converges to `-π^2 / 2` as `α ->
-  -1` and is increasing in `α`.
+# `F1`
+From the definition of `a0`
+```
+a0 = 2gamma(2α) * sinpi(α) / (gamma(α)^2 * sinpi(α / 2)^2)
+```
+and using `gamma(1 + α) = α * gamma(α)` we get
+```
+F1 = α * gamma(α)^3 * cospi(α / 2)^2 / (2gamma(2α) * cospi(α))
+```
+This has a removable singularity at `α = -1`. By rewriting it as
+```
+F1 = α / 2 * cospi(α)
+    * inv(rgamma(α) / (1 + α))^3
+    * (cospi(α / 2) / (1 + α))^2
+    * rgamma(2α) / (1 + α)
+```
+, where `rgamma` is the reciprocal gamma function given by `rgamma(s)
+= inv(gamma(s))`, we can use [`fx_div_x`](@ref) to compute enclosures
+of the individual factors.
 
+# `F2`
 For `F2` we let `c(a) = gamma(a) * sinpi((1 - a) / 2)` and then factor
 it out, giving us
 ```
 inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
 ```
-We can enclose `c(α)` using that it converges to `-π / 2` as `α -> -1`
-and is decreasing in `α`.
-- **PROVE:** That `c(α)` converges to `-π / 2` as `α -> -1` and is
-  decreasing in `α`.
+
+Similarly to `F1`, `c(α)` has a removable singularity at `α = -1`. We
+can compute an enclosure using the same tools.
 
 For the remaining part we notice that `c(α - p0) / c(α)` converges to
-`1` as `α -> -1` and is decreasing in `α`. An upper bound for `(1 -
-x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is hence given by `1` (for `α =
--1`) and a lower bound can be computed by evaluating it at `α = -1 +
-u0.ϵ` and an upper bound for `x`
-- **PROVE:** That `c(α - p0) / c(α)` converges to `1` as `α -> -1` and is
-  decreasing in `α` and `x`.
+`1` as `α -> -1` and is decreasing in `α`.
+- **PROVE:** That `c(α - p0) / c(α)` is decreasing in `α` and
+  converges to `1`.
+An upper bound for `(1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is
+hence given by `1` (for `α = -1`). For a lower bound we note since
+`c(α - p0) / c(α) < 1` it is easily seen to be decreasing in `x` and
+it us therefore enough to evaluate it at an upper bound for `x`.
+Furthermore it is decreasing in `α` and we can use an upper bound for
+that as well.
+- **PROVE:** That `(1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is
+  decreasing in `α`. Alternatively we could rewrite it as a removable
+  singularity and handle it that way.
 
 **IMPROVE:** WE could improve the enclosure we get by incorporating
 some of the terms in the tail of `u0`. For very small `x` this would
@@ -1565,49 +1590,52 @@ non-asymptotic version anyway it is probably not worth it to implement
 though.
 """
 function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert Arblib.overlaps(
-            u0.w(x),
-            x^(1 - u0.γ * (1 + Arb((-1, -1 + u0.ϵ)))) * log(u0.c + inv(x)),
-        )
+    # Interval corresponding to 1 + α
+    interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+    # Enclosure of rgamma(α) / (α + 1)
+    rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
+    # Enclosure of rgamma(2α) / (α + 1)
+    rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
+    # Enclosure of sinpi((1  α) / 2) / (α + 1)
+    cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
+
+    # Enclosure of F1
+    F1 = let α = Arb((-1, -1 + u0.ϵ))
+        α / 2 * cospi(α) * inv(rgamma1_div_α)^3 * cos_div_α^2 * rgamma2_div_α
     end
 
-    # Compute the expansion of u0 and remove the leading term, which
-    # is handled separately.
+    c(a) = gamma(a) * sinpi((1 - a) / 2)
+
+    # Enclosure of inv(c(α))
+    inv_c_α = rgamma1_div_α / cos_div_α
+
+    # Compute the expansion of u0 and remove the leading term
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
     delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
 
-    # Ensure that the tail of the expansion of u0 is positive, so that
-    # we can remove it from the denominator of F1 and still get an
+    # Check that the remaining part of the expansion is positive, so
+    # that we can remove it from the denominator and still get an
     # upper bound.
     expansion_ispositive(u0, u0_expansion, ϵ) ||
         error("expansion of u0 not prove to be positive, this should not happen")
-
-    c(a) = gamma(a) * sinpi((1 - a) / 2)
 
     αᵤ = -1 + u0.ϵ
     p0ᵤ = 1 + αᵤ + (1 + αᵤ)^2 / 2
 
     return x::Arb -> begin
-        x <= ϵ || throw(ArgumentError("need x <= ϵ, got x = $x with ϵ = $ϵ"))
+        x < 1 || throw(DomainError(x, "need 0 < x < 1"))
+        x <= ϵ || throw(DomainError(x, "need x <= ϵ = $ϵ"))
 
         xᵤ = ubound(Arb, x)
 
-        # Enclose F12
-        F1_lower = -Arb(π)^2 / 2
-        F1_upper = gamma(1 + αᵤ) / finda0(αᵤ)
-        F1 = Arb((F1_lower, F1_upper))
-
+        # Enclose F2
         # Upper and lower bound of
         # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
         F2_lower = (1 - xᵤ^p0ᵤ) / (1 - c(αᵤ - p0ᵤ) / c(αᵤ) * xᵤ^p0ᵤ)
         F2_upper = one(Arb)
-        # Combine upper and lower bound and multiply with
-        # enclosure of inv(c(α)) to get an upper bound for F122.
-        F2 = inv(Arb((c(αᵤ), -Arb(π) / 2))) * Arb((F2_lower, F2_upper))
+        # Combine upper and lower bound and multiply with enclosure of
+        # inv(c(α)) to get an enclosure for F2.
+        F2 = inv_c_α * Arb((F2_lower, F2_upper))
 
         F = F1 * F2
 
