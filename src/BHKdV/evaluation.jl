@@ -348,7 +348,8 @@ Return a dictionary containing the terms in the asymptotic expansion
 of `u0` which can then be evaluated with [`eval_expansion`](@ref).
 
 The highest term, `x^2M`, is an error term is which makes sure that
-evaluation of the expansion gives an enclosure of the result.
+evaluation of the expansion gives an enclosure of the result when
+evaluated at `|y| < |x|`.
 
 For the tail term the expansions are easily computed exactly like for
 `BHAnsatz`. For the main term we have to be a bit more careful.
@@ -357,23 +358,23 @@ For the main term the coefficients in front of `x^2m` is given by
 ```
 a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
 ```
-which in the limit becomes `∞ * 0`. It converges to
+It has a removable singularity at `α = -1`. To compute an enclosure we
+use that
 ```
-u0.v0.a0 * (-1)^m * dzeta(2 - 2m) / factorial(2m)
+a0 = 2gamma(2α) * sinpi((1 - 2α) / 2) / (gamma(α) * sinpi((1 - α) / 2))^2
 ```
-, where `u0.v0.a0 = 2 / π^2` , which is the coefficient in front of
-`x^2m` for the main term of `u0.v0`. We therefore compute the
-coefficients by using this expression and then adding bounding the
-error for it.
-
-For now we bound the error by computing the value at `α = -1 + u0.ϵ`
-and take the union of the result with the one computed with the
-limiting expression. This works in practice since we have a monotone
-convergence.
-- **TODO:** Compute rigorous bounds for the coefficients. Possibly by
-  proving the monotonicity of the error.
-- **TODO:** Compute rigorous bounds for the error term in the
-  expansion. Possibly by proving the monotonicity of it.
+and write it as
+```
+(-1)^m * 2sinpi((1 - 2α) / 2)
+    * inv(rgamma(2α) / (1 + α))
+    * (rgamma(α) / (1 + α))^2
+    * inv(sinpi((1 - α) / 2) / (1 + α))^2
+    * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α)
+```
+, where `rgamma` is the reciprocal gamma function given by `rgamma(s)
+= inv(gamma(s))`, and use [`fx_div_x`](@ref) to compute enclosures of
+the individual factors.
+- **TODO:** Compute enclosure of remainder term in similar way.
 
 The only remaining part of the expansion of the main term is
 ```
@@ -401,23 +402,49 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     res[(1, 0, 0, 0, 0, 0, 0)] = 1
 
     # x^2m terms
-    # TODO: Implement rigorous bounds
-    @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
-    let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
-        for m = 1:M-1
-            coefficient = u0.v0.a0 * (-1)^m * dzeta(Arb(2 - 2m)) / factorial(2m)
-
-            # Add error bounds
-            coefficient_2 =
-                a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
-
-            coefficient = union(coefficient, coefficient_2)
-
-            res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
+    # Interval corresponding to 1 + α
+    interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+    # Enclosure of rgamma(α) / (α + 1)
+    rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
+    # Enclosure of rgamma(2α) / (α + 1)
+    rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
+    # Enclosure of sinpi((1  α) / 2) / (α + 1)
+    sin_div_α = fx_div_x(s -> sinpi((1 - (s - 1)) / 2), interval, extra_degree = 2)
+    for m = 1:M-1
+        # Enclosure of
+        # (zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m)) / (α + 1)
+        zeta_div_α = if m == 1
+            # zeta(x::ArbSeries) doesn't handle balls containing
+            # zero but centered at a negative number well. For
+            # that reason we take a symmetric interval in this
+            # case.
+            fx_div_x(
+                s -> zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m),
+                union(-interval, interval),
+                extra_degree = 2,
+                force = true,
+            )
+        else
+            fx_div_x(
+                s -> zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m),
+                interval,
+                extra_degree = 2,
+            )
         end
+
+        coefficient =
+            (-1)^m *
+            2sinpi((1 - 2Arb((-1, -1 + u0.ϵ))) / 2) *
+            inv(rgamma2_div_α) *
+            rgamma1_div_α^2 *
+            inv(sin_div_α)^2 *
+            zeta_div_α / factorial(2m)
+
+        res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
     end
 
-    # Error term for main term
+    # Remainder term for main term
+    # FIXME: Compute proper remainder term
     @warn "Non-rigorous error term implemented for main term" maxlog = 1
     Arblib.add_error!(
         res[(0, 0, 0, 0, 0, 0, 2M)],
@@ -505,6 +532,12 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
         # Tail term
 
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
+            # IMPROVE: We might be able to compute better enclosures
+            # in α, allowing us to work with larger values of u0.ϵ, by
+            # expanding in s. This would require a fair amount of work
+            # though, we would probably have to extract the formula
+            # from _clausenc_zeta.
+
             # Clausen terms
             for j = 1:u0.v0.v0.N0
                 s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
@@ -540,30 +573,16 @@ Return a dictionary containing the terms in the asymptotic expansion
 of `u0` which can then be evaluated with [`eval_expansion`](@ref).
 
 The highest term, `x^2M`, is an error term is which makes sure that
-evaluation of the expansion gives an enclosure of the result.
+evaluation of the expansion gives an enclosure of the result when
+evaluated at `|y| < |x|`.
 
 For the main term the coefficients in front of `x^2m` is given by
 ```
 -a0 * (-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m)
 ```
-which in the limit becomes `∞ * 0`. For `m >= 2` it converges to
-```
--u0.v0.a0 * (-1)^m * dzeta(2 - 2m) / factorial(2m)
-```
-, where `u0.v0.a0 = 2 / π^2` , which is the coefficient in front of
-`x^2m` for the main term of `u0.v0`. We therefore compute the
-coefficients by using this expression and then bounding the error for
-it. For `m = 1` we can't do this, instead we include it in the
-remaining terms below.
-
-For now we bound the error by computing the value at `α = -1 + u0.ϵ`
-and take the union of the result with the one computed with the
-limiting expression. This works in practice since we have a monotone
-convergence.
-- **TODO:** Compute rigorous bounds for the coefficients. Possibly by
-  proving the monotonicity of the error.
-- **TODO:** Compute rigorous bounds for the error term in the
-  expansion. Possibly by proving the monotonicity of it.
+For `m >= 2` it has a removable singularity and we handle it in the
+same way as in [`u0`](@ref).
+- **TODO:** Compute enclosure of remainder term in similar way.
 
 The remaining part of the expansion of `H` applied to the main term is
 ```
@@ -580,17 +599,25 @@ For both the Clausen terms and the Fourier terms we let `α` be a ball.
 This gives good enclosures for the Fourier terms and decent enclosures
 for the Clausen terms for `j >= 2`. For `j = 1` the parameter `s`
 overlaps with 3 and the two leading terms in the expansion become
-singular are need to be handled separately.
-
-For now we only compute an approximation of the two singular terms by
-using `α = -1 + u0.ϵ`.
-- **TODO:** Compute a rigorous enclosure of the two singular terms. In
-  the end we might not need this though since `F0` uses
-  `skip_j_one_singular = true`.
+singular need to be handled separately.
 
 If `skip_j_one_singular` is true then don't include the two singular
 terms from the Clausen term in the tail corresponding to `j = 1`. This
 is used in `F0` where these two terms are treated separately.
+Otherwise, if `approximate_j_one_singular` is true it only computes an
+approximation of the two singular terms by using `α = -1 + u0.ϵ`, this
+can be useful for testing. If `approximate_j_one_singular` is false it
+computes enclosures, depending on `u0.v0.v0.α` and `u0.ϵ` these might
+not be finite and will typically be very bad.
+- **TODO:** Determine if we need to compute better enclosures of these
+  terms or not. Since [`F0`](@ref) don't use them we might not have to.
+- **IMPROVE:** We might want to treat more small `j` values
+  separately.
+
+The argument `alpha_interval` can be set to either `:full` or
+`:endpoint`. In the former case it uses the full interval of `α` when
+computing the tail terms, in the latter it uses `α = -1 + u0.ϵ`, this
+can be used for testing.
 
 See [`eval_expansion`](@ref) for more details about how the
 coefficients are stored.
@@ -600,6 +627,7 @@ function H(
     ::AsymptoticExpansion;
     M::Integer = 3,
     skip_j_one_singular::Bool = false,
+    approximate_j_one_singular::Bool = false,
     alpha_interval = :full,
 )
     @assert M >= 3
@@ -626,37 +654,51 @@ function H(
         # Three leading terms
         res[(0, 1, 0, 0, 0, 0, 0)] = 1
 
-        # Remaining terms
-        @warn "Non-rigorous bounds implemented for x^2m coefficients" maxlog = 1
-        # TODO:
+        # x^2m terms with m >= 2
+        # Interval corresponding to 1 + α
+        interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+        # Enclosure of rgamma(α) / (α + 1)
+        rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
+        # Enclosure of rgamma(2α) / (α + 1)
+        rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
+        # Enclosure of sinpi((1  α) / 2) / (α + 1)
+        sin_div_α = fx_div_x(s -> sinpi((1 - (s - 1)) / 2), interval, extra_degree = 2)
         for m = 2:M-1
-            coefficient = -(-1)^m * dzeta(Arb(3 - 2m)) / factorial(2m) * u0.v0.a0
+            # Enclosure of
+            # (zeta(1 - 2(s - 1) - 2m) - zeta(2 - (s - 1) + (1 + (s - 1))^2 / 2 - 2m)) / (α + 1)
+            zeta_div_α = fx_div_x(
+                s ->
+                    zeta(1 - 2(s - 1) - 2m) - zeta(2 - (s - 1) + (1 + (s - 1))^2 / 2 - 2m),
+                interval,
+                extra_degree = 2,
+                force = true,
+            )
 
-            # Add error bounds
-            # FIXME: Implement rigorous error bounds. Currently we
-            # just compute with α = -1 + u0.ϵ.
-            coefficient_2 =
-                let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
-                    -(-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m) * a0
-                end
-
-            coefficient = union(coefficient, coefficient_2)
+            coefficient =
+                -(-1)^m *
+                2sinpi((1 - 2Arb((-1, -1 + u0.ϵ))) / 2) *
+                inv(rgamma2_div_α) *
+                rgamma1_div_α^2 *
+                inv(sin_div_α)^2 *
+                zeta_div_α / factorial(2m)
 
             res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
         end
 
-        # Error term for main term
+        # Remainder term for main term
+        # FIXME: Compute proper remainder term
         @warn "No error bounds for error term of main term" maxlog = 1
-        # FIXME: Add error bounds for error term. Currently we don't do anything
         Arblib.add_error!(
             res[(0, 0, 0, 0, 0, 0, 2M)],
             2abs(dzeta(Arb(3 - 2M)) / factorial(2M)) * u0.v0.a0,
         )
 
+        # Tail term
+
         # Clausen terms
 
         # Handle the first term separately since we  since s is very close to 3 in
-        # this case and it is therefore very unstable
+        # this case and the first two terms in its expansion are very unstable
         if u0.v0.v0.N0 >= 1
             let j = 1
                 s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
@@ -664,16 +706,18 @@ function H(
 
                 # Only add these terms if skip_j_one_singular is not true
                 if !skip_j_one_singular
-                    @warn "Using non-rigorous terms for first Clausen in tail" maxlog = 1
-                    # FIXME: Compute a rigorous enclosure. In the end
-                    # we might not need to use this though.
-                    C2, _, p2, _ =
-                        let s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
-                            clausenc_expansion(x, s, M, skip_constant = true)
-                        end
+                    if approximate_j_one_singular
+                        C2, _, p2, _ =
+                            let s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
+                                clausenc_expansion(x, s, M, skip_constant = true)
+                            end
 
-                    res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.v0.a[j]
-                    res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.v0.a[j]
+                        res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.v0.a[j]
+                        res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.v0.a[j]
+                    else
+                        res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+                        res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.v0.a[j]
+                    end
                 end
 
                 for m = 2:M-1
