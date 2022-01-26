@@ -281,8 +281,7 @@ end
 """
     (u0::BHKdVAnsatz)(x, ::Ball)
 
-Evaluate the ansatz `u0` at the point `x` using direct ball arithmetic
-(not an asymptotic approach).
+Evaluate the ansatz `u0` at the point `x`.
 
 The tail term is evaluated directly.
 
@@ -456,9 +455,8 @@ end
 """
     H(u0::BHKdVAnsatz, ::Ball)
 
-Returns a function such that `H(u0, Ball())(x)` gives an enclosure of
-`H^-α[u0](x)` for all values of `α ∈ (-1, -1 + u0.ϵ]`. It uses direct
-ball arithmetic (not an asymptotic approach).
+Returns a function such that `H(u0, Ball())(x)` evaluates
+``H^α[u0](x)``.
 
 The transform of the main term is given by
 ```
@@ -506,16 +504,14 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
 
         # Tail term
 
-        # Clausen terms
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
+            # Clausen terms
             for j = 1:u0.v0.v0.N0
-                term = clausencmzeta(x, 2 - u0.v0.v0.α + j * u0.v0.v0.p0)
-                res -= u0.v0.v0.a[j] * term
+                s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+                res -= u0.v0.v0.a[j] * clausencmzeta(x, s)
             end
-        end
 
-        # Fourier terms
-        let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
+            # Fourier terms
             for n = 1:u0.v0.N
                 res -= u0.v0.b[n] * n^α * (cos(n * x) - 1)
             end
