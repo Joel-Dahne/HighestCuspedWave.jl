@@ -1,8 +1,9 @@
 """
     eval_expansion(u0::BHKdVAnsatz, expansion, x)
 
-Evaluate the given expansion. It requires that `x < 1` and that `x` is
-non-negative, any negative parts of `x` are ignored.
+Evaluate the given expansion.
+
+It requires that `0 <= x < 1`, any negative parts of `x` are ignored.
 
 The terms are stored as `((p, q, i, j, k, l, m), y)`. The parameters `(i, j,
 k l, m)` correspond to the term
@@ -13,15 +14,15 @@ where `α ∈ (-1, -1 + u0.ϵ]` and `p0 = 1 + α + (1 + α)^2 / 2`.
 
 The parameter `p` corresponds to multiplication by the factor
 ```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
+a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) * x^-α
 ```
 to the power `p`, which is the part of the expansion for the main term
 which is not even powers of `x`. The parameter `q` corresponds to
 multiplication by the factor
 ```
 -a0 * (
-    gamma(2α) * sinpi((1 - 2α) / 2) * x^(-2α) -
-    gamma(2α - p0) * sinpi((1 - 2α + p0) / 2) * x^(-2α + p0) +
+    gamma(2α) * cospi(α) * x^(-2α) -
+    gamma(2α - p0) * cospi((2α - p0) / 2) * x^(-2α + p0) +
     (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * x^2
 )
 ```
@@ -35,7 +36,7 @@ for that reason we don't bother implementing them here.
 
 As `α` goes to `-1` we have that
 ```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
+a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
 converges to
 ```
@@ -173,8 +174,8 @@ function eval_expansion(
                     p_factor =
                         a0 *
                         (
-                            gamma(α) * sinpi((1 - α) / 2) -
-                            gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0
+                            gamma(α) * cospi(α / 2) -
+                            gamma(α - p0) * cospi((α - p0) / 2) * x^p0
                         ) *
                         x^-α
                     term *= p_factor^p
@@ -188,8 +189,8 @@ function eval_expansion(
                 let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
                     q_factor =
                         -a0 * (
-                            gamma(2α) * sinpi((1 - 2α) / 2) * x^(-2α) -
-                            gamma(2α - p0) * sinpi((1 - 2α + p0) / 2) * x^(-2α + p0) +
+                            gamma(2α) * cospi(α) * x^(-2α) -
+                            gamma(2α - p0) * cospi((2α - p0) / 2) * x^(-2α + p0) +
                             (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * x^2
                         )
                     term *= q_factor^q
@@ -361,14 +362,14 @@ a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
 It has a removable singularity at `α = -1`. To compute an enclosure we
 use that
 ```
-a0 = 2gamma(2α) * sinpi((1 - 2α) / 2) / (gamma(α) * sinpi((1 - α) / 2))^2
+a0 = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))^2
 ```
 and write it as
 ```
-(-1)^m * 2sinpi((1 - 2α) / 2)
+(-1)^m * 2cospi(α)
     * inv(rgamma(2α) / (1 + α))
     * (rgamma(α) / (1 + α))^2
-    * inv(sinpi((1 - α) / 2) / (1 + α))^2
+    * inv(cospi(α / 2) / (1 + α))^2
     * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α)
     / factorial(2m)
 ```
@@ -379,7 +380,7 @@ the individual factors.
 
 The only remaining part of the expansion of the main term is
 ```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
+a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) * x^-α
 ```
 which we don't evaluate at all yet. Instead store implicitly in the
 expansion.
@@ -409,8 +410,8 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
     # Enclosure of rgamma(2α) / (α + 1)
     rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
-    # Enclosure of sinpi((1  α) / 2) / (α + 1)
-    sin_div_α = fx_div_x(s -> sinpi((1 - (s - 1)) / 2), interval, extra_degree = 2)
+    # Enclosure of cospi(α / 2) / (α + 1)
+    cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
     for m = 1:M-1
         # Enclosure of
         # (zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m)) / (α + 1)
@@ -435,10 +436,10 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
 
         coefficient =
             (-1)^m *
-            2sinpi((1 - 2Arb((-1, -1 + u0.ϵ))) / 2) *
+            2cospi((Arb((-1, -1 + u0.ϵ)))) *
             inv(rgamma2_div_α) *
             rgamma1_div_α^2 *
-            inv(sin_div_α)^2 *
+            inv(cos_div_α)^2 *
             zeta_div_α / factorial(2m)
 
         res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
@@ -588,8 +589,8 @@ same way as in [`u0`](@ref).
 The remaining part of the expansion of `H` applied to the main term is
 ```
 -a0 * (
-    gamma(2α) * sinpi((1 - 2α) / 2) * abs(x)^(-2α) -
-    gamma(2α - p0) * sinpi((1 - 2α + p0) / 2) * abs(x)^(-2α + p0)
+    gamma(2α) * cospi(α) * abs(x)^(-2α) -
+    gamma(2α - p0) * cospi((1 - 2α + p0) / 2) * abs(x)^(-2α + p0)
     (zeta(1 - 2α - 2) / 2 - zeta(1 - 2α + p0 - 2) / 2) * abs(x)^2
 )
 ```
@@ -662,8 +663,8 @@ function H(
         rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
         # Enclosure of rgamma(2α) / (α + 1)
         rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
-        # Enclosure of sinpi((1  α) / 2) / (α + 1)
-        sin_div_α = fx_div_x(s -> sinpi((1 - (s - 1)) / 2), interval, extra_degree = 2)
+        # Enclosure of cospi(α / 2) / (α + 1)
+        cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
         for m = 2:M-1
             # Enclosure of
             # (zeta(1 - 2(s - 1) - 2m) - zeta(2 - (s - 1) + (1 + (s - 1))^2 / 2 - 2m)) / (α + 1)
@@ -677,10 +678,10 @@ function H(
 
             coefficient =
                 -(-1)^m *
-                2sinpi((1 - 2Arb((-1, -1 + u0.ϵ))) / 2) *
+                2cospi(Arb((-1, -1 + u0.ϵ))) *
                 inv(rgamma2_div_α) *
                 rgamma1_div_α^2 *
-                inv(sin_div_α)^2 *
+                inv(cos_div_α)^2 *
                 zeta_div_α / factorial(2m)
 
             res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
@@ -926,7 +927,7 @@ and
 ```
 Q = -a0 * ((c(2α) - c(2α - p0) * x^p0) * x^-2α - (zeta(-2α - 1) / 2 - zeta(-2α + p0 - 1) / 2) * x^2)
 ```
-where `c(a) = gamma(a) * sinpi((1 - a) / 2)`, similar to
+where `c(a) = gamma(a) * cospi(α / 2)`, similar to
 [`inv_u0_bound`](@ref).
 
 By construction `a0` is such that the terms with exponent `x^-2α`
@@ -1236,7 +1237,7 @@ function F0(
         Du0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
     end
 
-    c(a) = gamma(a) * sinpi((1 - a) / 2)
+    c(a) = gamma(a) * cospi(α / 2)
 
     return x::Arb -> begin
         @assert x <= ϵ
@@ -1515,13 +1516,13 @@ easily seen that the numerator is positive in our case)
 
 What remains is to handle the leading term, it is given by
 ```
-a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0) * x^-α
+a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) * x^-α
 ```
 Since we are interested in `gamma(1 + α) * x^-α * (1 - x^p0)` divided
 by this we get
 ```
 gamma(1 + α) * (1 - x^p0) /
-    (a0 * (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0))
+    (a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0))
 ```
 Numerically we can see that this term converges to `π` as `α -> -1`
 and `x -> 0`. We can also see that it is decreasing in both `α` and
@@ -1531,13 +1532,13 @@ proceed as follows. We can split this further into the two factors
 ```
 F1 = gamma(1 + α) / a0
 F2 = (1 - x^p0) /
-    (gamma(α) * sinpi((1 - α) / 2) - gamma(α - p0) * sinpi((1 - α + p0) / 2) * x^p0)
+    (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
 
 # `F1`
 From the definition of `a0`
 ```
-a0 = 2gamma(2α) * sinpi(α) / (gamma(α)^2 * sinpi(α / 2)^2)
+a0 = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
 and using `gamma(1 + α) = α * gamma(α)` we get
 ```
@@ -1555,8 +1556,8 @@ F1 = α / 2 * cospi(α)
 of the individual factors.
 
 # `F2`
-For `F2` we let `c(a) = gamma(a) * sinpi((1 - a) / 2)` and then factor
-it out, giving us
+For `F2` we let `c(a) = gamma(a) * cospi(α / 2)` and then factor it
+out, giving us
 ```
 inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
 ```
@@ -1596,7 +1597,7 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
     rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
     # Enclosure of rgamma(2α) / (α + 1)
     rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
-    # Enclosure of sinpi((1  α) / 2) / (α + 1)
+    # Enclosure of cospi(α / 2) / (α + 1)
     cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
 
     # Enclosure of F1
@@ -1604,7 +1605,7 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
         α / 2 * cospi(α) * inv(rgamma1_div_α)^3 * cos_div_α^2 * rgamma2_div_α
     end
 
-    c(a) = gamma(a) * sinpi((1 - a) / 2)
+    c(a) = gamma(a) * cospi(α / 2)
 
     # Enclosure of inv(c(α))
     inv_c_α = rgamma1_div_α / cos_div_α

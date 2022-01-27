@@ -95,7 +95,7 @@ end
 Compute `a[0]` such that `a0(u0, 0)^2/2 - A0(u0, 0)` is zero. That is,
 compute
 ```
-a[0] = 2gamma(2α) * sinpi(α) / (gamma(α)^2 * sinpi(α / 2)^2)
+a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
 It makes use of the monotinicity to get good enclosures for wide
 balls.
