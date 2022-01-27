@@ -975,7 +975,7 @@ and
 ```
 Q = -a0 * ((c(2α) - c(2α - p0) * x^p0) * x^-2α - (zeta(-2α - 1) / 2 - zeta(-2α + p0 - 1) / 2) * x^2)
 ```
-where `c(a) = gamma(a) * cospi(α / 2)`, similar to
+where `c(a) = gamma(a) * cospi(a / 2)`, similar to
 [`inv_u0_bound`](@ref).
 
 By construction `a0` is such that the terms with exponent `x^-2α`
@@ -1285,7 +1285,7 @@ function F0(
         Du0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
     end
 
-    c(a) = gamma(a) * cospi(α / 2)
+    c(a) = gamma(a) * cospi(a / 2)
 
     return x::Arb -> begin
         @assert x <= ϵ
@@ -1616,7 +1616,7 @@ F1 = α / 2 * cospi(α)
 of the individual factors.
 
 # `F2`
-For `F2` we let `c(a) = gamma(a) * cospi(α / 2)` and then factor it
+For `F2` we let `c(a) = gamma(a) * cospi(a / 2)` and then factor it
 out, giving us
 ```
 inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
