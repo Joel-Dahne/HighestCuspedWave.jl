@@ -38,9 +38,11 @@ When `x != 0` the function
 ```
 a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
-has a removable singularity at `α = -1`. This removable singularity
-can be handled by iterated use of [`fx_div_x`](@ref). For `x = 0` this
-doesn't work. For now we use that it converges to
+has a removable singularity at `α = -1`.
+- **PROVE:** That it has a removable singularity
+This removable singularity can be handled by iterated use of
+[`fx_div_x`](@ref). For `x = 0` this doesn't work. For now we use that
+it converges to
 ```
 (1 - γ - log(x)) / π
 ```
