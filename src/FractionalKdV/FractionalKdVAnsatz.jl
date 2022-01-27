@@ -99,10 +99,10 @@ function FractionalKdVAnsatz(
 
     # Initiate the a vector with a[0] = finda0(α) and the rest of the
     # coefficients zero
-    a = OffsetVector([finda0(α); zeros(α, N0)], 0:N0)
+    a = OffsetVector([finda0(α); zeros(T, N0)], 0:N0)
 
     # Initiate the b vector with zeros
-    b = zeros(α, N1)
+    b = zeros(T, N1)
 
     # Set the initial values of a and b according to initial_a and
     # initial_b

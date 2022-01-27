@@ -114,9 +114,7 @@ end
 
 function _findas(u0::FractionalKdVAnsatz)
     f = D(u0, Symbolic())
-    g(a) = begin
-        f(OffsetVector([u0.a[0]; a], 0:u0.N0))
-    end
+    g(a) = f(OffsetVector([u0.a[0]; a], 0:u0.N0))
 
     initial = u0.a[1:end]
     sol = nlsolve(g, initial, autodiff = :forward, iterations = 50)

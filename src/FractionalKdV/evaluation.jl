@@ -415,25 +415,24 @@ function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
 end
 
 """
-    D(u0::FractionalKdVAnsatz, evaltype::Symbolic, n::Integer)
-Returns a function such that D(u0, evaltype, N)(a) computes the
-coefficients of the first `u0.N0 + 1` terms in the asymptotic
-expansion using the values of `a`. Does this in an efficient way by
-precomputing as much as possible.
+    D(u0::FractionalKdVAnsatz, evaltype::Symbolic; M::Integer = 5)
 
-TODO: Optimize the choice of M
+Return a function such that `D(u0, evaltype, N)(a)` computes the
+coefficients in the asymptotic expansion with indices `3` to `u0.N0 +
+1` using the values from `a`.
 
-TODO: Check that we do not encounter the error terms. This should
-hopefully be fine with M = 5 though.
+This is used in [`_findas`](@ref) for numerically finding values for
+`a`.
 """
 function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
-    Γ = gamma
+    # Given a key get its exponent
+    key_exponent = ((i, j, m),) -> -i * u0.α + j * u0.p0 + m
 
     # Precompute for u0
     u0_precomputed = OrderedDict{NTuple{3,Int},OrderedDict{Int,T}}()
     for j = 0:u0.N0
         s = u0.α - j * u0.p0
-        u0_precomputed[(1, j, 0)] = OrderedDict(j => Γ(s) * sinpi((1 - s) / 2))
+        u0_precomputed[(1, j, 0)] = OrderedDict(j => gamma(s) * sinpi((1 - s) / 2))
     end
 
     for m = 1:M-1
@@ -442,14 +441,12 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
         )
     end
 
-    u0_precomputed[(0, 0, 2M)] = OrderedDict()
-
     # Precompute H(u0)
     Hu0_precomputed = OrderedDict{NTuple{3,Int},OrderedDict{Int,T}}()
 
     for j = 0:u0.N0
         s = 2u0.α - j * u0.p0
-        Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -Γ(s) * sinpi((1 - s) / 2))
+        Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -gamma(s) * sinpi((1 - s) / 2))
     end
 
     for m = 1:M-1
@@ -458,12 +455,43 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
         )
     end
 
-    Hu0_precomputed[(0, 0, 2M)] = OrderedDict()
+    # We want to find the value of the maximum exponent we return. To
+    # do this we first compute ALL keys we will encounter and then
+    # sort and find the value for the maximum one we return.
+    all_keys = OrderedDict{NTuple{3,Int},T}()
+    for key in keys(Hu0_precomputed)
+        if !haskey(all_keys, key)
+            all_keys[key] = key_exponent(key)
+        end
+    end
+    for key1 in keys(u0_precomputed)
+        for key2 in keys(u0_precomputed)
+            key = key1 .+ key2
+            if !haskey(all_keys, key)
+                all_keys[key] = key_exponent(key)
+            end
+        end
+    end
+    # Find the keys we care about
+    returned_keys = collect(sort(all_keys, by = Float64 ∘ key_exponent))[3:u0.N0+2]
+    # Find the largest key/exponent we care about
+    maxkey, maxexponent = returned_keys[end]
+
+    # Check that M is large enough
+    @assert maxexponent < 2M
+
+    # Filter out any keys larger than the max exponent
+    filter!(keyvalue -> !(key_exponent(keyvalue[1]) > maxexponent), u0_precomputed)
+    filter!(keyvalue -> !(key_exponent(keyvalue[1]) > maxexponent), Hu0_precomputed)
+
+    # Sort the dictionaries by exponent
+    sort!(u0_precomputed, by = Float64 ∘ key_exponent)
+    sort!(Hu0_precomputed, by = Float64 ∘ key_exponent)
 
     # Function to compute the dictionaries u0_res and H0_res
     sum_dict(precomputed, a, S) = begin
         res = empty(precomputed, S)
-        for (key, dict) in precomputed
+        @inbounds for (key, dict) in precomputed
             for (j, v) in dict
                 res[key] = get(res, key, zero(S)) + v * a[j]
             end
@@ -479,12 +507,15 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
 
         # Compute u0^2/2
         res = empty(u0_res)
-        u0_res = collect(u0_res)
-        for (i, (key1, y1)) in enumerate(u0_res)
-            res[2 .* key1] = get(res, 2 .* key1, zero(S)) + y1^2 / 2
-            for j = i+1:length(u0_res)
-                (key2, y2) = u0_res[j]
+        u0_res_vector = collect(u0_res)
+        @inbounds for (i, (key1, y1)) in enumerate(u0_res_vector)
+            key = 2 .* key1
+            key_exponent(key) > maxexponent && continue
+            res[key] = get(res, key, zero(S)) + y1^2 / 2
+            for j = i+1:length(u0_res_vector)
+                (key2, y2) = u0_res_vector[j]
                 key = key1 .+ key2
+                key_exponent(key) > maxexponent && break
                 res[key] = get(res, key, zero(S)) + y1 * y2
             end
         end
@@ -492,13 +523,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
         # Compute u0^2/2 + H(u0)
         merge!(+, res, Hu0_res)
 
-        return getindex.(
-            sort(
-                [((i, j, m), -i * u0.α + j * u0.p0 + m, y) for ((i, j, m), y) in res],
-                by = x -> Float64(getindex(x, 2)),
-            )[3:u0.N0+2],
-            3,
-        )
+        return collect(values(sort(res, by = Float64 ∘ key_exponent)))[3:u0.N0+2]
     end
 end
 
