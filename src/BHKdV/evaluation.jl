@@ -34,15 +34,20 @@ The method currently does not support `q != 0` and only supports `p ==
 0` and `p == 1`. These cases are handled specially in [`F0`](@ref) and
 for that reason we don't bother implementing them here.
 
-As `α` goes to `-1` we have that
+When `x != 0` the function
 ```
 a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
-converges to
+has a removable singularity at `α = -1`. This removable singularity
+can be handled by iterated use of [`fx_div_x`](@ref). For `x = 0` this
+doesn't work. For now we use that it converges to
 ```
 (1 - γ - log(x)) / π
 ```
-- **TODO:** Prove this and compute error bounds.
+and that this gives an upper bound.
+- **TODO:** Prove this `(1 - γ - log(x)) / π` gives an upper bound.
+  Alternatively we don't use this method for `x = 0` (using
+  [`inv_u0_bound`](@ref) instead).
 
 The arguments `use_approx_p_and_q` and `alpha_interval` are used for
 computing approximate values and is mainly intended for testing.
@@ -118,12 +123,58 @@ function eval_expansion(
         return exponent
     end
 
-    # Irrationals used
-    π = Arb(Irrational{:π}())
-    γ = Arb(Irrational{:γ}())
+    # Compute enclosure of the p-coefficient
+    # a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
+    # Note that this depends on x!
+    # IMPROVE: If there are no occurrences of p = 1 in the expansion
+    # we don't have to compute this
+    p_coefficient = let interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+        # Enclosure of rgamma(α) / (α + 1)
+        rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
+        # Enclosure of rgamma(2α) / (α + 1)
+        rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
+        # Enclosure of cospi(α / 2) / (α + 1)
+        cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
 
-    # Precompute (1 - γ - log(x)) / π
-    onemγmlogxdivπ = (1 - γ - log(x)) / π
+        # Enclosure of a0 * (α + 1)
+        a0_mul_α =
+            2cospi(Arb((-1, -1 + u0.ϵ))) / rgamma2_div_α / (cos_div_α / rgamma1_div_α)^2
+
+        # Enclosure of
+        # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+        # It uses three nested fx_div_x
+        coefficient_div_α = fx_div_x(interval, extra_degree = 2, force = true) do r
+            if Arblib.contains_zero(r[0])
+                # Enclosure of rgamma(α) / (α + 1)
+                rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), r, extra_degree = 2)
+                # Enclosure of rgamma(α - p0) / (α + 1)
+                rgamma2_div_α2 = fx_div_x(r, extra_degree = 2) do s
+                    if Arblib.contains_zero(s[0])
+                        fx_div_x(t -> rgamma(-1 - t^2 / 2), s, extra_degree = 2)
+                    else
+                        rgamma(-1 - s^2 / 2) / s
+                    end
+                end
+                # Enclosure of cospi(α / 2) / (α + 1)
+                cos1_div_α = fx_div_x(s -> cospi((s - 1) / 2), r, extra_degree = 2)
+                # Enclosure of cospi((α - p0) / 2) / (α + 1)
+                cos2_div_α = fx_div_x(r, extra_degree = 2) do s
+                    if Arblib.contains_zero(s[0])
+                        fx_div_x(t -> cospi((-1 - t^2 / 2) / 2), s, extra_degree = 2)
+                    else
+                        cospi((-1 - s^2 / 2) / 2) / s
+                    end
+                end
+
+                cos1_div_α / rgamma1_div_α - cos2_div_α / rgamma2_div_α2 * x^(r + r^2 / 2)
+            else
+                gamma(r - 1) * cospi((r - 1) / 2) -
+                gamma(-1 - r^2 / 2) * cospi((-1 - r^2 / 2) / 2) * x^(r + r^2 / 2)
+            end
+        end
+
+        a0_mul_α * coefficient_div_α
+    end
 
     res = zero(x)
 
@@ -136,9 +187,6 @@ function eval_expansion(
             elseif isone(p)
                 # Add -α to the exponent coming from the p factor
                 _exponent!(exponent, i - 1, j, k, l, m)
-
-                # FIXME: Add error bounds for this term. Here we just
-                # use the limiting value
 
                 # Compute an enclosure using monotonicity
                 if iszero(x)
@@ -154,13 +202,14 @@ function eval_expansion(
                         lower = Arblib.indeterminate!(zero(x))
                     end
 
+                    # FIXME: Prove that this gives an upper bound
                     upper = let x = ubound(Arb, x)
-                        (1 - γ - log(x)) / π * abspow(x, exponent)
+                        (1 - Arb(Irrational{:γ}()) - log(x)) / π * abspow(x, exponent)
                     end
 
                     term = Arb((lower, upper))
                 else
-                    term = onemγmlogxdivπ * abspow(x, exponent)
+                    term = term = p_coefficient * abspow(x, exponent)
                 end
             else
                 use_approx_p_and_q ||
