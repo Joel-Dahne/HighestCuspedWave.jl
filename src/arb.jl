@@ -78,57 +78,6 @@ function unique_integer(x::Arb)
 end
 
 """
-    contains_pi(x1, x2)
-
-Checks the interval `[x1, x2]` if it contains points of the form `kπ`.
-Returns two booleans, the first one is false if it doesn't contain a
-point on the form `2kπ` and the second one if it doesn't contain one
-on the form `(2k+ 1)π`. If they are true it means they might contain
-such a point. This is used to determine where the extrema of `Ci([x1,
-x2])` can occur.
-
-**TODO:** This is (hopefully) correct but not optimal.
-"""
-function contains_pi(x1::Arb, x2::Arb)
-    @assert !(x1 > x2)
-
-    # x1 or x2 equal to zero are the only cases when the division by π
-    # can be exact, in which case it has to be handled differently.
-    iszero(x1) && return (true, !(x2 < π))
-    iszero(x2) && return (true, !(x1 > -Arb(π)))
-
-    # We have k1ₗπ ≤ xₗ < (k1ᵤ + 1)π
-    k1 = Arblib.floor!(zero(x1), x1 / π)
-
-    unique1ₗ, k1ₗ = unique_integer(Arblib.ceil!(zero(k1), Arblib.lbound(Arb, k1)))
-    unique1ᵤ, k1ᵤ = unique_integer(Arblib.floor!(zero(k1), Arblib.ubound(Arb, k1)))
-    k1ₗ, k1ᵤ = Int(k1ₗ), Int(k1ᵤ)
-    @assert unique1ₗ && unique1ᵤ && k1ₗ * Arb(π) ≤ x1 < (k1ᵤ + 1) * Arb(π)
-
-    # We have k2ₗπ ≤ xₗ < (k2ᵤ + 1)π
-    k2 = Arblib.floor!(zero(x2), x2 / π)
-    unique2ₗ, k2ₗ = unique_integer(Arblib.ceil!(zero(k2), Arblib.lbound(Arb, k2)))
-    unique2ᵤ, k2ᵤ = unique_integer(Arblib.floor!(zero(k2), Arblib.ubound(Arb, k2)))
-    k2ₗ, k2ᵤ = Int(k2ₗ), Int(k2ᵤ)
-    @assert unique2ₗ && unique2ᵤ && k2ₗ * Arb(π) ≤ x2 < (k2ᵤ + 1) * Arb(π)
-
-    if k1ₗ == k2ᵤ
-        # No kπ
-        return (false, false)
-    elseif k1ₗ == k2ᵤ - 1
-        # Might contain exactly one such point (or zero)
-        if iseven(k1ₗ)
-            return (false, true)
-        else
-            return (true, false)
-        end
-    else
-        # Might contain two such points
-        return (true, true)
-    end
-end
-
-"""
     beta_inc(a, b, z)
 
 Compute the (not regularised) incomplete beta function ``B(a, b; z)``.
