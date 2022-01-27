@@ -48,7 +48,11 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
             # this if T == Arb since that's the only case for which we
             # need rigorous values.
 
-            Arblib.overlaps(a[0], finda0(α)) || @warn "a[0] doesn't overlap finda0(α)"
+            # We don't warn for a[0] = 0, this is used in BHKdVansatz
+            # and is unlikely to be a mistake.
+            iszero(a[0]) ||
+                Arblib.overlaps(a[0], finda0(α)) ||
+                @warn "a[0] doesn't overlap finda0(α)"
 
             (2, 0, 0) ∈ zeroterms || @warn "zeroterms doesn't contain the key (2, 0, 0)"
         end
