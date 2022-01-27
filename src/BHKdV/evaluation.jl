@@ -849,11 +849,10 @@ function D(
 end
 
 """
-    F0_upper_bound(u0::BHKdVAnsatz{Arb})
+    F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
 
-Returns a function such that the absolute value of
-`F0_upper_bound(u0)(x)` is an upper bound of the absolute value of
-`F0(u0)(x)`.
+Return a function `f` such that the absolute value of `f(x)` is an
+upper bound of the absolute value of `F0(u0)(x)`.
 
 More precisely this computes
 ```
@@ -864,8 +863,8 @@ Since `u0.v0(x)` gives a lower bound of `u0(x)`, by
 the same sign as `F0(x)` but is larger in magnitude. This holds as
 long as `u0.v0(x)` is positive at least, which is easily checked.
 """
-function F0_upper_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
-    f = D(u0, evaltype)
+function F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
+    g = D(u0, evaltype)
 
     return x::Union{Arb,ArbSeries} -> begin
         invweight = inv(u0.w(x))
@@ -881,9 +880,7 @@ function F0_upper_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
             error("expected u0.v0(x) to be positive, got inv(u0.v0(x)) = $invu0v0")
         end
 
-        Du0 = f(x)
-
-        return Du0 * invu0v0 * invweight
+        return g(x) * invu0v0 * invweight
     end
 end
 
