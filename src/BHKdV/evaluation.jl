@@ -1553,6 +1553,18 @@ gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
 It assumes that `x` is non-negative, any negative parts of `x` are
 ignored.
 
+For non-zero `x` it computes an enclosure of the value. It splits it as
+```
+gamma(1 + α) * (1 - x^p0) / (u0(x) / x^(-α))
+```
+and computes an enclosure of `gamma(1 + α) * (1 - x^p0)`, which has a
+removable singularity at `α = -1`, using [`fx_div_x`](@ref). For
+`u0(x) / x^(-α)` it computes an enclosure using the asymptotic
+expansion of `u0`.
+
+We now describe how to compute an upper bound when `x` overlaps with
+zero.
+
 We start by computing the asymptotic expansion of `u0`. We then split
 the expansion into the leading term and a tail. In practice both the
 leading term and the tail are positive and the tail is much smaller
@@ -1654,20 +1666,28 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
         α / 2 * cospi(α) * inv(rgamma1_div_α)^3 * cos_div_α^2 * rgamma2_div_α
     end
 
-    c(a) = gamma(a) * cospi(α / 2)
+    c(a) = gamma(a) * cospi(a / 2)
 
     # Enclosure of inv(c(α))
     inv_c_α = rgamma1_div_α / cos_div_α
 
-    # Compute the expansion of u0 and remove the leading term
+    # Compute the expansion of u0
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
-    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
 
-    # Check that the remaining part of the expansion is positive, so
-    # that we can remove it from the denominator and still get an
-    # upper bound.
+    # Temporarily remove the leading term and check that the rest of
+    # the expansion is positive, so that we can remove it from the
+    # denominator and still get an upper bound.
+    leading_term = u0_expansion[(1, 0, 0, 0, 0, 0, 0)]
+    delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
     expansion_ispositive(u0, u0_expansion, ϵ) ||
         error("expansion of u0 not prove to be positive, this should not happen")
+    u0_expansion[(1, 0, 0, 0, 0, 0, 0)] = leading_term
+
+    # Divide the expansion of u0 by x^-α
+    u0_expansion_div_x_mα = empty(u0_expansion)
+    for ((p, q, i, j, k, l, m), y) in u0_expansion
+        u0_expansion_div_x_mα[(p, q, i + 1, j, k, l, m)] = y
+    end
 
     αᵤ = -1 + u0.ϵ
     p0ᵤ = 1 + αᵤ + (1 + αᵤ)^2 / 2
@@ -1676,21 +1696,36 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
         x < 1 || throw(DomainError(x, "need 0 < x < 1"))
         x <= ϵ || throw(DomainError(x, "need x <= ϵ = $ϵ"))
 
-        xᵤ = ubound(Arb, x)
+        if Arblib.contains_zero(x)
+            xᵤ = ubound(Arb, x)
 
-        # Enclose F2
-        # Upper and lower bound of
-        # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-        F2_lower = (1 - xᵤ^p0ᵤ) / (1 - c(αᵤ - p0ᵤ) / c(αᵤ) * xᵤ^p0ᵤ)
-        F2_upper = one(Arb)
-        # Combine upper and lower bound and multiply with enclosure of
-        # inv(c(α)) to get an enclosure for F2.
-        F2 = inv_c_α * Arb((F2_lower, F2_upper))
+            # Enclose F2
+            # Upper and lower bound of
+            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+            F2_lower = (1 - xᵤ^p0ᵤ) / (1 - c(αᵤ - p0ᵤ) / c(αᵤ) * xᵤ^p0ᵤ)
+            F2_upper = one(Arb)
+            # Combine upper and lower bound and multiply with enclosure of
+            # inv(c(α)) to get an enclosure for F2.
+            F2 = inv_c_α * Arb((F2_lower, F2_upper))
 
-        F = F1 * F2
+            F = F1 * F2
 
-        Arblib.ispositive(F) ||
-            error("leading term of u0 is not positive, this should not happen")
+            Arblib.ispositive(F) ||
+                error("leading term of u0 is not positive, this should not happen")
+        else
+            # Enclosure of gamma(1 + α) * (1 - x^p0)
+            numerator = let α = Arb((-1, -1 + u0.ϵ))
+                # Enclosure of rgamma(1 + α) / (1 + α)
+                rgamma_div_α = fx_div_x(s -> rgamma(s), interval, extra_degree = 2)
+                # Enclosure of (1 - x^p0) / (1 + α)
+                onemxp0_div_α =
+                    fx_div_x(s -> (1 - x^(s + s^2 / 2)), interval, extra_degree = 2)
+
+                onemxp0_div_α / rgamma_div_α
+            end
+
+            F = numerator / eval_expansion(u0, u0_expansion_div_x_mα, x)
+        end
 
         return F
     end
