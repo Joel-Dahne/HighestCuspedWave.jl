@@ -573,6 +573,7 @@ G2(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
         - log(π) * s
     ) + 1
 )
+```
 
 ## Fixed `x`
 To begin with we consider the case when `x` is fixed and non-zero,
@@ -610,7 +611,7 @@ Since `p0 = (1 + α) * (1 + (1 + α) / 2)` we get
 ```
 G21(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2)) * 1 / sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
 ```
-and what remains is to enclose the sum. Since `log(x) < 1` the sum is
+and what remains is to enclose the sum. Since `log(x) < 0` the sum is
 alternating. For large enough `n` it is also decreasing, more
 precisely we have
 ```
@@ -667,7 +668,7 @@ G22(x) = ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) / log(x)
     + log(π) * (1 - (x / π)^q0) / (1 + α)
 )
 ```
-We will not bound each of these four terms separately. The term
+We will now bound each of these four terms separately. The term
 `log(π) * (x / π)^q0` can be enclosed directly. For the other three
 terms we make use of the expansion
 ```
