@@ -883,87 +883,56 @@ end
     F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
 
 Returns a function such that an **upper bound** of `F0(u0)(x)` is
-computed accurately for small values of `x`. It assumes that `x < 1`.
+computed accurately for small values of `x`.
 
-This method assumes that the value for `p0` is taken to be
-```
-p0 = 1 + α + (1 + α)^2 / 2
-```
+It requires that `0 <= x < 1`, any negative parts of `x` are ignored.
 
 Recall that the expression we are interested in bounding is
 ```
-abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * u0.w(x)))
+(u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
 ```
 with
 ```
 u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
 ```
-Since we are only interested in an upper bound it is enough to use a
-lower bound of `u0.w(x)`. We can note that it is increasing in `u0.γ`
-for `0 < x < 1` and a lower bound is hence given by
-```
-x * log(u0.c + inv(x))
-```
-In what follows we will hence use this weight which still gives us an
-upper bound. This means that the expression we want to bound is
-```
-abs((u0(x)^2 / 2 + H(u0)(x)) / (u0(x) * x * log(u0.c + inv(x))))
-```
 
-# Split into two factors
-As a first step we split the expression into two factors which are
-both bounded as `x -> 0` that we bound separately.
-
-The first one is given by
+# Split into three factors
+As a first step we split the expression into three factors which are
+all bounded as `x -> 0` that we bound separately.
+We write it as
 ```
-F1 = abs(log(x) / log(u0.c + inv(x)) * gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
+(gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x))
+* (log(inv(x)) / log(u0.c + inv(x)))
+* ((u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(inv(x)) * x^(1 - u0.γ * (1 + α) - α) * (1 - x^p0)))
 ```
-Notice that `log(x) / log(u0.c + inv(x))` is easily seen to be bounded
-and `gamma(1 + α) * x^-α * (1 - x^p0) / u0(x)` is handle by
-[`inv_u0_bound`](@ref).
+The first factor we is bounded using [`inv_u0_bound`](@ref). The
+second factor is bounded by noticing that it is `1` at `x = 0` and
+decreasing in `x`.
 
-The second one is given by
+For the third factor we can get an upper bound, in absolute value, by
+taking `γ = 0`, giving us
 ```
-F2 = abs((u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0)))
+F = (u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0) * x^(1 - α))
 ```
-which we will also see is bounded.
+We now explain how to bound `F`
 
-# Bounding `F1`
-For `F1` we only compute an upper bound and not an enclosure, the
-smaller the value of `x` the tighter it will be in general. We split
-`F1` into the two factors
-```
-F11 = abs(log(x) / log(u0.c + inv(x)))
-F12 = abs(gamma(1 + α) * x^-α * (1 - x^p0) / u0(x))
-```
+# Bounding `F`
+Getting an accurate bound for `F` requires more work.
 
-For `F11` we can easily compute an accurate enclosure by direct
-evaluation if `x` doesn't overlap with zero. If `x` does overlap with
-zero we compute an enclosure by using that `log(x) / log(u0.c + inv(x))`
-converges to `-1` as `x -> 0` and is increasing in `x`.
-- **PROVE:** That `log(x) / log(u0.c + inv(x))` is increasing in `x`.
+We use the asymptotic expansion of `u0(x)^2 / 2 + H(u0)(x)`, but some
+of the terms in the expansion require extra care. We therefore split
+the expansion into three parts
+1. The two leading terms, with keys `(2, 0, 0, 0, 0, 0, 0)` and `(0, 1,
+    0, 0, 0, 0, 0)`, which we call `P` and `Q` respectively.
+2. The leading terms of the Clausen term in the tail coming from `j =
+  1`.
+3. The remaining terms.
+This splits `F` into three terms, which we will call `T1, T2, T3`.
 
-An upper bound of `F12` is computed using [`inv_u0_bound`](@ref).
-
-# Bounding `F2`
-Getting an accurate bound for `F2` requires some work since it's not
-enough to only consider the leading term, we have to account for the
-cancellation between the terms.
-
-Recall that we are interested in bounding
-```
-F2 = abs((u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0)))
-```
-
-As a first step we compute the asymptotic expansion of `u0(x)^2 / 2 +
-H(u0)(x)`. We then take out the two leading terms with keys `(2, 0, 0,
-0, 0, 0, 0)` and `(0, 1, 0, 0, 0, 0, 0)` which we call `P` and `Q`
-respectively.
-
-# Handling `P` and `Q`
+## Handling `T1`: `P` and `Q`
 The terms `P` and `Q` are given by
 ```
-P = a0^2 / 2 * (c(α)^2 - 2c(α) * c(α - p0) * x^p0 + c(α - p0)^2 * x^2p0) * x^-2α
+P^2 = a0^2 / 2 * (c(α)^2 - 2c(α) * c(α - p0) * x^p0 + c(α - p0)^2 * x^2p0) * x^-2α
 ```
 and
 ```
@@ -994,134 +963,202 @@ a0 / gamma(1 + α) * (
     a0 * c(α - p0)^2 / 2 * x^(-α + 2p0 - 1) / (log(x) * (1 - x^p0))
 )
 ```
-The factor `a0 / gamma(1 + α)` can be enclosed using that it converges
-to `-2 / π^2` and is decreasing in `α`
-- **PROVE:** That `a0 / gamma(1 + α)` converges to `-2 / π^2` and is decreasing.
+The factor `a0 / gamma(1 + α)` has a removable singularity at `α = -1`
+and can be enclosed in the same way as in [`inv_u0_bound`](@ref).
+
 First we focus on the term
 ```
-F21 = (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
+T11 = (c(2α - p0) - a0 * c(α) * c(α - p0)) * x^(-α + p0 - 1) / (log(x) * (1 - x^p0))
 ```
 This term is small and fairly stable in `α` (positive and increasing).
 To compute an enclosure we split it into three factors
 ```
-F211 = x^(-α + p0 - 1) / log(x)
-F212 = (1 + α) / (1 - x^p0)
-F213 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 + α)
+T111 = x^(-α + p0 - 1) / log(x)
+T112 = (1 + α) / (1 - x^p0)
+T113 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 + α)
 ```
 For the first one we can directly get an enclosure using that
 ```
 -α + p0 - 1 = -α + (1 + α + (1 + α)^2 / 2) - 1 = (1 + α)^2 / 2
 ```
-For the second term, `F212`, we write `t = 1 + α` giving us
-```
-F212 = t / (1 - x^(t + t^2 / 2))
-```
-This is increasing in `t` so we only need to evaluate it at `t = 0`
-and `t = u0.ϵ`. For `t = 0` it converges to `-inv(log(x))`. For `t =
-u0.ϵ` we can evaluate it directly. To see that it converges to
-`-inv(log(x))` for `t -> 0` we can rewrite it as
-```
-- t / (exp((t + t^2 / 2) * log(x)) - 1)
-```
-L'Hôpital gives us
-```
-- 1 / (log(x) * (1 + t) * exp((t + t^2 / 2) * log(x)))
-```
-and inserting `t = 0` immediately gives the limit `-inv(log(x))`.
-- **PROVE:** That `t / (1 - x^(t + t^2 / 2))` is increasing in `t`.
-  Possibly by multiplying with `log(x)` to get something similar to `u
-  / expm1(u)`.
+For the second one we note that it is increasing in `x` and takes the
+value `1 + α` at `x = 0`. For non-zero `x` we can handle the removable
+singularity in `α`.
 
-For the third term, `F213`, we note that `a0` can be written as
+For the third term, `T113`, we note that `a0` can be written as
 ```
 a0 = 2c(2α) / c(α)^2
 ```
 which allows us to simplify it to
 ```
-F213 = (c(2α - p0) - 2c(2α) * c(α - p0) / c(α)) / (1 + α)
+T113 = (c(2α - p0) - 2c(2α) * c(α - p0) / c(α)) / (1 + α)
 ```
-For `α = -1` this converges to `3 // 4 - π^2 / 12`. For `α`
-sufficiently close to `-1` it is also decreasing, allowing us to
-compute an enclosure.
-- **PROVE:** That `F213` converges to `3 // 4 - π^2 / 12` as `α ->
-  -1`. Note that even though `c(α - p0) / c(α)` converges to `1` it is
-  important for the asymptotics and cannot be ignored.
-- **PROVE:** That `F213` is decreasing in `α` on some fixed interval
-  which contains our `α`. Not that as `α` around `-0.6` it starts to
-  be increasing instead, so we have to used the specified interval we
-  work on.
+Again we handle the removable singularity at `α = -1` as before, this
+one requires a bit more work though. To do this we rewrite it as
+```
+(
+    (1 + α) * c(2α - p0)
+    - 2((1 + α) * c(2α)) * c(α - p0) / c(α)
+) / (1 + α)^2
+```
 
 We then consider the two remaining terms together since they mostly
 cancel out.
 ```
-F22 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0)) +
+T12 = (zeta(-2α - 1) - zeta(-2α + p0 - 1)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0)) +
     a0 * c(α - p0)^2 / 2 * x^(-α + 2p0 - 1) / (log(x) * (1 - x^p0))
     =
     ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) +
     a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) / 2 * x^(1 + α) / (log(x) * (1 - x^p0))
 ```
-We treat this in a very similar way as `F21`, by splitting it into
+We treat this in a very similar way as `T11`, by splitting it into
 three factors.
 ```
-F221 = x^(1 + α) / 2
-F222 = (1 + α) / (1 - x^p0)
-F223 = ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) + a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) /
+T121 = x^(1 + α) / 2
+T122 = (1 + α) / (1 - x^p0)
+T123 = ((zeta(-2α - 1) - zeta(-2α + p0 - 1)) + a0 * c(α - p0)^2 * x^(-2α + 2p0 - 2)) /
     ((1 + α) * log(x))
 ```
-The factor `F221` we can enclose directly. The factor `F222` is the
-same as the factor `F212` above. We are hence left enclosing `F223`.
+The factor `T121` we can enclose directly. The factor `T122` is the
+same as the factor `T112` above. We are hence left enclosing `T123`.
 To do that we split it into two terms, letting
 ```
-w1 = zeta(-2α - 1) - zeta(-2α + p0 - 1)
-w2 = -a0 * c(α - p0)^2
+v(α) = zeta(-2α - 1) - zeta(-2α + p0 - 1)
+w(α) = -a0 * c(α - p0)^2 = -2c(2α) * c(α - p0)^2 / c(α)^2
 ```
 and noticing that `-2α + 2p0 - 2 = (1 + α)^2` we can write
 ```
-F223 = (w1 - w2 * x^((1 + α)^2)) / ((1 + α) * log(x))
+T123 = (v(α) - w(α) * x^((1 + α)^2)) / ((1 + α) * log(x))
 ```
-Adding and subtracting `w2` in the numerator we can split this into
+Adding and subtracting `w(α)` in the numerator we can split this into
 two terms
 ```
-F2231 = (w1 - w2) / ((1 + α) * log(x))
-F2232 = w2 * (1 - x^((1 + α)^2)) / ((1 + α) * log(x))
+T1231 = (v(α) - w(α)) / ((1 + α) * log(x))
+T1232 = w(α) * (1 - x^((1 + α)^2)) / ((1 + α) * log(x))
 ```
-For `F2231` it enough to compute an enclosure of `(w1 - w2) / (1 + α)`
-and then multiply by an enclosure of `inv(log(x))`. To get an
-enclosure of `(w1 - w2) / (1 + α)` we note that it is increasing in
-`α` and the limit as `α` goes to `-1` is
-```
-(π^2 + 8γ₁ - 4γ - 2) / 8
-```
-where `γᵢ` is the `i`th Stieltjes constant and `γ = γ0`.
-- **PROVE:** That `(w1 - w2) / (1 + α)` converges to `(π^2 + 8γ₁ - 4γ
-  - 2) / 8` and is increasing in `α`.
+For `T1231` it enough to handle the removable singularity of `(v(α) -
+w(α)) / (1 + α)` and then multiply by an enclosure of `inv(log(x))`.
 
-For `F2232` we can rewrite it as
+For `T1232` we can rewrite it as
 ```
-F2232 = w2 * (1 + α) * (1 - x^((1 + α)^2)) / ((1 + α)^2 * log(x))
+T1232 = (1 + α) * w(α) * (1 - x^((1 + α)^2)) / ((1 + α)^2 * log(x))
 ```
 We can compute an enclosure of
 ```
-(1 - x^((1 + α)^2) / ((1 + α)^2 * log(x)) =
-    -(exp((1 + α)^2 * log(x)) - 1) / ((1 + α)^2 * log(x))
+(1 + α) * w(α) = -2(1 + α) * c(2α) * c(α - p0)^2 / c(α)^2 =
 ```
-By letting `t = (1 + α)^2 * log(x)` and noticing that the function
-`(exp(t) - 1) / t` is zero at `t = -Inf`, one at `t = 0` and
-increasing in `t`. This is similar to how we do it for the first
-Clausen term in the tail below. We are left enclosing
-```
-w2 * (1 + α) = -a0 * c(α - p0)^2 * (1 + α)
-```
-We can get an enclosure of `c(α - p0)` by using that it converges to
-`-π / 2` as `α -> -1` and is increasing in `α`. We can enclose `a0 *
-(1 + α)` using that it converges to `-2 / π^2` and is decreasing in
-`α`
-- **PROVE:** That `c(α - p0)` converges to `-π / 2` and is increasing
-  in `α`.
-- **PROVE:** That `a0 * (1 + α)` converges to `-2 / π^2` and is
-  decreasing in `α`.
+by handling the removable singularity.
 
-# Handling the remaining terms
+We can compute an enclosure of
+```
+(1 - x^((1 + α)^2) / ((1 + α)^2 * log(x))
+```
+By letting `t = (1 + α)^2 * log(x)` to write it as
+```
+(1 - exp(t)) / t
+```
+We then handle this similarly to how we do it for the tail Clausen
+below.
+
+## Handling `T2`: tail Clausen with `j = 1`
+We are interested in bounding the first two terms in the expansion of
+```
+-u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) /
+    (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
+```
+We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` by
+noticing that it is increasing in `x` and it is hence enough to
+compute at the endpoints of `x`. For `x = 0` it is given by
+`inv(gamma(1 + α)) = rgamma(1 + α)`. Otherwise we use the same
+approach as in [`inv_u0_bound`](@ref) for enclosing it. We are then
+interested in enclosing the rest.
+
+Let `r = -u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and is very
+small, around `1e-8` or so depending on the precise choice of
+`u0.v0.v0`. We have `1 - α - u0.v0.v0.α + u0.v0.v0.p0 = 2 - α + r`.
+The sum of the first two terms in the asymptotic expansion of the
+Clausen is then given by
+```
+gamma(α - 1 - r) * cospi((α - 1 - r) / 2) * x^(1 - α + r) -
+    zeta(-α + r) / 2 * x^2
+```
+Dividing by `log(x) * x^(1 - α)` gives us
+```
+(gamma(α - 1 - r) * cospi((1 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)) / log(x)
+```
+Notice that the order of the terms depends on the value of `α`, in
+some cases `x^r` is leading and in some cases `x^(1 + α)`. Adding and
+subtracting `zeta(-α + r) / 2 * x^r` we can rewrite this as
+```
+(gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x) +
+zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
+```
+Let
+```
+T21 = (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x)
+T22 = zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
+```
+
+For `T21` we rewrite it using that
+```
+gamma(α - 1 - r) = gamma(α + 2 - r) / ((α + 1 - r) * (α - r) * (α - 1 - r))
+
+zeta(-α + r) / 2 = zeta_deflated(-α + r) / 2 - 1 / 2(1 + α - r)
+```
+giving us
+```
+T21 = (
+    gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) * cospi((1 - α + r) / 2) + 1 // 2
+) / (α + 1 - r) - zeta_deflated(-α + r) / 2,
+```
+This formulation is much more stable and can be accurately enclosed.
+- **TODO:** Handle the case when `α + 1 - r` overlaps with zero.
+
+For `T22` we have to compute an enclosure of
+```
+zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
+```
+Using [`zeta_deflated`](@ref) we have
+```
+zeta(-α + r) = zeta_deflated(-α + r) - 1 / (1 + α - r)
+```
+and can split `T22` as
+```
+zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x) + (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
+= T221 + T222
+```
+The term `T221` can be enclosed directly. For `T222` we rewrite it as
+```
+(x^r - x^(1 + α)) / (2(r - (1 + α)) * log(x))
+```
+We split this into two cases, when `r >= 1 + α` and when `r < 1 + α`.
+In the first case we factor out `x^(1 + α)`, giving us
+```
+x^(1 + α) / 2 * (x^(r - (1 + α)) - 1) / ((r - (1 + α)) * log(x))
+```
+If we let `t = (r - (1 + α)) * log(x)` we can write
+```
+(x^(r - (1 + α)) - 1) / ((r - (1 + α)) * log(x)) = (exp(t) - t) / t
+```
+Here we notice that since `r - (1 + α) >= 0` and `log(x) < 0` we have
+`t <= 0`. Furthermore the function `(exp(t) - 1) / t` is zero at `t =
+-Inf`, one at `t = 0` and increasing in `t`. It is therefore enough to
+determine the endpoints of `t` and from there we can compute an
+enclosure.
+
+The second case, when `r < 1 + α`, doesn't always occur, it depends on
+the value of `u0.ϵ`. We first check if `1 + α - r` contain any
+positive numbers, if that is the case we proceed similar to for the
+first case. We factor out `x^r`, giving us
+```
+x^r / 2 * (1 - x^(1 + α - r)) / ((r - (1 + α)) * log(x)) =
+    x^r / 2 * (x^(1 + α - r) - 1) / ((1 + α - r) * log(x))
+```
+Taking `t = 1 + α - r` we in this case have `1 + α -r > 0` and `log(x)
+< 0` so `t < 0`. This allows us to compute an enclosure similar to how
+we did it in the first case.
+
+## Handling `T3`: the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
 is possible to enclose the remaining ones directly. However the
 expansion for the first Clausen function in the tail has very large
@@ -1136,116 +1173,10 @@ log(x) * x^(1 - α) * (1 - x^p0))`. The `x^(1 - α)` factor will be
 cancelled explicitly. For the remaining part we compute an enclosure.
 We are therefore interested in computing an enclosure of
 ```
-inv(log(x) * gamma(1 + α) * (1 - x^p0))
+inv(log(x)) * inv(gamma(1 + α) * (1 - x^p0))
 ```
-
-## Enclosing `inv(log(x) * gamma(1 + α) * (1 - x^p0))`
-We begin by noticing that `inv(log(x))` can be enclosed directly. In
-the case that `x` overlaps with zero we use the monotonicity together
-with that the limit is zero for `x = 0`.
-
-We are left enclosing `inv(gamma(1 + α) * (1 - x^p0))`. For fixed `x`
-this converges to `-inv(log(x))` and is increasing in `α`. To get an
-enclosure it is therefore enough to compute the value of the limit as
-well as the value at `α = -1 + u0.ϵ`.
-- **PROVE:** That `inv(gamma(1 + α) * (1 - x^p0))` converges to
-  `-inv(log(x))` and is increasing in `α`.
-To get an enclosure in the case that `x` contains zero it is enough to
-notice that the lower bound is zero and that it is increasing in `x`,
-which is easy to see.
-
-## Handling the first Clausen function in the tail
-We are interested in bounding the first two terms in the expansion of
-```
--u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) /
-    (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
-```
-We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` as
-explained above. We are therefore interested in enclosing the rest.
-
-Let `r = -u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and is very
-small, around `1e-8` or so depending on the precise choice of
-`u0.v0.v0`. We have `1 - α - u0.v0.v0.α + u0.v0.v0.p0 = 2 - α + r`.
-The sum of the first two terms in the asymptotic expansion of the
-Clausen is then given by
-```
-gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^(1 - α + r) -
-    zeta(-α + r) / 2 * x^2
-```
-Dividing by `log(x) * x^(1 - α)` gives us
-```
-(gamma(α - 1 - r) * sinpi((2 - α + r) / 2) * x^r - zeta(-α + r) / 2 * x^(1 + α)) / log(x)
-```
-Notice that the order of the terms depends on the value of `α`, in
-some cases `x`r` is leading and in some cases `x^(1 - α)`. Adding and
-subtracting `zeta(-α + r) / 2 * x^r` we can rewrite this as
-```
-(gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x) +
-zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
-```
-For the first term we can note that
-```
-gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2
-```
-is bounded for in `α` and decreasing, so we can get an enclosures by
-evaluating it at the endpoints.
-- **PROVE:** That `gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α
-  + r) / 2` is decreasing in `α`.
-Denoting this enclosure by `C` we get `C * x^r / log(x)` for the first
-term, which is easily enclosed.
-
-For the second term we have to compute an enclosure of
-```
-zeta(-α + r) / 2 * (x^r - x^(1 + α)) / log(x)
-```
-From the Laurent series of the zeta function we have
-```
-zeta(-α + r) = zeta(1 + (-α + r - 1)) = inv(-α + r - 1) +
-    sum((-1)^n / factorial(n) * γₙ * (-α + r - 1)^n for n = 1:Inf)
-```
-where `γₙ` is the nth Stieltjes constant. Calling the sum `S` we can
-thus rewrite the above as
-```
-(x^r - x^(1 + α)) / (-α + r - 1) / 2log(x) + S * (x^r - x^(1 + α)) / 2log(x)
-```
-Now `S` is bounded and increasing in `α` so we can compute an
-enclosure of the second term directly. Factoring
-- **PROVE:** That `S` is increasing in `α`
-The remaining term to handle is, after slightly rewriting it,
-```
-(x^r - x^(1 + α)) / (2(r - (1 + α)) * log(x))
-```
-We split this into two cases, when `r >= 1 + α` and when `r < 1 + α`.
-In the first case we factor out `x^(1 + α)`, giving us
-```
-x^(1 + α) / 2 * (x^(r - (1 + α)) - 1) / ((r - (1 + α)) * log(x)) =
-    x^(1 + α) / 2 * (exp((r - (1 + α)) * log(x)) - 1) / ((r - (1 + α)) * log(x)) =
-```
-Here we notice that since `r - (1 + α) >= 0` and `log(x) < 0` we have
-```
-(r - (1 + α)) * log(x) <= 0
-```
-Furthermore the function `(exp(t) - 1) / t` is zero at `t = -Inf`, one
-at `t = 0` and increasing in `t`. Using this we can compute an
-enclosure of
-```
-(exp((1 + α - r) * log(x)) - 1) / ((1 + α - r) * log(x))
-```
-The second case, when `r < 1 + α`, doesn't always occur, it depends on
-the value of `u0.ϵ`. We first check if `1 + α - r` contain any
-positive numbers, if that is the case we proceed similar to for the
-first case. We factor out `x^r`, giving us
-```
-x^r / 2 * (1 - x^(1 + α - r)) / ((r - (1 + α)) * log(x)) =
-    x^r / 2 * (x^(1 + α - r) - 1) / ((1 + α - r) * log(x)) =
-    x^r / 2 * (exp((1 + α - r) * log(x)) - 1) / (((1 + α) - r) * log(x))
-```
-And in this case `1 + α -r > 0` and `log(x) < 0` so we have
-```
-(1 + α - r) * log(x) < 0
-```
-This allows us to compute an enclosure similar to how we did it in the
-first case.
+The `inv(log(x))` is easily handled using monotonicity in `x` and the
+other factor is the same as in the above section.
 """
 function F0(
     u0::BHKdVAnsatz{Arb},
@@ -1256,18 +1187,36 @@ function F0(
 )
     @assert ϵ < 1
 
+    # Interval for α
+    α = Arb((-1, -1 + u0.ϵ))
+    # Interval for α + 1
+    αp1 = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+
     # This method assumes that the weight is x^(1 - u0.γ * (1 + α)) *
     # log(u0.c * inv(x)). As an extra precaution we check this.
     let x = Arb(0.5), α = Arb((-1, -1 + u0.ϵ))
-        @assert Arblib.overlaps(u0.w(x), x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x)))
+        @assert Arblib.overlaps(u0.w(x), x^(1 - u0.γ * (αp1)) * log(u0.c + inv(x)))
     end
 
-    # Function for computing an enclosure of F12
-    F12 = inv_u0_bound(u0)
+    # Function for bounding gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
+    f1 = inv_u0_bound(u0; M, ϵ)
+
+    # Function for enclosing log(inv(x)) / log(u0.c + inv(x))
+    f2 = x -> if iszero(x)
+        one(x)
+    elseif Arblib.contains_zero(x)
+        lower = let xᵤ = ubound(Arb, x)
+            log(inv(xᵤ)) / log(u0.c + inv(xᵤ))
+        end
+        upper = one(x)
+        Arb((lower, upper))
+    else
+        log(inv(x)) / log(u0.c + inv(x))
+    end
 
     # Compute the expansion of D(u0), skipping the Clausen term in the
     # tail corresponding to j = 1 and also remove the two leading
-    # term, the three terms are handled separately.
+    # term, these three terms are handled separately.
     Du0_expansion =
         D(u0, AsymptoticExpansion(), skip_j_one_singular = true; M, alpha_interval)(ϵ)
     delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
@@ -1281,257 +1230,294 @@ function F0(
 
     c(a) = gamma(a) * cospi(a / 2)
 
+    # Compute enclosures of several values depending only on α, many
+    # of them with removable singularities
+
+    # Use this for computing tighter enclosures
+    extra_degree = 2
+
+    # Enclosure of rgamma(α) / (1 + α)
+    rgamma_α_div_αp1 = fx_div_x(s -> rgamma(s - 1), αp1; extra_degree)
+    # Enclosure of rgamma(2α) / (1 + α)
+    rgamma_2α_div_αp1 = fx_div_x(s -> rgamma(2(s - 1)), αp1; extra_degree)
+    # Enclosure of rgamma(1 + α) / (1 + α)
+    rgamma_1pα_div_αp1 = fx_div_x(s -> rgamma(s), αp1; extra_degree)
+    # Enclosure of rgamma(α - p0) / (1 + α)^2
+    rgamma_αmp0_div_αp12 = fx_div_x(s -> rgamma(-1 - s^2 / 2), αp1, 2; extra_degree)
+    # Enclosure of rgamma(2α - p0) / (1 + α)
+    rgamma_2αmp0_div_αp1 = fx_div_x(s -> rgamma(s - 2 - s^2 / 2), αp1; extra_degree)
+
+    # Enclosure of cospi(α / 2) / (1 + α)
+    cos_αdiv2_div_αp1 = fx_div_x(s -> cospi((s - 1) / 2), αp1; extra_degree)
+    # Enclosure of cospi((α - p0) / 2) / (1 + α)^2
+    cos_αmp0div2_div_αp12 = fx_div_x(s -> cospi((-1 - s^2 / 2) / 2), αp1, 2; extra_degree)
+
+    # Enclosure of ((1 + α) * c(2α - p0) - 2(1 + α) * c(2α) * c(α - p0) / c(α)) / (1 + α)^2
+    T113 = fx_div_x(αp1, 2; extra_degree, force = true) do s
+        if Arblib.contains_zero(s[0])
+            # Expansion of c(2α - p0) * (1 + α)
+            c_2αmp0_mul_α = inv(
+                fx_div_x(
+                    t -> rgamma(t - 2 - t^2 / 2) / cospi((t - 2 - t^2 / 2) / 2),
+                    s;
+                    extra_degree,
+                ),
+            )
+
+            # Enclosure of c(2α) * (1 + α)
+            c_2α_mul_α =
+                inv(fx_div_x(t -> rgamma(2(t - 1)) / cospi(t - 1), s; extra_degree))
+
+            # Enclosure of c(α - p0)
+            c_αmp0 =
+                fx_div_x(t -> cospi((-1 - t^2 / 2) / 2), s, 2; extra_degree) /
+                fx_div_x(t -> rgamma(-1 - t^2 / 2), s, 2; extra_degree)
+
+            # Enclosure of c(α)
+            c_α =
+                fx_div_x(t -> cospi((t - 1) / 2), s; extra_degree) /
+                fx_div_x(t -> rgamma(t - 1), s; extra_degree)
+
+            c_2αmp0_mul_α - 2c_2α_mul_α * c_αmp0 / c_α
+        else
+            # Evaluate this at higher precision since it is close to
+            # the removable singularity
+            let α = setprecision(s - 1, 2precision(s)), p0 = (1 + α) + (1 + α)^2 / 2
+                setprecision((c(2α - p0) - 2c(2α) * c(α - p0) / c(α)) / (1 + α), precision(s))
+            end
+        end
+    end
+
+    # Enclosure of a0 / gamma(1 + α)
+    a0_div_gamma_1pα =
+        rgamma_α_div_αp1^3 / (α / 2 * cospi(α) * cos_αdiv2_div_αp1^2 * rgamma_2α_div_αp1)
+
+    # Enclosure of T1231 * log(x) = (v(α) - w(α)) / (1 + α)
+    T1231_mul_logx = fx_div_x(αp1, 2; extra_degree, force = true) do s
+        if Arblib.contains_zero(s[0])
+            # Enclosure of s * zeta(1 - 2s)
+            zeta_1m2s_mul_α = s * zeta_deflated(1 - 2s, one(Arb)) - 1 // 2
+
+            # Enclosure of s * zeta(1 - s + s^2 / 2)
+            zeta_1msps2div2_mul_α =
+                s * zeta_deflated(1 - s + s^2 / 2, one(Arb)) - 1 / (1 - s / 2)
+
+            v_mul_α = zeta_1m2s_mul_α - zeta_1msps2div2_mul_α
+
+            # Enclosure of c(2α) * (1 + α)
+            c_2α_mul_α =
+                inv(fx_div_x(t -> rgamma(2(t - 1)) / cospi(t - 1), s; extra_degree))
+
+            # Enclosure of c(α - p0)
+            c_αmp0 =
+                fx_div_x(t -> cospi((-1 - t^2 / 2) / 2), s, 2; extra_degree) /
+                fx_div_x(t -> rgamma(-1 - t^2 / 2), s, 2; extra_degree)
+
+            # Enclosure of c(α)
+            c_α =
+                fx_div_x(t -> cospi((t - 1) / 2), s; extra_degree) /
+                fx_div_x(t -> rgamma(t - 1), s; extra_degree)
+
+            w_mul_α = -2c_2α_mul_α * c_αmp0^2 / c_α^2
+
+            v_mul_α - w_mul_α
+        else
+            # Evaluate this at higher precision since it is close to
+            # the removable singularity
+            let α = setprecision(s - 1, 2precision(s)), p0 = (1 + α) + (1 + α)^2 / 2
+                v = zeta(-2α - 1) - zeta(-2α + p0 - 1)
+                w = -2c(2α) * c(α - p0)^2 / c(α)^2
+                setprecision(v - w, precision(s))
+            end
+        end
+    end
+
+    # Enclosure of w(α) * (1 + α)
+    w_mul_α =
+        -2(cospi(α) / rgamma_2α_div_αp1) *
+        (cos_αmp0div2_div_αp12 / rgamma_αmp0_div_αp12)^2 /
+        (cos_αdiv2_div_αp1 / rgamma_α_div_αp1)^2
+
+    # α-factor of T21
+    # TODO: Handle α + 1 - r overlapping zero
+    # IMPROVE: Compute tighter enclosure when α + 1 - r is close to zero
+    T21_α = let j = 1, r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+        # Old code assuming monotonicity
+        #lower = let α = -1 + u0.ϵ
+        #    (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2)
+        #end
+        #upper = let α = Arb(-1)
+        #    (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2)
+        #end
+        #T21_α_old = Arb((lower, upper))
+
+        ArbExtras.enclosure_series(
+            α ->
+                (
+                    gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) * cospi((1 - α + r) / 2) + 1 // 2
+                ) / (α + 1 - r) - zeta_deflated(-α + r, one(Arb)) / 2,
+            α,
+            degree = 4,
+        )
+    end
+
     return x::Arb -> begin
         @assert x <= ϵ
 
-        # Compute an upper bound of F1
-        F1 = let xᵤ = ubound(Arb, x)
-            # Note that inside this statement α refers to -1 + u0.ϵ
-            # and p0 to the corresponding p0 value.
-
-            # Enclosure of abs(log(x) / log(u0.c + inv(x))), either by
-            # direct evaluation or using monotonicity.
-            F11 = if iszero(x)
-                one(Arb)
-            elseif Arblib.contains_zero(x)
-                abs(Arb((-1, log(xᵤ) / log(u0.c + inv(xᵤ)))))
-            else
-                abs(log(x) / log(u0.c + inv(x)))
-            end
-
-            F11 * F12(x)
+        # Enclosure of inv(log(x))
+        invlogx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            xᵤ = ubound(Arb, x)
+            Arb((inv(log(xᵤ)), 0))
+        else
+            inv(log(x))
         end
 
-        # Compute an enclosure of F2
-        F2 = let α = Arb((-1, -1 + u0.ϵ))
-            # Enclosure of inv(log(x))
-            invlogx = if iszero(x)
-                zero(x)
-            elseif Arblib.contains_zero(x)
-                xᵤ = ubound(Arb, x)
-                Arb((inv(log(xᵤ)), 0))
-            else
-                inv(log(x))
+        # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
+        invgamma1mxp0 = if iszero(x)
+            rgamma(1 + α)
+        elseif Arblib.contains_zero(x)
+            lower = zero(x)
+            upper = let xᵤ = ubound(Arb, x)
+                # Enclosure of (1 - xᵤ^p0) / (1 + α)
+                onemxp0_div_αp1 =
+                    fx_div_x(s -> (1 - xᵤ^(s + s^2 / 2)), αp1, extra_degree = 2)
+                rgamma_1pα_div_αp1 / onemxp0_div_αp1
             end
+            Arb((lower, upper))
+        else
+            # Enclosure of (1 - x^p0) / (1 + α)
+            onemxp0_div_αp1 = fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1, extra_degree = 2)
+            rgamma_1pα_div_αp1 / onemxp0_div_αp1
+        end
 
-            # Start by handling the terms P and Q
+        # Enclosure for the terms P and Q
+        T1 = let
+            # Compute an enclosure of T11
 
-            # Enclosure of a0 / gamma(1 + α)
-            a0gamma = let α = -1 + u0.ϵ
-                Arb((finda0(α) / gamma(1 + α), -2 / Arb(π)^2))
-            end
-
-            # Compute an enclosure of F21
-
-            # Enclosure of F211 = x^(-α + p0 - 1) / log(x) using that
+            # Enclosure of T111 = x^(-α + p0 - 1) / log(x) using that
             # -α + p0 - 1 = (1 + α)^2 / 2
-            F211 = abspow(x, Arblib.nonnegative_part!(zero(x), (1 + α)^2 / 2)) * invlogx
+            T111 = abspow(x, Arblib.nonnegative_part!(zero(x), (αp1)^2 / 2)) * invlogx
 
-            # Enclosure of F212 = (1 + α) / (1 - x^p0) using t = 1 + α
-            F212 = let
-                lower = -invlogx
-                upper = let t = u0.ϵ
-                    t / (1 - abspow(x, t + t^2 / 2))
+            # Enclosure of T112 = (1 + α) / (1 - x^p0)
+            T112 = if iszero(x)
+                αp1
+            elseif Arblib.contains_zero(x)
+                lower = 1 + α
+                upper = let xᵤ = ubound(Arb, x)
+                    # Enclosure of inv((1 - xᵤ^p0) / (1 + α))
+                    inv(fx_div_x(s -> (1 - xᵤ^(s + s^2 / 2)), αp1, extra_degree = 2))
                 end
-
                 Arb((lower, upper))
-            end
-
-            # Enclosure of F213 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 + α)
-            F213 = let
-                lower = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
-                    (c(2α - p0) - 2c(2α) * c(α - p0) / c(α)) / (1 + α)
-                end
-                upper = 3 // 4 - Arb(π)^2 / 12
-
-                Arb((lower, upper))
-            end
-
-            F21 = F211 * F212 * F213
-
-            # Compute an enclosure of F22
-
-            # Enclosure of F221 = x^(1 + α) / 2
-            F221 = abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2
-
-            # Enclosure of F222, which is the same as F212
-            F222 = F212
-
-            F223 = let
-                F2231 = let
-                    # Lower and upper bound of (w1 - w2) / (1 + α)
-                    lower = (Arb(π)^2 + 8stieltjes(Arb, 1) - 4stieltjes(Arb, 0) - 2) / 8
-                    upper =
-                        let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-                            w1 = zeta(-2α - 1) - zeta(-2α + p0 - 1)
-                            w2 = -a0 * c(α - p0)^2
-
-                            (w1 - w2) / (1 + α)
-                        end
-
-                    Arb((lower, upper)) * invlogx
-                end
-
-                F2232 = let
-                    # Enclosure of (1 - x^((1 + α)^2) / ((1 + α)^2 * log(x))
-                    F2232 = if Arblib.contains_zero(x)
-                        Arblib.unit_interval!(zero(x))
-                    else
-                        # We compute a lower bound of t = (1 + α)^2 * log(x)
-                        t_lower = lbound(
-                            Arb,
-                            Arblib.nonnegative_part!(zero(x), (1 + α)^2) * log(x),
-                        )
-
-                        -Arb((expm1(t_lower) / t_lower, 1))
-                    end
-
-                    # Multiply by enclosure of c(α - p0)^2
-                    F2232 *= let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
-                        Arb((-Arb(π) / 2, c(α - p0)))^2
-                    end
-
-                    # Multiply by enclosure of a0 * (1 + α)
-                    F2232 *= let α = -1 + u0.ϵ
-                        Arb((finda0(α) * (1 + α), -2 / Arb(π)^2))
-                    end
-
-                    -F2232
-                end
-
-                F2231 + F2232
-            end
-
-            F22 = F221 * F222 * F223
-
-            # The enclosure of the terms coming from P + Q in the expansion
-            P_plus_Q = a0gamma * (F21 + F22)
-
-            # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
-
-            invgamma1mxp0 = let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2
-                if iszero(x)
-                    lower = zero(x)
-                    upper = inv(gamma(1 + α))
-                    Arb((lower, upper))
-                elseif Arblib.contains_zero(x)
-                    lower = zero(x)
-                    upper = inv(gamma(1 + α) * (1 - ubound(Arb, x)^p0))
-                    Arb((lower, upper))
-                else
-                    lower = -inv(log(x))
-                    upper = inv(gamma(1 + α) * (1 - x^p0))
-                    Arb((lower, upper))
-                end
-            end
-
-            # Handle the two singular terms in the expansion of
-            # clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
-            if u0.v0.v0.N0 > 0
-                clausen_j_one =
-                    let α = Arb((-1, -1 + u0.ϵ)), r = -u0.v0.v0.α + u0.v0.v0.p0 - 1
-                        # Enclosure of
-                        # gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2
-                        C_lower = let α = -1 + u0.ϵ
-                            (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
-                        end
-                        C_upper = let α = Arb(-1)
-                            (gamma(α - 1 - r) * sinpi((2 - α + r) / 2) - zeta(-α + r) / 2)
-                        end
-                        C = Arb((C_lower, C_upper))
-
-                        # Enclosure of C * x^r / log(x)
-                        term1 = C * abspow(x, r) * invlogx
-
-                        # Enclosure of zeta(-α + r) - inv(α + r - 1)
-                        S_lower = let α = -1 + u0.ϵ
-                            zeta(-α + r) - inv(-α + r - 1)
-                        end
-                        S_upper = let α = Arb(-1)
-                            zeta(-α + r) - inv(-α + r - 1)
-                        end
-                        S = Arb((S_lower, S_upper))
-
-                        # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
-                        term2 = let
-                            # Handle the case r > 1 + α
-
-                            # Enclosure of (exp(t) - 1) / t with
-                            # t = (r - (1 + α)) * log(x)
-                            factor1 = if Arblib.contains_zero(x)
-                                # We have t = (r - (1 + α)) * log(x) in interval [-Inf, 0]
-                                Arblib.unit_interval!(zero(x))
-                            else
-                                # We compute a lower bound of t = (r - (1 + α)) * log(x)
-
-                                # First we let s be the non-negative part
-                                # of r - (1 + α), since we are assuming that
-                                # r >= 1 + α.
-                                s = Arblib.nonnegative_part!(zero(x), r - (1 + α))
-
-                                # Then we take the lower bound of s * log(x)
-                                t_lower = lbound(Arb, s * log(x))
-
-                                Arb((expm1(t_lower) / t_lower, 1))
-                            end
-
-                            # Enclosure of x^(1 + α) /2 * factor1
-                            term2 =
-                                abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2 * factor1
-
-                            # Handle the case r < 1 + α if it occurs
-                            if Arblib.contains_positive(1 + α - r)
-                                # Enclosure of (exp(t) - 1) / t with
-                                # t = (1 + α - r) * log(x)
-                                factor2 = if Arblib.contains_zero(x)
-                                    # We have t = (1 + α - r) * log(x) in interval [-Inf, 0]
-                                    Arblib.unit_interval!(zero(x))
-                                else
-                                    # We compute a lower bound of t = (1 + α - r) * log(x)
-
-                                    # First we let s be the non-negative part
-                                    # of 1 + α - r, since we are assuming that
-                                    # r < 1 + α.
-                                    s = Arblib.nonnegative_part!(zero(x), 1 + α - r)
-
-                                    # Then we take the lower bound of s * log(x)
-                                    t_lower = lbound(Arb, s * log(x))
-
-                                    Arb((expm1(t_lower) / t_lower, 1))
-                                end
-
-                                # Set result to union of the above case
-                                # and this case which is given by x^r / 2 * factor2
-                                term2 = union(term2, abspow(x, r) / 2 * factor2)
-                            end
-
-                            term2
-                        end
-
-                        # Enclosure of S * (x^r - x^(1 + α)) / 2log(x)
-                        term3 = let onepα = Arblib.nonnegative_part!(zero(x), 1 + α)
-                            S * (abspow(x, r) - abspow(x, onepα)) * invlogx / 2
-                        end
-
-                        term = term1 + term2 + term3
-
-                        term *= invgamma1mxp0
-
-                        -u0.v0.v0.a[1] * term
-                    end
             else
-                clausen_j_one = zero(x)
+                # Enclosure of inv((1 - x^p0) / (1 + α))
+                inv(fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1, extra_degree = 2))
             end
 
-            # Enclosure of the remaining terms in the expansion
-            remainder =
-                eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
 
-            #(u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
-            P_plus_Q + clausen_j_one + remainder
+            T11 = T111 * T112 * T113
+
+            # Compute an enclosure of T12
+
+            # Enclosure of T121 = x^(1 + α) / 2
+            T121 = abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2
+
+            # Enclosure of T122, which is the same as T112
+            T122 = T112
+
+            T123 = let
+                T1231 = T1231_mul_logx * invlogx
+
+                T1232 = let
+                    # Lower and upper bounds of
+                    # t = (1 + α)^2 * log(x)
+                    tₗ = ubound(Arb, αp1^2) * log(abs_lbound(Arb, x))
+                    tᵤ = abs_lbound(Arb, αp1^2) * log(ubound(Arb, x))
+                    # Lower and upper bounds of (1 - exp(t)) / t
+                    # Using that t <= 0 to handle the singular cases
+                    lower = Arblib.isnegative(tᵤ) ? (1 - exp(tᵤ)) / tᵤ : -one(tᵤ)
+                    upper = isfinite(tₗ) ? (1 - exp(tₗ)) / tₗ : zero(tₗ)
+
+                    Arb((lower, upper)) * w_mul_α
+                end
+
+                T1231 + T1232
+            end
+
+            T12 = T121 * T122 * T123
+
+            a0_div_gamma_1pα * (T11 + T12)
         end
 
-        return F1 * F2
+        # Enclosure for the two singular terms in the expansion of
+        # clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
+        T2 = if u0.v0.v0.N0 > 0
+            let j = 1, r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+                # Enclosure of
+                # (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x)
+                T21 = T21_α * abspow(x, r) * invlogx
+
+                # Enclosure of zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x)
+                T221 =
+                    ArbExtras.enclosure_series(
+                        α -> zeta_deflated(-α + r, one(r)),
+                        α,
+                        degree = 8,
+                    ) *
+                    (abspow(x, r) - abspow(x, Arblib.nonnegative_part!(zero(x), αp1))) *
+                    invlogx / 2
+
+                # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
+                T222 = let
+                    # Handle the case r >= 1 + α
+
+                    # Lower and upper bounds of
+                    # t = (r - (1 + α)) * log(x)
+                    tₗ = ubound(Arb, r - αp1) * log(abs_lbound(Arb, x))
+                    tᵤ = abs_lbound(Arb, r - αp1) * log(ubound(Arb, x))
+                    # Lower and upper bounds of (exp(t) - 1) / t
+                    # Using that t <= 0 to handle the singular cases
+                    lower = isfinite(tₗ) ? (exp(tₗ) - 1) / tₗ : zero(tₗ)
+                    upper = Arblib.isnegative(tᵤ) ? (exp(tᵤ) - 1) / tᵤ : one(tᵤ)
+
+                    T222 = abspow(x, αp1) / 2 * Arb((lower, upper))
+
+                    # Handle the case r < 1 + α if it occurs
+                    if Arblib.contains_positive(1 + α - r)
+                        # Lower and upper bounds of
+                        # t = (1 + α - r) * log(x)
+                        tₗ = ubound(Arb, αp1 - r) * log(abs_lbound(Arb, x))
+                        tᵤ = abs_lbound(Arb, αp1 - r) * log(ubound(Arb, x))
+                        # Lower and upper bounds of (exp(t) - 1) / t
+                        # Using that t <= 0 to handle the singular cases
+                        lower = isfinite(tₗ) ? (exp(tₗ) - 1) / tₗ : zero(tₗ)
+                        upper = Arblib.isnegative(tᵤ) ? (exp(tᵤ) - 1) / tᵤ : one(tᵤ)
+
+                        # Add enclosure from this case to T222
+                        T222 = union(T222, abspow(x, r) / 2 * Arb((lower, upper)))
+                    end
+
+                    T222
+                end
+
+                term = T21 + T221 + T222
+
+                term *= invgamma1mxp0
+
+                -u0.v0.v0.a[1] * term
+            end
+        else
+            zero(x)
+        end
+
+        # Enclosure of the remaining terms in the expansion
+        T3 = eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
+        #@show T1 T2 T3
+        # (u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
+        F = T1 + T2 + T3
+        #@show f1(x) f2(x)
+        return f1(x) * f2(x) * F
     end
 end
 
