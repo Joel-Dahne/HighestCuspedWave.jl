@@ -1,3 +1,5 @@
+# PROVE: That all occurrences of force = true indeed are zero
+
 """
     eval_expansion(u0::BHKdVAnsatz, expansion, x)
 
@@ -40,9 +42,8 @@ a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
 has a removable singularity at `α = -1`.
 - **PROVE:** That it has a removable singularity
-This removable singularity can be handled by iterated use of
-[`fx_div_x`](@ref). For `x = 0` this doesn't work. For now we use that
-it converges to
+This removable singularity can be handled using [`fx_div_x`](@ref).
+For `x = 0` this doesn't work. For now we use that it converges to
 ```
 (1 - γ - log(x)) / π
 ```
@@ -127,55 +128,46 @@ function eval_expansion(
 
     # Compute enclosure of the p-coefficient
     # a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
-    # Note that this depends on x!
-    # IMPROVE: If there are no occurrences of p = 1 in the expansion
-    # we don't have to compute this
-    p_coefficient = let interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-        # Enclosure of rgamma(α) / (α + 1)
-        rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
-        # Enclosure of rgamma(2α) / (α + 1)
-        rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
-        # Enclosure of cospi(α / 2) / (α + 1)
-        cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
+    # Note that this depends on x and is only used when x doesn't contain zero
+    if !Arblib.contains_zero(x)
+        p_coefficient = let interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+            extra_degree = 2
+            # Enclosure of rgamma(α) / (α + 1)
+            rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval; extra_degree)
+            # Enclosure of rgamma(2α) / (α + 1)
+            rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval; extra_degree)
+            # Enclosure of cospi(α / 2) / (α + 1)
+            cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval; extra_degree)
 
-        # Enclosure of a0 * (α + 1)
-        a0_mul_α =
-            2cospi(Arb((-1, -1 + u0.ϵ))) / rgamma2_div_α / (cos_div_α / rgamma1_div_α)^2
+            # Enclosure of a0 * (α + 1)
+            a0_mul_α =
+                2cospi(Arb((-1, -1 + u0.ϵ))) / rgamma2_div_α / (cos_div_α / rgamma1_div_α)^2
 
-        # Enclosure of
-        # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
-        # It uses three nested fx_div_x
-        coefficient_div_α = fx_div_x(interval, extra_degree = 2, force = true) do r
-            if Arblib.contains_zero(r[0])
-                # Enclosure of rgamma(α) / (α + 1)
-                rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), r, extra_degree = 2)
-                # Enclosure of rgamma(α - p0) / (α + 1)
-                rgamma2_div_α2 = fx_div_x(r, extra_degree = 2) do s
-                    if Arblib.contains_zero(s[0])
-                        fx_div_x(t -> rgamma(-1 - t^2 / 2), s, extra_degree = 2)
-                    else
-                        rgamma(-1 - s^2 / 2) / s
-                    end
+            # Enclosure of
+            # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+            coefficient_div_α = fx_div_x(interval; extra_degree, force = true) do r
+                if Arblib.contains_zero(r[0])
+                    # Enclosure of rgamma(α) / (α + 1)
+                    rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), r; extra_degree)
+                    # Enclosure of rgamma(α - p0) / (α + 1)^2
+                    rgamma2_div_α2 =
+                        fx_div_x(s -> rgamma(-1 - s^2 / 2), r, 2; extra_degree)
+                    # Enclosure of cospi(α / 2) / (α + 1)
+                    cos1_div_α = fx_div_x(s -> cospi((s - 1) / 2), r; extra_degree)
+                    # Enclosure of cospi((α - p0) / 2) / (α + 1)^2
+                    cos2_div_α2 =
+                        fx_div_x(s -> cospi((-1 - s^2 / 2) / 2), r, 2; extra_degree)
+
+                    cos1_div_α / rgamma1_div_α -
+                    cos2_div_α2 / rgamma2_div_α2 * x^(r + r^2 / 2)
+                else
+                    gamma(r - 1) * cospi((r - 1) / 2) -
+                    gamma(-1 - r^2 / 2) * cospi((-1 - r^2 / 2) / 2) * x^(r + r^2 / 2)
                 end
-                # Enclosure of cospi(α / 2) / (α + 1)
-                cos1_div_α = fx_div_x(s -> cospi((s - 1) / 2), r, extra_degree = 2)
-                # Enclosure of cospi((α - p0) / 2) / (α + 1)
-                cos2_div_α = fx_div_x(r, extra_degree = 2) do s
-                    if Arblib.contains_zero(s[0])
-                        fx_div_x(t -> cospi((-1 - t^2 / 2) / 2), s, extra_degree = 2)
-                    else
-                        cospi((-1 - s^2 / 2) / 2) / s
-                    end
-                end
-
-                cos1_div_α / rgamma1_div_α - cos2_div_α / rgamma2_div_α2 * x^(r + r^2 / 2)
-            else
-                gamma(r - 1) * cospi((r - 1) / 2) -
-                gamma(-1 - r^2 / 2) * cospi((-1 - r^2 / 2) / 2) * x^(r + r^2 / 2)
             end
-        end
 
-        a0_mul_α * coefficient_div_α
+            a0_mul_α * coefficient_div_α
+        end
     end
 
     res = zero(x)
