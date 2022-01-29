@@ -35,11 +35,11 @@ gives us
 G(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x)) / (2gamma(1 + α) * x^(-α) * (1 - x^p0))
      = x^((1 - u0.γ) * (1 + α)) * log(u0.c + inv(x)) / (2gamma(1 + α) * (1 - x^p0))
 ```
-Multiplying and dividing by `-log(x)` we can split it into the two
+Multiplying and dividing by `log(inv(x))` we can split it into the two
 factors
 ```
-G1(x) = -log(u0.c + inv(x)) / 2log(x)
-G2(x) = -x^((1 - u0.γ) * (1 + α)) * log(x) / (2gamma(1 + α) * (1 - x^p0))
+G1(x) = log(u0.c + inv(x)) / 2log(inv(x)) = -log(u0.c + inv(x)) / 2log(x)
+G2(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (2gamma(1 + α) * (1 - x^p0))
 ```
 
 We can enclose `G1(x)` using that it is increasing in `x` and the
@@ -102,7 +102,7 @@ function alpha0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
 
     verbose && @info "Value at x = π" gπ
 
-    ϵ = Arf(0.5)
+    ϵ = Arf(0.45)
     while !(f(Arb((0, ϵ))) < gπ)
         # We use the factor 0.8 instead of, say, 0.5 to get
         # slightly better (higher) values for ϵ.
