@@ -412,11 +412,14 @@ function zeta_deflated(s::ArbSeries, a::Arb)
 end
 
 """
-    fx_div_x(f, x::Arb; extra_degree::Integer = 0, force = false)
-    fx_div_x(f, x::ArbSeries; extra_degree::Integer = 0, force = false)
+    fx_div_x(f, x::Arb[, order::Integer]; extra_degree::Integer = 0, force = false)
+    fx_div_x(f, x::ArbSeries[, order::Integer]; extra_degree::Integer = 0, force = false)
 
 Compute an enclosure of `f(x) / x` for a function `f` with a zero at
 the origin.
+
+If `order` is given it computes `f(x) / x^order`, assuming `f` has a
+zero of the given order at zero.
 
 Setting `extra_degree` to a value higher than `0` makes it use a
 higher order expansion to enclose the value, this can give tighter
@@ -427,37 +430,49 @@ exactly zero. If `f` is known to be exactly zero at zero but the
 enclosure might be wider it can be forced to be zero by setting `force
 = true`
 """
-function fx_div_x(f, x::Arb; extra_degree::Integer = 0, force = false)
+function fx_div_x(f, x::Arb, order::Integer = 1; extra_degree::Integer = 0, force = false)
     @assert Arblib.contains_zero(x)
+    @assert order >= 1
     @assert extra_degree >= 0
 
-    expansion = taylor_with_remainder(f, zero(Arb), x, degree = 1 + extra_degree)
+    expansion = taylor_with_remainder(f, zero(Arb), x, degree = order + extra_degree)
 
     if force
-        @assert Arblib.contains_zero(expansion[0])
-        expansion[0] = 0
+        for i = 0:order-1
+            @assert Arblib.contains_zero(expansion[i])
+            expansion[i] = 0
+        end
     end
 
-    return (expansion << 1)(x)
+    return (expansion << order)(x)
 end
 
-function fx_div_x(f, x::ArbSeries; extra_degree::Integer = 0, force = false)
+function fx_div_x(
+    f,
+    x::ArbSeries,
+    order::Integer = 1;
+    extra_degree::Integer = 0,
+    force = false,
+)
     @assert Arblib.contains_zero(x[0])
+    @assert order >= 1
     @assert extra_degree >= 0
 
     expansion = taylor_with_remainder(
         f,
         zero(Arb),
         x[0],
-        degree = Arblib.degree(x) + 1 + extra_degree,
+        degree = Arblib.degree(x) + order + extra_degree,
     )
 
     if force
-        @assert Arblib.contains_zero(expansion[0])
-        expansion[0] = 0
+        for i = 0:order-1
+            @assert Arblib.contains_zero(expansion[i])
+            expansion[i] = 0
+        end
     end
 
-    expansion_div_x = expansion << 1
+    expansion_div_x = expansion << order
 
     # Set the result to the Taylor series of f(x) / x on interval
     res = ArbSeries(degree = Arblib.degree(x))
