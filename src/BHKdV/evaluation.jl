@@ -47,7 +47,7 @@ work. For now we use that it converges to
 (1 - γ - log(x)) / π
 ```
 and that this gives an upper bound.
-- **TODO:** Prove this `(1 - γ - log(x)) / π` gives an upper bound.
+- **PROVE:** That `(1 - γ - log(x)) / π` gives an upper bound.
   Alternatively we don't use this method for `x = 0` (using
   [`inv_u0_bound`](@ref) instead).
 
