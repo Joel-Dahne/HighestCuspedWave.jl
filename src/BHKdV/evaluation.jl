@@ -602,16 +602,16 @@ function H(
     u0::BHKdVAnsatz,
     ::Asymptotic;
     M::Integer = 3,
-    skip_j_one_singular = false,
+    skip_singular_j_until = 0,
     use_approx_p_and_q = false,
 )
-    f = H(u0, AsymptoticExpansion(); M, skip_j_one_singular)
+    f = H(u0, AsymptoticExpansion(); M, skip_singular_j_until)
 
     return x -> eval_expansion(u0, f(x), x; use_approx_p_and_q)
 end
 
 """
-    H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_j_one_singular = false)
+    H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_singular_j_until::Integer = 0,)
 
 Return a dictionary containing the terms in the asymptotic expansion
 of `u0` which can then be evaluated with [`eval_expansion`](@ref).
@@ -640,23 +640,26 @@ which we don't evaluate at all yet. Instead we store it implicitly in
 the expansion.
 
 For both the Clausen terms and the Fourier terms we let `α` be a ball.
-This gives good enclosures for the Fourier terms and decent enclosures
-for the Clausen terms for `j >= 2`. For `j = 1` the parameter `s`
-overlaps with 3 and the two leading terms in the expansion become
-singular need to be handled separately.
+This gives good enclosures for the Fourier terms. For the Clausen
+terms it give good enclosures unless `j` is small. For small values of
+`j` the two terms
+```
+gamma(α + u0.v0.v0.α - j * u0.v0.v0.p0) * cospi((α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2) *
+    x^-(α + u0.v0.v0.α - j * u0.v0.v0.p0)
+```
+and
+```
+-zeta(-1 - α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2 * x^2
+```
+have very large cancellations.
 
-If `skip_j_one_singular` is true then don't include the two singular
-terms from the Clausen term in the tail corresponding to `j = 1`. This
-is used in `F0` where these two terms are treated separately.
-Otherwise, if `approximate_j_one_singular` is true it only computes an
-approximation of the two singular terms by using `α = -1 + u0.ϵ`, this
-can be useful for testing. If `approximate_j_one_singular` is false it
-computes enclosures, depending on `u0.v0.v0.α` and `u0.ϵ` these might
-not be finite and will typically be very bad.
-- **TODO:** Determine if we need to compute better enclosures of these
-  terms or not. Since [`F0`](@ref) don't use them we might not have to.
-- **IMPROVE:** We might want to treat more small `j` values
-  separately.
+If `skip_singular_j_until` is greater than zero then skip the two
+above terms for all Clausen functions in the tail from `j = 1` to
+`skip_singular_j_until`. This is used in [`F0`](@ref) where these
+terms are handled separately.
+
+If `approximate_j_one_singular` is true it only computes an
+approximation of the two terms for `j = 1`. This is only for testing.
 
 The argument `alpha_interval` can be set to either `:full` or
 `:endpoint`. In the former case it uses the full interval of `α` when
@@ -670,11 +673,17 @@ function H(
     u0::BHKdVAnsatz{Arb},
     ::AsymptoticExpansion;
     M::Integer = 3,
-    skip_j_one_singular::Bool = false,
+    skip_singular_j_until::Integer = 0,
     approximate_j_one_singular::Bool = false,
     alpha_interval = :full,
 )
     @assert M >= 3
+
+    skip_singular_j_until > u0.v0.v0.N0 && throw(
+        ArgumentError(
+            "can't skip more j-terms than there are, j = $j, N0 = $(u0.v0.v0.N0)",
+        ),
+    )
 
     # Enclosure of α
     if alpha_interval == :full
@@ -740,42 +749,24 @@ function H(
         # Tail term
 
         # Clausen terms
-
-        # Handle the first term separately since we  since s is very close to 3 in
-        # this case and the first two terms in its expansion are very unstable
-        if u0.v0.v0.N0 >= 1
-            let j = 1
-                s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
-                C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
-
-                # Only add these terms if skip_j_one_singular is not true
-                if !skip_j_one_singular
-                    if approximate_j_one_singular
-                        C2, _, p2, _ =
-                            let s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
-                                clausenc_expansion(x, s, M, skip_constant = true)
-                            end
-
-                        res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.v0.a[j]
-                        res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.v0.a[j]
-                    else
-                        res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
-                        res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.v0.a[j]
-                    end
-                end
-
-                for m = 2:M-1
-                    res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
-                end
-                res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
-            end
-        end
-        for j = 2:u0.v0.v0.N0
+        for j = 1:u0.v0.v0.N0
             s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
             C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
-            res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
-            for m = 1:M-1
+            if j > skip_singular_j_until
+                if isone(j) && approximate_j_one_singular
+                    C2, _, p2, _ = let s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
+                            clausenc_expansion(x, s, M, skip_constant = true)
+                        end
+                    res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.v0.a[j]
+                    res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.v0.a[j]
+                else
+                    res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
+                    res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.v0.a[j]
+                end
+            end
+
+            for m = 2:M-1
                 res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
             end
             res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
@@ -798,8 +789,8 @@ function H(
     end
 end
 
-function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_j_one_singular = false)
-    f = D(u0, AsymptoticExpansion(); M, skip_j_one_singular)
+function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_singular_j_until = 0)
+    f = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)
 
     return x -> eval_expansion(u0, f(x), x)
 end
@@ -808,11 +799,11 @@ function D(
     u0::BHKdVAnsatz,
     evaltype::AsymptoticExpansion;
     M::Integer = 3,
-    skip_j_one_singular = false,
+    skip_singular_j_until = 0,
     alpha_interval = :full,
 )
     f = x -> u0(x, evaltype; M)
-    g = H(u0, evaltype; M, skip_j_one_singular, alpha_interval)
+    g = H(u0, evaltype; M, skip_singular_j_until, alpha_interval)
 
     return x -> begin
         expansion1 = f(x)
@@ -924,8 +915,8 @@ of the terms in the expansion require extra care. We therefore split
 the expansion into three parts
 1. The two leading terms, with keys `(2, 0, 0, 0, 0, 0, 0)` and `(0, 1,
     0, 0, 0, 0, 0)`, which we call `P` and `Q` respectively.
-2. The leading terms of the Clausen term in the tail coming from `j =
-  1`.
+2. The leading terms of the Clausen terms in the tail for small values
+   of `j`.
 3. The remaining terms.
 This splits `F` into three terms, which we will call `T1, T2, T3`.
 
@@ -1060,10 +1051,27 @@ By letting `t = (1 + α)^2 * log(x)` to write it as
 We then handle this similarly to how we do it for the tail Clausen
 below.
 
-## Handling `T2`: tail Clausen with `j = 1`
-We are interested in bounding the first two terms in the expansion of
+## Handling `T2`: tail Clausen with small `j`
+For small values of `j` the two terms
 ```
--u0.v0.v0.a[1] * clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0) /
+gamma(α + u0.v0.v0.α - j * u0.v0.v0.p0) * cospi((α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2) *
+    x^-(α + u0.v0.v0.α - j * u0.v0.v0.p0)
+```
+and
+```
+-zeta(-1 - α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2 * x^2
+```
+in the asymptotic expansion of the Clausen functions in the tail have
+very large cancellations. It is therefore beneficial to treat them
+together to account for the cancellations. Which `j` we treat
+separately like this is determined by the argument
+`skip_singular_j_until`, it then handles `j = 1:skip_singular_j_until`
+separately.
+
+
+We are thus interested in bounding
+```
+-u0.v0.v0.a[j] * clausenc(x, 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0) /
     (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
 ```
 We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` by
@@ -1073,11 +1081,10 @@ compute at the endpoints of `x`. For `x = 0` it is given by
 approach as in [`inv_u0_bound`](@ref) for enclosing it. We are then
 interested in enclosing the rest.
 
-Let `r = -u0.v0.v0.α + u0.v0.v0.p0 - 1`. Then `r > 0` and is very
-small, around `1e-8` or so depending on the precise choice of
-`u0.v0.v0`. We have `1 - α - u0.v0.v0.α + u0.v0.v0.p0 = 2 - α + r`.
-The sum of the first two terms in the asymptotic expansion of the
-Clausen is then given by
+Let `r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1`, then `r > 0` and for
+small values of `j` it is very close to zero. We have `1 - α -
+u0.v0.v0.α + j * u0.v0.v0.p0 = 2 - α + r`. The sum of the first two
+terms in the asymptotic expansion of the Clausen is then given by
 ```
 gamma(α - 1 - r) * cospi((α - 1 - r) / 2) * x^(1 - α + r) -
     zeta(-α + r) / 2 * x^2
@@ -1148,7 +1155,7 @@ determine the endpoints of `t` and from there we can compute an
 enclosure.
 
 The second case, when `r < 1 + α`, doesn't always occur, it depends on
-the value of `u0.ϵ`. We first check if `1 + α - r` contain any
+the value of `j` and `u0.ϵ`. We first check if `1 + α - r` contain any
 positive numbers, if that is the case we proceed similar to for the
 first case. We factor out `x^r`, giving us
 ```
@@ -1184,6 +1191,7 @@ function F0(
     ::Asymptotic;
     M::Integer = 3,
     ϵ::Arb = Arb(0.5),
+    skip_singular_j_until = 100,
     alpha_interval = :full,
 )
     @assert ϵ < 1
@@ -1219,7 +1227,7 @@ function F0(
     # tail corresponding to j = 1 and also remove the two leading
     # term, these three terms are handled separately.
     Du0_expansion =
-        D(u0, AsymptoticExpansion(), skip_j_one_singular = true; M, alpha_interval)(ϵ)
+        D(u0, AsymptoticExpansion(); M, skip_singular_j_until, alpha_interval)(ϵ)
     delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
     delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
 
@@ -1339,28 +1347,31 @@ function F0(
         (cos_αmp0div2_div_αp12 / rgamma_αmp0_div_αp12)^2 /
         (cos_αdiv2_div_αp1 / rgamma_α_div_αp1)^2
 
-    # α-factor of T21
+    # α-factor of T21 for j = 1:skip_singular_j_until
     # IMPROVE: Compute tighter enclosure when α + 1 - r is close to
     # zero
-    T21_α = let j = 1, r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
-        ArbExtras.enclosure_series(α, degree = 4, verbose = true) do α
-            let res = -zeta_deflated(-α + r, one(Arb)) / 2
-                if (α isa Arb && Arblib.contains_zero(α + 1 - r)) ||
-                   (α isa ArbSeries && Arblib.contains_zero(α[0] + 1 - r))
-                    res += fx_div_x(α + 1 - r; extra_degree) do s
-                        gamma(s + 1) / ((s - 1) * (s - 2)) * cospi((2 - s) / 2) + 1 // 2
+    T21_α = map(1:skip_singular_j_until) do j
+        let r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+            ArbExtras.enclosure_series(α, degree = 4) do α
+                let res = -zeta_deflated(-α + r, one(Arb)) / 2
+                    if (α isa Arb && Arblib.contains_zero(α + 1 - r)) ||
+                       (α isa ArbSeries && Arblib.contains_zero(α[0] + 1 - r))
+                        res += fx_div_x(α + 1 - r; extra_degree) do s
+                            gamma(s + 1) / ((s - 1) * (s - 2)) * cospi((2 - s) / 2) + 1 // 2
+                        end
+                    else
+                        res +=
+                            (
+                                gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) *
+                                cospi((1 - α + r) / 2) + 1 // 2
+                            ) / (α + 1 - r)
                     end
-                else
-                    res +=
-                        (
-                            gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) *
-                            cospi((1 - α + r) / 2) + 1 // 2
-                        ) / (α + 1 - r)
+                    res
                 end
-                res
             end
         end
     end
+
     return x::Arb -> begin
         @assert x <= ϵ
 
@@ -1450,13 +1461,14 @@ function F0(
             a0_div_gamma_1pα * (T11 + T12)
         end
 
-        # Enclosure for the two singular terms in the expansion of
-        # clausenc(x, 1 - α - u0.v0.v0.α + u0.v0.v0.p0)
-        T2 = if u0.v0.v0.N0 > 0
-            let j = 1, r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+        # Enclosure of the two singular terms in the expansion of
+        # clausenc(x, 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0) for
+        # j = 1:skip_singular_j_until
+        T2s = map(1:skip_singular_j_until) do j
+            let r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
                 # Enclosure of
                 # (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x)
-                T21 = T21_α * abspow(x, r) * invlogx
+                T21 = T21_α[j] * abspow(x, r) * invlogx
 
                 # Enclosure of zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x)
                 T221 =
@@ -1505,18 +1517,18 @@ function F0(
 
                 term *= invgamma1mxp0
 
-                -u0.v0.v0.a[1] * term
+                -u0.v0.v0.a[j] * term
             end
-        else
-            zero(x)
         end
+
+        T2 = sum(T2s, init = zero(x))
 
         # Enclosure of the remaining terms in the expansion
         T3 = eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
-        #@show T1 T2 T3
+
         # (u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
         F = T1 + T2 + T3
-        #@show f1(x) f2(x)
+
         return f1(x) * f2(x) * F
     end
 end
