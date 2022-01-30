@@ -1112,7 +1112,8 @@ T21 = (
 ) / (α + 1 - r) - zeta_deflated(-α + r) / 2,
 ```
 This formulation is much more stable and can be accurately enclosed.
-- **TODO:** Handle the case when `α + 1 - r` overlaps with zero.
+For the case when `α + 1 - r` overlaps zero we can handle the
+removable singularity.
 
 For `T22` we have to compute an enclosure of
 ```
@@ -1339,28 +1340,27 @@ function F0(
         (cos_αdiv2_div_αp1 / rgamma_α_div_αp1)^2
 
     # α-factor of T21
-    # TODO: Handle α + 1 - r overlapping zero
-    # IMPROVE: Compute tighter enclosure when α + 1 - r is close to zero
+    # IMPROVE: Compute tighter enclosure when α + 1 - r is close to
+    # zero
     T21_α = let j = 1, r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
-        # Old code assuming monotonicity
-        #lower = let α = -1 + u0.ϵ
-        #    (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2)
-        #end
-        #upper = let α = Arb(-1)
-        #    (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2)
-        #end
-        #T21_α_old = Arb((lower, upper))
-
-        ArbExtras.enclosure_series(
-            α ->
-                (
-                    gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) * cospi((1 - α + r) / 2) + 1 // 2
-                ) / (α + 1 - r) - zeta_deflated(-α + r, one(Arb)) / 2,
-            α,
-            degree = 4,
-        )
+        ArbExtras.enclosure_series(α, degree = 4, verbose = true) do α
+            let res = -zeta_deflated(-α + r, one(Arb)) / 2
+                if (α isa Arb && Arblib.contains_zero(α + 1 - r)) ||
+                   (α isa ArbSeries && Arblib.contains_zero(α[0] + 1 - r))
+                    res += fx_div_x(α + 1 - r; extra_degree) do s
+                        gamma(s + 1) / ((s - 1) * (s - 2)) * cospi((2 - s) / 2) + 1 // 2
+                    end
+                else
+                    res +=
+                        (
+                            gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) *
+                            cospi((1 - α + r) / 2) + 1 // 2
+                        ) / (α + 1 - r)
+                end
+                res
+            end
+        end
     end
-
     return x::Arb -> begin
         @assert x <= ϵ
 
