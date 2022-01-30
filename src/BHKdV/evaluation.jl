@@ -1548,10 +1548,13 @@ For non-zero `x` it computes an enclosure of the value. It splits it as
 ```
 gamma(1 + α) * (1 - x^p0) / (u0(x) / x^(-α))
 ```
-and computes an enclosure of `gamma(1 + α) * (1 - x^p0)`, which has a
-removable singularity at `α = -1`, using [`fx_div_x`](@ref). For
-`u0(x) / x^(-α)` it computes an enclosure using the asymptotic
-expansion of `u0`.
+and computes an enclosure of
+```
+gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
+```
+by handling the removable singularity at `α = -1` using
+[`fx_div_x`](@ref). For `u0(x) / x^(-α)` it computes an enclosure
+using the asymptotic expansion of `u0`.
 
 We now describe how to compute an upper bound when `x` overlaps with
 zero.
@@ -1576,11 +1579,7 @@ by this we get
 gamma(1 + α) * (1 - x^p0) /
     (a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0))
 ```
-Numerically we can see that this term converges to `π` as `α -> -1`
-and `x -> 0`. We can also see that it is decreasing in both `α` and
-`x`. We would therefore expect to be able to compute a rather accurate
-enclosure. We don't use these observations directly though, instead we
-proceed as follows. We can split this further into the two factors
+We split this further into the two factors
 ```
 F1 = gamma(1 + α) / a0
 F2 = (1 - x^p0) /
@@ -1617,50 +1616,59 @@ inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
 Similarly to `F1`, `c(α)` has a removable singularity at `α = -1`. We
 can compute an enclosure using the same tools.
 
-For the remaining part we notice that `c(α - p0) / c(α)` converges to
-`1` as `α -> -1` and is decreasing in `α`.
-- **PROVE:** That `c(α - p0) / c(α)` is decreasing in `α` and
-  converges to `1`.
-An upper bound for `(1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is
-hence given by `1` (for `α = -1`). For a lower bound we note since
-`c(α - p0) / c(α) < 1` it is easily seen to be decreasing in `x` and
-it us therefore enough to evaluate it at an upper bound for `x`.
-Furthermore it is decreasing in `α` and we can use an upper bound for
-that as well.
-- **PROVE:** That `(1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)` is
-  decreasing in `α`. Alternatively we could rewrite it as a removable
-  singularity and handle it that way.
-
-**IMPROVE:** WE could improve the enclosure we get by incorporating
-some of the terms in the tail of `u0`. For very small `x` this would
-be negligible but for `x` around say `1e-10` this would slightly
-improve the values. It seems to be able to give a factor of around
-`0.5` for `x` close to `0.1` but only a factor `0.85` around `x =
-1e-10` (checked by plotting the value for `F1` used in this method and
-comparing it to the non-asymptotic version of it). Since this is not a
-big improvement and for `x` values this large we can use the
-non-asymptotic version anyway it is probably not worth it to implement
-though.
+For the remaining part we compute an enclosure of the derivative of
+`c(α - p0) / c(α)` with respect to `α` and check that this is
+negative. This means that `c(α - p0) / c(α)` is decreasing in `α` and
+the maximum value is hence attained at `α = -1` where it is `1`. This
+means that
+```
+(1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+```
+is upper bounded by `(1 - x^p0) / (1 - x^p0) = 1`. Since `c(α - p0) /
+c(α) <= 1` we also get that
+```
+(1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+```
+is non-increasing in `x`. A lower bound can thus be computed by
+considering `xᵤ = ubound(x)`. At `xᵤ > 0` we can handle the removable
+singularity in `α`
 """
 function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
-    # Interval corresponding to 1 + α
-    interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+    # Interval for α
+    α = Arb((-1, -1 + u0.ϵ))
+    # Interval for α + 1
+    αp1 = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
+    extra_degree = 2
+
     # Enclosure of rgamma(α) / (α + 1)
-    rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
+    rgamma_α_div_αp1 = fx_div_x(s -> rgamma(s - 1), αp1; extra_degree)
     # Enclosure of rgamma(2α) / (α + 1)
-    rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
+    rgamma_2α_div_αp1 = fx_div_x(s -> rgamma(2(s - 1)), αp1; extra_degree)
     # Enclosure of cospi(α / 2) / (α + 1)
-    cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
+    cos_αdiv2_div_αp1 = fx_div_x(s -> cospi((s - 1) / 2), αp1; extra_degree)
 
     # Enclosure of F1
-    F1 = let α = Arb((-1, -1 + u0.ϵ))
-        α / 2 * cospi(α) * inv(rgamma1_div_α)^3 * cos_div_α^2 * rgamma2_div_α
+    F1 =
+        α / 2 * cospi(α) * inv(rgamma_α_div_αp1)^3 * cos_αdiv2_div_αp1^2 * rgamma_2α_div_αp1
+
+    c(a) =
+        if (a isa Arb && Arblib.contains_zero(a + 1)) ||
+           (a isa ArbSeries && Arblib.contains_zero(a[0] + 1))
+            fx_div_x(s -> cospi((s - 1) / 2), a + 1; extra_degree) /
+            fx_div_x(s -> rgamma(s - 1), a + 1; extra_degree)
+        else
+            gamma(a) * cospi(a / 2)
+        end
+
+    inv_c_α = inv(c(α))
+
+    # Prove that c(α - p0) / c(α) is decreasing in α
+    cαmp0_div_cα = let α = ArbSeries((α, 1)), p0 = (1 + α) + (1 + α)^2 / 2
+        c(α - p0) / c(α)
     end
 
-    c(a) = gamma(a) * cospi(a / 2)
-
-    # Enclosure of inv(c(α))
-    inv_c_α = rgamma1_div_α / cos_div_α
+    Arblib.isnegative(cαmp0_div_cα[1]) ||
+        error("c(α - p0) / c(α) could not be proved to be decreasing")
 
     # Compute the expansion of u0
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
@@ -1671,7 +1679,7 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
     leading_term = u0_expansion[(1, 0, 0, 0, 0, 0, 0)]
     delete!(u0_expansion, (1, 0, 0, 0, 0, 0, 0))
     expansion_ispositive(u0, u0_expansion, ϵ) ||
-        error("expansion of u0 not prove to be positive, this should not happen")
+        error("expansion of u0 could not prove to be positive")
     u0_expansion[(1, 0, 0, 0, 0, 0, 0)] = leading_term
 
     # Divide the expansion of u0 by x^-α
@@ -1680,40 +1688,45 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
         u0_expansion_div_x_mα[(p, q, i + 1, j, k, l, m)] = y
     end
 
-    αᵤ = -1 + u0.ϵ
-    p0ᵤ = 1 + αᵤ + (1 + αᵤ)^2 / 2
-
     return x::Arb -> begin
         x < 1 || throw(DomainError(x, "need 0 < x < 1"))
         x <= ϵ || throw(DomainError(x, "need x <= ϵ = $ϵ"))
 
         if Arblib.contains_zero(x)
-            xᵤ = ubound(Arb, x)
-
             # Enclose F2
-            # Upper and lower bound of
-            # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-            F2_lower = (1 - xᵤ^p0ᵤ) / (1 - c(αᵤ - p0ᵤ) / c(αᵤ) * xᵤ^p0ᵤ)
-            F2_upper = one(Arb)
-            # Combine upper and lower bound and multiply with enclosure of
-            # inv(c(α)) to get an enclosure for F2.
-            F2 = inv_c_α * Arb((F2_lower, F2_upper))
+            F2 = if iszero(x)
+                # We have (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0) = 1
+                inv_c_α
+            else
+                # Compute lower and upper bounds of
+                # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
+                # IMPROVE: Compute tighter enclosures for very small x
+                lower = let xᵤ = ubound(Arb, x)
+                    # Enclosure of (1 - x^p0) / (α + 1)
+                    numerator_div_αp1 =
+                        fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1; extra_degree)
+                    # Enclosure of (1 - c(α - p0) / c(α) * x^p0) / (α + 1)
+                    denominator_div_αp1 = fx_div_x(
+                        s -> 1 - c(-1 - s^2 / 2) / c(s - 1) * xᵤ^(s + s^2 / 2),
+                        αp1;
+                        extra_degree,
+                        force = true,
+                    )
+                    numerator_div_αp1 / denominator_div_αp1
+                end
+                upper = one(Arb)
+
+                inv_c_α * Arb((lower, upper))
+            end
 
             F = F1 * F2
 
             Arblib.ispositive(F) ||
                 error("leading term of u0 is not positive, this should not happen")
         else
-            # Enclosure of gamma(1 + α) * (1 - x^p0)
-            numerator = let α = Arb((-1, -1 + u0.ϵ))
-                # Enclosure of rgamma(1 + α) / (1 + α)
-                rgamma_div_α = fx_div_x(s -> rgamma(s), interval, extra_degree = 2)
-                # Enclosure of (1 - x^p0) / (1 + α)
-                onemxp0_div_α =
-                    fx_div_x(s -> (1 - x^(s + s^2 / 2)), interval, extra_degree = 2)
-
-                onemxp0_div_α / rgamma_div_α
-            end
+            # Enclosure of gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
+            numerator =
+                gamma(2 + α) * fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1; extra_degree)
 
             F = numerator / eval_expansion(u0, u0_expansion_div_x_mα, x)
         end
