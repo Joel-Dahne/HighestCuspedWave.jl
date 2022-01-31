@@ -298,7 +298,7 @@ function Base.abs(x::ArbSeries)
     elseif Arblib.isnegative(Arblib.ref(x, 0))
         return -x
     else
-        return x
+        return copy(x)
     end
 end
 
