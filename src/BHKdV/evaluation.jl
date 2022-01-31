@@ -181,7 +181,6 @@ function eval_expansion(
                 # Add -α to the exponent coming from the p factor
                 _exponent!(exponent, i - 1, j, k, l, m)
 
-                # Compute an enclosure using monotonicity
                 if iszero(x)
                     if Arblib.ispositive(exponent)
                         term = zero(x)
@@ -202,7 +201,8 @@ function eval_expansion(
 
                     term = Arb((lower, upper))
                 else
-                    term = p_coefficient * abspow(x, exponent)
+                    term = abspow(x, exponent)
+                    Arblib.mul!(term, term, p_coefficient)
                 end
             else
                 use_approx_p_and_q ||
