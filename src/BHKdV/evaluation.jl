@@ -85,9 +85,9 @@ function eval_expansion(
     upper = zero(exponent)
     # Upper bounds of α and p0
     α_upper = -1 + u0.ϵ
-    p0_upper = 1 + α_upper + (1 + α_upper)^2 / 2
+    p0_upper = u0.ϵ + u0.ϵ^2 / 2
     # Enclosure of p0 - α
-    p0mα = 1 + (1 + α)^2 / 2
+    p0mα = 1 + Arblib.nonnegative_part!(zero(α), (1 + α)^2) / 2
     _exponent!(exponent, i, j, k, l, m) = begin
         # Compute the part i * α + j * p0 + m
         # Note that i * α + j * p0 = 3j / 2 + (i + 2j) * α + α^2 / 2
@@ -95,10 +95,10 @@ function eval_expansion(
         if i + 2j >= 0
             # It is increasing in α, evaluated at endpoints
 
-            # Lower bound at α = -1 can be done with rational numbers
-            let α = -1
-                Arblib.set!(lower, i * α + j * (1 + α + (1 + α)^2 // 2) + m)
-            end
+            # Lower bound at α = -1 can be done with integers
+            # For α = -1 we get
+            # i * α + j * (1 + α + (1 + α)^2 // 2) + m = m - 1
+            Arblib.set!(lower, m - i)
 
             # Upper bound i * α_upper + j * p0_upper + m
             Arblib.set!(upper, m)
