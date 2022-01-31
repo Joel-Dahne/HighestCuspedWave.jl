@@ -202,7 +202,7 @@ function eval_expansion(
 
                     term = Arb((lower, upper))
                 else
-                    term = term = p_coefficient * abspow(x, exponent)
+                    term = p_coefficient * abspow(x, exponent)
                 end
             else
                 use_approx_p_and_q ||
