@@ -1372,6 +1372,13 @@ function F0(
         end
     end
 
+    # Enclosure of zeta_deflated(-α + r) for j = 1:skip_singular_j_until
+    zeta_deflated_mαpr = map(1:skip_singular_j_until) do j
+        let r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+            ArbExtras.enclosure_series(α -> zeta_deflated(-α + r, one(r)), α, degree = 8)
+        end
+    end
+
     return x::Arb -> begin
         @assert x <= ϵ
 
@@ -1472,13 +1479,7 @@ function F0(
 
                 # Enclosure of zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x)
                 T221 =
-                    ArbExtras.enclosure_series(
-                        α -> zeta_deflated(-α + r, one(r)),
-                        α,
-                        degree = 8,
-                    ) *
-                    (abspow(x, r) - abspow(x, Arblib.nonnegative_part!(zero(x), αp1))) *
-                    invlogx / 2
+                    zeta_deflated_mαpr[j] * (abspow(x, r) - abspow(x, αp1)) * invlogx / 2
 
                 # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
                 T222 = let
