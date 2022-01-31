@@ -435,11 +435,11 @@ function fx_div_x(f, x::Arb, order::Integer = 1; extra_degree::Integer = 0, forc
     @assert order >= 1
     @assert extra_degree >= 0
 
-    expansion = taylor_with_remainder(f, zero(Arb), x, degree = order + extra_degree)
+    expansion = taylor_with_remainder(f, zero(x), x, degree = order + extra_degree)
 
     if force
         for i = 0:order-1
-            @assert Arblib.contains_zero(expansion[i])
+            @assert Arblib.contains_zero(Arblib.ref(expansion, i))
             expansion[i] = 0
         end
     end
@@ -454,20 +454,21 @@ function fx_div_x(
     extra_degree::Integer = 0,
     force = false,
 )
-    @assert Arblib.contains_zero(x[0])
+    x0 = x[0]
+    @assert Arblib.contains_zero(x0)
     @assert order >= 1
     @assert extra_degree >= 0
 
     expansion = taylor_with_remainder(
         f,
-        zero(Arb),
-        x[0],
+        zero(x0),
+        x0,
         degree = Arblib.degree(x) + order + extra_degree,
     )
 
     if force
         for i = 0:order-1
-            @assert Arblib.contains_zero(expansion[i])
+            @assert Arblib.contains_zero(Arblib.ref(expansion, i))
             expansion[i] = 0
         end
     end
@@ -477,7 +478,8 @@ function fx_div_x(
     # Set the result to the Taylor series of f(x) / x on interval
     res = ArbSeries(degree = Arblib.degree(x))
     for i = 0:Arblib.degree(res)
-        res[i] = Arblib.derivative(expansion_div_x, i)(x[0]) / factorial(i)
+        res[i] = expansion_div_x(x0) / factorial(i)
+        Arblib.derivative!(expansion_div_x, expansion_div_x)
     end
 
     # Compose the Taylor series for the result with that of the input
