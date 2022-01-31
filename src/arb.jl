@@ -112,24 +112,25 @@ end
 """
     abspow(x, y)
 
-Compute `|x|^y `in a way that works if `x` contains negative numbers.
+Compute `abs(x)^y `in a way that works if `x` overlaps with zero.
 """
 function abspow(x::Arb, y::Arb)
     iszero(y) && return one(x)
 
     if iszero(x)
-        Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
+        Arblib.contains_negative(y) && return Arblib.indeterminate!(zero(x))
         Arblib.ispositive(y) && return zero(x)
         return Arblib.unit_interval!(zero(x))
     end
 
     if Arblib.contains_zero(x)
-        Arblib.contains_negative(y) && return Arb(NaN, prec = precision(x))
+        Arblib.contains_negative(y) && return Arblib.indeterminate!(zero(x))
         x_upp = Arblib.abs_ubound(Arb, x)
         return Arb((zero(x), x_upp^y))
     end
 
-    return abs(x)^y
+    res = abs(x)
+    return Arblib.pow!(res, res, y)
 end
 
 function abspow(x::ArbSeries, y::Arb)
@@ -137,13 +138,17 @@ function abspow(x::ArbSeries, y::Arb)
         # All non-constant terms are indeterminate, the constant term
         # is given by abs(x[0])^y
         res = ArbSeries(abspow(x[0], y), degree = Arblib.degree(x))
-        for i = 1:Arblib.degree(res)
-            res[i] = NaN
+        for i = 1:Arblib.degree(x)
+            Arblib.indeterminate!(Arblib.ref(res, i))
         end
+        # Since we manually set the coefficients of the polynomial we
+        # need to also manually set the degree.
+        res.arb_poly.length = length(x)
         return res
     end
 
-    return abs(x)^y
+    res = abs(x)
+    return Arblib.pow_arb_series!(res, res, y, length(res))
 end
 
 function abspow(x::Arb, y::ArbSeries)
