@@ -24,61 +24,119 @@ As `α` goes to `-1` the factor `(1 - t)^(-α - 1) + (t + 1)^(-α - 1) -
 we make it instead go to a non-zero function. This means we want to
 analyse
 ```
-G1(x) = (1 + α) / ((1 - x^p0) * log(inv(x))) *
+G1(x) = (1 + α) / (1 - x^p0) * 1 / log(inv(x))
             ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
                 t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
-The factor `(1 + α) / ((1 - x^p0) * log(x))` goes to zero and it is
-therefore enough to compute an enclosure of the integral. Let
+For the factor `(1 + α) / (1 - x^p0)` we note that it is increasing in
+`x` and given by `1 + α` at `x = 0`, for non-zero `x` we can handle
+the removable singularity. What remains to handle is to handle
 ```
-J = ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
-        t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+inv(log(inv(x))) * ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
+    t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt =
+        inv(log(inv(x))) * J
 ```
-
-## Simplifying the integrand
-We have
-```
-(1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
-= (exp(-log(t - 1) * (1 + α)) + exp(-log(t + 1) * (1 + α)) - 2exp(-log(t) * (1 + α)))
-= sum((-1)^n * (1 + α)^n * (log(t - 1)^n + log(t + 1)^n - 2log(t)^n) / factorial(n) for n = 1:Inf)
-```
-Taking out the first term we can write this as
-```
--(1 + α) * (log(t - 1) + log(t + 1) - 2log(t)) +
-sum((-1)^n * (1 + α)^n * (log(t - 1)^n + log(t + 1)^n - 2log(t)^n) / factorial(n) for n = 2:Inf)
-```
-Call the sum `Σ`, we can the split the integral as
-```
-J1 = ∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
-
-J2 = ∫ abs(Σ) / (1 + α) * t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
-```
-with `J <= J1 + J2`.
-
-## Computing `J1`
 Splitting the log-term in the weight as
 ```
 log(c + inv(x * t)) = log((c * x * t + 1) / (x * t)) = log(1 + c * x * t) - log(x) - log(t)
 ```
-we can split `J1` into three integrals
+we can split `J` into three integrals
 ```
-J11 = -log(x) * ∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) dt
+J = ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) * log(1 + c * x * t) dt
+    - log(x) * ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
+    - ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) * log(t) dt
+```
+By using that `log(1 + c * x * t) < log(1 + c * x)` we get
+```
+J <= log(c + inv(x)) * ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
+    - ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) * log(t) dt
+```
+Let
+```
+J1 = ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
 
-J12 = -∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) * log(t) dt
-
-J13 = ∫ abs((log(t - 1) + log(t + 1) - 2log(t))) * t^(1 - γ * (1 + α)) * log(1 + c * x * t) dt
+J2 = ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) * log(t) dt
+```
+This gives us
+```
+J <= log(c + inv(x)) * J1 - J2
+```
+and
+```
+G1(x) <= (1 + α) / (1 - x^p0) * (log(c + inv(x)) / log(inv(x)) * J1 - inv(log(inv(x))) * J2)
 ```
 
-## Computing `J2`
-
-
-## Finishing
-**TODO:** We would need to cancel the `log(x)` and then enclose `(1 +
-  α) / (1 - x^p0)`.
+# Enclosing `J1` and `J2`
+**TODO:** Handle this
 """
 function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
-    # FIXME: Implement this
-    return x::Arb -> zero(x)
+    αp1 = Arblib.nonnegative_part!(zero(α), α + 1)
+
+    # Enclosure of
+    # ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
+    J1 = begin
+        # FIXME: Doesn't give correct result for t::ArbSeries and
+        # doesn't work on endpoints
+        integrand =
+            t::Arb ->
+                abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, 1 + α)) *
+                t^(1 - γ * (1 + α))
+
+        # FIXME: Use rigorous integration
+        let N = 10000
+            sum(integrand, range(Arb(0), Arb(1), N)) / N
+        end
+    end
+
+    # Enclosure of
+    # ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) * log(t) dt
+    J2 = begin
+        # FIXME: Doesn't give correct result for t::ArbSeries and
+        # doesn't work on endpoints
+        integrand =
+            t::Arb ->
+                abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, 1 + α)) *
+                t^(1 - γ * (1 + α)) *
+                log(t)
+
+        # FIXME: Use rigorous integration
+        let N = 10000
+            sum(integrand, range(Arb(0), Arb(1), N)[2:end-1]) / (N - 2)
+        end
+    end
+
+    return x::Arb -> begin
+        x < 1 || throw(DomainError(x, "must have x < 1"))
+
+        # Enclosure of log(c + inv(x)) / log(inv(x))
+        J1_factor = let xₗ = abs_lbound(Arb, x), xᵤ = ubound(Arb, x)
+            lower = iszero(xₗ) ? one(x) : log(c + inv(xₗ)) / log(inv(xₗ))
+            upper = iszero(xᵤ) ? one(x) : log(c + inv(xᵤ)) / log(inv(xᵤ))
+            Arb((lower, upper))
+        end
+
+        # Enclosure of inv(log(inv(x)))
+        J2_factor = let xₗ = abs_lbound(Arb, x), xᵤ = ubound(Arb, x)
+            lower = iszero(xₗ) ? zero(x) : inv(log(inv(xₗ)))
+            upper = iszero(xᵤ) ? zero(x) : inv(log(inv(xᵤ)))
+            Arb((lower, upper))
+        end
+
+        # Enclosure of (1 + α) / (1 - x^p0)
+        αp1_div_1mxp0 = if iszero(x)
+            αp1
+        elseif Arblib.contains_zero(x)
+            lower = αp1
+            upper = let xᵤ = ubound(Arb, x)
+                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), 1 + α, extra_degree = 2))
+            end
+            Arb((lower, upper))
+        else
+            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
+        end
+
+        return αp1_div_1mxp0 * (J1_factor * J1 - J2_factor * J2)
+    end
 end
 
 """
@@ -757,68 +815,32 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                 return Arblib.indeterminate!(zero(α))
             end
         else
-            # Compute G21
-            G21 = let
-                # Enclosure of sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
-                G21_sum = let p0 = onepα + onepα^2 / 2
-                    # N such that the terms are decreasing
-                    N = Int(Arblib.ceil!(zero(Arf), ubound(p0 * abs(log(x)) - 1)))
-                    # IMPROVE: If we need to go to very small x we
-                    # will have to take more extra terms
-                    extra = 10 # Take 10 extra terms
-                    term(n) = p0^(n - 1) * log(x)^n / factorial(big(n))
-                    Σ = sum(term(n) for n = 1:N+extra)
-                    # Error is bounded by magnitude of next term
-                    Arblib.add_error!(Σ, term(N + extra + 1))
-                    Σ
-                end
+            extra_degree = 2
 
-                G21 = -1 / ((1 + γ) * (1 + onepα / 2) * G21_sum)
-            end
+            # Enclosure of (1 + α) / ((1 - x^p0) * (1 + γ))
+            factor1 =
+                inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α; extra_degree) * (1 + γ))
 
-            G22 = let q0 = onepα * (1 + γ), π = Arb(π)
-                # Compute N such that the terms in the sum are
-                # decreasing for n >= N. This is the same number
-                # of all sums
-                N = Int(Arblib.ceil!(zero(Arf), ubound(q0 * abs(log(x / π)) - 1)))
-
-                # IMPROVE: If we need to go to very small x we
-                # will have to take more extra terms
-                extra = 10 # Take 10 extra terms
-
-                # Compute term1 and term4 since they share the same sum
-                term1, term4 = let
-                    # Enclosure of sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 1:Inf)
-                    term14_sum = let
-                        term(n) = q0^(n - 1) * log(x / π)^n / factorial(big(n))
-                        Σ = sum(term(n) for n = 1:N+extra)
-                        # Error is bounded by magnitude of next term
-                        Arblib.add_error!(Σ, term(N + extra + 1))
-                        Σ
+            factor2 = let
+                term1 =
+                    inv(1 + γ) * fx_div_x(1 + α, 2, force = true; extra_degree) do ϵ
+                        1 + ϵ * (1 + γ) * log(x / π) - (x / π)^(ϵ * (1 + γ))
                     end
 
-                    -term14_sum, -(1 + γ) * log(π) * term14_sum
+                term2 = log(Arb(π)) * fx_div_x(1 + α; extra_degree) do ϵ
+                    1 - (x / π)^(ϵ * (1 + γ))
                 end
 
-                # This we enclose directly
-                term2 = -log(π) * abspow(x / π, q0)
-
-                term3 = let
-                    term3_sum = let
-                        term(n) = q0^(n - 2) * log(x / π)^n / factorial(big(n))
-                        Σ = sum(term(n) for n = 2:N+extra)
-                        # Error is bounded by magnitude of next term
-                        Arblib.add_error!(Σ, term(N + extra + 1))
-                        Σ
-                    end
-
-                    -(1 + γ) * term3_sum
+                term3 = inv(1 + γ) * fx_div_x(1 + α; extra_degree) do ϵ
+                    1 - (x / π)^(ϵ * (1 + γ))
                 end
 
-                (term1 + term2 + term3 + term4) / log(x)
+                term4 = log(Arb(π)) * (x / π)^((1 + α) * (1 + γ))
+
+                term1 + term2 + term3 - term4
             end
 
-            return G21 * G22
+            return factor1 * factor2 / log(x)
         end
     end
 end
@@ -943,183 +965,4 @@ function _T0_asymptotic_remainder(α::Arb, γ::Arb, c::Arb; M = 20)
 
         return 2log(c + inv(Arb(π))) * (main + tail)
     end
-end
-
-"""
-    T0_asymptotic(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
-
-Returns a function `f` such that `f(x)` computes an **upper bound** of
-the integral ``T_0`` from the paper using an evaluation strategy
-that works asymptotically as `x` goes to `0`.
-
-The integral in question is given by
-```
-1 / (π * u0.w(x) * u0(x)) *
-    ∫ abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
-```
-from `0` to `π`. Then change of variables `t = y / x` gives us
-```
-x / (π * u0.w(x) * u0(x)) *
-    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * u0.w(x * t) dt
-```
-from `0` to `π / x`. Using that
-```
-u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
-```
-we can simplify this to
-```
-x / (π * log(u0.c + inv(x)) * u0(x)) *
-    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-This is the expression we are interested in computing an **upper
-bound** of.
-
-# Split into three factors
-Similarly to in the asymptotic version of [`F0`](@ref) we split the
-expression into three factors which we bound separately. We write it
-as
-```
-(gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x)))
-* (log(inv(x)) / log(u0.c + inv(x)))
-* (
-    x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x))) *
-    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-)
-```
-Except for the addition of `1 / π` the first two factors are the same
-as in [`F0`](@ref) and we handle them in the same way. For the third
-factor we use the notation
-```
-W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x)))
-I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-
-# Expand the integrand
-We have the following expansions for the Clausen functions in the
-integrand
-```
-clausenc(x * (1 - t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + R(x * abs(1 - t))
-clausenc(x * (1 + t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
-clausenc(x * t, -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * t^(-α - 1) + R(x * t)
-```
-where the error term `R` contains one constant term and `R(x * abs(1 -
-t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`.
-
-Inserting this into the integral allows us to split it into one main
-integral
-```
-I_M(x) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) *
-    ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-, where we have used that `sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1)`
-is positive to allow us to move it outside of the absolute value, and
-one remainder integral
-```
-I_R(x) = x^(1 + α) * ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
-    t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-They satisfy `I(x) <= I_M(x) + I_R(x)`.
-
-Letting
-```
-G1(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫_0^1 abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-
-G2(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫_1^(π / x) abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-
-R(x) = ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
-            t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-We have
-```
-W(x) * I(x) <= sinpi(-α / 2) * (G1(x) + G2(x)) +
-    x^(1 + α) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0)) * R(x)
-```
-Bounds of the functions `G1(x), G2(x), R(x)` are implemented in
-[`_T0_asymptotic_main_2`](@ref), [`_T0_asymptotic_main_1`](@ref) and
-[`_T0_asymptotic_remainder`](@ref) respectively. The only non-trivial
-part remaining is bounding
-```
-inv(gamma(1 + α) * (1 - x^p0))
-```
-We rewrite it as
-```
-inv(gamma(2 + α) / (1 + α) * (1 - x^p0)) = inv(gamma(2 + α)) * inv((1 - x^p0) / (1 + α))
-```
-and handle the removable singularity with [`fx_div_x`](@ref).
-"""
-function T0_asymptotic(
-    u0::BHKdVAnsatz{Arb},
-    evaltype::Asymptotic;
-    non_asymptotic_u0 = false,
-    ϵ::Arb = Arb(2e-1),
-)
-    # Enclosure of α
-    α = Arb((-1, -1 + u0.ϵ))
-    # Enclosure of α + 1, avoiding spurious negative parts
-    αp1 = Arblib.nonnegative_part!(zero(α), Arb((0, u0.ϵ)))
-
-    # Function for bounding gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
-    f1 = inv_u0_bound(u0, M = 3; ϵ)
-
-    # Function for enclosing log(inv(x)) / log(u0.c + inv(x))
-    f2 = x -> if iszero(x)
-        one(x)
-    elseif Arblib.contains_zero(x)
-        lower = let xᵤ = ubound(Arb, x)
-            log(inv(xᵤ)) / log(u0.c + inv(xᵤ))
-        end
-        upper = one(x)
-        Arb((lower, upper))
-    else
-        log(inv(x)) / log(u0.c + inv(x))
-    end
-
-    # Enclosure of sin(-α / 2)
-    G_factor = sinpi(-α / 2)
-
-    # Function for computing an upper bound of G1, G2 and R
-    # respectively
-    G1 = _T0_asymptotic_main_1(α, u0.γ, u0.c)
-    G2 = _T0_asymptotic_main_2(α, u0.γ, u0.c)
-
-    # Function for computing enclosure of
-    # x^(1 + α) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0))
-    R_factor =
-        x -> begin
-            # Enclosure of inv(log(inv(x))) = -inv(log(x))
-            invlogx = if iszero(x)
-                zero(x)
-            elseif Arblib.contains_zero(x)
-                -Arb((inv(log(ubound(Arb, x))), 0))
-            else
-                -inv(log(x))
-            end
-
-            # inv(gamma(1 + α) * (1 - x^p0))
-            inv_gamma_1mxp0 = if iszero(x)
-                rgamma(αp1)
-            elseif Arblib.contains_zero(x)
-                lower = rgamma(αp1)
-                upper = let xᵤ = ubound(Arb, x)
-                    rgamma(2 + α) / fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1, extra_degree = 2)
-                end
-                Arb((lower, upper))
-            else
-                rgamma(2 + α) / fx_div_x(s -> 1 - x^(s + s^2 / 2), αp1, extra_degree = 2)
-            end
-
-            return abspow(x, αp1) * invlogx * inv_gamma_1mxp0
-        end
-
-    R = _T0_asymptotic_remainder(α, u0.γ, u0.c)
-
-    return x::Arb -> f1(x) * f2(x) / π * (G_factor * (G1(x) + G2(x)) + R_factor(x) * R(x))
 end

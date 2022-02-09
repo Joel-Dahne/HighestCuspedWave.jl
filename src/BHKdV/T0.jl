@@ -56,11 +56,199 @@ function T0(
     end
 end
 
-function T0(u0::BHKdVAnsatz, evaltype::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
-    f = T01(u0, evaltype; non_asymptotic_u0, ϵ)
-    g = T02(u0, evaltype; non_asymptotic_u0, ϵ)
+"""
+    T0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; ϵ::Arb = 0.5, non_asymptotic_u0 = false)
 
-    return x -> f(x) + g(x)
+Returns a function `f` such that `f(x)` computes an **upper bound** of
+the integral ``T_0`` from the paper using an evaluation strategy
+that works asymptotically as `x` goes to `0`.
+
+If `non_asymptotic_u0 = true` it uses a non-asymptotic approach for
+evaluating `gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x))` which
+occurs in the calculations.
+
+The integral in question is given by
+```
+1 / (π * u0.w(x) * u0(x)) *
+    ∫ abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
+```
+from `0` to `π`. Then change of variables `t = y / x` gives us
+```
+x / (π * u0.w(x) * u0(x)) *
+    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * u0.w(x * t) dt
+```
+from `0` to `π / x`. Using that
+```
+u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
+```
+we can simplify this to
+```
+x / (π * log(u0.c + inv(x)) * u0(x)) *
+    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+```
+This is the expression we are interested in computing an **upper
+bound** of.
+
+# Split into three factors
+Similarly to in the asymptotic version of [`F0`](@ref) we split the
+expression into three factors which we bound separately. We write it
+as
+```
+(gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x)))
+* (log(inv(x)) / log(u0.c + inv(x)))
+* (
+    x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x))) *
+    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+)
+```
+Except for the addition of `1 / π` the first two factors are the same
+as in [`F0`](@ref) and we handle them in the same way. For the third
+factor we use the notation
+```
+W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x)))
+I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+```
+
+# Expand the integrand
+We have the following expansions for the Clausen functions in the
+integrand
+```
+clausenc(x * (1 - t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + R(x * abs(1 - t))
+clausenc(x * (1 + t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
+clausenc(x * t, -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * t^(-α - 1) + R(x * t)
+```
+where the error term `R` contains one constant term and `R(x * abs(1 -
+t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`.
+
+Inserting this into the integral allows us to split it into one main
+integral
+```
+I_M(x) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) *
+    ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+```
+, where we have used that `sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1)`
+is positive to allow us to move it outside of the absolute value, and
+one remainder integral
+```
+I_R(x) = x^(1 + α) * ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+    t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+```
+They satisfy `I(x) <= I_M(x) + I_R(x)`.
+
+Letting
+```
+G1(x) = inv((1 - x^p0) * log(inv(x))) *
+            ∫_0^1 abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+
+G2(x) = inv((1 - x^p0) * log(inv(x))) *
+            ∫_1^(π / x) abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+
+R(x) = ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+            t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+```
+We have
+```
+W(x) * I(x) <= sinpi(-α / 2) * (G1(x) + G2(x)) +
+    x^(1 + α) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0)) * R(x)
+```
+Bounds of the functions `G1(x), G2(x), R(x)` are implemented in
+[`_T0_asymptotic_main_2`](@ref), [`_T0_asymptotic_main_1`](@ref) and
+[`_T0_asymptotic_remainder`](@ref) respectively. The only non-trivial
+part remaining is bounding
+```
+inv(gamma(1 + α) * (1 - x^p0))
+```
+We rewrite it as
+```
+inv(gamma(2 + α) / (1 + α) * (1 - x^p0)) = inv(gamma(2 + α)) * inv((1 - x^p0) / (1 + α))
+```
+and handle the removable singularity with [`fx_div_x`](@ref).
+"""
+function T0(
+    u0::BHKdVAnsatz{Arb},
+    ::Asymptotic;
+    ϵ::Arb = Arb(0.5),
+    non_asymptotic_u0 = false,
+)
+    # Enclosure of α
+    α = Arb((-1, -1 + u0.ϵ))
+    # Enclosure of α + 1, avoiding spurious negative parts
+    αp1 = Arblib.nonnegative_part!(zero(α), Arb((0, u0.ϵ)))
+
+    # Function for bounding gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
+    f1 = if non_asymptotic_u0
+        # We use that gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 -
+        # x^p0) / (1 + α)
+        x ->
+            x^-α *
+            gamma(2 + α) *
+            fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), αp1, extra_degree = 2) / u0(x)
+    else
+        inv_u0_bound(u0, M = 3; ϵ)
+    end
+
+    # Function for enclosing log(inv(x)) / log(u0.c + inv(x))
+    f2 = x -> if iszero(x)
+        one(x)
+    elseif Arblib.contains_zero(x)
+        lower = let xᵤ = ubound(Arb, x)
+            log(inv(xᵤ)) / log(u0.c + inv(xᵤ))
+        end
+        upper = one(x)
+        Arb((lower, upper))
+    else
+        log(inv(x)) / log(u0.c + inv(x))
+    end
+
+    # Enclosure of sinpi(-α / 2)
+    G_factor = sinpi(-α / 2)
+
+    # Function for computing an upper bound of G1 and G2
+    # respectively
+    G1 = _T0_asymptotic_main_1(α, u0.γ, u0.c)
+    G2 = _T0_asymptotic_main_2(α, u0.γ, u0.c)
+
+    # Function for computing enclosure of
+    # x^(1 + α) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0))
+    R_factor =
+        x -> begin
+            # Enclosure of inv(log(inv(x))) = -inv(log(x))
+            invlogx = if iszero(x)
+                zero(x)
+            elseif Arblib.contains_zero(x)
+                -Arb((inv(log(ubound(Arb, x))), 0))
+            else
+                -inv(log(x))
+            end
+
+            # inv(gamma(1 + α) * (1 - x^p0))
+            inv_gamma_1mxp0 = if iszero(x)
+                rgamma(αp1)
+            elseif Arblib.contains_zero(x)
+                lower = rgamma(αp1)
+                upper = let xᵤ = ubound(Arb, x)
+                    rgamma(2 + α) / fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1, extra_degree = 2)
+                end
+                Arb((lower, upper))
+            else
+                rgamma(2 + α) / fx_div_x(s -> 1 - x^(s + s^2 / 2), αp1, extra_degree = 2)
+            end
+
+            return abspow(x, αp1) * invlogx * inv_gamma_1mxp0
+        end
+
+    # Function for computing enclosure of R
+    R = _T0_asymptotic_remainder(α, u0.γ, u0.c)
+
+    return x::Arb -> begin
+        f1(x) * f2(x) / π * (G_factor * (G1(x) + G2(x)) + R_factor(x) * R(x))
+    end
 end
 
 """
