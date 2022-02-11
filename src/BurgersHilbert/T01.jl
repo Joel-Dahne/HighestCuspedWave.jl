@@ -36,7 +36,7 @@ has to be given, the resulting expansion will be valid for all `x <
 
 To begin with the factor `x * log(inv(x) / (π * u0(x))` is factored
 out from the whole expression and multiplied back in the end. Notice
-that this factor is bounded in `x`.
+that this factor is positive and bounded in `x`.
 
 What we are left with computing is
 ```
