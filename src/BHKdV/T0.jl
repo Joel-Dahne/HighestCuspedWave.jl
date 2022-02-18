@@ -28,10 +28,13 @@ function T0(
 
         isfinite(part2) || return part2
 
-        # We want to take the upper integration independent of x
-        # in the variables used by T022. We take it to be ubound(x + δ)
-        b_y = ubound(Arb, x + δ) # Upper bound in the variable y
-        if b_y < π
+        # We want to take the upper integration independent of x in
+        # the variables used by T022. We take it to be
+        # ubound((1 + δ) * x)
+        b_y = ubound(Arb, (1 + δ) * x) # Upper bound in the variable y
+        # We check (b_y / x) * x < π instead of b_y < π to make sure
+        # that the inequality b_t * x < π holds even when x is a ball.
+        if (b_y / x) * x < π
             # Compute upper bound in the variable t = y / x
             b_t = b_y / x
             part3 = f3(x, 1 - δ, b_t)
@@ -504,7 +507,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             # In this case it is unclear what integration limit we
             # should use. Make a warning and return NaN. This should
             # not happen in practice.
-            @warn "Unclear integration limit" b π / x
+            @warn "Unclear integration limit" b π / x x
             return Arblib.indeterminate!(zero(x))
         end
 
