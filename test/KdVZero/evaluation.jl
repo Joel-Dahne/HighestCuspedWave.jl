@@ -16,7 +16,7 @@
         u0 = KdVZeroAnsatz(interval, α0)
         # Ansatz on a smaller interval
         if iszero(α0)
-            interval_narrow = Arb((-1e-10, 0))
+            interval_narrow = Arb((-1e-8, 0))
         else
             interval_narrow = Arblib.add_error!(Arb(α0), Arb(1e-10))
         end

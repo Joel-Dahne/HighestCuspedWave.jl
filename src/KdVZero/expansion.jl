@@ -238,30 +238,27 @@ R` such that
 ```
 f(α, p00 + p01 * (α - α0) + p02 * (α - α0)^2 + r * (α - α0)^3) = 0
 ```
-We denote the left hand side as a function of `α` and `R` by `g(α, R)`.
-
-We find `R` such that it gives a zero for the `k`th
-derivative of `g(α, R)` in `α`. For `α0 != 0` we take `k = degree +
-1`. For `α0 = 0` we instead take `k = degree + 2` The reason for this
-is that we needed to differentiate the whole equation once when
-solving for `p00, p01, p02`.
-- **TODO:** Check if the above approach is correct and explain it
-  better. Why do we have to consider the `k`th derivative? Why not
-  just work with `g` directly, without differentiating? Why do we have
-  to use a different value for `k` for `α0 = 0`?
-
-Let `dg(α, R)` denote the `k`th derivative of `g` w.r.t. `α` . Given a
-guess for `R` we can verify it by checking that
+We denote the left hand side as a function of `α` and `R` by `g(α,
+R)`. Since we expand to degree `degree` we expect the zero to be of
+order `degree + 1`, we therefore solve
 ```
-dg(interval, lbound(R)) < 0 < dg(interval, ubound(R))
+g(α, R) / (α - α0)^(degree + 1) = 0
+```
+If `α0 = 0` the zero is instead of degree `degree + 2`, giving us
+`g(α, R) / (α - α0)^(degree + 2) = 0`.
+
+Let `g_div_α(α, R) = g(α, R) / (α - α0)^k` where `k` is the degree of
+the zero. Given a guess for `R` we can verify it by checking that
+```
+g_div_α(interval, lbound(R)) < 0 < g_div_α(interval, ubound(R))
 ```
 Or possibly reversing the inequalities.
 
 We can get a guess for `R` by computing the zeros of
-`dg(lbound(interval), R)` and `dg(ubound(α), R)` and taking the convex
-hull of them. When computing these zeros we don't have access to
-derivatives w.r.t. `R` since we have to use `ArbSeries` to compute the
-derivatives w.r.t. `α`, we therefore use
+`g_div_α(lbound(interval), R)` and `g_div_α(ubound(α), R)` and taking
+the convex hull of them. When computing these zeros we don't have
+access to derivatives w.r.t. `R` since we have to use `ArbSeries` to
+compute the derivatives w.r.t. `α`, we therefore use
 [`ArbExtras.refine_root_bisection`](@ref), which doesn't need access
 to the derivative.
 
@@ -382,7 +379,7 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
     end
 
     if !iszero(radius(interval))
-        # Function which derivative we are finding the zero of
+        # Function we want to find zero of
         g(α::ArbSeries, R::Arb) =
             let p0 = p00 + p01 * (α - α0) + p02 * (α - α0)^2 + R * (α - α0)^3
                 if Arblib.contains_zero(α[0])
@@ -401,53 +398,57 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
                     gammadivgamma = let α = setprecision(α, 4precision(α))
                         # Write in terms of rgamma instead of gamma
                         # since this gives better enclosures
-                        rgamma(α) / rgamma(2α)
+                        setprecision(rgamma(α) / rgamma(2α), precision(Arb))
                     end
                 end
 
-                gamma(2α - p0) * cospi((2α - p0) / 2) /
-                (gamma(α - p0) * cospi((α - p0) / 2)) -
-                2cospi(α) / cospi(α / 2) * gammadivgamma
+                return gamma(2α - p0) * cospi((2α - p0) / 2) /
+                       (gamma(α - p0) * cospi((α - p0) / 2)) -
+                       2cospi(α) / cospi(α / 2) * gammadivgamma
             end
 
-        # Degree of derivative we are finding zero of
+        # Degree of zero we are finding
         g_degree = ifelse(iszero(α0), degree + 2, degree + 1)
 
-        # Function for computing derivative of g of given degree
-        dg(α::Arb, R::Arb) =
-            g(ArbSeries((α, 1), degree = g_degree), R)[g_degree] * factorial(g_degree)
-        dg(α::ArbSeries, R::Arb) = Arblib.derivative(
-            g(ArbSeries(α, degree = Arblib.degree(α) + g_degree), R),
-            g_degree,
-        )
-
-        # Function for computing an optimized enclosure of g
-        dg_tight(α::Arb, R::Arb) = ArbExtras.enclosure_series(α -> dg(α, R), α, degree = 3)
+        # The function g dividing away (α - α0)^g_degree
+        g_div_α(α::Union{Arb,ArbSeries}, R::Arb) =
+            if (α isa Arb && Arblib.overlaps(α, α0)) ||
+               (α isa ArbSeries && Arblib.overlaps(α[0], α0))
+                fx_div_x(α -> g(α0 + α, R), α - α0, g_degree, force = true)
+            else
+                #@show g(ArbSeries(α), R)[0] (α - α0)^g_degree
+                #@show g(ArbSeries(α), R)[0] / (α - α0)^g_degree
+                g(ArbSeries(α), R)[0] / (α - α0)^g_degree
+            end
 
         # Guess of lower and upper bounds for R
         R_low, R_upp = Arb(-10), Arb(10)
 
         # Check that the signs at the lower and upper bound differ
-        sign_low = Arblib.sgn_nonzero(dg_tight(interval, R_low))
-        sign_upp = Arblib.sgn_nonzero(dg_tight(interval, R_upp))
+        sign_low = Arblib.sgn_nonzero(
+            ArbExtras.enclosure_series(α -> g_div_α(α, R_low), interval, degree = 8),
+        )
+        sign_upp = Arblib.sgn_nonzero(
+            ArbExtras.enclosure_series(α -> g_div_α(α, R_upp), interval, degree = 8),
+        )
         if !(sign_low * sign_upp < 0)
-            a = dg_tight(interval, R_low)
-            b = dg_tight(interval, R_upp)
+            a = ArbExtras.enclosure_series(α -> g_div_α(α, R_low), interval, degree = 8)
+            b = ArbExtras.enclosure_series(α -> g_div_α(α, R_upp), interval, degree = 8)
             throw(ErrorException("Sign of endpoints don't differ: $a $b $interval"))
         end
 
         # Compute root in R for a fixed α
-        dg_root(α::Arb) = Arb(
+        g_div_α_root(α::Arb) = Arb(
             ArbExtras.refine_root_bisection(
-                R -> dg_tight(α, R),
+                R -> g_div_α(α, R),
                 lbound(R_low),
                 ubound(R_upp),
             ),
         )
 
         # Compute a guess of R by evaluating on endpoints in α
-        R1 = dg_root(lbound(Arb, interval))
-        R2 = dg_root(ubound(Arb, interval))
+        R1 = g_div_α_root(lbound(Arb, interval))
+        R2 = g_div_α_root(ubound(Arb, interval))
 
         # To make it easier to prove the zero we take a slightly
         # larger interval
@@ -459,20 +460,18 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
         # Prove that the function has a constant sign on a lower bound
         # of R for all values of α
         check_sign_low = ArbExtras.bounded_by(
-            α -> -sign_low * dg_tight(α, R_low),
+            α -> -sign_low * g_div_α(α, R_low),
             getinterval(interval)...,
             Arf(0),
-            degree = -1,
         )
         check_sign_low ||
             throw(ErrorException("could not determine sign on lower bound of R $interval"))
         # Prove that the function has a constant sign (opposite of the
         # above) on an upper bound of R for all values of α
         check_sign_upp = ArbExtras.bounded_by(
-            α -> -sign_upp * dg_tight(α, R_upp),
+            α -> -sign_upp * g_div_α(α, R_upp),
             getinterval(interval)...,
             Arf(0),
-            degree = -1,
         )
         check_sign_upp ||
             throw(ErrorException("could not determine sign on upper bound of R $interval"))

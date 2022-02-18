@@ -10,7 +10,7 @@
     u0 = KdVZeroAnsatz(α_interval)
 
     # Ansatz on a smaller interval and on the tight interval 0
-    u0_narrow = KdVZeroAnsatz(Arb((-1e-10, 0)))
+    u0_narrow = KdVZeroAnsatz(Arb((-1e-8, 0)))
     u0_tight = KdVZeroAnsatz(Arb(0))
 
     # Construct FractionalKdvansatz for each α
