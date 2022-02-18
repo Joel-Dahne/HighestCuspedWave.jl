@@ -1,5 +1,5 @@
 """
-    CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
+    CB(u0::BHAnsatz; atol, verbose = false)
 
 Compute an upper bound of `C_B` from the paper.
 
@@ -54,12 +54,14 @@ function CB(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
     # enclosure for u0.
     f = T0(u0, skip_div_u0 = true)
 
+    minces = 5
+
     g(x) =
         let
             if iswide(x)
                 # Split x into several smaller intervals and evaluate f on
                 # each, then put them together.
-                x_minced = HighestCuspedWave.mince(x, 5)
+                x_minced = HighestCuspedWave.mince(x, minces)
                 res = f(x_minced[1])
                 for i = 2:length(x_minced)
                     isfinite(res) || break
@@ -71,12 +73,7 @@ function CB(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
 
             isfinite(res) || return res
 
-            # We compute inv(u0.v0) which is an upper bound for inv(u0).
-            invu0v0 = inv(ArbExtras.enclosure_series(u0.v0, x))
-
-            res *= invu0v0
-
-            return res
+            return res / ArbExtras.enclosure_series(u0.v0, x)
         end
 
     # Bound it on [ϵ, π]
@@ -109,31 +106,34 @@ function CB(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
     verbose && @show m
 
     # Show that it is bounded by m on [0, ϵ]
-    @warn "asymptotic region for norm not checked"
 
-    h = T0(u0, Asymptotic(), ϵ = 1.1ϵ)
-    ϵ2 = midpoint(Arb("1e-100"))
+    h = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
+    ϵ2 = Arf(1e-10)
 
     # Handle the interval [0, ϵ2] with one evalution
-    #h(Arb((0, ϵ2))) <= m ||
-    #    throw(ErrorException("bound doesn't hold on $((0, Float64(ϵ2)))"))
-    #verbose && @info "Bound satisfied on $((0, Float64(ϵ2)))"
+    if !(h(Arb((0, ϵ2))) <= m)
+        @error "bound doesn't hold on $((0, Float64(ϵ2)))"
+        return Arblib.indeterminate!(zero(Arb))
+    end
+
+    verbose && @info "Bound satisfied on $((0, Float64(ϵ2)))"
 
     # Bound it on [ϵ2, ϵ]
-    #check_bound = ArbExtras.bounded_by(
-    #    h,
-    #    ϵ2,
-    #    ϵ,
-    #    lbound(m),
-    #    degree = -1,
-    #    log_bisection = true,
-    #    threaded = true;
-    #    verbose,
-    #)
+    check_bound = ArbExtras.bounded_by(
+        h,
+        ϵ2,
+        ϵ,
+        lbound(m),
+        degree = -1,
+        log_bisection = true,
+        threaded = true;
+        verbose,
+    )
 
-    #if !check_bound
-    #    throw(ErrorException("bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"))
-    #end
+    if !check_bound
+        @error "bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"
+        return Arblib.indeterminate!(zero(Arb))
+    end
 
     return m
 end
