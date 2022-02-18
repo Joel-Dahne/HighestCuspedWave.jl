@@ -149,7 +149,9 @@ G2(x) = inv((1 - x^p0) * log(inv(x))) *
                 t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 defined in [`T0_asymptotic`](@ref), where the integration is taken
-from `1` to `π / x`. Using that `1 - t <= 0` and that
+from `1` to `π / x`.
+
+Using that `1 - t <= 0` and that
 ```
 (t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
 ```
@@ -161,6 +163,13 @@ G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *
             ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
                 t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
+
+If `x` is not too small it uses [`_T0_asymptotic_main_2_1`](@ref) and
+[`_T0_asymptotic_main_2_2`](@ref) to compute the integral by splitting
+the interval into ``[1, 2]`` and ``[2, π / x]``. Otherwise it uses the
+approach described below.
+- **TODO:** What does "too small" mean? For now we always use this
+  approach since the approach described below is not finished.
 
 ## Expanding integrand
 We want to get rid of the fractional exponents inside the integral. To
@@ -783,16 +792,17 @@ Finally `γ < 1` so it is enough to show
 which is exactly what we already had above for the `x = 1` case.
 """
 function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
-    # We use 1 + α in many places and this is assumed to be
-    # non-negative, we therefore compute such an enclosure
-    onepα = Arblib.nonnegative_part!(zero(α), 1 + α)
 
-    # TODO: Add the two remainder terms which we for now ignore.
+    f1 = _T0_asymptotic_main_2_1(α, γ, c)
+    f2 = _T0_asymptotic_main_2_2(α, γ, c)
+
     return x::Arb -> begin
         # This function assumes that x is less than or equal to 1
         @assert x <= 1
 
         if Arblib.contains_zero(x)
+            # TODO: Handle the remaining remainder term
+
             # In this case we prove that G2 is bounded by 1 / (1 +
             # γ). By above we only have to check two things
             # 1. 1 - (2 + α) * (1 + q0 * log(π)) / π^q0 <= 0
@@ -815,33 +825,175 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                 return Arblib.indeterminate!(zero(α))
             end
         else
+            # TODO: Only use f1(x) + f2(x) for x not too small
+            return f1(x) + f2(x)
+
+            # FIXME: Handle the remaining remainder term in the below approach
             extra_degree = 2
 
-            # Enclosure of (1 + α) / ((1 - x^p0) * (1 + γ))
-            factor1 =
-                inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α; extra_degree) * (1 + γ))
+            # Enclosure of (1 + α) / (1 - x^p0)
+            factor1 = inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α; extra_degree))
 
             factor2 = let
                 term1 =
                     inv(1 + γ) * fx_div_x(1 + α, 2, force = true; extra_degree) do ϵ
-                        1 + ϵ * (1 + γ) * log(x / π) - (x / π)^(ϵ * (1 + γ))
+                        (x / π)^(ϵ * (1 + γ)) - ϵ * (1 + γ) * log(x / π) - 1
                     end
 
                 term2 = log(Arb(π)) * fx_div_x(1 + α; extra_degree) do ϵ
-                    1 - (x / π)^(ϵ * (1 + γ))
+                    (x / π)^(ϵ * (1 + γ)) - 1
                 end
 
                 term3 = inv(1 + γ) * fx_div_x(1 + α; extra_degree) do ϵ
-                    1 - (x / π)^(ϵ * (1 + γ))
+                    (x / π)^(ϵ * (1 + γ)) - 1
                 end
 
                 term4 = log(Arb(π)) * (x / π)^((1 + α) * (1 + γ))
 
-                term1 + term2 + term3 - term4
+                term1 + term2 + term3 + term4
             end
 
-            return factor1 * factor2 / log(x)
+            return factor1 * factor2 / (log(inv(x)) * (1 + γ))
         end
+    end
+end
+
+"""
+    _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
+
+Compute an upper bound of
+```
+G21(x) = 1 / ((1 - x^p0) * log(inv(x))) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+where the integration is taken from `1` to `2`.
+
+For ``t ∈ [1, 2]`` we have
+```
+log(c + inv(2x)) <= log(c + inv(x * t)) <= log(c + inv(x))
+```
+allowing us to factor out `log(c + inv(x * t))`. If we also factor out
+`1 + α` we get
+```
+G21(x) <= (1 + α) / ((1 - x^p0) * log(inv(x))) *
+         log(c + inv(x)) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
+                t^(1 - γ * (1 + α)) dt
+```
+The integral no longer depends on `x` and converges to a non-zero
+number in `α`, which we can compute. Let
+```
+I = ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
+```
+- **TODO:** Compute rigorous bound of `I`, probably by integrating
+  explicitly.
+"""
+function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
+    # Enclosure of I
+    # FIXME: Compute rigorous enclosure
+    I = let α = ubound(Arb, α)
+        Arblib.integrate(1 + 1e-10, 2) do t
+            ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (α + 1) *
+            t^(1 - γ * (α + 1))
+        end |> real
+    end
+
+    return x::Arb -> begin
+        # This function assumes that x is less than or equal to 1 // 2
+        @assert x <= 1 // 2
+
+        # Enclosure of inv(log(inv(x))) = -inv(log(x))
+        invloginvx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            -Arb((inv(log(ubound(Arb, x))), 0))
+        else
+            -inv(log(x))
+        end
+
+        # Enclosure of log(c + inv(x * Arb((1, 2)))) / log(inv(x))
+        # = 1 + log(cx + inv(Arb((1, 2)))) / log(inv(x))
+        logfactor_lower = 1 + log(c * x + 1 // 2) * invloginvx
+        logfactor_upper = 1 + log1p(c * x) * invloginvx
+        logfactor = Arb((logfactor_lower, logfactor_upper))
+
+        # Enclosure of (1 + α) / (1 - x^p0)
+        # IMPROVE: Handle x overlapping zero
+        factor = inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α, extra_degree = 2))
+
+        return logfactor * factor * I
+    end
+end
+
+"""
+    _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
+
+Compute an upper bound of
+```
+G22(x) = 1 / ((1 - x^p0) * log(inv(x))) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+where the integration is taken from `2` to `π / x`.
+
+This method is meant for non-zero `x`.
+
+We factor out `1 + α` from the integral and write it as
+```
+G22(x) = (1 + α) / ((1 - x^p0) * log(inv(x))) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+and compute the integral and the factor outside of the integral
+separately. The integral is computed by integrating numerically.
+
+To compute better enclosures in the numerical integration we compute a
+lower bound by integrating to the lower bound of `π / x` and an upper
+bound by integrating to the upper bound of it. We also use that
+```
+log(c + inv(ubound(x) * t)) <= log(c + inv(x * t)) <= log(c + inv(lbound(x) * t))
+```
+"""
+function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
+    return x::Arb -> begin
+        # This function assumes that x is less than or equal to 1
+        @assert x <= 1 // 2
+
+        # Enclosure of inv(log(inv(x))) = -inv(log(x))
+        invloginvx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            -Arb((inv(log(ubound(Arb, x))), 0))
+        else
+            -inv(log(x))
+        end
+
+        # Enclosure of (1 + α) / (1 - x^p0)
+        # IMPROVE: Handle x overlapping zero
+        factor = inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α, extra_degree = 2))
+
+        # Enclosure of the integral
+        # FIXME: Compute rigorous enclosure for integrand
+        I_lower = let α = ubound(Arb, α), xᵤ = ubound(Arb, x)
+            Arblib.integrate(2, lbound(Arb, π / x)) do t
+                ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (α + 1) *
+                t^(1 - γ * (α + 1)) *
+                log(c + inv(xᵤ * t))
+            end |> real
+        end
+
+        I_upper = let α = ubound(Arb, α), xₗ = lbound(Arb, x)
+            Arblib.integrate(2, ubound(π / x)) do t
+                ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (α + 1) *
+                t^(1 - γ * (α + 1)) *
+                log(c + inv(xₗ * t))
+            end |> real
+        end
+
+        I = Arb((I_lower, I_upper))
+
+        return invloginvx * factor * I
     end
 end
 

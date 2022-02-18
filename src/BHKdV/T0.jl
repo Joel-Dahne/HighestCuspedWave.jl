@@ -219,7 +219,7 @@ function T0(
     R_factor =
         x -> begin
             # Enclosure of inv(log(inv(x))) = -inv(log(x))
-            invlogx = if iszero(x)
+            invloginvx = if iszero(x)
                 zero(x)
             elseif Arblib.contains_zero(x)
                 -Arb((inv(log(ubound(Arb, x))), 0))
@@ -240,7 +240,7 @@ function T0(
                 rgamma(2 + α) / fx_div_x(s -> 1 - x^(s + s^2 / 2), αp1, extra_degree = 2)
             end
 
-            return abspow(x, αp1) * invlogx * inv_gamma_1mxp0
+            return abspow(x, αp1) * invloginvx * inv_gamma_1mxp0
         end
 
     # Function for computing enclosure of R
