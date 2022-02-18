@@ -483,27 +483,6 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
 
         # Truncate to given degree
         p0 = truncate_with_remainder(p0, interval - α0; degree)
-
-        # Compare with old way of computing error
-        # TODO: This can be removed later
-        begin
-            if iszero(α0)
-                # Check only lower bound of α
-                error = let α = lbound(Arb, interval)
-                    abs(findp0(α) - p0(α - α0)) / (α - α0)^degree
-                end
-            else
-                error1 = let α = lbound(Arb, interval)
-                    abs(findp0(α) - p0(α - α0)) / abs(α - α0)^degree
-                end
-                error2 = let α = ubound(Arb, interval)
-                    abs(findp0(α) - p0(α - α0)) / abs(α - α0)^degree
-                end
-                error = max(error1, error2)
-            end
-
-            @assert radius(p0[end]) < abs_ubound(error)
-        end
     end
 
     return p0
