@@ -15,11 +15,11 @@ If `threaded = true` it enables threading when calling
 [`ArbExtras.maximum_enclosure`](@ref). If `verbose = true` print more
 information about the process.
 
-TODO: Look more at tuning for `n`, it seems to depend on the precise
-values. It might be beneficial to reduce `ϵ` in smaller steps. It's
-mainly the `[ϵ, π]` that takes time, could look more at what part of
-it. Otherwise it's mainly important to look at the overestimation in
-the evaluation due to the radius of `α`.
+**TODO:** Look more at tuning for `n`, it seems to depend on the
+precise values. It might be beneficial to reduce `ϵ` in smaller steps.
+It's mainly the `[ϵ, π]` that takes time, could look more at what part
+of it. Otherwise it's mainly important to look at the overestimation
+in the evaluation due to the radius of `α`.
 """
 function delta0(
     u0::FractionalKdVAnsatz{Arb};

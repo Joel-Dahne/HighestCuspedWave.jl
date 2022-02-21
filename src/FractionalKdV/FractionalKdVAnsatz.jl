@@ -91,13 +91,11 @@ function FractionalKdVAnsatz(
     use_midpoint = use_midpoint && T == Arb
 
     if use_midpoint
-        # TODO: We have to remember that we take the midpoint of p!
         p = Arblib.midpoint(Arb, p)
     end
 
     p0 = findp0(α)
     if use_midpoint
-        # TODO: We have to remember that we take the midpoint of p0!
         p0 = Arblib.midpoint(Arb, p0)
     end
 
@@ -125,10 +123,7 @@ function FractionalKdVAnsatz(
         # If we are close to α = -1 and we only have one Clausen
         # function we take a[1] so that the sum of the first and
         # second term converge towards the leading Clausian for α =
-        # -1.
-        # TODO: In the end we probably don't want to use this, one
-        # Clausen function is not enough. But it is convenient for
-        # testing at the moment.
+        # -1. This is mostly for testing.
         u0.a[1] = -u0.a[0]
     else
         u0.a[1:end] .= findas(u0)
@@ -152,7 +147,6 @@ This method is meant for the bulk of the interval and not for handling
 the asymptotic cases when `α` is very close to `-1` or `0`.
 
 - **TODO:** Add heuristic parameters for `α` closer to `-1`.
-- **TODO:** Improve heuristic parameters for `α` closer to `0`.
 """
 function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
     # Store heuristic parameters, they are stored as
