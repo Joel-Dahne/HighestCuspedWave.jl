@@ -1,22 +1,25 @@
 """
     findp0(α)
 
-Compute the smallest `p0 ∈ (0, ∞)` such that
+Compute `p0` such that
 ```
-cos(π(2α - p0)/2)*Γ(2α -p0)/(cos(π(α - p0)/2)) - Γ(1 + 2α)cos(πα)/(α*Γ(α)cos(πα/2))
+cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) =
+    2gamma(2α)cospi(α) / (gamma(α)cospi(α / 2))
 ```
-is equal to zero.
 
 We use, but don't have to prove, that `p0 < 1.5(α + 1)`.
 
-- **TODO:** Do we need to prove that `p0` is the smallest root in the
-  interval?
+When `α::Arb` it uses monotonicity of `α` to compute a tighter
+interval.
+- **PROVE:** That `p0` is monotone in `α`
+
+**TODO:** Do we need to prove that `p0` is the smallest root in the
+interval?
 """
 function findp0(α)
-    Γ = gamma
     f(p) = begin
-        cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) -
-        2Γ(2α)cospi(α) / (Γ(α)cospi(α / 2))
+        cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) -
+        2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
     end
 
     n = 1000
@@ -33,9 +36,8 @@ end
 
 function findp0(α::Arb)
     if iswide(α)
-        # PROVE: That p0 is monotone in α
-        α_low, α_upp = Arblib.getinterval(Arb, α)
-        return union(findp0(α_low), findp0(α_upp))
+        α_low, α_upp = getinterval(Arb, α)
+        return Arb((findp0(α_low), findp0(α_upp)))
     end
 
     if Float64(α) == -0.5
@@ -49,10 +51,9 @@ function findp0(α::Arb)
 
     α = setprecision(α, 2precision(α))
 
-    Γ = gamma
-    C = 2Γ(2α) * cospi(α) / (Γ(α) * cospi(α / 2))
+    C = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
     f(p) = begin
-        cospi((2α - p) / 2) * Γ(2α - p) / (cospi((α - p) / 2) * Γ(α - p)) - C
+        cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) - C
     end
 
     # Find an approximation in Float64
@@ -92,20 +93,20 @@ end
 """
     finda0(α)
 
-Compute `a[0]` such that `a0(u0, 0)^2/2 - A0(u0, 0)` is zero. That is,
+Compute `a0` such that `a0(u0, 0)^2/2 - A0(u0, 0)` is zero. That is,
 compute
 ```
 a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
 It makes use of the monotinicity to get good enclosures for wide
 balls.
-
-**PROVE:** That `a[0]` is monotone in `α`.
+- **PROVE:** That `a[0]` is monotone in `α`. Using
+  [`ArbExtras.enclosure_series`](@ref) doesn't work very well.
 """
 function finda0(α)
     if iswide(α)
         # In this case α must be an Arb
-        α_low, α_upp = Arblib.getinterval(Arb, α)
+        α_low, α_upp = getinterval(Arb, α)
         return Arb((finda0(α_low), finda0(α_upp)))
     end
 
