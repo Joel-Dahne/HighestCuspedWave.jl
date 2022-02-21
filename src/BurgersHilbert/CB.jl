@@ -38,7 +38,7 @@ then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
 separately.
 """
 function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
-    ϵ = Arf(1e-1)
+    ϵ = Arf(1e-2)
 
     # Bound the value on [ϵ, π]
 
@@ -88,7 +88,7 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
     m = max(m1, m2)
 
     # Show that it is bounded by m on [0, ϵ]
-    h = T0(u0, Asymptotic(), ϵ = 1.1ϵ)
+    h = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
     ϵ2 = Arf(1e-100)
 
     # Handle the interval [0, ϵ2] with one evalution
