@@ -29,7 +29,12 @@ function T0(
     end
 end
 
-function T0(u0::BHAnsatz, evaltype::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
+function T0(
+    u0::BHAnsatz,
+    evaltype::Asymptotic;
+    non_asymptotic_u0 = false,
+    ϵ::Arb = Arb(2e-1),
+)
     f = T01(u0, evaltype; non_asymptotic_u0, ϵ)
     g = T02(u0, evaltype; non_asymptotic_u0, ϵ)
 
