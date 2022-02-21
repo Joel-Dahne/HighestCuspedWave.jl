@@ -68,13 +68,16 @@ function prove(
 
     if !(δ₀ < C_estimate)
         proved = false
+        proved_estimate = false
         C_B = Arblib.indeterminate!(zero(Arb))
         C_B_time = NaN
     elseif only_estimate_CB
-        proved = true
+        proved = false
+        proved_estimate = true
         C_B = Arblib.indeterminate!(zero(Arb))
         C_B_time = NaN
     else
+        proved_estimate = true
         C_B = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
         C_B_time = @elapsed proved = CB_bounded_by(u0, lbound(C_B); threaded, verbose)
 
@@ -83,6 +86,7 @@ function prove(
 
     return (;
         proved,
+        proved_estimate,
         α₀,
         δ₀,
         C_B_estimate,

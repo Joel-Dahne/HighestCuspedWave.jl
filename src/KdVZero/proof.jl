@@ -37,6 +37,7 @@ function prove(
 
     if !isfinite(δ₀_goal)
         proved = false
+        proved_estimate = false
         δ₀ = Arblib.indeterminate!(zero(Arb))
         C_B = Arblib.indeterminate!(zero(Arb))
         δ₀_time = NaN
@@ -58,15 +59,18 @@ function prove(
 
         if !(C_B_estimate < C_B_goal)
             proved = false
+            proved_estimate = false
             C_B = Arblib.indeterminate!(zero(Arb))
             C_B_time = NaN
 
             verbose && @warn "Required bound for C_B not satisfied at x = 0"
         elseif only_estimate_CB
             proved = false
+            proved_estimate = true
             C_B = Arblib.indeterminate!(zero(Arb))
             C_B_time = NaN
         else
+            proved_estimate = true
             C_B = C_B_goal
             C_B_time = @elapsed proved =
                 CB_bounded_by(u02, lbound(C_B); maxevals, threaded, verbose)
@@ -75,6 +79,7 @@ function prove(
 
     return (;
         proved,
+        proved_estimate,
         α₀,
         δ₀,
         C_B_estimate,
