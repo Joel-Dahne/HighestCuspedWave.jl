@@ -20,6 +20,7 @@ include("delta.jl")
 include("T0.jl")
 include("CB.jl")
 include("lemmas.jl")
+include("proof.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")
@@ -63,5 +64,6 @@ include("KdVZero/alpha0.jl")
 include("KdVZero/delta.jl")
 include("KdVZero/T0.jl")
 include("KdVZero/CB.jl")
+include("KdVZero/proof.jl")
 
 end # module

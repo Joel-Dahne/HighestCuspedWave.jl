@@ -1,5 +1,5 @@
 """
-    prove(u0::FractionalKdVAnsatz{Arb}; M = 3, , only_estimate_CB = false, return_values = false, threaded = true, verbose = false, extra_verbose = false)
+    prove(u0::FractionalKdVAnsatz{Arb}; M = 5; only_estimate_CB, threaded, verbose, extra_verbose)
 
 Attempts to prove that the ansatz `u0` satisfies the requirements, that is
 ```
@@ -22,10 +22,6 @@ If `only_estimate_CB = true` it doesn't attempt to prove the bound on
 but is useful if you only want to determine of the bound seems to
 hold.
 
-If `return_values = true` it returns the enclosure of `α₀`, `δ₀` an
-upper bound of `C_B` (or an estimate if `only_estimate_CB = true`) and
-an enclosure of `1 / (4α₀ * β^2)`.
-
 If `threaded = true` it uses threading to speed up the computations.
 
 If `verbose = true` it prints information about the progress. For even
@@ -35,12 +31,10 @@ function prove(
     u0::FractionalKdVAnsatz{Arb};
     M = 5,
     only_estimate_CB = false,
-    return_values = false,
     threaded = true,
     verbose = false,
     extra_verbose = false,
 )
-
     # We don't wont to have to go further than a too large depth when
     # bounding C_B. Therefore we want to check the C_B values using x
     # values with a radius similar to that we would have at a depth we
@@ -49,59 +43,64 @@ function prove(
     # issues. So we take it to be 15.
     x_error = Arblib.mul_2exp!(zero(Arb), Arb(π), -15)
 
-    if verbose
-        @time α₀ = alpha0(u0, verbose = extra_verbose; M, threaded)
-        @show α₀
+    α₀_time = @elapsed α₀ = alpha0(u0, verbose = extra_verbose; M, threaded)
+    verbose && @info "Computed α₀" α₀ α₀_time
 
-        @time δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
-        @show δ₀
+    δ₀_time = @elapsed δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
+    verbose && @info "Computed δ₀" δ₀ δ₀_time
 
-        @time C_B = CB_estimate(u0; x_error, threaded)
-        @show C_B
-    else
-        α₀ = alpha0(u0; M, threaded)
-        δ₀ = delta0(u0; M, threaded)
-        C_B = CB_estimate(u0; x_error, threaded)
-    end
+    C_B_estimate_time = @elapsed C_B_estimate = CB_estimate(u0; x_error, threaded)
+    verbose && @info "Computed C_B estimate" C_B_estimate C_B_estimate_time
 
-    β = 1 / (1 - C_B)
-    C = 1 / (4α₀ * β^2)
-    D = 1 - 2Arblib.sqrtpos!(zero(C), α₀ * δ₀)
+    β_estimate = 1 / (1 - C_B_estimate)
+
+    # Bound that δ₀ needs to satisfy
+    C_estimate = 1 / (4α₀ * β_estimate^2)
+
+    # Bound that C_B needs to satisfy
+    D = 1 - 2Arblib.sqrtpos!(zero(α₀), α₀ * δ₀)
 
     if verbose
-        @info "Must have δ₀ ≤ 1 / (4α₀ * β^2) = C" δ₀ lbound(C) δ₀ < C
-        @info "Alternatively C_B ≤ 1 - 2√(α₀δ₀) = D" C_B lbound(D) C_B < D
+        @info "Must have δ₀ ≤ 1 / (4α₀ * β^2) = C or equivalently C_B ≤ 1 - 2√(α₀δ₀) = D" lbound(
+            C_estimate,
+        ) δ₀ < C_estimate lbound(D) C_B_estimate < D
     end
 
-    if !(δ₀ < C)
-        if return_values
-            return false, α₀, δ₀, C_B, C
-        else
-            return false
-        end
-    end
-
-    if only_estimate_CB
-        if return_values
-            return true, α₀, δ₀, C_B, C
-        else
-            return true
-        end
-    end
-
-    if verbose
-        @time res = CB_bounded_by(u0, lbound(D); threaded, verbose)
+    if !(δ₀ < C_estimate)
+        proved = false
+        C_B = Arblib.indeterminate!(zero(Arb))
+        C_B_time = NaN
+    elseif only_estimate_CB
+        proved = true
+        C_B = Arblib.indeterminate!(zero(Arb))
+        C_B_time = NaN
     else
-        res = CB_bounded_by(u0, lbound(D); threaded)
+        C_B = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
+        C_B_time = @elapsed proved = CB_bounded_by(u0, lbound(C_B); threaded, verbose)
+
+        verbose && @info "Bounded C_B" C_B C_B_time
     end
 
-    C_B_bound = lbound(D)
-    β_bound = 1 / (1 - C_B_bound)
-    C_bound = 1 / (4α₀ * β_bound^2)
+    return (;
+        proved,
+        α₀,
+        δ₀,
+        C_B_estimate,
+        C_B,
+        α₀_time,
+        δ₀_time,
+        C_B_estimate_time,
+        C_B_time,
+    )
+end
 
-    if return_values
-        return res, α₀, δ₀, C_B_bound, C_bound
-    else
-        return res
-    end
+function format_for_publishing(α₀, δ₀, C_B)
+    α₀_float = Arblib.get_d(ubound(α₀), RoundUp)
+    δ₀_float = Arblib.get_d(ubound(δ₀), RoundUp)
+    C_B_float = Arblib.get_d(ubound(C_B), RoundUp)
+
+    # Check that the inequality holds
+    inequality_holds = Arb(δ₀_float) <= (1 - Arb(C_B_float))^2 / 4Arb(α₀)
+
+    return inequality_holds, α₀_float, δ₀_float, C_B_float
 end
