@@ -132,12 +132,12 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
     b = Arb(π)
 
     return (x::Arb, a::Arb = x + δ2; tol = Arb(1e-5)) -> begin
-        # To better handle the absolute tolerance we factor out x from
-        # the integral and multiply it back afterwards.
         integrand(y) =
-            (clausenc(y - x, mα) + clausenc(y + x, mα) - 2clausenc(y, mα)) * u0.w(y) / x
+            (clausenc(y - x, mα) + clausenc(y + x, mα) - 2clausenc(y, mα)) * u0.w(y)
 
-        res = x * ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
+        # The integral is decreasing in x so we take the absolute
+        # tolerance to depend on x
+        res = ArbExtras.integrate(integrand, a, b, atol = x * tol, rtol = tol)
 
         res /= (π * u0.w(x))
 
