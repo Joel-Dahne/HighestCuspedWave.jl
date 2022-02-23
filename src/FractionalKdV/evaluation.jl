@@ -242,45 +242,37 @@ function D(
     end
 end
 
-function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3)
-    f = D(u0, AsymptoticExpansion(); M)
-    return x -> begin
-        expansion = f(x)
-
-        res = eval_expansion(u0, expansion, x, offset = -u0.p, offset_i = -1)
-
-        ϵ = abs_ubound(Arb, x)
-
-        res *= Arblib.add_error!(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
-
-        return res
-    end
-end
-
 """
-    F0(u0, ::AsymptoticExpansion)
+    F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 3, ϵ = one(Arb))
 
-# NOTE
-The terms in the dictionary should be interpreted as `((i, j, m), y) →
-y⋅x^(-iα + jp₀ + m - p)`, which is different from most other methods.
+Return a function for evaluating `F0(u0)(x)` accurately for small
+values of `x`.
+
+It splits `F0(u0)` as
+```
+inv(u0(x) / x^-u0.α) * (D(u0)(x) / x^(u0.p - u0.α))
+```
+It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref).
+For the other factor it computes the expansion of `D(u0)(x)` and
+explicitly cancels the division by `x^(u0.p - u0.α)`.
+
+# Arguments
+- `M::Integer` determines the number of terms in the asymptotic
+  expansions.
+- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+  is valid.
 """
-function F0(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
-    # Is this method used anywhere? It is not properly implemented for
-    # Arb so probably not.
-    error("this method is not implemented properly")
-    return x -> begin
-        expansion = D(u0, AsymptoticExpansion(); M)(x)
-        res = empty(expansion)
+function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+    Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
 
-        #ϵ = ifelse(T == arb, ArbTools.abs_ubound(x), x)
-        ϵ = x
-        C = ball(one(u0.α), c(u0, ϵ) * abspow(x, u0.p0)) / a0(u0, 0)
+    inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
-        for ((i, j, m), y) in expansion
-            res[(i - 1, j, m)] = C * y
-        end
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
-        return res
+        res = eval_expansion(u0, Du0_expansion, x, offset = -u0.p, offset_i = -1)
+
+        return res * inv_u0(x)
     end
 end
 
