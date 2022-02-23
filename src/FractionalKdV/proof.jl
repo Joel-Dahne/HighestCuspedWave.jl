@@ -97,14 +97,3 @@ function prove(
         C_B_time,
     )
 end
-
-function format_for_publishing(α₀, δ₀, C_B)
-    α₀_float = Arblib.get_d(ubound(α₀), RoundUp)
-    δ₀_float = Arblib.get_d(ubound(δ₀), RoundUp)
-    C_B_float = Arblib.get_d(ubound(C_B), RoundUp)
-
-    # Check that the inequality holds
-    inequality_holds = Arb(δ₀_float) <= (1 - Arb(C_B_float))^2 / 4Arb(α₀)
-
-    return inequality_holds, α₀_float, δ₀_float, C_B_float
-end

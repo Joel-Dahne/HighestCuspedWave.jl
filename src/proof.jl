@@ -44,3 +44,24 @@ function prove(
 
     return (p = p, proof_data..., u0_time = u0_time)
 end
+
+"""
+    format_for_publishing(α₀, δ₀, C_B)
+
+Convert `α₀, δ₀, C_B` to `Float64` rounding up and check that the
+inequality `δ₀ <= (1 - C_B)^2 / 4α₀` holds for the `Float64` values as
+well.
+
+This is used to get upper bounds of the values in a simpler format
+than the `Arb` type.
+"""
+function format_for_publishing(α₀::Arb, δ₀::Arb, C_B::Arb)
+    α₀_float = Arblib.get_d(ubound(α₀), RoundUp)
+    δ₀_float = Arblib.get_d(ubound(δ₀), RoundUp)
+    C_B_float = Arblib.get_d(ubound(C_B), RoundUp)
+
+    # Check that the inequality holds
+    inequality_holds = Arb(δ₀_float) <= (1 - Arb(C_B_float))^2 / 4Arb(α₀)
+
+    return inequality_holds, α₀_float, δ₀_float, C_B_float
+end
