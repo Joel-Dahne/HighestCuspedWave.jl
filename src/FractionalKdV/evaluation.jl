@@ -285,6 +285,31 @@ function F0(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) w
 end
 
 """
+    inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M = 3, ϵ = one(Arb))
+
+Return a function for evaluation `x^-u0.α / u0(x)` for `x` close to
+zero.
+
+It computes an expansion of `u0` at `x = 0` and explicitly handles the
+cancellation with `x^-u0.α`.
+
+# Arguments
+- `M::Integer` determines the number of terms in the asymptotic
+  expansions.
+- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+  is valid.
+"""
+function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = one(Arb))
+    expansion = u0(ϵ, AsymptoticExpansion(); M)
+
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && abs(x) <= ϵ) || (x isa ArbSeries && abs(Arblib.ref(x, 0)) <= ϵ)
+
+        return inv(eval_expansion(u0, expansion, x, offset_i = -1))
+    end
+end
+
+"""
     hat(u0::FractionalKdVAnsatz)
 Returns a function such that hat(u0)(x) computes û(x) from the paper.
 """
