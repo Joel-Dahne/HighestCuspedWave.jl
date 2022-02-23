@@ -53,7 +53,6 @@ function delta0(
         f,
         zero(ϵ),
         ϵ,
-        degree = -1,
         abs_value = true,
         point_value_max = estimate,
         atol = 4Arblib.radius(estimate); # We can expect to do better than this
