@@ -106,6 +106,8 @@ Integrate[((t - 1)^(-1 - a) + (t + 1)^(-1 - a) - 2 t^(-1 - a))*t^p, {t, 1, Infin
 - **PROVE:** Mathematica gives the condition `-1 < Re[p] < 0 && a >
   Re[p]` which is not satisfied in our case. However the expression
   seems to give the correct values anyway.
+- **IMPROVE:** We could get a much better enclosure by using that we
+  only integrate from `1` to `π / x` and not to infinity.
 """
 function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
     α = u0.α
