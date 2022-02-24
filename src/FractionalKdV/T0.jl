@@ -39,6 +39,12 @@ function T0(
     end
 end
 
+function T0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+    f = T01(u0, Asymptotic(); M, ϵ)
+    g = T02(u0, Asymptotic(); M, ϵ)
+    return x -> f(x) + g(x)
+end
+
 """
     T0_p_one(u0, Ball())
 
