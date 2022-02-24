@@ -248,6 +248,13 @@ end
 Return a function for evaluating `F0(u0)(x)` accurately for small
 values of `x`.
 
+# Arguments
+- `M::Integer` determines the number of terms in the asymptotic
+  expansions.
+- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+  is valid.
+
+# Implementation
 It splits `F0(u0)` as
 ```
 inv(u0(x) / x^-u0.α) * (D(u0)(x) / x^(u0.p - u0.α))
@@ -255,12 +262,6 @@ inv(u0(x) / x^-u0.α) * (D(u0)(x) / x^(u0.p - u0.α))
 It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref).
 For the other factor it computes the expansion of `D(u0)(x)` and
 explicitly cancels the division by `x^(u0.p - u0.α)`.
-
-# Arguments
-- `M::Integer` determines the number of terms in the asymptotic
-  expansions.
-- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
-  is valid.
 """
 function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
     Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
@@ -282,14 +283,15 @@ end
 Return a function for evaluation `x^-u0.α / u0(x)` for `x` close to
 zero.
 
-It computes an expansion of `u0` at `x = 0` and explicitly handles the
-cancellation with `x^-u0.α`.
-
 # Arguments
 - `M::Integer` determines the number of terms in the asymptotic
   expansions.
 - `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
   is valid.
+
+# Implementation
+It computes an expansion of `u0` at `x = 0` and explicitly handles the
+cancellation with `x^-u0.α`.
 """
 function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = one(Arb))
     expansion = u0(ϵ, AsymptoticExpansion(); M)
