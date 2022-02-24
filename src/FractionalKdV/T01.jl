@@ -131,99 +131,102 @@ function T01(
 end
 
 """
-    T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic)
+    T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 3, ϵ = one(Arb))
 
-Returns a function such that `T01(u0, Asymptotic())(x)` computes an
-**upper bound** of the integral ``T_{0,1}`` from the paper using an
-evaluation strategy that works asymptotically as `x` goes to 0.
+Returns a function for computing an **upper bound** of the integral of
+`T01(u0)`, using an evaluation strategy that works asymptotically as
+`x` goes to zero.
 
-It splits the Clausen functions into the main singular part and the
-analytic expansion. The integral of the singular part is computed by
-finding where the integrand is positive respectively negative and then
-integrating explicitly. The expansion is integrated term wise and the
-resulting sum is bounded.
+# Arguments
+- `M::Integer` determines the number of terms in the expansions.
+- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+  is valid.
 
-From the singular part we get the integral
+# Implementation
+It first splits the function as
 ```
-c_α = abs(gamma(1 + α) * sinpi(α / 2)) * ∫ abs((1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)) * t^p dt
+T01(u0)(x) = inv(π) * inv(u0(x) / x^-α) * (U01(x) / x^(-α + p))
 ```
-from `0` to `1`. We can isolate the unique root `r` on the interval
-`[0, 1]` using [`_integrand_compute_root`](@ref) with `x = 0`. The
-function is then negative on `[0, r]` and positive on `[r, 1]`.
+where `α = u0.α`, `p = u0.p` and
+```
+U01(x) = x^(1 + p) * ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^u0.p
+```
+integrated from `0` to `1`. The factor `inv(u0(x) / x^-α)` is computed
+using [`inv_u0_normalised`](@ref) so the remaining work is in bounding
+the `U01 / x^(-α + p)` factor.
 
-This allows us to remove the absolute value and compute the integral
+From the lemma in the paper we have
 ```
-∫ (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α) * t^p dt
+U01 / x^(-α + p) <= c + d * x^(2 + α - p)
 ```
-from `0` to `r` and from `r` to `1`.
-- **TODO:** Write down the formulas used for the integration.
-
-- **TODO:** Write down the expression for the tail and the formulas used
-  for the integration. They are in the paper.
-- **TODO:** Bound the error terms for the tails.
-- **TODO:** Write down the last parts of the computations.
-"""
-function T01(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Asymptotic;
-    nonasymptotic_u0 = false, # Mainly for testing
+with
+```
+c = gamma(1 + α) * sinpi(-α / 2) * (
+    2 / (α - p) +
+    gamma(-α) * gamma(1 + p) / gamma(1 - α + p) +
+    hypgeom_2f1(1 + α, 1 + p, 2 + p, -1) / (1 + p) -
+    2r^p * (
+        2r^-α / (α - p) +
+        r * hypgeom_2f1(1 + α, 1 + p, 2 + p, -r) / (1 + p) +
+        r * hypgeom_2f1(1 + α, 1 + p, 2 + p, r) / (1 + p)
+    )
 )
-    #@warn "T01(u0, Asymptotic()) is not yet rigorous - tail of sum not bounded"
+```
+and
+```
+d = 4sum((-1)^m * zeta(-α - 2m) * (2ϵ)^(2m - 2) / factorial(2m) for m = 1:Inf)
+```
+Here `r` is the unique root of
+```
+(1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
+```
+on ``[0, 1]``and is computed by [`_integrand_compute_root`](@ref).
+
+To compute an upper bound of `d` we sum the first `M - 1` terms and
+for the tail we rewrite it as
+```
+4sum((-1)^m * zeta(-α - 2m) * (2ϵ)^(2m - 2) / factorial(2m) for m = M:Inf)
+= 4(2ϵ)^(2M - 2) * (sum((-1)^m * zeta(-α - 2m) * (2x)^(2m) / factorial(2m) for m = M:Inf) / (2ϵ)^(2M))
+```
+Using [`clausenc_expansion_remainder`](@ref) we can compute an upper
+bound of the sum divided by `(2ϵ)^2M`.
+
+- **IMPROVE:** Include more details here, most of them are in the
+  paper.
+- **IMPROVE:** We could get a better bound for `d` by summing the true
+  form of the first few terms instead of the simplified version used
+  now. See the paper for how the true form look like.
+"""
+function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
     α = u0.α
     p = u0.p
 
-    # Compute c_α
-    r = _integrand_compute_root(u0, Arb(0))
+    inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
-    c_α =
-        abs(gamma(1 + α) * sinpi(α / 2)) * (
-            (
-                hypgeom_2f1(1 + p, 1 + α, 2 + p, -one(α)) -
-                2r^(1 + p) * hypgeom_2f1(1 + p, 1 + α, 2 + p, -r)
-            ) / (1 + p) - 2beta_inc(1 + p, -α, r) +
-            (2 - 4r^(p - α)) / (α - p) +
-            gamma(-α) * gamma(1 + p) / gamma(1 - α + p)
+    r = _integrand_compute_root(u0, Arb(0))
+    c =
+        gamma(1 + α) *
+        sinpi(-α / 2) *
+        (
+            2 / (α - p) +
+            gamma(-α) * gamma(1 + p) / gamma(1 - α + p) +
+            hypgeom_2f1(1 + α, 1 + p, 2 + p, -one(α)) / (1 + p) -
+            2r^p * (
+                2r^-α / (α - p) +
+                r * hypgeom_2f1(1 + α, 1 + p, 2 + p, -r) / (1 + p) +
+                r * hypgeom_2f1(1 + α, 1 + p, 2 + p, r) / (1 + p)
+            )
         )
 
-    return x -> begin
-        if isone(p)
-            # FIXME: Bound the tail - the terms go to zero extremely
-            # fast so it should be negligible
-            c_ϵ = zero(α)
-            for m = 1:10
-                # This is fine to do in Int64, the factorial would
-                # throw an error before anything else overflows.
-                factor = (-1)^m // factorial(2m) * m * (4^m - 1) // ((m + 1) * (2m + 1))
+    # Sum first M - 1 terms
+    d = 4sum((-1)^m * zeta(-α - 2m) * (2ϵ)^(2m - 2) / factorial(2m) for m = 1:M-1)
+    # Enclose remainder
+    d += 4(2ϵ)^(2M - 2) * clausenc_expansion_remainder(2ϵ, -α, M)
 
-                c_ϵ += factor * zeta(-α - 2m) * abspow(x, 2m - 2)
-            end
-            c_ϵ *= 2
-        else
-            # FIXME: Bound the tail - the terms go to zero extremely
-            # fast so it should be negligible
-            c_ϵ = zero(α)
-            for m = 1:10
-                c_ϵ +=
-                    (-1)^m // factorial(2m) *
-                    sum(binomial(2m, 2k) / (2k + p + 1) for k = 0:m-1) *
-                    zeta(-α - 2m) *
-                    abspow(x, 2m - 2)
-            end
-            c_ϵ *= 2
-        end
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
-        if nonasymptotic_u0
-            # Version without asymptotically expanding u0(x)
-            res = c_α * abspow(x, -α) + c_ϵ * abspow(x, 3)
-            return res / (Arb(π) * u0(x))
-        end
-
-        res = c_α + c_ϵ * abspow(x, 3 + α)
-
-        # Ball containing 1 + hat(u0)(x)
-        L = Arblib.add_error!(one(α), c(u0, Arblib.abs_ubound(Arb, x)) * abspow(x, u0.p0))
-
-        return L / (Arb(π) * a0(u0, 0)) * res
+        return inv_u0(x) * (c + d * abspow(x, 3 + α)) / π
     end
 end
 
