@@ -601,7 +601,11 @@ Compute an enclosure of the remainder term in the asymptotic expansion
 of `clausens(x, s)` at zero up to order `2M - 1`, meaning that the
 remainder is of order `2M + 1`.
 
-This is the `E` occurring in [`clausens_expansion`](@ref).
+This is the `E` occurring in [`clausens_expansion`](@ref) and is given
+by
+```
+sum((-1)^m * zeta(s - 2m - 1) * x^(2m + 1) / factorial(2m) for m = M:Inf) / x^(2M + 1)
+```
 
 It requires that `abs(x) < 2π` and `2M >= s + 1`. In this case an
 upper bound for the absolute value of the remainder is given by
