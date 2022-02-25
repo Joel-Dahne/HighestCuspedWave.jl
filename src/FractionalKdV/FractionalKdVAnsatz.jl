@@ -165,7 +165,7 @@ function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
         (-0.61, 5, 64, (1 - α) / 2),
         (-0.50, 4, 16, (1 - α) / 2),
         (-0.36, 4, 16, T(3 // 4)),
-        (-1 / 3, 3, 8, T(3 // 4)),
+        (-1 // 3, 3, 8, T(3 // 4)),
         (-0.2, 3, 8, one(α)),
         (-0.1, 3, 8, one(α)),
         (-0.01, 2, 8, one(α)),
@@ -174,7 +174,7 @@ function FractionalKdVAnsatz(α::T; pp = nothing) where {T}
 
     # Find the last element in parameters for which we have an upper
     # bound for α.
-    i = findfirst(value -> α < value[1], parameters)
+    i = findfirst(value -> !(α > value[1]), parameters)
 
     _, N0, N1, p = parameters[i]
 
