@@ -21,7 +21,7 @@ function CB_bounded_by(
 )
     # Determine ϵ such that the bound holds when evaluated at x = ϵ
     # with the asymptotic version.
-    f = T0(u0, Asymptotic())
+    f = T0(u0, Asymptotic(), ϵ = Arb(1.1))
 
     if iszero(ϵ)
         ϵ = one(ϵ)
