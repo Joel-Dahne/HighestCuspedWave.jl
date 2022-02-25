@@ -94,9 +94,10 @@ function FractionalKdVAnsatz(
         p = Arblib.midpoint(Arb, p)
     end
 
-    p0 = findp0(α)
     if use_midpoint
-        p0 = Arblib.midpoint(Arb, p0)
+        p0 = midpoint(Arb, findp0(midpoint(Arb, α)))
+    else
+        p0 = findp0(α)
     end
 
     # Initiate the a vector with a[0] = finda0(α) and the rest of the

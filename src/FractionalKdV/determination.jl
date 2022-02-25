@@ -9,12 +9,13 @@ cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) =
 
 We use, but don't have to prove, that `p0 < 1.5(α + 1)`.
 
-When `α::Arb` it uses monotonicity of `α` to compute a tighter
-interval.
-- **PROVE:** That `p0` is monotone in `α`
+In practice `p0` is monotone in `α` but we have not proved it. However
+we never actually compute `p0` for wide values of `α` since we usually
+take the midpoint. If this change we might return to using the
+monotonicity and then we have to prove it.
 
 **TODO:** Do we need to prove that `p0` is the smallest root in the
-interval?
+interval? We don't strictly use it.
 """
 function findp0(α)
     f(p) = begin
@@ -36,8 +37,10 @@ end
 
 function findp0(α::Arb)
     if iswide(α)
-        α_low, α_upp = getinterval(Arb, α)
-        return Arb((findp0(α_low), findp0(α_upp)))
+
+        @warn "findp0 doesn't handle wide α values well" α
+        #α_low, α_upp = getinterval(Arb, α)
+        #return Arb((findp0(α_low), findp0(α_upp)))
     end
 
     if Float64(α) == -0.5
