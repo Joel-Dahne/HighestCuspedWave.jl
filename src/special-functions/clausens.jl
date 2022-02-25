@@ -573,19 +573,34 @@ clausens(y, s) ∈ C * sign(y) * abs(y)^e + P(y) + E * y^(2M + 1)
 ```
 for all `abs(y) <= abs(x)`.
 
-Note that this method doesn't handle wide values of `s` in any special
-way and doesn't support `s` overlapping positive integers, this has
-not been needed.
+If `s` is wide, as determined by `iswide(s)` it computes a tighter
+enclosure of the coefficients using a Taylor expansion in `s`.
 """
 function clausens_expansion(x::Arb, s::Arb, M::Integer)
     # Non-analytic term
-    C = gamma(1 - s) * cospi(s / 2)
+    if iswide(s)
+        C = ArbExtras.enclosure_series(s -> gamma(1 - s) * cospi(s / 2), s, degree = 2)
+    else
+        C = gamma(1 - s) * cospi(s / 2)
+    end
     e = s - 1
 
     # Analytic terms
     P = ArbSeries(degree = 2M - 1, prec = precision(x))
     for m = 0:M-1
-        P[2m+1] = (-1)^m * zeta(s - 2m - 1) / factorial(2m + 1)
+        if iswide(s)
+            z = ArbExtras.enclosure_series(s -> zeta(s - 2m - 1), s, degree = 2)
+
+            if !isfinite(z)
+                # In some cases, when s overlaps zero (but not
+                # always), the above returns NaN but the evaluation
+                # below works.
+                z = zeta(s - 2m - 1)
+            end
+        else
+            z = zeta(s - 2m - 1)
+        end
+        P[2m+1] = (-1)^m * z / factorial(2m + 1)
     end
 
     # Error term
