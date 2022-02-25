@@ -168,14 +168,15 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
             # integer.
             contains_int, n = unique_integer(s)
             if contains_int && isodd(n)
-                # TODO: It seems like we should never encounter this.
-                # Maybe we do and in that case we have to deal with
-                # it, by it seems like we might be able to avoid it :)
+                # It seems like we should never encounter this. Maybe
+                # we do and in that case we have to deal with it, by
+                # it seems like we might be able to avoid it.
                 @error "Encountered a term with s overlapping an odd integer" *
                        "in expansion for H(u0), we don't expect this to happen" s
+                res[(2, j, 0)] = Arblib.indeterminate!(zero(C))
+            else
+                res[(2, j, 0)] = -C * u0.a[j]
             end
-
-            res[(2, j, 0)] = -C * u0.a[j]
             for m = 1:M-1
                 res[(0, 0, 2m)] -= p[2m] * u0.a[j]
             end
