@@ -40,6 +40,9 @@ function T0(
 end
 
 function T0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+    # Use specialised implementation in the case the weight is x
+    isone(u0.p) && return T0_p_one(u0, Asymptotic(); M, ϵ)
+
     f = T01(u0, Asymptotic(); M, ϵ)
     g = T02(u0, Asymptotic(); M, ϵ)
     return x -> f(x) + g(x)
@@ -161,5 +164,140 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
         else
             return res / (π * u0(x))
         end
+    end
+end
+
+"""
+    T0_p_one(u0, Asymptotic())
+
+Compute the integral ``T_0`` for `u0` with `u0.p == 1` using an
+asymptotic approach that works for small values of `x`.
+
+# Implementation
+It first splits the function as
+```
+T0(x) = inv(π) * inv(u0(x) / x^-α) * (u0(x) / x^(-α + 1))
+```
+where `α = u0.α`, `p = u0.p` and
+```
+U0(x) = x^2 * ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^u0.p
+```
+integrated from `0` to `π / x`. The factor `inv(u0(x) / x^-α)` is
+computed using [`inv_u0_normalised`](@ref) so the remaining work is in
+enclosing the `U0 / x^(-α + 1)` factor.
+
+For enclosing `U0 / x^(-α + 1)` it uses the primitive function given
+in the non-asymptotic version of this method. It expands all functions
+at `x = 0` and explicitly cancels the division by `x^(-α + 1)`.
+
+**IMPROVE:** Better explain what it does.
+"""
+function T0_p_one(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 3,
+    ϵ::Arb = Arb(1),
+)
+    @assert isone(u0.p)
+
+    α = u0.α
+
+    inv_u0 = inv_u0_normalised(u0; M, ϵ)
+
+    r0 = _integrand_compute_root(u0, Arb(0))
+
+    # Asymptotic expansion of clausencmzeta(x, 2 - α) for x ∈ [0, ϵ * (1 + r0)]
+    C1, e1, P1, E1 = clausenc_expansion(ϵ * (1 + r0), 2 - α, M, skip_constant = true)
+
+    # Asymptotic expansion of clausens(x, 1 - α) for x ∈ [0, ϵ * (1 + r0)]
+    C2, e2, P2, E2 = clausens_expansion(ϵ * (1 + r0), 1 - α, M)
+
+    # Taylor expansion of clausenc(x + π, 2 - α) - clausenc(π, 2 - α) for x ∈ [0, ϵ]
+    P3 = taylor_with_remainder(
+        x -> clausenc(x + π, 2 - α),
+        Arb(0),
+        Arb((0, ϵ)),
+        degree = M,
+        enclosure_degree = 2,
+    )
+    P3[0] = 0 # Zero constant term
+    # Function is even around π so all odd terms are zero
+    for i = 1:2:M
+        P3[i] = 0
+    end
+
+    # Helper function for evaluating p(x * b) / x^exponent
+    eval_poly(p, x, b, exponent) =
+        sum(0:Arblib.degree(p)) do i
+            p_i = p[i]
+            if iszero(p_i)
+                zero(p_i)
+            else
+                p_i * abspow(b, i) * abspow(x, (i + exponent))
+            end
+        end
+
+    return x::Arb -> begin
+        x <= ϵ || @show x ϵ
+        @assert x <= ϵ
+
+        r = _integrand_compute_root(u0, x)
+
+        # clausencmzeta(x, 2 - α) / x^(-α + 1)
+        term1 = C1 + eval_poly(P1, x, one(x), α - 1) + E1 * abspow(x, 2M + α - 1)
+
+        #termA = clausencmzeta(x, 2 - α) / x^(-α + 1)
+
+        # (clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(-α + 1)
+        term2 = eval_poly(P3, x, one(x), α - 1)
+
+        #termB = (clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(-α + 1)
+
+        # (clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) / x^(-α + 1)
+        term3 = begin
+            (
+                C1 * (1 - r)^e1 +
+                eval_poly(P1, x, 1 - r, α - 1) +
+                E1 * abspow(x, 2M + α - 1) * (1 - r)^2M +
+                C1 * (1 + r)^e1 +
+                eval_poly(P1, x, 1 + r, α - 1) +
+                E1 * abspow(x, 2M + α - 1) * (1 + r)^2M -
+                2 * (
+                    C1 * r^e1 +
+                    eval_poly(P1, x, r, α - 1) +
+                    E1 * abspow(x, 2M + α - 1) * r^2M
+                )
+            )
+        end
+
+        #termC = (clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) / x^(-α + 1)
+
+        # r * (clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α)) / x^-α
+        term4 = begin
+            r * (
+                -(
+                    C2 * (1 - r)^e2 +
+                    eval_poly(P2, x, 1 - r, α) +
+                    E2 * abspow(x, 2M + 1 + α) * (1 - r)^2M
+                ) +
+                C2 * (1 + r)^e2 +
+                eval_poly(P2, x, 1 + r, α) +
+                E2 * abspow(x, 2M + 1 + α) * (1 + r)^2M -
+                2 * (
+                    C2 * r^e2 + eval_poly(P2, x, r, α) + E2 * abspow(x, 2M + 1 + α) * r^2M
+                )
+            )
+        end
+
+        #termD = r * (-clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α)) / x^-α
+
+        #@assert Arblib.overlaps(term1, termA)
+        #@assert Arblib.overlaps(term2, termB)
+        #@assert Arblib.overlaps(term3, termC)
+        #@assert Arblib.overlaps(term4, termD)
+
+        res = 2(term1 + term2 - term3 - term4)
+
+        return inv_u0(x) * res / π
     end
 end
