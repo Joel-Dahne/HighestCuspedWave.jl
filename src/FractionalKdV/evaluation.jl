@@ -466,7 +466,13 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
 
     for j = 0:u0.N0
         s = 2u0.α - j * u0.p0
-        Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -gamma(s) * sinpi((1 - s) / 2))
+        if s == -1
+            # -gamma(s) * sinpi((1 - s) / 2) has a removable
+            # -singularity at s = -1, where it takes the value π / 2
+            Hu0_precomputed[(2, j, 0)] = OrderedDict(j => π / 2)
+        else
+            Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -gamma(s) * sinpi((1 - s) / 2))
+        end
     end
 
     for m = 1:M-1

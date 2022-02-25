@@ -16,11 +16,15 @@ and
 ```
 cospi(α) / (2α + 1) = sinpi(α + 1 / 2) / (2α + 1) = π / 2 * sinc(α + 1 / 2)
 ```
-where `sinc(x) = sinpi(x) / (π * x)`, following the Julia notation, to
-write it as
+where `sinc(x) = sinpi(x) / (π * x)`, following the Julia notation, we have
+```
+gamma(2α) * cospi(α)
+= gamma(2α + 2) * sinpi(α + 1 / 2) / (2α * (2α + 1))
+= π * sinc(α + 1 / 2) * gamma(2α + 2) / 4α
+```
+This gives us
 ```
 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
-= sinpi(α + 1 / 2) / (2α + 1) * gamma(2α + 2) / (α * gamma(α) * cospi(α / 2))
 = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α) * cospi(α / 2))
 ```
 
@@ -108,6 +112,19 @@ compute
 ```
 a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
+
+We can handle the removable singularity at `α = -1 / 2` using the same
+approach as in [`findp0`](@ref) to write
+```
+gamma(2α) * cospi(α)
+= gamma(2α + 2) * sinpi(α + 1 / 2) / (2α * (2α + 1))
+= π * sinc(α + 1 / 2) * gamma(2α + 2) / 4α
+```
+giving us
+```
+a[0] = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
+```
+
 It makes use of the monotinicity to get good enclosures for wide
 balls.
 - **PROVE:** That `a[0]` is monotone in `α`. Using
@@ -120,7 +137,7 @@ function finda0(α)
         return Arb((finda0(α_low), finda0(α_upp)))
     end
 
-    return 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
+    return π * sinc(α + 1 // 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
 end
 
 function _findas(u0::FractionalKdVAnsatz)
