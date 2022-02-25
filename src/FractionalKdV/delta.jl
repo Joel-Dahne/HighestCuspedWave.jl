@@ -1,5 +1,5 @@
 """
-    delta0(u0::FractionalKdVAnsatz; ϵ::Arf = 0, M::Integer = 3, degree::Integer = 6)
+    delta0(u0::FractionalKdVAnsatz; ϵ, M, degree, rtol, threaded, verbose)
 
 Enclose the value of `δ₀` from the paper.
 
@@ -7,26 +7,25 @@ Uses an asymptotic expansion with `M` terms on the interval `[0, ϵ]`
 and ball arithmetic together with Taylor expansions of degree `degree`
 on `[ϵ, π]`.
 
-If `ϵ` is zero then it tries to determine an optimal value for it by
-finding where the asymptotic expansion gives better bounds than ball
-arithmetic. This is mostly relevant when `u0.α` is wide.
-
-If `threaded = true` it enables threading when calling
-[`ArbExtras.maximum_enclosure`](@ref). If `verbose = true` print more
-information about the process.
-
-**TODO:** Look more at tuning for `n`, it seems to depend on the
-precise values. It might be beneficial to reduce `ϵ` in smaller steps.
-It's mainly the `[ϵ, π]` that takes time, could look more at what part
-of it. Otherwise it's mainly important to look at the overestimation
-in the evaluation due to the radius of `α`.
+# Arguments
+- `ϵ::Arf = zero(Arf)`: Determines the interval ``[0, ϵ]`` on which
+  the asymptotic version is used. If `ϵ` is zero it automatically
+  finds a suitable value for it.
+- `M::Integer = 3`: Number of terms to use in the asymptotic
+  expansions.
+- `degree::Integer = 6`: Degree used for
+  [`ArbExtras.maximum_enclosure`](@ref).
+- `rtol = Arb(1e-3)`: Relative tolerance used when computing maximum.
+- `threaded = true`: If true it enables threading when calling
+  [`ArbExtras.maximum_enclosure`](@ref).
+- `verbose = false`: Print information about the process.
 """
 function delta0(
     u0::FractionalKdVAnsatz{Arb};
     ϵ::Arf = zero(Arf),
     M::Integer = 3,
     degree::Integer = 6,
-    rtol = 1e-3,
+    rtol = Arb(1e-3),
     threaded = true,
     verbose = false,
 )
@@ -36,11 +35,22 @@ function delta0(
     g = F0(u0)
 
     if iszero(ϵ)
-        # Find a value of ϵ such that the asymptotic error is smaller
-        # than the direct one
-        ϵ = one(ϵ)
-        while !(Arblib.radius(f(Arb(ϵ))) < Arblib.radius(g(Arb(ϵ)))) && ϵ > 1e-3
-            ϵ /= 2
+        ϵ = let ϵ = Arb(1)
+            y = f(ϵ)
+            z = g(ϵ)
+
+            # Reduce ϵ until the value we get either satisfies the
+            # required tolerance or is better than the non-asymptotic
+            # version.
+            while !ArbExtras.check_tolerance(y; rtol) && radius(y) > radius(z)
+                ϵ /= 1.2
+
+                y = f(ϵ)
+                z = g(ϵ)
+                ϵ > 1e-3 ||
+                    @warn "could not determine working ϵ, last tried value" ϵ u0.α
+            end
+            ubound(ϵ)
         end
 
         verbose && @info "ϵ was determined to be" ϵ
@@ -55,7 +65,8 @@ function delta0(
         ϵ,
         abs_value = true,
         point_value_max = estimate,
-        atol = 4Arblib.radius(estimate); # We can expect to do better than this
+        atol = 4radius(estimate); # We can't expect to do better than this
+        degree,
         rtol,
         threaded,
         verbose,
@@ -64,14 +75,14 @@ function delta0(
     verbose && @info "Bound on [0, ϵ]" max_asymptotic
 
     # Bound the value on [ϵ, π] by Ball evaluation
-    estimate = maximum(abs.(g.(range(Arb(ϵ), Arblib.ubound(Arb, Arb(π)), length = 10))))
+    estimate = maximum(abs.(g.(range(Arb(ϵ), π, length = 10))))
     max_nonasymptotic = ArbExtras.maximum_enclosure(
         g,
         ϵ,
-        Arblib.ubound(Arb(π)),
+        ubound(Arb(π)),
         abs_value = true,
         point_value_max = estimate,
-        atol = 3Arblib.radius(estimate); # We can expect to do better than this
+        atol = max(max_asymptotic / 2, 3radius(estimate));
         rtol,
         degree,
         threaded,
