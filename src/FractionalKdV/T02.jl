@@ -18,9 +18,9 @@ should give a lower value of `ϵ`. The choice of `ϵ` is partially based
 on [/figures/optimal-epsilon-choice.png], but can likely be tuned
 further.
 
-TODO: Look closer at computing with the asymptotic expansion and using
-the best result. Consider rewriting `T021` and `T022` to be more like
-the other methods here.
+**IMPROVE:** Look closer at computing with the asymptotic expansion
+and using the best result. Consider rewriting `T021` and `T022` to be
+more like the other methods here.
 """
 function T02(
     u0::FractionalKdVAnsatz{Arb},

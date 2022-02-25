@@ -88,9 +88,9 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3
                 res[(0, 0, 2m)] += p[2m] * u0.a[j]
             end
 
-            # TODO: The approach below gives good bounds for x close
-            # to 0 bound much worse than required if x is not that
-            # small. It might be that we need to improve it in the end.
+            # IMPROVE: The approach below gives good bounds for x
+            # close to 0 but much worse than required if x is not that
+            # small.
 
             # The term has an x-factor like x^(s - 1), we factor out
             # x^(-i * u0.α + 1) from this where i is as large as

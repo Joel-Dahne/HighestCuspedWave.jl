@@ -1,7 +1,7 @@
 """
     T0(u0::FractionalKdVAnsatz{Arb}, ::Ball)
 
-**TODO:** Tune the values for `δ0, δ1, δ2` depending on `u0.α` and
+**IMPROVE:** Tune the values for `δ0, δ1, δ2` depending on `u0.α` and
 `u0.p`.
 """
 function T0(
@@ -190,6 +190,9 @@ For enclosing `U0 / x^(-α + 1)` it uses the primitive function given
 in the non-asymptotic version of this method. It expands all functions
 at `x = 0` and explicitly cancels the division by `x^(-α + 1)`.
 
+**IMPROVE:** Use `ArbSeries` to compute a tighter enclosure? Similar
+  to the non-asymptotic version. Depends on important it is for the
+  timings.
 **IMPROVE:** Better explain what it does.
 """
 function T0_p_one(
