@@ -246,12 +246,8 @@ function T0_p_one(
         # clausencmzeta(x, 2 - α) / x^(-α + 1)
         term1 = C1 + eval_poly(P1, x, one(x), α - 1) + E1 * abspow(x, 2M + α - 1)
 
-        #termA = clausencmzeta(x, 2 - α) / x^(-α + 1)
-
         # (clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(-α + 1)
         term2 = eval_poly(P3, x, one(x), α - 1)
-
-        #termB = (clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(-α + 1)
 
         # (clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) / x^(-α + 1)
         term3 = begin
@@ -270,8 +266,6 @@ function T0_p_one(
             )
         end
 
-        #termC = (clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) / x^(-α + 1)
-
         # r * (clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α)) / x^-α
         term4 = begin
             r * (
@@ -288,13 +282,6 @@ function T0_p_one(
                 )
             )
         end
-
-        #termD = r * (-clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α)) / x^-α
-
-        #@assert Arblib.overlaps(term1, termA)
-        #@assert Arblib.overlaps(term2, termB)
-        #@assert Arblib.overlaps(term3, termC)
-        #@assert Arblib.overlaps(term4, termD)
 
         res = 2(term1 + term2 - term3 - term4)
 
