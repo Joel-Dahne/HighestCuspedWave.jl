@@ -452,7 +452,7 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
     u0_precomputed = OrderedDict{NTuple{3,Int},OrderedDict{Int,T}}()
     for j = 0:u0.N0
         s = u0.α - j * u0.p0
-        u0_precomputed[(1, j, 0)] = OrderedDict(j => gamma(s) * sinpi((1 - s) / 2))
+        u0_precomputed[(1, j, 0)] = OrderedDict(j => gamma(s) * cospi(s / 2))
     end
 
     for m = 1:M-1
@@ -467,11 +467,11 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
     for j = 0:u0.N0
         s = 2u0.α - j * u0.p0
         if s == -1
-            # -gamma(s) * sinpi((1 - s) / 2) has a removable
-            # -singularity at s = -1, where it takes the value π / 2
+            # -gamma(s) * cospi(s / 2) has a removable singularity at
+            # -s = -1, where it takes the value π / 2
             Hu0_precomputed[(2, j, 0)] = OrderedDict(j => π / 2)
         else
-            Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -gamma(s) * sinpi((1 - s) / 2))
+            Hu0_precomputed[(2, j, 0)] = OrderedDict(j => -gamma(s) * cospi(s / 2))
         end
     end
 
