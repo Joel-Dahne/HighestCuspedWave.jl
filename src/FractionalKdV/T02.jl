@@ -123,6 +123,11 @@ function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb
             (hypgeom_2f1(1 + α, α - p, 1 + α - p, -one(α)) - 2) / (α - p)
         )
 
+    # c has a removable singularity for p = 1 and for some values of α
+    # for p < 1. In practice we don't encounter these values because
+    # those are covered by T0_p_one.
+    isfinite(c) || @error "non-finite enclosure for c in T02" α p
+
     # TODO: Implement this version of d
     #XXX = Arb(1) # FIXME
     #YYY = Arb(1) # FIXME
