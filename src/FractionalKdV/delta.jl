@@ -30,7 +30,7 @@ function delta0(
     verbose = false,
 )
     # For asymptotic evaluation
-    f = F0(u0, Asymptotic(); M)
+    f = F0(u0, Asymptotic(); M, ϵ = Arb(1.1))
     # For non-asymptotic evaluation
     g = F0(u0)
 
