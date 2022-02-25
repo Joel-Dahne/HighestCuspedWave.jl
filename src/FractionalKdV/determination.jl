@@ -4,10 +4,25 @@
 Compute `p0` such that
 ```
 cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) =
-    2gamma(2α)cospi(α) / (gamma(α)cospi(α / 2))
+    2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
 ```
 
-We use, but don't have to prove, that `p0 < 1.5(α + 1)`.
+The right hand side has a removable singularity at `α = 1 / 2`. To
+avoid this we use that
+```
+gamma(2α) = gamma(2α + 2) / (2α * (2α + 1))
+```
+and
+```
+cospi(α) / (2α + 1) = sinpi(α + 1 / 2) / (2α + 1) = π / 2 * sinc(α + 1 / 2)
+```
+where `sinc(x) = sinpi(x) / (π * x)`, following the Julia notation, to
+write it as
+```
+2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+= sinpi(α + 1 / 2) / (2α + 1) * gamma(2α + 2) / (α * gamma(α) * cospi(α / 2))
+= π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α) * cospi(α / 2))
+```
 
 In practice `p0` is monotone in `α` but we have not proved it. However
 we never actually compute `p0` for wide values of `α` since we usually
@@ -20,11 +35,12 @@ interval? We don't strictly use it.
 function findp0(α)
     f(p) = begin
         cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) -
-        2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+        π * sinc(α + 0.5) * gamma(2α + 2) / (2α * gamma(α) * cospi(α / 2))
     end
 
+    # We use, but don't have to prove, that p0 < 1.5(α + 1)
     n = 1000
-    ps = range(0, stop = 1.51(α + 1), length = n)
+    ps = range(0, stop = 1.51(α + 1), length = n)[2:end]
     res = f.(ps)
 
     # Find first sign change
@@ -37,24 +53,15 @@ end
 
 function findp0(α::Arb)
     if iswide(α)
-
         @warn "findp0 doesn't handle wide α values well" α
         #α_low, α_upp = getinterval(Arb, α)
         #return Arb((findp0(α_low), findp0(α_upp)))
     end
 
-    if Float64(α) == -0.5
-        # There is a removable singularity at α = -0.5 so evaluation
-        # at exactly that point fails. We handle this by creating a
-        # small ball around α and use the monotonicity. This is mostly
-        # meant for testing, where -0.5 tends to come up frequently...
-        α = Arblib.add_error!(copy(α), Arb(1e-15))
-        return findp0(α)
-    end
-
+    # We do the computations at a higher precision
     α = setprecision(α, 2precision(α))
 
-    C = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+    C = π * sinc(α + 1 // 2) * gamma(2α + 2) / (2α * gamma(α) * cospi(α / 2))
     f(p) = begin
         cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) - C
     end
