@@ -1051,30 +1051,61 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
         end
 
         # Enclosure of (1 + α) / (1 - x^p0)
-        # IMPROVE: Handle x overlapping zero
-        factor = inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α, extra_degree = 2))
+        αp1_div_1mxp0 = if iszero(x)
+            α + 1
+        elseif Arblib.contains_zero(x)
+            lower = α + 1
+            upper = let xᵤ = ubound(Arb, x)
+                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), 1 + α, extra_degree = 2))
+            end
+            Arb((lower, upper))
+        else
+            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
+        end
 
         # Enclosure of the integral
-        # FIXME: Compute rigorous enclosure for integrand
-        I_lower = let α = ubound(Arb, α), xᵤ = ubound(Arb, x)
-            Arblib.integrate(2, lbound(Arb, π / x)) do t
-                ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (α + 1) *
-                t^(1 - γ * (α + 1)) *
-                log(c + inv(xᵤ * t))
-            end |> real
-        end
+        extra_degree = 2
+        xₗ, xᵤ = getinterval(Arb, x)
 
-        I_upper = let α = ubound(Arb, α), xₗ = lbound(Arb, x)
-            Arblib.integrate(2, ubound(π / x)) do t
-                ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (α + 1) *
-                t^(1 - γ * (α + 1)) *
-                log(c + inv(xₗ * t))
+        I_lower =
+            Arblib.integrate(2, lbound(Arb, π / x)) do t
+                if isreal(t)
+                    t = real(t)
+                    return fx_div_x(
+                               s -> (t - 1)^-s + (t + 1)^-s - 2t^-s,
+                               1 + α;
+                               extra_degree,
+                           ) *
+                           t^(1 - γ * (α + 1)) *
+                           log(c + inv(xᵤ * t))
+                else
+                    return fx_div_x(s -> (t - 1)^-s + (t + 1)^-s - 2t^-s, Acb(1 + α)) *
+                           t^(1 - γ * (α + 1)) *
+                           log(c + inv(xᵤ * t))
+                end
             end |> real
-        end
+
+        I_upper =
+            Arblib.integrate(2, ubound(π / x)) do t
+                if isreal(t)
+                    t = real(t)
+                    return fx_div_x(
+                               s -> (t - 1)^-s + (t + 1)^-s - 2t^-s,
+                               1 + α;
+                               extra_degree,
+                           ) *
+                           t^(1 - γ * (α + 1)) *
+                           log(c + inv(xₗ * t))
+                else
+                    return fx_div_x(s -> (t - 1)^-s + (t + 1)^-s - 2t^-s, Acb(1 + α)) *
+                           t^(1 - γ * (α + 1)) *
+                           log(c + inv(xₗ * t))
+                end
+            end |> real
 
         I = Arb((I_lower, I_upper))
 
-        return invloginvx * factor * I
+        return invloginvx * αp1_div_1mxp0 * I
     end
 end
 
