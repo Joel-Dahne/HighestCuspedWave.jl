@@ -960,6 +960,8 @@ I = ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1
   explicitly.
 """
 function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
+    αp1 = Arblib.nonnegative_part!(zero(α), α + 1)
+
     # Enclosure of I
     # FIXME: Compute rigorous enclosure
     I = let α = ubound(Arb, α)
@@ -989,10 +991,19 @@ function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
         logfactor = Arb((logfactor_lower, logfactor_upper))
 
         # Enclosure of (1 + α) / (1 - x^p0)
-        # IMPROVE: Handle x overlapping zero
-        factor = inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α, extra_degree = 2))
+        αp1_div_1mxp0 = if iszero(x)
+            αp1
+        elseif Arblib.contains_zero(x)
+            lower = αp1
+            upper = let xᵤ = ubound(Arb, x)
+                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1, extra_degree = 2))
+            end
+            Arb((lower, upper))
+        else
+            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), αp1, extra_degree = 2))
+        end
 
-        return logfactor * factor * I
+        return logfactor * αp1_div_1mxp0 * I
     end
 end
 
