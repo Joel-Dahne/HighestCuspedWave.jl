@@ -409,7 +409,7 @@ function zeta_deflated(s::ArbSeries, a::Arb)
 end
 
 """
-    fx_div_x(f, x::Arb[, order::Integer]; extra_degree::Integer = 0, force = false)
+    fx_div_x(f, x::Union{Arb,Acb}[, order::Integer]; extra_degree::Integer = 0, force = false)
     fx_div_x(f, x::ArbSeries[, order::Integer]; extra_degree::Integer = 0, force = false)
 
 Compute an enclosure of `f(x) / x` for a function `f` with a zero at
@@ -427,7 +427,13 @@ exactly zero. If `f` is known to be exactly zero at zero but the
 enclosure might be wider it can be forced to be zero by setting `force
 = true`
 """
-function fx_div_x(f, x::Arb, order::Integer = 1; extra_degree::Integer = 0, force = false)
+function fx_div_x(
+    f,
+    x::Union{Arb,Acb},
+    order::Integer = 1;
+    extra_degree::Integer = 0,
+    force = false,
+)
     @assert Arblib.contains_zero(x)
     @assert order >= 1
     @assert extra_degree >= 0
