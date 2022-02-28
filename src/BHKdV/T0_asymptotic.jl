@@ -67,7 +67,37 @@ G1(x) <= (1 + α) / (1 - x^p0) * (log(c + inv(x)) / log(inv(x)) * J1 - inv(log(i
 ```
 
 # Enclosing `J1` and `J2`
-**TODO:** Handle this
+For computing `J1` and `J2` there are three things to take care of
+1. The removable singularity of `((1 - t)^(-α - 1) + (1 + t)^(-α - 1)
+  - 2t^(-α - 1)) / (1 + α)`
+2. The endpoint `t = 0` where the integrands are zero but not analytic
+3. The endpoint `t = 1` where the integrands are singular but
+  integrable.
+
+The removable singularity can be handled using [`fx_div_x`](@ref). For
+`t` overlapping zero this doesn't quite work since the expression
+blows up. Instead we rewrite it as (for `J1`)
+```
+abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α))
+= abs(t^a * (1 - t)^(-α - 1) + t^a * (1 + t)^(-α - 1) - 2t^(a - α - 1)) / (1 + α) * t^(1 - γ * (1 + α) - a)
+```
+with `a = 1 / 2`. In this case both factors are finite and can be
+enclosed directly. For `J2` we do the same thing but also have to
+handle
+```
+t^(1 - γ * (1 + α) - a) * log(t)
+```
+Differentiating we get the derivative
+```
+t^(-γ * (1 + α) - a) * ((1 - γ * (1 + α) - a) * log(t) + 1)
+```
+which is negative for `t < exp(inv(1 - γ * (1 + α) - a))`. We hence
+check so that `t` satisfies this inequality and in that case we use
+monotonicity to get the upper bound zero and lower bound at
+`ubound(t)`.
+
+**TODO:** Handle the right endpoint. Probably by integrating
+explicitly. For `J2` we also factor out `log(t)`.
 """
 function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
     αp1 = Arblib.nonnegative_part!(zero(α), α + 1)
@@ -75,34 +105,74 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
     # Enclosure of
     # ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
     J1 = begin
-        # FIXME: Doesn't give correct result for t::ArbSeries and
-        # doesn't work on endpoints
-        integrand =
-            t::Arb ->
-                abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, 1 + α)) *
-                t^(1 - γ * (1 + α))
+        integrand_J1(t; analytic = false) = begin
+            if isreal(t)
+                t = real(t)
+                @assert !analytic
+                if Arblib.contains_zero(t)
+                    # Note that t is always positive in this case
+                    a = Arb(1 // 2)
+                    return abs(
+                        fx_div_x(
+                            s ->
+                                abspow(t, a) * (1 - t)^-s + abspow(t, a) * (1 + t)^-s - 2abspow(t, a - s),
+                            αp1,
+                            force = true,
+                        ),
+                    ) * abspow(t, (1 - γ * αp1 - a))
+                else
+                    return abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, αp1)) * t^(1 - γ * αp1)
+                end
+            else
+                res = fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, Acb(αp1))
+                Arblib.real_abs!(res, res, analytic)
 
-        # FIXME: Use rigorous integration
-        let N = 10000
-            sum(integrand, range(Arb(0), Arb(1), N)) / N
+                return res * t^(1 - γ * αp1)
+            end
         end
+
+        # FIXME: Handle right endpoint
+        Arblib.integrate(integrand_J1, 0, 0.99, check_analytic = true, rtol = 1e-5)
     end
 
     # Enclosure of
     # ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) * log(t) dt
     J2 = begin
-        # FIXME: Doesn't give correct result for t::ArbSeries and
-        # doesn't work on endpoints
-        integrand =
-            t::Arb ->
-                abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, 1 + α)) *
-                t^(1 - γ * (1 + α)) *
-                log(t)
+        integrand_J2(t; analytic = false) = begin
+            if isreal(t)
+                t = real(t)
+                @assert !analytic
+                if Arblib.contains_zero(t)
+                    a = Arb(1 // 2)
+                    # Note that t is always positive in this case
+                    tᵤ = ubound(Arb, t)
+                    if t < exp(inv(1 - γ * αp1 - a))
+                        return abs(
+                            fx_div_x(
+                                s ->
+                                    abspow(t, a) * (1 - t)^-s + abspow(t, a) * (1 + t)^-s - 2abspow(t, a - s),
+                                αp1,
+                                force = true,
+                            ),
+                        ) * Arb((abspow(tᵤ, (1 - γ * αp1 - a)) * log(tᵤ), 0))
+                    else
+                        return Arblib.indeterminate!(t)
+                    end
+                else
+                    return abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, αp1)) *
+                           t^(1 - γ * αp1) *
+                           log(t)
+                end
+            else
+                res = fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, Acb(αp1))
+                Arblib.real_abs!(res, res, analytic)
 
-        # FIXME: Use rigorous integration
-        let N = 10000
-            sum(integrand, range(Arb(0), Arb(1), N)[2:end-1]) / (N - 2)
+                return res * t^(1 - γ * αp1) * log(t)
+            end
         end
+
+        # FIXME: Handle right endpoint
+        Arblib.integrate(integrand_J2, 0, 0.99, check_analytic = true, rtol = 1e-5)
     end
 
     return x::Arb -> begin
@@ -128,11 +198,11 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
         elseif Arblib.contains_zero(x)
             lower = αp1
             upper = let xᵤ = ubound(Arb, x)
-                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), 1 + α, extra_degree = 2))
+                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1, extra_degree = 2))
             end
             Arb((lower, upper))
         else
-            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
+            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), αp1, extra_degree = 2))
         end
 
         return αp1_div_1mxp0 * (J1_factor * J1 - J2_factor * J2)
