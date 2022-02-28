@@ -77,9 +77,10 @@ see which ones gives cancellations we get
 (clausens(x + a, 1 - α) - clausens(2x, 1 - α)) -
 2(clausens(a, 1 - α) - clausens(x, 1 - α))
 ```
-- **TODO:** Could improve enclosures by better handling cancellations
-  for `clausens(x + a, 1 - α) - clausens(2x, 1 - α)` and `clausens(a,
-  1 - α) - clausens(x, 1 - α)`. Though this might not be needed.
+- **IMPROVE:** Could improve enclosures by better handling
+  cancellations for `clausens(x + a, 1 - α) - clausens(2x, 1 - α)` and
+  `clausens(a, 1 - α) - clausens(x, 1 - α)`. Though this might not be
+  needed.
 """
 function T021(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
     # s = 1 - α computed such that the upper bound is exactly 2

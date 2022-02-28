@@ -156,10 +156,10 @@ doesn't support evaluation on intervals containing zero.
   this will thus give a correct result, but it is not rigorously
   proved.
 
-- **TODO:** Could improve enclosures by better handling cancellations
-  for `clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 - α)` and
-  `clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α)`. Though this
-  might not be needed.
+- **IMPROVE:** Could improve enclosures by better handling
+  cancellations for `clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 -
+  α)` and `clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α)`. Though
+  this might not be needed.
 """
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     return x -> begin
