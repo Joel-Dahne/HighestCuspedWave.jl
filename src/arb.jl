@@ -440,6 +440,8 @@ function fx_div_x(
 
     expansion = taylor_with_remainder(f, zero(x), x, degree = order + extra_degree)
 
+    isfinite(expansion) || return Arblib.indeterminate!(zero(x))
+
     if force
         for i = 0:order-1
             @assert Arblib.contains_zero(Arblib.ref(expansion, i))
@@ -468,6 +470,18 @@ function fx_div_x(
         x0,
         degree = Arblib.degree(x) + order + extra_degree,
     )
+
+    if !isfinite(expansion)
+        # Return an indeterminate result
+        res = zero(x)
+        for i = 0:Arblib.degree(x)
+            Arblib.indeterminate!(Arblib.ref(res, i))
+        end
+        # Since we manually set the coefficients of the polynomial we
+        # need to also manually set the degree.
+        res.arb_poly.length = length(x)
+        return res
+    end
 
     if force
         for i = 0:order-1
