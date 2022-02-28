@@ -1,16 +1,17 @@
 """
-    taylor_with_remainder(f, x0::Arb, interval::Arb; degree::Integer, enclosure_degree::Integer = 0)
+    taylor_with_remainder(f, x0::T, interval::T; degree::Integer, enclosure_degree::Integer = 0) where {T<:Union{Arb,Acb}}
 
 Compute the Taylor expansion of `f` at the point `x0` with the last
-term being a remainder term which ensures that the truncated version
-gives an enclosure of `f(x)` for all `x ∈ interval`.
+term being a remainder term of degree `degree` which ensures that the
+truncated version gives an enclosure of `f(x)` for all `x ∈ interval`.
 
 We require that `x0 ∈ interval`.
 
 It computes a tighter enclosure of the remainder term using
 [`ArbExtras.enclosure_series`](@ref). The degree used for this can be
 set with `enclosure_degree`. Setting it to a negative number makes it
-compute it directly instead.
+compute it directly instead. This argument is only supported for `Arb`
+and not for `Acb`.
 """
 function taylor_with_remainder(
     f,
@@ -33,7 +34,7 @@ function taylor_with_remainder(
 
     # Compute remainder term
     if enclosure_degree < 0
-        res[degree] = f(ArbSeries((interval, 1); degree))
+        res[degree] = f(ArbSeries((interval, 1); degree))[degree]
     else
         # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
         g(x::Arb) = f(ArbSeries((x, 1); degree))[degree] * factorial(degree)
@@ -50,6 +51,26 @@ function taylor_with_remainder(
             ArbExtras.enclosure_series(g, interval, degree = enclosure_degree) /
             factorial(degree)
     end
+
+    return res
+end
+
+function taylor_with_remainder(f, x0::Acb, interval::Acb; degree::Integer)
+    contains(interval, x0) || throw(
+        ArgumentError(
+            "expected x0 to be contained in interval, got x0 = $x0, interval = $interval",
+        ),
+    )
+
+    # Compute expansion without remainder term
+    res = f(AcbSeries((x0, 1), degree = degree - 1))
+
+    # Make room for remainder term
+    res = AcbSeries(res; degree)
+
+    # Compute remainder term
+    # PROVE: That his gives a correct remainder term
+    res[degree] = f(AcbSeries((interval, 1); degree))[degree]
 
     return res
 end
