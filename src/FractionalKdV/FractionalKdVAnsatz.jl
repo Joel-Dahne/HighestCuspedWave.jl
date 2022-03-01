@@ -100,17 +100,11 @@ function FractionalKdVAnsatz(
         p0 = findp0(α)
     end
 
-    # Initiate the a vector with a[0] = finda0(α) and the rest of the
-    # coefficients zero
-    a = OffsetVector([finda0(α); zeros(T, N0)], 0:N0)
+    # Initiate the a vector with only a[0] = finda0(α)
+    a = OffsetVector([finda0(α)], 0:0)
 
-    # Initiate the b vector with zeros
-    b = zeros(T, N1)
-
-    # Set the initial values of a and b according to initial_a and
-    # initial_b
-    a[1:min(N0, length(initial_a))] .= initial_a[1:min(N0, length(initial_a))]
-    b[1:min(N1, length(initial_b))] .= initial_a[1:min(N1, length(initial_b))]
+    # Initiate the b to be empty
+    b = zeros(T, 0)
 
     # To begin with the only guaranteed zero term is (2, 0, 0), coming
     # from the value of a[0]
@@ -119,21 +113,35 @@ function FractionalKdVAnsatz(
     # Create the ansatz
     u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms)
 
-    # Compute values for u0.a[1:end] and u0.b
-    if u0.N0 == 1 && α < -0.9
+    # Compute values for u0.a[1:end]
+    if N0 == 1 && α < -0.9
         # If we are close to α = -1 and we only have one Clausen
-        # function we take a[1] so that the sum of the first and
-        # second term converge towards the leading Clausian for α =
-        # -1. This is mostly for testing.
+        # function we take a[1] = -a[0], so that the sum of the first
+        # and second term converge towards the leading Clausian for α
+        # = -1. This is mostly for testing.
+        resize!(u0.a, N0 + 1)
         u0.a[1] = -u0.a[0]
-    else
+    elseif N0 >= 1
+        # Make room for coefficients and set initial values according
+        # to initial_a
+        resize!(u0.a, N0 + 1)
+        u0.a[1:end] .= zero(T)
+        u0.a[1:min(N0, length(initial_a))] .= initial_a[1:min(N0, length(initial_a))]
+
         u0.a[1:end] .= findas(u0)
     end
-    u0.b .= findbs(u0)
 
     if use_midpoint
         u0.a[1:end] .= midpoint.(Arb, u0.a[1:end])
     end
+
+    # Make room for coefficients and set initial values according
+    # to initial_b
+    resize!(u0.b, N1)
+    u0.b[1:end] .= zero(T)
+    b[1:min(N1, length(initial_b))] .= initial_a[1:min(N1, length(initial_b))]
+
+    u0.b .= findbs(u0)
 
     return u0
 end
