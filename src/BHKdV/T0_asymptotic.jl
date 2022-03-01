@@ -96,11 +96,50 @@ check so that `t` satisfies this inequality and in that case we use
 monotonicity to get the upper bound zero and lower bound at
 `ubound(t)`.
 
-**TODO:** Handle the right endpoint. Probably by integrating
-explicitly. For `J2` we also factor out `log(t)`.
+To handle the right endpoint we note that `t^(-γ * (1 + α))` as well
+as `log(t)` are bounded for `t` close to `-1`. We can thus bound them
+and factor them out of the integrals. This leaves us with the integral
+```
+∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t dt
+```
+If we remove the absolute value and let `s = -(α + 1)` a primitive
+function is given by
+```
+(
+    t^2 * (2t^s - (1 - t)^s - (1 + t)^s) / s
+    + ((1 - t)^s + (1 + t)^s - 2) / s
+    + t * ((1 - t)^(1 + s) - (1 + t)^(1 + s) + 2t^(1 + s))
+) / ((1 + s) * (2 + s))
+```
+where the constant is chosen to make it finite as `s` goes to zero.
+For `t = 1` this simplifies to
+```
+-2 * (1 - 2^-(α + 1)) / (α * (1 - α))
+```
+This allows us to compute the integral as long as we can remove the
+absolute value. Since
+```
+(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
+```
+is increasing in `t` it is enough to check that it is positive at the
+left endpoint of the interval of integration.
 """
 function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
     αp1 = Arblib.nonnegative_part!(zero(α), α + 1)
+
+    # Primitive function of
+    # ((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t
+    primitive = let s = -αp1
+        t -> begin
+            t1 = fx_div_x(v -> 2t^v - (1 - t)^v - (1 + t)^v, s)
+            t2 = fx_div_x(v -> (1 - t)^v + (1 + t)^v - 2, s)
+            (t^2 * t1 + t2 + t * ((1 - t)^(1 + s) - (1 + t)^(1 + s) + 2t^(1 + s))) /
+            ((1 + s) * (2 + s))
+        end
+    end
+
+    # primitive(1)
+    primitive_one = -2 * (1 - 2^-αp1) / (α * (1 - α))
 
     # Enclosure of
     # ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
@@ -111,15 +150,16 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
                 @assert !analytic
                 if Arblib.contains_zero(t)
                     # Note that t is always positive in this case
-                    a = Arb(1 // 2)
-                    return abs(
-                        fx_div_x(
-                            s ->
-                                abspow(t, a) * (1 - t)^-s + abspow(t, a) * (1 + t)^-s - 2abspow(t, a - s),
-                            αp1,
-                            force = true,
-                        ),
-                    ) * abspow(t, (1 - γ * αp1 - a))
+                    let a = Arb(1 // 2)
+                        return abs(
+                            fx_div_x(
+                                s ->
+                                    abspow(t, a) * (1 - t)^-s + abspow(t, a) * (1 + t)^-s - 2abspow(t, a - s),
+                                αp1,
+                                force = true,
+                            ),
+                        ) * abspow(t, (1 - γ * αp1 - a))
+                    end
                 else
                     return abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, αp1)) * t^(1 - γ * αp1)
                 end
@@ -131,8 +171,23 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
             end
         end
 
-        # FIXME: Handle right endpoint
-        Arblib.integrate(integrand_J1, 0, 0.99, check_analytic = true, rtol = 1e-5)
+        # We integrate numerically on [0, b] and explicitly on [b, 1]
+        b = Arb(0.99)
+
+        # Check that expression inside absolute value is positive on
+        # [a, 1]
+        @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
+
+        # Compute for the interval [0, b]
+        part1 = Arblib.integrate(integrand_J1, 0, b, check_analytic = true, rtol = 1e-5)
+
+        # Compute for the interval [b, 1]. Note that we factor out
+        # t^(-γ * (1 + α))
+        part2 = let T = Arb((b, 1))
+            T^(-γ * αp1) * (primitive_one - primitive(b))
+        end
+
+        part1 + part2
     end
 
     # Enclosure of
@@ -143,20 +198,22 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
                 t = real(t)
                 @assert !analytic
                 if Arblib.contains_zero(t)
-                    a = Arb(1 // 2)
                     # Note that t is always positive in this case
-                    tᵤ = ubound(Arb, t)
-                    if t < exp(inv(1 - γ * αp1 - a))
-                        return abs(
-                            fx_div_x(
-                                s ->
-                                    abspow(t, a) * (1 - t)^-s + abspow(t, a) * (1 + t)^-s - 2abspow(t, a - s),
-                                αp1,
-                                force = true,
-                            ),
-                        ) * Arb((abspow(tᵤ, (1 - γ * αp1 - a)) * log(tᵤ), 0))
-                    else
-                        return Arblib.indeterminate!(t)
+                    let a = Arb(1 // 2), tᵤ = ubound(Arb, t)
+                        if t < exp(inv(1 - γ * αp1 - a))
+                            return abs(
+                                fx_div_x(
+                                    s ->
+                                        abspow(t, a) * (1 - t)^-s +
+                                        abspow(t, a) * (1 + t)^-s -
+                                        2abspow(t, a - s),
+                                    αp1,
+                                    force = true,
+                                ),
+                            ) * Arb((abspow(tᵤ, (1 - γ * αp1 - a)) * log(tᵤ), 0))
+                        else
+                            return Arblib.indeterminate!(t)
+                        end
                     end
                 else
                     return abs(fx_div_x(s -> (1 - t)^-s + (1 + t)^-s - 2t^-s, αp1)) *
@@ -171,8 +228,23 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
             end
         end
 
-        # FIXME: Handle right endpoint
-        Arblib.integrate(integrand_J2, 0, 0.99, check_analytic = true, rtol = 1e-5)
+        # We integrate numerically on [0, b] and explicitly on [b, 1]
+        b = Arb(0.99)
+
+        # Check that expression inside absolute value is positive on
+        # [a, 1]
+        @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
+
+        # Compute for the interval [0, b]
+        part1 = Arblib.integrate(integrand_J2, 0, b, check_analytic = true, rtol = 1e-5)
+
+        # Compute for the interval [b, 1]. Note that we factor out
+        # t^(-γ * (1 + α)) * log(t)
+        part2 = let T = Arb((b, 1))
+            T^(-γ * αp1) * log(T) * (primitive_one - primitive(b))
+        end
+
+        part1 + part2
     end
 
     return x::Arb -> begin
