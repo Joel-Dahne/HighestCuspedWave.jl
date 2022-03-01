@@ -49,7 +49,7 @@ function prove(
     δ₀_time = @elapsed δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
     verbose && @info "Computed δ₀" δ₀ δ₀_time
 
-    C_B_estimate_time = @elapsed C_B_estimate = CB_estimate(u0; x_error, threaded)
+    C_B_estimate_time = @elapsed C_B_estimate = CB_estimate(u0; M, x_error, threaded)
     verbose && @info "Computed C_B estimate" C_B_estimate C_B_estimate_time
 
     β_estimate = 1 / (1 - C_B_estimate)
@@ -79,7 +79,7 @@ function prove(
     else
         proved_estimate = true
         C_B = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
-        C_B_time = @elapsed proved = CB_bounded_by(u0, lbound(C_B); threaded, verbose)
+        C_B_time = @elapsed proved = CB_bounded_by(u0, lbound(C_B); M, threaded, verbose)
 
         verbose && @info "Bounded C_B" C_B C_B_time
     end

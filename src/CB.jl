@@ -40,6 +40,7 @@ If `threaded = true` computes the evaluations in parallel.
 """
 function CB_estimate(
     u0::AbstractAnsatz{T};
+    M::Integer = 3,
     n::Integer = 20,
     return_values = false,
     x_error = zero(T),
@@ -68,7 +69,7 @@ function CB_estimate(
 
     if include_zero
         pushfirst!(xs, zero(T))
-        pushfirst!(res, T0(u0, Asymptotic())(zero(T)))
+        pushfirst!(res, T0(u0, Asymptotic(); M)(zero(T)))
     end
 
     m = maximum(abs.(res))
