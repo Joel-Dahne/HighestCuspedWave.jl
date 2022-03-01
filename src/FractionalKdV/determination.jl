@@ -140,19 +140,19 @@ function finda0(α)
     return π * sinc(α + 1 // 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
 end
 
-function _findas(u0::FractionalKdVAnsatz)
+function _findas(u0::FractionalKdVAnsatz; verbose = true)
     f = D(u0, Symbolic())
     g(a) = f(OffsetVector([u0.a[0]; a], 0:u0.N0))
 
     initial = u0.a[1:end]
+
     sol = nlsolve(g, initial, autodiff = :forward, iterations = 50)
 
-    if !sol.f_converged
-        @warn "Solution did not converge for α = $(u0.α), N0 = $(u0.N0)"
-        @warn sol
+    if verbose && !sol.f_converged
+        @warn "Solution for u0.a did not converge" u0.α u0.N0
     end
 
-    return sol.zero
+    return sol.zero, sol.f_converged
 end
 
 """
@@ -173,7 +173,7 @@ function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
         return T[]
     end
     if u0.N0 <= minstart
-        return _findas(u0)
+        return _findas(u0)[1]
     end
 
     u0 = deepcopy(u0)
@@ -186,7 +186,7 @@ function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
         resize!(u0.a, N0s[i] + 1)
         u0.a[N0s[i-1]:end] .= zero(T)
 
-        u0.a[1:end] .= _findas(u0)
+        u0.a[1:end] .= _findas(u0)[1]
     end
 
     return u0.a[1:end]
@@ -241,7 +241,7 @@ This is done by solving the non-linear system given by requiring that
 It uses [`nlsolve`](@ref) to find the zero, however `nlsolve` doesn't
 support `Arb` so this is always done in `Float64`.
 """
-function findbs(u0::FractionalKdVAnsatz{T}) where {T}
+function findbs(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
     if u0.N1 == 0
         return T[]
     end
@@ -255,16 +255,15 @@ function findbs(u0::FractionalKdVAnsatz{T}) where {T}
     initial = u0.b
     sol = nlsolve(g, initial, autodiff = :forward)
 
-    if !sol.f_converged
-        @warn "Solution did not converge for α = $(u0.α), N1 = $(u0.N1)"
-        @warn sol
+    if verbose && !sol.f_converged
+        @warn "Solution for u0.b did not converge" u0.α u0.N1
     end
 
-    return sol.zero
+    return sol.zero, sol.f_converged
 end
 
-function findbs(u0::FractionalKdVAnsatz{Arb})
+function findbs(u0::FractionalKdVAnsatz{Arb}; verbose = true)
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
-    return convert(Vector{Arb}, findbs(u0_float))
+    return convert(Vector{Arb}, findbs(u0_float; verbose)[1])
 end
