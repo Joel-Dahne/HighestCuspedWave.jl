@@ -317,7 +317,7 @@ support `Arb` so this is always done in `Float64`.
 """
 function findbs(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
     if u0.N1 == 0
-        return T[]
+        return T[], true
     end
 
     n = u0.N1
