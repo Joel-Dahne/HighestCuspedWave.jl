@@ -384,6 +384,20 @@ function _clausenc_zeta(x::Arb, s::ArbSeries)
 end
 
 """
+    _clausenc_zeta(x::Float64, s::Float64)
+
+Evaluation of the `clausenc` function through the zeta function.
+
+This uses the same formula as the method with `x::Arb`. But it doesn't
+any special handling when `s` is an integer, it will return `NaN`.
+"""
+function _clausenc_zeta(x::Float64, s::Float64)
+    x = mod2pi(x)
+    v = 1 - s
+    return gamma(v) / (2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+end
+
+"""
     _clausenc_zeta(x::Arb, s::Arb, β::Integer)
 
 Evaluation of the `clausenc(x, s, β)` function through the zeta
@@ -511,6 +525,14 @@ function clausenc(x::Acb, s::Union{Acb,Integer})
         clausenc(x, real(s))
     else
         (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+    end
+end
+
+function clausenc(x::Float64, s::Float64)
+    if isinteger(s) && s >= 0
+        return Float64(clausenc(Arb(mod2pi(x)), Arb(s)))
+    else
+        return _clausenc_zeta(x, s)
     end
 end
 
