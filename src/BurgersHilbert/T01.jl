@@ -529,7 +529,7 @@ After integration we thus get
 ```
 We use this bound if `x` is less than `sqrt(eps(x))` away from `π`.
 
-- **TODO**: The upper bound for when `x` contains `π` could be
+- **IMPROVE**: The upper bound for when `x` contains `π` could be
     improved, but this is probably not needed.
 - **PROVE**: There are several minor details here that might need to
     be proved.
