@@ -71,6 +71,11 @@ If `use_midpoint` is true and `T` is `Arb` then use only the midpoint
 values of `p0`, `a`, `b` and `p` with the exception of `a[0]` for
 which the proper enclosure is used.
 
+If `auto_N0_bound` is set to a positive value then don't use the given
+`N0` value but instead find the value which gives the smallest defect
+using [`find_good_as`](@ref). The maximum `N0` value considered is
+then given by `auto_N0_bound`.
+
 If `initial_a` or `initial_b` is given then use these as initial
 values for `a` and `b` when solving the system giving the
 coefficients. For `a` you should have `initial_a = [a1, a2, …]` and
@@ -84,8 +89,10 @@ function FractionalKdVAnsatz(
     N1,
     p = one(α);
     use_midpoint = true,
+    auto_N0_bound::Integer = 0,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
+    verbose = false,
 ) where {T}
     # Using the midpoint only makes sense for T == Arb
     use_midpoint = use_midpoint && T == Arb
@@ -114,7 +121,11 @@ function FractionalKdVAnsatz(
     u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms)
 
     # Compute values for u0.a[1:end]
-    if N0 == 1 && α < -0.9
+    if auto_N0_bound >= 1
+        as = find_good_as(u0, N0_bound = auto_N0_bound; verbose)
+        resize!(u0.a, length(as) + 1)
+        u0.a[1:end] .= as
+    elseif N0 == 1 && α < -0.9
         # If we are close to α = -1 and we only have one Clausen
         # function we take a[1] = -a[0], so that the sum of the first
         # and second term converge towards the leading Clausian for α

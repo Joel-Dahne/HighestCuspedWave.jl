@@ -199,6 +199,80 @@ function findas(u0::FractionalKdVAnsatz{Arb})
 end
 
 """
+    _find_good_as!(u0::FractionalKdVAnsatz; N0_bound, return_defects, threaded, verbose)
+
+Find `N0` and `u0.a` such that the defect is minimized.
+
+It checks `N0` starting from `0` to `N0_bound` and computes `u0.a`
+with [`_findas`](@ref). It then takes the `N0` which gave the smallest
+defect.
+"""
+function _find_good_as!(
+    u0::FractionalKdVAnsatz;
+    N0_bound = 30,
+    return_defects = false,
+    threaded = false,
+    verbose = false,
+)
+    @assert iszero(u0.N1)
+    resize!(u0.a, 1) # Keep only a[0]
+
+    # Vectors for storing defects and coefficients
+    defects = [delta0_estimate(u0; threaded)]
+    ass = [copy(u0.a[1:end])]
+
+    N0 = 1
+    while N0 <= N0_bound
+        # Compute ansatz
+        resize!(u0.a, N0 + 1)
+        u0.a[N0] = zero(eltype(u0.a))
+
+        as, converged = _findas(u0, verbose = false)
+        u0.a[1:end] .= as
+        push!(ass, as)
+
+        # If the solution didn't converge we stop
+        if !converged
+            #verbose && @info "No convergence" N0
+            break
+        end
+
+        # Compute defect
+        push!(defects, delta0_estimate(u0; threaded))
+
+        # If the defect is worse than with N0 = 0 we stop
+        if defects[end] > defects[1]
+            #verbose && @info "Defect worse than for N0 = 0" N0
+            break
+        end
+
+        N0 += 1
+    end
+
+    best_N0 = findmin(defects)[2] - 1
+    verbose && @info "Determined best N0" best_N0
+
+    return ass[best_N0+1]
+end
+
+function find_good_as(
+    u0::FractionalKdVAnsatz{T};
+    N0_bound = 30,
+    threaded = false,
+    verbose = false,
+) where {T}
+    if T == Float64
+        u0_float = deepcopy(u0)
+    else
+        u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
+    end
+    empty!(u0_float.b)
+
+    return convert(Vector{T}, _find_good_as!(u0_float; N0_bound, threaded, verbose))
+end
+
+
+"""
     _finda1a2(α)
 
 Compute `a1` and `a2` so that the leading terms in the asymptotics
