@@ -27,6 +27,7 @@ function delta0_estimate(
     M::Integer = 3,
     n::Integer = 100,
     return_values = false,
+    threaded = true,
 ) where {T}
     xs = range(zero(T), π, length = n + 1)[2:end]
     res = similar(xs)
@@ -34,12 +35,24 @@ function delta0_estimate(
     # Asymptotic version might not be defined
     f1 = !iszero(ϵ) ? F0(u0, Asymptotic(); M) : missing
     f2 = F0(u0, Ball())
-    Threads.@threads for i in eachindex(xs)
-        x = xs[i]
-        if x < ϵ
-            res[i] = f1(x)
-        else
-            res[i] = f2(x)
+
+    if threaded
+        Threads.@threads for i in eachindex(xs)
+            x = xs[i]
+            if x < ϵ
+                res[i] = f1(x)
+            else
+                res[i] = f2(x)
+            end
+        end
+    else
+        for i in eachindex(xs)
+            x = xs[i]
+            if x < ϵ
+                res[i] = f1(x)
+            else
+                res[i] = f2(x)
+            end
         end
     end
 
