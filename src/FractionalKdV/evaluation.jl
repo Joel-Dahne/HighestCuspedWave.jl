@@ -1,7 +1,7 @@
 # This file contains code for evaluation of the approximate solution
 # in different ways
 
-export hat, eval_expansion
+export eval_expansion
 
 """
     eval_expansion(u0::FractionalKdVAnsatz, expansion, x; offset_i = 0, offset = 0)
@@ -302,104 +302,6 @@ function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb
 
         return inv(eval_expansion(u0, expansion, x, offset_i = -1))
     end
-end
-
-"""
-    hat(u0::FractionalKdVAnsatz)
-Returns a function such that hat(u0)(x) computes û(x) from the paper.
-"""
-function hat(u0::FractionalKdVAnsatz, ::Ball = Ball())
-    return x -> begin
-        (a0(u0, 0) * abs(x)^(-u0.α) - u0(x)) / u0(x)
-    end
-end
-
-"""
-    c(u0::FractionalKdVAnsatz{T}, ϵ)
-
-Compute the constant ``c_{\\epsilon,\\hat{u}_0}`` from Lemma 3.3.
-
-This constant satisfies that for all `abs(x) < ϵ` we have
-```
-abs(hat(u0)(x)) <= c(u0, ϵ) * abs(x)^u0.p0
-```
-where
-```
-hat(u0)(x) = (a0(u0, 0) * abs(x)^-u0.α - u0(x)) / u0(x)
-```
-
-To compute `c` we first compute the asymptotic expansion of `u0` and
-from this we compute an asymptotic expansion for the numerator and
-denominator respectively. More precisely we rewrite it as
-```
-((a0(u0, 0) * abs(x)^-u0.α - u0(x)) / abs(x)^(-u0.α + u0.p0)) / (u0(x) / abs(x)^-u0.α) * abs(x)^u0.p0
-```
-and it's enough that we compute an upper bound for
-```
-(a0(u0, 0) * abs(x)^-u0.α - u0(x)) / abs(x)^(-u0.α + u0.p0)
-```
-and a lower bound for
-```
-u0(x) / abs(x)^-u0.α
-```
-to get `c`.
-
-We can compute the expansion for
-```
-(a0(u0, 0) * abs(x)^-u0.α - u0(x)) / abs(x)^(-u0.α + u0.p0)
-```
-by taking the expansion of `u0`, removing the term `(1, 0, 0)`
-corresponding to `a0(u0, 0) * abs(x)^-u0.α` subtracting `-u0.α +
-u0.p0` from the exponents and negating all of them. To get an upper
-bound we can take the absolute value of all coefficients. The
-resulting expansion gives an upper bound and is increasing for `x > 0`
-so can be bounded on `[-ϵ, ϵ]` by evaluating it at `x = ϵ`.
-
-To get the expansion of
-```
-u0(x) / abs(x)^-u0.α
-```
-we only have to subtract `-u0.α` from all the exponents. To get a
-lower bound we notice that the leading term is a constant. By taking
-the absolute value of the leading term and minus the absolute value of
-all the other terms we get something which gives a lower bound and is
-decreasing for `x > 0` so can be lower bounded on `[-ϵ, ϵ]` by
-evaluating it at `x = ϵ`.
-"""
-function c(u0::FractionalKdVAnsatz{Arb}, ϵ::Arb; M::Integer = 3)
-    iszero(ϵ) && return zero(ϵ)
-
-    @assert ϵ > 0
-
-    expansion = u0(ϵ, AsymptoticExpansion(); M)
-
-    # Set up expansion for numerator. Skip the term (1, 0, 0) and for
-    # the other terms subtract -α + p0 from the exponent (by
-    # subtracting 1 from i and j) and take the absolute value of y.
-    expansion_numerator = empty(expansion)
-    for ((i, j, m), y) in expansion
-        (i, j, m) == (1, 0, 0) && continue
-        expansion_numerator[(i - 1, j - 1, m)] = abs(y)
-    end
-
-    # Set up the expansion for the numerator. Subtract -α from the
-    # exponent (by subtracting 1 from i) and set the coefficients to
-    # minus the absolute value except for the constant term (0, 0, 0)
-    # which is set to the absolute value.
-    expansion_denominator = empty(expansion)
-    for ((i, j, m), y) in expansion
-        expansion_denominator[(i - 1, j, m)] = -abs(y)
-    end
-    expansion_denominator[(0, 0, 0)] = abs(expansion_denominator[(0, 0, 0)])
-
-    # Evaluate the expansion at x = ϵ
-    numerator = eval_expansion(u0, expansion_numerator, ϵ)
-    denominator = eval_expansion(u0, expansion_denominator, ϵ)
-
-    Arblib.isnegative(denominator) &&
-        error("didn't expected denominator to be negative, got $denominator")
-
-    return numerator / denominator
 end
 
 """
