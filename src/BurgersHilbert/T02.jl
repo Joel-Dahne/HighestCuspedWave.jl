@@ -248,7 +248,20 @@ I2 = D3 * ∫ y * sqrt(log(1 + inv(y))) dy
 in an interval sense. The integral can be enclosed directly using
 [`Arblib.integrate`](@ref) and that the integrand is zero at `y = 0`
 and increasing in `y` to handle `y` close to zero.
-- **TODO:** Compute an enclosure of `D3`.
+
+To enclose `D3` we use that the function is increasing in `y` and it
+is hence enough to evaluate it at `y = 0` and `y = π`. At `y = 0` it
+simplifies to
+```
+-2log(sinc(x / 2π)) / x^2
+```
+and for `y = π` we can write it as
+```
+-(log(sinc((x / π - 1) / 2)) + log(sinc((x / π + 1) / 2)) - 2log(sinc(1 / 2))) / x^2
+```
+In both cases we have used that `sinc` is even. Both of these have a
+removable singularity at `x = 0` that we have to handle.
+- **PROVE:** That the expression for `D3` is monotone in `y`.
 """
 function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-1))
     # This uses a hard coded version of the weight so just as an extra
@@ -291,18 +304,25 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
     # for log(1 - y) for y in [0, 1 // 4]
     D2 = log(1 - ArbSeries((Arb((0, 1 // 4)), 1, 0)))[2]
 
-    # FIXME: Compute proper enclosure of D3. We here compute it at y =
-    # 0 and y = π, for y = 0 we take x = 0. This gives an enclosure in
-    # practice, but is not rigorous.
     D3 = begin
-        f =
-            (x, y) -> fx_div_x(x, 2, force = true, extra_degree = 2) do x
-                -(
-                    log(sinc((y - x) / 2Arb(π))) + log(sinc((y + x) / 2Arb(π))) -
-                    2log(sinc(y / 2Arb(π)))
-                )
+        # Lower bound at y = 0
+        lower = -2fx_div_x(Arb((0, ϵ)), 2, extra_degree = 2) do x
+            if x isa ArbSeries && Arblib.contains_zero(x[0])
+                # sinc(::ArbSeries) doesn't handle overlap with zero
+                log(fx_div_x(sin, x / 2, extra_degree = 2))
+            else
+                log(sinc(x / 2Arb(π)))
             end
-        Arb((f(Arb(0), Arb(0)), f(Arb((0, ϵ)), Arb(π))))
+        end
+
+        # Upper bound at y = π
+        upper =
+            -fx_div_x(Arb((0, ϵ)), 2, force = true, extra_degree = 2) do x
+                log(sinc((x / π - 1) / 2)) + log(sinc((x / π + 1) / 2)) -
+                2log(sinc(Arb(1 // 2)))
+            end
+
+        Arb((lower, upper))
     end
 
     return x -> begin
