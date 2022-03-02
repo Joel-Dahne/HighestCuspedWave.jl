@@ -845,6 +845,43 @@ function clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer)
 end
 
 """
+    clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
+
+Compute an enclosure of the remainder term in the asymptotic expansion
+of `clausenc(x, s, β)` at zero up to order `2M - 2`, meaning that the
+remainder is of order `2M`.
+
+This is the tail in the expansion at `x = 0` and is given by
+```
+sum((-1)^m * dzeta(s - 2m) * x^2m / factorial(2m) for m = M:Inf) / x^2M
+```
+
+It requires that `abs(x) < 2π` and `2M >= s + 1`. In this case an
+upper bound for the absolute value of the remainder is given by
+```
+((log(2π) + π / 2 + 1 + 2(4M * π^2 + x^2 * (1 - M)) / (4π^2 - x^2)) * zeta(2M + 1 - s) + abs(dzeta(2M + 1 - s))) * 2(2π)^(1 + s - 2M) / (4π^2 - x^2)
+```
+and this functions returns a ball centered at zero with this radius.
+"""
+function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
+    β == 0 && return clausenc_expansion_remainder(x, s, M)
+    β == 1 || throw(DomainError(β, "only supports β equal to 0 or 1"))
+
+    pi = Arb(π)
+
+    abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
+    2M >= s + 1 || throw(DomainError(M, "must have 2M >= s + 1, got s = $s"))
+
+    return Arblib.add_error!(
+        zero(x),
+        (
+            (log(2pi) + pi / 2 + 1 + 2(4M * pi^2 + x^2 * (1 - M)) / (4pi^2 - x^2)) *
+            zeta(2M + 1 - s) + abs(dzeta(2M + 1 - s))
+        ) * 2(2pi)^(1 + s - 2M) / (4pi^2 - x^2),
+    )
+end
+
+"""
     clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
 
 Compute an enclosure of the remainder term in the asymptotic expansion
