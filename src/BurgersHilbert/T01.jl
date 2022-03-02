@@ -103,15 +103,53 @@ I1 <= sqrt(log(inv(x))) * C1 + C2 + sqrt(log(1 + x)) * C1
 We thus have to compute `C1` and `C2`. We can get rid of the absolute
 value by splitting the integral at the only zero of `log(1 / t^2 - 1)`
 which is given by `t = 1 / sqrt(2)`. The integral for `C1` can be
-computed explicitly and is given by `log(2)`. The integrand for `C2`
-is bounded and can be computed using `Arblib.integrate`, using that
-the integrand is zero at both `t = 0` and `t = 1`, increasing at the
-former and decreasing at the latter.
+computed explicitly and is given by `log(2)`.
 - **PROVE**: That we have `∫ abs(log(1 / t^2 - 1)) * t dt = log(2)`
-- **TODO**: Prove that the integrand for `C2` is zero at both `t = 0`
-  and `t = 1`, increasing at the former and decreasing at the latter.
-  Give explicit bounds in `t` for when it is increasing respectively
-  decreasing.
+
+The integrand for `C2` is bounded and can be computed using
+`Arblib.integrate`. The integrand is zero, but not analytic, at `t =
+0` and `t = 1`. To be able to enclose the integrand on balls
+overlapping zero and one we want to make use of monotonicity around
+those points. For this we split the integrand, with the absolute value
+removed, as
+```
+log(1 / t^2 - 1) * t * sqrt(log(inv(t)))
+    = log(1 - t) * t * sqrt(log(inv(t))) +
+      log(1 + t) * t * sqrt(log(inv(t))) -
+      2log(t) * t * sqrt(log(inv(t)))
+```
+and enclose each term separately. Let
+```
+f1(t) = log(1 - t) * sqrt(log(inv(t)))
+f2(t) = log(1 + t) * sqrt(log(inv(t)))
+f3(t) = log(t) * t * sqrt(log(inv(t)))
+```
+The integrand is then given by `t * f1(t) + t * f2(t) - 2f3(t)`. We
+are thus interested in bounding these three functions near zero and
+one. They are all zero and `t = 0` and `t = 1`, our goal will be to
+isolate the parts of the interval ``(0, 1)`` where they are not
+monotone. For `f3` we can differentiate to get
+```
+f3'(t) = log(inv(t)) * (2sqrt(log(inv(t)))) * (3 + 2log(t))
+```
+For ``t ∈ (0, 1)`` this has the unique root `t = exp(-3 / 2)`. For
+`f1` and `f2` differentiation gives
+```
+f1'(t) = inv(2sqrt(log(inv(t)))) * (2log(t) / (1 - t) - log(1 - t) / t)
+
+f2'(t) = -inv(2sqrt(log(inv(t)))) * (2log(t) / (1 + t) + log(1 + t) / t)
+```
+which is zero iff
+```
+2log(t) / (1 - t) - log(1 - t) / t = 0
+```
+or
+```
+2log(t) / (1 + t) + log(1 + t) / t = 0
+```
+- **PROVE:** That these two functions have a unique root on ``(0,
+  1)``. They are both increasing in `t`, it would be enough to prove
+  that.
 
 # Handling `I2`
 For `I2` we give a uniform bound of
@@ -232,27 +270,81 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
     # Enclosure of ∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt
     C2 = begin
+        # Unique root of derivative of log(1 - t) * sqrt(log(inv(t)))
+        # on (0, 1)
+        root1 = begin
+            roots, flags = ArbExtras.isolate_roots(Arf(0.1), Arf(0.9)) do t
+                2log(t) / (1 - t) - log(1 - t) / t
+            end
+            @assert only(flags)
+            ArbExtras.refine_root(Arb(only(roots))) do t
+                2log(t) / (1 - t) - log(1 - t) / t
+            end
+        end
+        # Unique root of derivative of log(1 + t) * sqrt(log(inv(t)))
+        # on (0, 1)
+        root2 = begin
+            roots, flags = ArbExtras.isolate_roots(Arf(0.1), Arf(0.9)) do t
+                2log(t) / (1 + t) + log(1 + t) / t
+            end
+            @assert only(flags)
+            ArbExtras.refine_root(Arb(only(roots))) do t
+                2log(t) / (1 + t) + log(1 + t) / t
+            end
+        end
+        # Unique root of derivative of log(t) * t *
+        # sqrt(log(inv(t))) on (0, 1)
+        root3 = exp(Arb(-3 // 2))
+
         integrand_C2(t; analytic) = begin
             if Arblib.contains_zero(t)
                 analytic && return Arblib.indeterminate!(zero(t))
                 @assert isreal(t)
+                t = real(t)
 
-                # Use that the integrand is increasing close to zero
-                # FIXME: Use the correct bounds for when it is increasing
-                tᵤ = ubound(Arb, real(t))
-                tᵤ < 0.1 || return Arblib.indeterminate!(zero(t))
-                return Acb((zero(tᵤ), log(1 / tᵤ^2 - 1) * tᵤ * sqrt(log(inv(tᵤ)))))
+                # Check that log(t - 1) * sqrt(log(inv(t))) is
+                # monotone
+                contains(t, root1) && return Arblib.indeterminate!(zero(t))
+
+                # Check that log(t + 1) * sqrt(log(inv(t))) is
+                # monotone
+                contains(t, root2) && return Arblib.indeterminate!(zero(t))
+
+                # Check that log(t) * t * sqrt(log(inv(t))) is
+                # monotone
+                contains(t, root3) && return Arblib.indeterminate!(zero(t))
+
+                tᵤ = ubound(Arb, t)
+
+                term1 = Arb((log(1 - tᵤ) * sqrt(log(inv(tᵤ))), 0))
+                term2 = Arb((0, log(1 + tᵤ) * sqrt(log(inv(tᵤ)))))
+                term3 = Arb((log(tᵤ) * tᵤ * sqrt(log(inv(tᵤ))), 0))
+
+                return t * term1 + t * term2 - 2term3
             elseif Arblib.overlaps(t, one(t))
                 analytic && return Arblib.indeterminate!(zero(t))
                 @assert isreal(t)
+                t = real(t)
 
-                # Use that the integrand is increasing (since we
-                # are skipping the absolute value in this case)
-                # close to one
-                # FIXME: Use the correct bounds for when it is increasing
-                tₗ = lbound(Arb, real(t))
-                tₗ > 0.99 || return Arblib.indeterminate!(zero(t))
-                return Acb((log(1 / tₗ^2 - 1) * tₗ * sqrt(log(inv(tₗ))), zero(tₗ)))
+                # Check that log(t - 1) * sqrt(log(inv(t))) is
+                # monotone
+                contains(t, root1) && return Arblib.indeterminate!(zero(t))
+
+                # Check that log(t + 1) * sqrt(log(inv(t))) is
+                # monotone
+                contains(t, root2) && return Arblib.indeterminate!(zero(t))
+
+                # Check that log(t) * t * sqrt(log(inv(t))) is
+                # monotone
+                contains(t, root3) && return Arblib.indeterminate!(zero(t))
+
+                tₗ = lbound(Arb, t)
+
+                term1 = Arb((log(1 - tₗ) * sqrt(log(inv(tₗ))), 0))
+                term2 = Arb((0, log(1 + tₗ) * sqrt(log(inv(tₗ)))))
+                term3 = Arb((log(tₗ) * tₗ * sqrt(log(inv(tₗ))), 0))
+
+                return t * term1 + t * term2 - 2term3
             else
                 return log(1 / t^2 - 1) *
                        t *
