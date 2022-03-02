@@ -236,11 +236,8 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     for m = 1:M-1
         res[(0, 2m, 0, 0)] = (-1)^m * dzeta(Arb(2 - 2m)) / factorial(2m) * u0.a0
     end
-    # TODO: Give an expression for the error term. The one we use
-    # here is twice the coefficient for x^2M which should be
-    # larger than required but this is yet to be proved. The minimum
-    # value for M should also be checked in relation to this.
-    Arblib.add_error!(res[(0, 2M, 0, 0)], 2abs(dzeta(Arb(2 - 2M)) / factorial(2M)) * u0.a0)
+
+    res[(0, 2M, 0, 0)] += clausenc_expansion_remainder(x, Arb(2), 1, M)
 
     # Fourier terms
     if !iszero(u0.N)
@@ -334,14 +331,8 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
             end
             res[(0, 2m, 0, 0)] = -(-1)^m * term * u0.a0 / factorial(2m)
         end
-        # TODO: Give an expression for the error term. The one we use
-        # here is twice the coefficient for x^2M which should be
-        # larger than required but this is yet to be proved. The minimum
-        # value for M should also be checked in relation to this.
-        Arblib.add_error!(
-            res[(0, 2M, 0, 0)],
-            2abs(dzeta(Arb(3 - 2M)) / factorial(2M)) * u0.a0,
-        )
+
+        res[(0, 2M, 0, 0)] += clausenc_expansion_remainder(x, Arb(3), 1, M)
 
         # Fourier terms
         if !iszero(u0.N)
