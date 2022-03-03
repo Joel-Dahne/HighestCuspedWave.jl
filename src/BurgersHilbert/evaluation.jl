@@ -222,26 +222,36 @@ end
 Return a dictionary containing the terms in the asymptotic expansion
 of `u0` which can then be evaluated with [`eval_expansion`](@ref).
 
-The highest term, `x^2M`, an error term is which makes sure that
+The highest term, `x^2M`, is a remainder term is which makes sure that
 evaluation of the expansion gives an enclosure of the result.
 """
 function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
-    @assert M >= 3
-
     res = OrderedDict{NTuple{4,Int},Arb}()
 
-    # Error term
+    # Remainder term
     res[(0, 2M, 0, 0)] = 0
 
-    # First Clausen
+    # Main term
     γ = Arb(Irrational{:γ}())
     res[(1, 1, 0, 0)] = -Arb(π) / 2 * u0.a0
     res[(0, 1, 0, 0)] = -(γ - 1) * Arb(π) / 2 * u0.a0
     for m = 1:M-1
         res[(0, 2m, 0, 0)] = (-1)^m * dzeta(Arb(2 - 2m)) / factorial(2m) * u0.a0
     end
-
     res[(0, 2M, 0, 0)] += clausenc_expansion_remainder(x, Arb(2), 1, M)
+
+    # Clausens terms
+    if !isnothing(u0.v0)
+        for j = 1:u0.v0.N0
+            s = 1 - u0.v0.α + j * u0.v0.p0
+            C, _, p, E = clausenc_expansion(x, s, M)
+            res[(0, 0, 1, j)] = C * u0.v0.a[j]
+            for m = 1:M-1
+                res[(0, 2m, 0, 0)] += p[2m] * u0.v0.a[j]
+            end
+            res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
+        end
+    end
 
     # Fourier terms
     if !iszero(u0.N)
@@ -253,20 +263,6 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
             res[(0, 2M, 0, 0)],
             sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
         )
-    end
-
-    # Clausens coming from u0.v0
-    if !isnothing(u0.v0)
-        let α = u0.v0.α, p0 = u0.v0.p0
-            for j = 1:u0.v0.N0
-                C, _, p, E = clausenc_expansion(x, 1 - α + j * p0, M)
-                res[(0, 0, 1, j)] = C * u0.v0.a[j]
-                for m = 1:M-1
-                    res[(0, 2m, 0, 0)] += p[2m] * u0.v0.a[j]
-                end
-                res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
-            end
-        end
     end
 
     return res
@@ -305,28 +301,26 @@ end
 Return a dictionary containing the terms in the asymptotic expansion
 of `H(u0)` which can then be evaluated with [`eval_expansion`](@ref).
 
-The highest term, `x^2M`, an error term is which makes sure that
+The highest term, `x^2M`, is a remainder term is which makes sure that
 evaluation of the expansion gives an enclosure of the result.
 """
 function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
-    @assert M >= 3
-
-    π = Arb(Irrational{:π}())
     γ = Arb(Irrational{:γ}())
     γ₁ = stieltjes(Arb, 1)
 
     return x -> begin
         res = OrderedDict{NTuple{4,Int},Arb}()
 
-        # Error term
+        # Remainder term
         res[(0, 2M, 0, 0)] = 0
 
-        # First Clausen
+        # Main term
         res[(2, 2, 0, 0)] = -1 // 4 * u0.a0
-        res[(1, 2, 0, 0)] = (3 // 4 - γ / 2) * u0.a0
+        res[(1, 2, 0, 0)] = (3 - 2γ) / 4 * u0.a0
         for m = 1:M-1
             if m == 1
-                term = (3γ - γ^2 - 2γ₁ - 7 // 2 + (π^2) / 12) / 2
+                # Note that we divide this by factorial(2)
+                term = (36γ - 12γ^2 - 24γ₁ - 42 + Arb(π)^2) / 24
             else
                 term = dzeta(Arb(3 - 2m))
             end
@@ -335,19 +329,7 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
 
         res[(0, 2M, 0, 0)] += clausenc_expansion_remainder(x, Arb(3), 1, M)
 
-        # Fourier terms
-        if !iszero(u0.N)
-            for m = 1:M-1
-                res[(0, 2m, 0, 0)] -=
-                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) / factorial(2m)
-            end
-            Arblib.add_error!(
-                res[(0, 2M, 0, 0)],
-                sum(Arb(n)^(2M - 1) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
-            )
-        end
-
-        # Clausens coming from u0.v0
+        # Clausen terms
         if !isnothing(u0.v0)
             let α = u0.v0.α, p0 = u0.v0.p0
                 for j = 1:u0.v0.N0
@@ -359,6 +341,18 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
                     res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
                 end
             end
+        end
+
+        # Fourier terms
+        if !iszero(u0.N)
+            for m = 1:M-1
+                res[(0, 2m, 0, 0)] -=
+                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) / factorial(2m)
+            end
+            Arblib.add_error!(
+                res[(0, 2M, 0, 0)],
+                sum(Arb(n)^(2M - 1) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
+            )
         end
 
         return res
