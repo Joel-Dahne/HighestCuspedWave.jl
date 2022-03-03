@@ -193,16 +193,20 @@ function _eval_expansion!(
 end
 
 function (u0::BHAnsatz{T})(x, ::Ball) where {T}
-    conv = ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a))
-
+    # Main term
     res = u0.a0 * clausencmzeta(x, 2, 1)
 
-    for n = 1:u0.N
-        res += u0.b[n] * (cos(n * x) - 1)
+    # Clausen terms
+    if !isnothing(u0.v0)
+        for j = 1:u0.v0.N0
+            s = 1 - u0.v0.α + j * u0.v0.p0
+            res += u0.v0.a[j] * clausencmzeta(x, s)
+        end
     end
 
-    if !isnothing(u0.v0)
-        res += u0.v0(x)
+    # Fourier terms
+    for n = 1:u0.N
+        res += u0.b[n] * (cos(n * x) - 1)
     end
 
     return res
@@ -269,23 +273,20 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
 end
 
 function H(u0::BHAnsatz{T}, ::Ball) where {T}
-    conv = ifelse(T == ArbSeries, a -> convert(Arb, a), a -> convert(T, a))
-
     return x -> begin
         res = -u0.a0 * clausencmzeta(x, 3, 1)
 
-        for n = 1:u0.N
-            res -= u0.b[n] / n * (cos(n * x) - 1)
+        # Clausen terms
+        if !isnothing(u0.v0)
+            for j = 1:u0.v0.N0
+                s = 2 - u0.v0.α + j * u0.v0.p0
+                res -= u0.v0.a[j] * clausencmzeta(x, s)
+            end
         end
 
-        # Add Clausens coming from u0.v0
-        if !isnothing(u0.v0)
-            let α = u0.v0.α, p0 = u0.v0.p0
-                for j = 1:u0.v0.N0
-                    s = 2 - α + j * p0
-                    res -= u0.v0.a[j] * clausencmzeta(x, s)
-                end
-            end
+        # Fourier terms
+        for n = 1:u0.N
+            res -= u0.b[n] / n * (cos(n * x) - 1)
         end
 
         return res
