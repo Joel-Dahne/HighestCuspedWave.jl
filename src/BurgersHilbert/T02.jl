@@ -160,11 +160,19 @@ For the integrals we have
 ```
 - **PROVE:** That these integrals are correct, in particular the
   second one.
+To avoid having to use the `erfi` function we use that
+```
+x^2 * erfi(sqrt(log(inv(4x^2))))
+= 2 / sqrt(π) * x^2 * ∫_0^sqrt(log(inv(4x^2))) exp(t^2) dt
+<= 2 / sqrt(π) * x^2 (exp(sqrt(log(inv(4x^2)))^2) - 1) / sqrt(log(inv(4x^2)))
+= 2 / sqrt(π) * x^2 (inv(4x^2) - 1) / sqrt(2log(inv(2x)))
+= 1 / 2sqrt(2π) * (1 - 4x^2) / sqrt(log(inv(2x)))
+```
 This gives us the following upper bound for `I12`
 ```
 I12 <=
     2 // 3 * log(inv(2x))^(3 // 2)
-    + D2 * sqrt(2π) * x^2 * erfi(sqrt(log(inv(4x^2)))) / 8
+    + D2 * (1 - 4x^2) / 16sqrt(log(inv(2x)))
     - D2 * sqrt(log(inv(2x))) / 8
     + sqrt(log(2)) * log(inv(x))
     - log(2)^(3 // 2)
@@ -197,7 +205,7 @@ With all of this we get the following upper bound for `I1`
 I1 <= sqrt(log(1 + inv(x))) * log(16 / (3 * sqrt(3)))
     + (
         2 // 3 * log(inv(2x))^(3 // 2)
-        + D2 * sqrt(2π) * x^2 * erfi(sqrt(log(inv(4x^2)))) / 8
+        + D2 * (1 - 4x^2) / 16sqrt(log(inv(2x)))
         - D2 * sqrt(log(inv(2x))) / 8
         + sqrt(log(2)) * log(inv(x))
         - log(2)^(3 // 2)
@@ -209,12 +217,7 @@ I1 <= sqrt(log(1 + inv(x))) * log(16 / (3 * sqrt(3)))
     )
 ```
 The terms `log(1 - x^2) / 2x^2` and `log(1 - x^2 / π^2) / 2x^2` can be
-bounded using [`fx_div_x`](@ref). The term `x^2 *
-erfi(sqrt(log(inv(4x^2))))` can be bounded using that it is zero at `x
-= 0` and increasing.
-- **TODO:** Figure out how to bound `x^2 *
-  erfi(sqrt(log(inv(4x^2))))`. Either prove monotonicity, which
-  doesn't hold everywhere, or find a different method.
+bounded using [`fx_div_x`](@ref).
 To be able to bound this after division by `log(inv(x)) * sqrt(log(1 +
 inv(x)))` there are some terms we have to take care of, all of them
 coming from `I12`.
@@ -347,7 +350,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
             inv(sqrt(log(1 + inv(x))))
         end
 
-        # Enclosure of W(x) * I1
+        # Enclosure of weight_factor(x) * I1
         WxI1 = let
             WxI11 = log(16 / (3sqrt(Arb(3)))) * invlog
 
@@ -398,24 +401,19 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ = Arb(2e-
 
                 # Terms for which we don't have to cancel things
 
-                # Enclosure of x^2 * erfi(sqrt(log(inv(4x^2))))
-                x2erfi = if iszero(x)
+                # Enclosure of inv(sqrt(log(inv(2x))))
+                invsqrtloginv2x = if iszero(x)
                     zero(x)
                 elseif Arblib.contains_zero(x)
-                    # TODO: Prove that it is monotone on the interval
-                    # or do something different for enclosing it
                     lower = zero(x)
-                    upper = let xᵤ = ubound(Arb, x)
-                        xᵤ^2 * erfi(sqrt(log(inv(4xᵤ^2))))
-                    end
-                    Arb((lower, upper))
+                    upper = inv(sqrt(log(inv(2ubound(Arb, x)))))
                 else
-                    x^2 * erfi(sqrt(log(inv(4x^2))))
+                    inv(sqrt(log(inv(2x))))
                 end
 
                 remaining =
                     (
-                        D2 * sqrt(2Arb(π)) * x2erfi / 8 - log(Arb(2))^(3 // 2) +
+                        D2 * (1 - 4x^2) * invsqrtloginv2x / 16 - log(Arb(2))^(3 // 2) +
                         D2 * sqrt(log(Arb(2))) * (1 - 4x^2) / 8
                     ) * weight_factor(x)
 
