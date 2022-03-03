@@ -1024,24 +1024,55 @@ G21(x) <= (1 + α) / ((1 - x^p0) * log(inv(x))) *
                 t^(1 - γ * (1 + α)) dt
 ```
 The integral no longer depends on `x` and converges to a non-zero
-number in `α`, which we can compute. Let
+number in `α`, which we can compute.
+
+# Computing the integral
+Let
 ```
 I = ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
 ```
-- **TODO:** Compute rigorous bound of `I`, probably by integrating
-  explicitly.
+Since `1 + α` is small the factor `t^(-γ * (1 + α))` in the integrand
+will be close to one. If we bound it on the interval and factor it out
+we are left with
+```
+∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t dt
+```
+If we let `s = -(α + 1)` a primitive function is given by
+```
+(
+    - t^2 * ((t - 1)^s + (t + 1)^s - 2t^s) / s
+    + ((t - 1)^s + (t + 1)^s - 2) / s
+    - t * ((t - 1)^(1 + s) + (t + 1)^(1 + s) - 2t^(1 + s))
+) / ((1 + s) * (2 + s))
+```
+where the constant is chosen to make it finite as `s` goes to zero.
+For `t = 1` this simplifies to
+```
+-(2^-α - 2) / (α * (1 - α))
+```
+This allows us to compute the integral
 """
 function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
     αp1 = Arblib.nonnegative_part!(zero(α), α + 1)
 
-    # Enclosure of I
-    # FIXME: Compute rigorous enclosure
-    I = let α = ubound(Arb, α)
-        Arblib.integrate(1 + 1e-10, 2) do t
-            ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (α + 1) *
-            t^(1 - γ * (α + 1))
-        end |> real
+    # Primitive function of
+    # ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t
+    primitive = let s = -αp1
+        t -> begin
+            t1 = fx_div_x(v -> (t - 1)^v + (t + 1)^v - 2t^v, s)
+            t2 = fx_div_x(v -> (t - 1)^v + (t + 1)^v - 2, s)
+            #t1 = ((t - 1)^s + (t + 1)^s - 2t^s) / s
+            #t2 = ((t - 1)^s + (t + 1)^s - 2) / s
+            (-t^2 * t1 + t2 - t * ((t - 1)^(1 + s) + (t + 1)^(1 + s) - 2t^(1 + s))) / ((1 + s) * (2 + s))
+        end
     end
+
+    # primitive(1)
+    primitive_one = (2^-α - 2) / (α * (1 - α))
+
+    # Enclosure of
+    # ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
+    I = Arb((1, 2))^(-γ * (1 + α)) * (primitive(Arb(2)) - primitive_one)
 
     return x::Arb -> begin
         # This function assumes that x is less than or equal to 1 // 2
