@@ -38,7 +38,7 @@ for all `α ∈ [-1, -1 + ϵ]` and `x ∈ [0, π]` follows easily from
 [`lemma_bhkdv_monotonicity_main_term`](@ref) and
 [`lemma_bhkdv_limit_main_term`](@ref).
 
-- **TODO:** We probably need to prove that `u0` is positive as well.
+- **PROVE:** We probably need to prove that `u0` is positive as well.
   So that the inequality holds after taking the absolute value. This
   could be done somewhere else though.
 - **IMRPOVE:** We could add a check that this bound indeed holds for
