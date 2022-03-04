@@ -30,8 +30,7 @@ Return a function such that `T01(u0, Asymptotic())(x)` computes an
 **upper bound** of `T01(u0)` using an evaluation strategy that works
 asymptotically as `x` goes to 0.
 
-It precomputes the expansions of `u0` and for that reason a number `ϵ`
-has to be given, the resulting expansion will be valid for all `x <
+It takes as argument `ϵ` and the resulting function is valid for `x <=
 ϵ`. The value of `ϵ` has to be less than `1`.
 
 To begin with the factor `x * log(inv(x) / (π * u0(x))` is factored
@@ -40,18 +39,11 @@ that this factor is positive and bounded in `x`.
 
 What we are left with computing is
 ```
-W(x) * I
+W(x) * U1(x)
 ```
-where `W(x) = 1 / (x^2 * log(inv(x)) * sqrt(log(1 + inv(x))))` and `I`
-is given by the integral
+where `W(x) = 1 / (x^2 * log(inv(x)) * sqrt(log(1 + inv(x))))`
 ```
-I = ∫abs(log(sin((x - y) / 2)) + log(sin((y + x) / 2)) - 2log(sin(y / 2))) * y * sqrt(log(1 + inv(y))) dy
-```
-for `0` to `x`.
-
-The change of coordinates `t = y / x` transforms the integral into
-```
-I = x^2 * ∫abs(log(sin(x * (1 - t) / 2) + sin(x * (1 + t) / 2) - 2log(sin(x * t / 2)))) * t * sqrt(log(1 + inv(x * t))) dt
+U1(x) = x^2 * ∫abs(log(sin(x * (1 - t) / 2) + sin(x * (1 + t) / 2) - 2log(sin(x * t / 2)))) * t * sqrt(log(1 + inv(x * t))) dt
 ```
 from `0` to `1`.
 
@@ -62,78 +54,79 @@ log(sin(x * (1 + t) / 2)) = log(x * (1 + t) / 2) + log(sinc(x * (1 + t) / 2π))
 log(sin(x * t / 2)) = log(x * t / 2) + log(sinc(x * t / 2π))
 ```
 where we have used the Julia convention that `sinc(x) = sinpi(x) / (π
-* x)`. we can split `I` as
+* x)`. we can split `U1` as
 ```
-I <= x^2 * (I1 + I2)
+U1(x) <= x^2 * (U1_m(x) + U1_r(x))
 ```
 where
 ```
-I1 = ∫abs(log(x * (1 - t) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2)) * t * sqrt(log(1 + inv(x * t))) dt
-I2 = ∫abs(log(sinc(x * (1 - t) / 2π)) + log(sinc(x * (1 + t) / 2π)) - 2log(sinc(x * t / 2π))) * t * sqrt(log(1 + inv(x * t))) dt
+U1_m(x) = ∫abs(log(x * (1 - t) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2)) * t * sqrt(log(1 + inv(x * t))) dt
+U1_r(x) = ∫abs(log(sinc(x * (1 - t) / 2π)) + log(sinc(x * (1 + t) / 2π)) - 2log(sinc(x * t / 2π))) * t * sqrt(log(1 + inv(x * t))) dt
 ```
 We now handle `I1` and `I2` separately.
 
-# Handling `I1`
+# Handling `U1_m`
 We start by noticing that
 ```
 log(x * (1 - t) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2) =
     log(1 / t^2 - 1)
 ```
-Furthermore, since `0 <= x <= 1` and `0 <= t <= 1` we have
+Furthermore, since `0 <= x <= ϵ < 1` and `0 <= t <= 1` we have
 ```
 sqrt(log(1 + inv(x * t))) = sqrt(log(inv(x)) + log(inv(t)) + log(1 + x * t))
     <= sqrt(log(inv(x))) + sqrt(log(inv(t))) + sqrt(log(1 + x * t))
 ```
 and also `sqrt(log(1 + x * t)) <= sqrt(log(1 + x))`, giving us
 ```
-I1 <= sqrt(log(inv(x))) * ∫ abs(log(1 / t^2 - 1)) * t dt
+U1_m(x) <=
+    sqrt(log(inv(x))) * ∫ abs(log(1 / t^2 - 1)) * t dt
     + ∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt
     + sqrt(log(1 + x)) * ∫ abs(log(1 / t^2 - 1)) * t dt
 ```
-If we let
+We have `∫ abs(log(1 / t^2 - 1)) * t dt = log(2)` and if we let `c1 =
+∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt` this can be
+written as
 ```
-C1 = ∫ abs(log(1 / t^2 - 1)) * t dt
+I1 <= sqrt(log(inv(x))) * log(2) + c1 + sqrt(log(1 + x)) * log(2)
+```
 
-C2 = ∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt
+What remains is to compute an enclosure of
 ```
-this can be written as
+c1 = ∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt
 ```
-I1 <= sqrt(log(inv(x))) * C1 + C2 + sqrt(log(1 + x)) * C1
-```
-We thus have to compute `C1` and `C2`. We can get rid of the absolute
-value by splitting the integral at the only zero of `log(1 / t^2 - 1)`
-which is given by `t = 1 / sqrt(2)`. The integral for `C1` can be
-computed explicitly and is given by `log(2)`.
-- **PROVE**: That we have `∫ abs(log(1 / t^2 - 1)) * t dt = log(2)`
+The integrand is bounded so with some work an enclosure can be
+computed using [`Arblib.integrate`](@ref). We can get rid of the
+absolute value by splitting the integral at the only zero of `log(1 /
+t^2 - 1)` given by `t = inv(sqrt(2))`. At the endpoints the integrand
+is zero but not analytic, to compute enclosures we use the following
+approach.
 
-The integrand for `C2` is bounded and can be computed using
-`Arblib.integrate`. The integrand is zero, but not analytic, at `t =
-0` and `t = 1`. To be able to enclose the integrand on balls
-overlapping zero and one we want to make use of monotonicity around
-those points. For this we split the integrand, with the absolute value
-removed, as
+After having removed the absolute value we can split the integrand as
 ```
 log(1 / t^2 - 1) * t * sqrt(log(inv(t)))
     = log(1 - t) * t * sqrt(log(inv(t))) +
       log(1 + t) * t * sqrt(log(inv(t))) -
       2log(t) * t * sqrt(log(inv(t)))
 ```
-and enclose each term separately. Let
+Let
 ```
 f1(t) = log(1 - t) * sqrt(log(inv(t)))
 f2(t) = log(1 + t) * sqrt(log(inv(t)))
 f3(t) = log(t) * t * sqrt(log(inv(t)))
 ```
 The integrand is then given by `t * f1(t) + t * f2(t) - 2f3(t)`. We
-are thus interested in bounding these three functions near zero and
-one. They are all zero and `t = 0` and `t = 1`, our goal will be to
-isolate the parts of the interval ``(0, 1)`` where they are not
-monotone. For `f3` we can differentiate to get
+are thus interested in bounding `f1`, `f2` and `f3` near `t = 0` and
+`t = 1`. They are all zero and `t = 0` and `t = 1`, our goal will be
+to isolate the parts of the interval ``(0, 1)`` where they are not
+monotone. We can then use monotonicity near the endpoints.
+
+For `f3` we can differentiate to get
 ```
 f3'(t) = log(inv(t)) * (2sqrt(log(inv(t)))) * (3 + 2log(t))
 ```
-For ``t ∈ (0, 1)`` this has the unique root `t = exp(-3 / 2)`. For
-`f1` and `f2` differentiation gives
+For ``t ∈ (0, 1)`` this has the unique root `t = exp(-3 / 2)`.
+
+For `f1` and `f2` differentiation gives
 ```
 f1'(t) = inv(2sqrt(log(inv(t)))) * (2log(t) / (1 - t) - log(1 - t) / t)
 
@@ -151,37 +144,37 @@ or
   1)``. They are both increasing in `t`, it would be enough to prove
   that.
 
-# Handling `I2`
-For `I2` we give a uniform bound of
+# Handling `U1_r`
+For `U1_r` we give a uniform bound of
 ```
 abs(log(sinc(x * (1 - t) / 2π)) + log(sinc(x * (1 + t) / 2π)) - 2log(sinc(x * t / 2π)))
 ```
 in `t` on the interval and use this to simplify the integral. Notice
-that `x * (1 - t) / 2π`, `x * (1 + t) / 2π` and `x * t / 2π` all are
-less than `x / π`. Using a Taylor expansion of `log(sinc(y))` at `y =
-0` and explicitly enclosing the second order remainder term `D` in the
-expansion
+that `x * (1 - t) / 2π`, `x * (1 + t) / 2π` and `x * t / 2π` all lie
+in the interval ``[0, x / π]``. Using a Taylor expansion of
+`log(sinc(y))` at `y = 0` and explicitly enclosing the second order
+remainder term `R1` in the expansion we get
 ```
-log(sinc(y)) = D * y^2
+log(sinc(y)) = R1 * y^2
 ```
 In particular this gives
 ```
 abs(log(sinc(x * (1 - t) / 2π)) + log(sinc(x * (1 + t) / 2π)) - 2log(sinc(x * t / 2π))) <=
-    D * x^2 / π^2 * abs((1 - t)^2 / 4 + (1 + t)^2 / 4 - t^2 / 2)) =
-    D / 2π^2 * x^2
+    R1 * x^2 / π^2 * abs((1 - t)^2 / 4 + (1 + t)^2 / 4 - t^2 / 2)) =
+    R1 / 2π^2 * x^2
 ```
-Inserting this into `I2` we have
+Inserting this into `U1_r` we have
 ```
-I2 <= D / 2π^2 * x^2 * ∫ t * sqrt(log(1 + inv(x * t))) dt
+U1_r(x) <= R1 / 2π^2 * x^2 * ∫ t * sqrt(log(1 + inv(x * t))) dt
 ```
-Similarly to for `I1` we use the inequality
+Similarly to for `U1_m` we use the inequality
 ```
 sqrt(log(1 + inv(x * t))) = sqrt(log(inv(x)) + log(inv(t)) + log(1 + x * t))
     <= sqrt(log(inv(x))) + sqrt(log(inv(t))) + sqrt(log(1 + x * t))
 ```
 giving us
 ```
-I2 <= D / 2π^2 * x^2 * (
+U1_r(x) <= R1 / 2π^2 * x^2 * (
     sqrt(log(inv(x))) * ∫ t dt
     + ∫ t * sqrt(log(inv(t))) dt
     + sqrt(log(1 + x)) * ∫ t dt
@@ -191,35 +184,34 @@ We have `∫ t dt = 1 / 2` and
 ```
 ∫ t * sqrt(log(inv(t))) dt = sqrt(π / 2) / 4
 ```
-- **PROVE:** That we have `∫ t * sqrt(log(inv(t))) dt = sqrt(π / 2) / 4`
 Giving us
 ```
-I2 <= D / 2π^2 * x^2 * (
+U1_r(x) <= R1 / 2π^2 * x^2 * (
     sqrt(log(inv(x))) / 2
     + sqrt(π / 2) / 4
     + sqrt(log(1 + x)) / 2
-) = D / 4π^2 * x^2 * (
-    sqrt(log(inv(x)))
-    + sqrt(π / 2) / 2
-    + sqrt(log(1 + x))
+) = R1 / 8π^2 * x^2 * (
+    2sqrt(log(inv(x)))
+    + sqrt(π / 2)
+    + 2sqrt(log(1 + x))
 )
 ```
 
 # Putting it together
 From the above we have
 ```
-I1 <= <= sqrt(log(inv(x))) * C1 + C2 + sqrt(log(1 + x)) * C1
+U1_m(x) <= <= sqrt(log(inv(x))) * log(2) + c1 * sqrt(log(1 + x)) * log(2)
 
-I2 <= D / 4π^2 * x^2 * (sqrt(log(inv(x))) + sqrt(π / 2) / 2 + sqrt(log(1 + x)))
+U1_r(x) <= R1 / 4π^2 * x^2 * (sqrt(log(inv(x))) + sqrt(π / 2) / 2 + sqrt(log(1 + x)))
 ```
 This gives us
 ```
-W(x) * I <= inv(sqrt(log(1 + inv(x)))) * (
-    C1 / sqrt(log(inv(x)))
-    + (C2 + sqrt(log(1 + x)) * C1) / log(inv(x))
-    + D / 4π^2 * x^2 * (
-        1 / sqrt(log(inv(x)))
-        + (sqrt(π / 2) / 2 + sqrt(log(1 + x))) / log(inv(x))
+W(x) * U1(x) <= inv(sqrt(log(1 + inv(x)))) * (
+    log(2) / sqrt(log(inv(x)))
+    + (c1 + log(2) * sqrt(log(1 + x))) / log(inv(x))
+    + R1 / 8π^2 * x^2 * (
+        2 / sqrt(log(inv(x)))
+        + (sqrt(π / 2) + 2sqrt(log(1 + x))) / log(inv(x))
     )
 )
 ```
@@ -229,10 +221,9 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
     # precaution we check that it seems to be the same as the one
     # used.
     let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
+        @assert Arblib.overlaps(u0.w(x), x * sqrt(log(1 + inv(x))))
     end
 
-    ϵ = convert(Arb, ϵ)
     ϵ < 1 || throw(DomainError(ϵ, "must have ϵ < 1"))
 
     # Expansion for evaluating u0(x) / (x * log(x))
@@ -245,31 +236,8 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
     # This gives the factor x * log(inv(x)) / (π * u0(x))
     factor(x) = -inv(π * eval_expansion(u0, u0_expansion_div_xlogx, x))
 
-    # This gives the factor inv(log(inv(x)) * sqrt(log(1 + inv(x)))) in a
-    # way so that it can handle x including zero
-    weight_factor(x) = begin
-        iszero(x) && return zero(x)
-
-        if Arblib.contains_zero(x)
-            # Use that inv(log(inv(x)) * sqrt(log(1 + inv(x)))) is
-            # monotonically decreasing for 0 < x < 1.
-            xᵤ = ubound(Arb, x)
-
-            return Arb((inv(log(inv(xᵤ)) * sqrt(log(1 + inv(xᵤ)))), 0))
-        end
-
-        return inv(log(inv(x)) * sqrt(log(1 + inv(x))))
-    end
-
-    # Enclosure of second derivative of log(sinc(y)) on [0, ϵ / π].
-    # Giving the remainder term in the Taylor expansion.
-    D = abs(log(fx_div_x(s -> sinpi(s) / π, ArbSeries((((0, ϵ / π), 1, 0)))))[2])
-
-    # Enclosure of ∫ abs(log(1 / t^2 - 1)) * t dt
-    C1 = log(Arb(2))
-
     # Enclosure of ∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt
-    C2 = begin
+    c1 = begin
         # Unique root of derivative of log(1 - t) * sqrt(log(inv(t)))
         # on (0, 1)
         root1 = begin
@@ -296,7 +264,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
         # sqrt(log(inv(t))) on (0, 1)
         root3 = exp(Arb(-3 // 2))
 
-        integrand_C2(t; analytic) = begin
+        integrand_c1(t; analytic) = begin
             if Arblib.contains_zero(t)
                 analytic && return Arblib.indeterminate!(zero(t))
                 @assert isreal(t)
@@ -355,7 +323,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
         # Integrate from 0 to 1 / sqrt(2) and then from 1 / sqrt(2) to 1
         integral1 = real(
             Arblib.integrate(
-                integrand_C2,
+                integrand_c1,
                 0,
                 1 / sqrt(Arb(2)),
                 check_analytic = true,
@@ -364,7 +332,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
         )
         integral2 = real(
             Arblib.integrate(
-                (t; analytic) -> -integrand_C2(t; analytic),
+                (t; analytic) -> -integrand_c1(t; analytic),
                 1 / sqrt(Arb(2)),
                 1,
                 check_analytic = true,
@@ -374,6 +342,10 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
         integral1 + integral2
     end
+
+    # Enclosure of the remainder term in the Taylor expansion of
+    # log(sinc(y)) on [0, ϵ / π] of degree 1.
+    R1 = abs(log(fx_div_x(s -> sinpi(s) / π, ArbSeries((((0, ϵ / π), 1, 0)))))[2])
 
     return x::Arb -> begin
         @assert x <= ϵ
@@ -402,19 +374,20 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
             inv(log(inv(x)))
         end
 
-        # Enclosure of sqrt(log(1 + x))
-        sqrtlog1px = sqrt(Arblib.nonnegative_part!(zero(x), log1p(x)))
-
-        res =
+        # Enclosure of W(x) * U1(x)
+        WU1 =
             invsqrtlog1pinvx * (
-                C1 * sqrt(invloginvx) +
-                (C2 + sqrtlog1px * C1) * invloginvx +
-                D / 4Arb(π)^2 *
+                log(Arb(2)) * sqrt(invloginvx) +
+                (c1 + log(Arb(2)) * Arblib.sqrtpos(log1p(x))) * invloginvx +
+                R1 / 8Arb(π)^2 *
                 x^2 *
-                (sqrt(invloginvx) + (sqrt(Arb(π) / 2) / 2 + sqrtlog1px) * invloginvx)
+                (
+                    2sqrt(invloginvx) +
+                    (sqrt(Arb(π) / 2) + 2Arblib.sqrtpos(log1p(x))) * invloginvx
+                )
             )
 
-        return factor(x) * res
+        return factor(x) * WU1
     end
 end
 
