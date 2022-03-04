@@ -44,7 +44,7 @@ function alpha0(
     end
 
     # Prove the bound on [0, ϵ]
-    ArbExtras.bounded_by(
+    bounded = ArbExtras.bounded_by(
         g,
         Arf(0),
         ubound(ϵ),
@@ -53,6 +53,11 @@ function alpha0(
         threaded,
         verbose,
     )
+
+    if !bounded
+        verbose && @error "Could not prove bound on [0, ϵ]"
+        return Arblib.indeterminate!(zero(Arb))
+    end
 
     # Bound the value on [ϵ, π]
     m = ArbExtras.maximum_enclosure(
