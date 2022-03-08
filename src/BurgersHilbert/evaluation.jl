@@ -585,6 +585,40 @@ function F0(
 end
 
 """
+    inv_u0_normalised(u0::BHAnsatz{Arb}; M = 3, ϵ = 1 / 2)
+
+Return a function for evaluation `-abs(x) * log(abs(x)) / u0(x)` for
+`x` close to zero.
+
+# Arguments
+- `M::Integer = 3` determines the number of terms in the asymptotic
+  expansions.
+- `ϵ::Arb = 1 / 2` determines the interval ``[-ϵ, ϵ]`` on which the
+  expansion is valid. Must be less than `1`.
+
+# Implementation
+It computes an expansion of `u0` at `x = 0` and explicitly handles the
+cancellation with `-abs(x) * log(abs(x))`.
+"""
+function inv_u0_normalised(u0::BHAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(1 // 2))
+    0 < ϵ < 1 || throw(DomainError(ϵ, "must have 0 < ϵ < 1"))
+
+    expansion = u0(ϵ, AsymptoticExpansion(); M)
+
+    # Divide all terms in the expansion by abs(x) * log(abs(x))
+    expansion_div_xlogx = empty(expansion)
+    for ((i, m, k, l), value) in expansion
+        expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
+    end
+
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && abs(x) <= ϵ) || (x isa ArbSeries && abs(Arblib.ref(x, 0)) <= ϵ)
+
+        return -inv(eval_expansion(u0, expansion_div_xlogx, x))
+    end
+end
+
+"""
     D(u0::BHAnsatz, xs::AbstractVector)
 Returns a function such that `D(u0, xs)(b)` computes `D(u0)(x)` on the
 points `x ∈ xs` with `u0.b` set to the given values. Does this in an
