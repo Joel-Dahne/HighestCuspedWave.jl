@@ -7,11 +7,11 @@ truncated version gives an enclosure of `f(x)` for all `x ∈ interval`.
 
 We require that `x0 ∈ interval`.
 
-It computes a tighter enclosure of the remainder term using
-[`ArbExtras.enclosure_series`](@ref). The degree used for this can be
-set with `enclosure_degree`. Setting it to a negative number makes it
-compute it directly instead. This argument is only supported for `Arb`
-and not for `Acb`.
+For wide values of `interval` it computes a tighter enclosure of the
+remainder term using [`ArbExtras.enclosure_series`](@ref). The degree
+used for this can be set with `enclosure_degree`. Setting it to a
+negative number makes it compute it directly instead. This argument is
+only supported for `Arb` and not for `Acb`.
 """
 function taylor_with_remainder(
     f,
@@ -26,6 +26,11 @@ function taylor_with_remainder(
         ),
     )
 
+    if x0 == interval
+        # In this case we can compute the full expansion directly
+        return f(ArbSeries((x0, 1); degree))
+    end
+
     # Compute expansion without remainder term
     res = f(ArbSeries((x0, 1), degree = degree - 1))
 
@@ -33,7 +38,7 @@ function taylor_with_remainder(
     res = ArbSeries(res; degree)
 
     # Compute remainder term
-    if enclosure_degree < 0
+    if enclosure_degree < 0 || !iswide(interval)
         res[degree] = f(ArbSeries((interval, 1); degree))[degree]
     else
         # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
@@ -61,6 +66,11 @@ function taylor_with_remainder(f, x0::Acb, interval::Acb; degree::Integer)
             "expected x0 to be contained in interval, got x0 = $x0, interval = $interval",
         ),
     )
+
+    if x0 == interval
+        # In this case we can compute the full expansion directly
+        return f(ArbSeries((x0, 1); degree))
+    end
 
     # Compute expansion without remainder term
     res = f(AcbSeries((x0, 1), degree = degree - 1))
