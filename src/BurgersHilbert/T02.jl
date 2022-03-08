@@ -264,17 +264,12 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
         @assert Arblib.overlaps(u0.w(x), x * sqrt(log(1 + inv(x))))
     end
 
-    ϵ < 1 // 2 || throw(DomainError(ϵ, "must have ϵ < 1 / 2"))
+    0 < ϵ < 1 // 2 || throw(DomainError(ϵ, "must have 0 < ϵ < 1 / 2"))
 
-    # Compute expansion for u0 / (x * log(x))
-    u0_expansion = u0(ϵ, AsymptoticExpansion())
-    u0_expansion_div_xlogx = empty(u0_expansion)
-    for ((i, m, k, l), value) in u0_expansion
-        u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
-    end
+    inv_u0 = inv_u0_normalised(u0; ϵ)
 
     # This gives the factor x * log(inv(x)) / (π * u0(x))
-    factor(x) = -inv(π * eval_expansion(u0, u0_expansion_div_xlogx, x))
+    factor(x) = inv_u0(x) / π
 
     # This gives the factor inv(log(inv(x)) * sqrt(log(1 + inv(x)))) in a
     # way so that it can handle x including zero

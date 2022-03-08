@@ -42,37 +42,23 @@ function alpha0(
     # For non-asymptotic evaluation
     f = x -> u0.w(x) / (2u0(x))
     # For asymptotic evaluation
-    # We compute the asymptotic expansion of u0 at zero and then
-    # manually cancel factors between the weight and the expansion.
-    # Finally care has to be take to make sure that the weight with
-    # the cancelled factors can be evaluated around zero, this is done
-    # using monotonicity.
-    g = let u0_expansion = u0(Arb(0.6), AsymptoticExpansion(); M)
+    inv_u0 = inv_u0_normalised(u0, ϵ = Arb(0.6); M)
+    g = x -> begin
         # Enclosure of -sqrt(log(1 + inv(x))) / 2log(x)
-        # PROVE: That this is monotonically increasing on [0, 1]
-        factor1(x) =
-            if iszero(x)
-                zero(x)
-            elseif Arblib.contains_zero(x) && x < 1
-                lower = zero(x)
-                upper = let xᵤ = ubound(Arb, x)
-                    -sqrt(log(1 + inv(xᵤ))) / 2log(xᵤ)
-                end
-                Arb((lower, upper))
-            else
-                -sqrt(log(1 + inv(x))) / 2log(x)
+        # PROVE: That -sqrt(log(1 + inv(x))) / 2log(x) is increasing in x
+        factor = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x) && x < 1
+            lower = zero(x)
+            upper = let xᵤ = ubound(Arb, x)
+                -sqrt(log(1 + inv(xᵤ))) / 2log(xᵤ)
             end
-
-        # Divide all terms in the expansion by abs(x) * log(abs(x))
-        u0_expansion_div_xlogx = empty(u0_expansion)
-        for ((i, m, k, l), value) in u0_expansion
-            u0_expansion_div_xlogx[(i - 1, m - 1, k, l)] = value
+            Arb((lower, upper))
+        else
+            -sqrt(log(1 + inv(x))) / 2log(x)
         end
 
-        # Enclosure of -x * log(x) / u0(x)
-        factor2(x) = -inv(eval_expansion(u0, u0_expansion_div_xlogx, x))
-
-        x -> factor1(x) * factor2(x)
+        factor * inv_u0(x)
     end
 
     # The maximum is in practice attained at x = π
