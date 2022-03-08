@@ -38,7 +38,9 @@ function Base.getproperty(u0::BHAnsatz, name::Symbol)
     if name == :N
         return length(u0.b)
     elseif name == :w
-        return x -> abs(x) * sqrt(log((abs(x) + 1) / abs(x)))
+        return x -> let absx = abs(x)
+            absx * sqrt(log(1 + inv(absx)))
+        end
     else
         return getfield(u0, name)
     end
