@@ -502,8 +502,7 @@ log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2)) * t * sqrt(log(1 + inv(x * t)))
 ```
 For the first term we use that `t * sqrt(log(1 + inv(x * t)))` is
 increasing for `t < inv(x * (exp(1 / 2) - 1))`. For the second term we
-use that the whole term is decreasing for `t < XXX`
-- FIXME: Determine when the second term is decreasing.
+use that the whole term is decreasing for `t < inv(10x)`.
 """
 function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
@@ -538,8 +537,7 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
 
                 # Check that log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
                 # is monotone
-                # FIXME: Properly implement this check
-                if false
+                if !(t < inv(10x))
                     return Arblib.indeterminate!(res)
                     return
                 end
