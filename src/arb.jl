@@ -438,6 +438,12 @@ function fx_div_x(
     @assert order >= 1
     @assert extra_degree >= 0
 
+    if iszero(x)
+        # If x is exactly zero there is no need to compute extra terms
+        # in the expansion
+        extra_degree = 0
+    end
+
     expansion = taylor_with_remainder(f, zero(x), x, degree = order + extra_degree)
 
     isfinite(expansion) || return Arblib.indeterminate!(zero(x))
