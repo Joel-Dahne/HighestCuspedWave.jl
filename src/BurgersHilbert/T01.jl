@@ -659,7 +659,7 @@ where
 ```
 U122(x) = ∫ -log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2) * t * sqrt(log(1 + inv(x * t))) dt
 ```
-in the interval ``[1 - δ1, 1]``.
+on the interval ``[1 - δ1, 1]``.
 
 # Arguments
 - `δ1::Arb = 1e-5`: Determines the interval of integration.
