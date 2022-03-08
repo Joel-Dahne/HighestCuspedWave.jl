@@ -514,22 +514,35 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
     end
 
     return x::Arb -> begin
-        # IMPROVE: Use inplace arithmetic to a larger extent
-        integrand(t; analytic) = begin
-            if Arblib.contains_zero(t)
-                analytic && return Arblib.indeterminate!(zero(t))
+        # Precompute and preallocate for integrand
+        xdiv2 = Arblib.mul_2exp!(zero(x), x, -1)
+        sin_factor1 = Acb()
+        sin_factor2 = Acb()
+        sin_factor3 = Acb()
+        factor = Acb()
 
+        integrand!(res, t; analytic) = begin
+            if analytic && !Arblib.ispositive(Arblib.realref(t))
+                # Not analytic at t = 0
+                Arblib.indeterminate!(res)
+                return
+            elseif Arblib.contains_zero(t)
                 @assert isreal(t)
                 t = real(t)
 
                 # Check that t * sqrt(log(1 + inv(x * t))) is monotone
-                t < inv(x * (exp(Arb(1 // 2)) - 1)) ||
-                    return Arblib.indeterminate!(zero(t))
+                if !(t < inv(x * (exp(Arb(1 // 2)) - 1)))
+                    Arblib.indeterminate!(res)
+                    return
+                end
 
                 # Check that log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
                 # is monotone
                 # FIXME: Properly implement this check
-                true || return Arblib.indeterminate!(zero(t))
+                if false
+                    return Arblib.indeterminate!(res)
+                    return
+                end
 
                 tᵤ = ubound(Arb, t)
 
@@ -538,15 +551,56 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
 
                 # Enclosure of log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
                 logsin_tsqrt =
-                    Arb((log(sin(x * tᵤ / 2)) * tᵤ * sqrt(log(1 + inv(x * tᵤ))), 0))
+                    Arb((log(sin(tᵤ * xdiv2)) * tᵤ * sqrt(log(1 + inv(x * tᵤ))), 0))
 
-                return log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2)) * tsqrt +
-                       logsin_tsqrt
+                Arblib.set!(
+                    res,
+                    log(sin((1 - t) * xdiv2) * sin((1 + t) * xdiv2)) * tsqrt + logsin_tsqrt,
+                )
+                return
             else
-                return log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2) *
-                       t *
-                       sqrt(log(1 + inv(x * t)))
+                ## Enclosure of
+                ## log(sin((1 - t) * x / 2) * sin((1 + t) * x / 2) / sin(t * x / 2)^2)
+
+                # Enclosure of sin((1 - t) * x / 2)
+                Arblib.neg!(sin_factor1, t)
+                Arblib.add!(sin_factor1, sin_factor1, 1)
+                Arblib.mul!(sin_factor1, sin_factor1, xdiv2)
+                Arblib.sin!(sin_factor1, sin_factor1)
+
+                # Enclosure of sin((1 + t) * x / 2)
+                Arblib.add!(sin_factor2, t, 1)
+                Arblib.mul!(sin_factor2, sin_factor2, xdiv2)
+                Arblib.sin!(sin_factor2, sin_factor2)
+
+                # Enclosure of sin(t * x / 2)^2
+                Arblib.mul!(sin_factor3, t, xdiv2)
+                Arblib.sin!(sin_factor3, sin_factor3)
+                Arblib.sqr!(sin_factor3, sin_factor3)
+
+                # Set res to log(sin_factor1 * sin_factor2 / sin_factor3)
+                Arblib.mul!(res, sin_factor1, sin_factor2)
+                Arblib.div!(res, res, sin_factor3)
+                Arblib.log!(res, res)
+
+                # Enclosure of t * sqrt(log(1 + inv(x * t)))
+                Arblib.mul!(factor, t, x)
+                Arblib.inv!(factor, factor)
+                Arblib.add!(factor, factor, 1)
+                Arblib.log!(factor, factor)
+                Arblib.sqrt!(factor, factor)
+                Arblib.mul!(factor, factor, t)
+
+                Arblib.mul!(res, res, factor)
+                return
             end
+        end
+
+        # -integrand!(res, t; analytic)
+        mintegrand!(res, t; analytic) = begin
+            integrand!(res, t; analytic)
+            Arblib.neg!(res, res)
+            return
         end
 
         # Compute root of integrand
@@ -556,17 +610,29 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
         rtol = 1e-10
         atol = 1e-10
 
-        # IMPROVE: Integrate to lower and upper bound of r_x and add
-        # remaining part separately.
-        U11 =
-            real(Arblib.integrate(integrand, 0, r_x, check_analytic = true; rtol, atol))
+        U11 = real(
+            Arblib.integrate!(
+                integrand!,
+                zero(Acb),
+                0,
+                r_x,
+                check_analytic = true,
+                warn_on_no_convergence = false,
+                opts = Arblib.calc_integrate_opt_struct(0, 10_000, 0, 0, 0);
+                rtol,
+                atol,
+            ),
+        )
 
         U121 = real(
-            Arblib.integrate(
-                (t; analytic) -> -integrand(t; analytic),
+            Arblib.integrate!(
+                mintegrand!,
+                zero(Acb),
                 r_x,
                 1 - δ1,
-                check_analytic = true;
+                check_analytic = true,
+                warn_on_no_convergence = false,
+                opts = Arblib.calc_integrate_opt_struct(0, 10_000, 0, 0, 0);
                 rtol,
                 atol,
             ),
