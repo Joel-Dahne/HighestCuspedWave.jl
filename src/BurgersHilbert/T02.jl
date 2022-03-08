@@ -1,37 +1,42 @@
 """
     T02(u0::BHAnsatz; δ2, skip_div_u0)
-Returns a function such that T02(u0; δ2, ϵ)(x) computes the
-integral T_{0,2} from the paper.
 
-The interval of integration is `[x, π]`. Since the integrand is
-singular at `y = x` we split the interval into two parts, `[x, a]` and
-`[a, π]`. In principle we want to take `a = x + δ2`, however this
-gives issues if `x` is a wide ball. Instead we take `a` to always be a
-thin ball between `x` and `π`.
+Return a function for computing an enclosure of
+```
+inv(u0(x)) * U2(x) / (π * u0.w(x))
+```
 
-In general we take `a = ubound(x + δ2)`. However if `x` is wide then
-it's beneficial to take a larger value than `δ2`, depending on the
-radius of `x`. In practice we take `8radius(x)` in that case.
+It computes the `inv(u0(x))` separately and then splits the rest into
+the two terms
+```
+U21(x) / (π * u0.w(x))
+```
+and
+```
+U22(x) / (π * u0.w(x))
+```
+computed by [`T021`](@ref) and [`T022`](@ref) respectively.
 
-If `x` is very close to `π`, so that `a` would be larger than `π`,
-then we use the asymptotic version for the whole interval `[x, π]`.
-
-If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
+# Arguments
+- `δ2::Arb = 1e-5`: Determines the split intervals for `U21(x)` and
+  `U22(x)`.
+- `skip_div_u0::Bool = false`: If true it skips the factor
+  `inv(u0(x))`.
 """
 function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-5), skip_div_u0 = false)
-    f = T021(u0, evaltype, skip_div_u0 = true; δ2)
-    g = T022(u0, evaltype, skip_div_u0 = true; δ2)
+    f = T021(u0, evaltype, skip_div_u0 = true)
+    g = T022(u0, evaltype, skip_div_u0 = true)
 
-    return x -> begin
-        x = convert(Arb, x)
-        δ2 = max(δ2, 8Arblib.radius(Arb, x))
-        a = Arblib.ubound(Arb, x + δ2)
+    return x::Arb -> begin
+        # If x is wide it is beneficial to take a larger δ2
+        δ = max(δ2, 8radius(Arb, x))
+        a = Arblib.ubound(Arb, x + δ)
 
-        if !(a < π)
-            return f(x, π)
+        if a < π
+            res = f(x, a) + g(x, a)
+        else
+            res = f(x, Arb(π))
         end
-
-        res = f(x, a) + g(x, a)
 
         if skip_div_u0
             return res
@@ -428,126 +433,62 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 end
 
 """
-    T021(u0::BHAnsatz)
-Computes the (not yet existing) integral T_{0,2,1} from the paper.
+    T021(u0::BHAnsatz{Arb}; skip_div_u0)
 
-The interval of integration is `[x, a]`. Both `x` and `a` are assumed
-to be less than or equal to `π`, if they are balls which overlap `π`
-anything above `π` will be ignored.
+Return a function taking the arguments `(x, a)` for computing an
+enclosure of
+```
+inv(u0(x)) * U21(x) / (π * u0.w(x))
+```
+where
+```
+U21(x) = ∫ -log(sin((y - x) / 2) * sin((y + x) / 2) / sin(y / 2)^2) * y * sqrt(log(1 + inv(y))) dy
+```
+on the interval ``[x, a]``.
 
+# Arguments
+- `skip_div_u0::Bool = false`: If true it skips the factor
+  `inv(u0(x))`.
+
+# Implementation
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
-interval. We can also notice that the value inside the absolute value
-is negative so we can remove the absolute value by putting a minus
-sign, which we can bake in to the weight factor.
+interval.
 
-We are left with integrating the log-term. This allows us to split the
-integrand into three terms
-1. `log(-sin((x - y) / 2)) = log(sin((y - x) / 2))`
-2. `log(sin((x + y) / 2))`
-3. `-2log(sin(y / 2))`
-
-The third term is well behaved no matter the value of `x` and we can
-enclose that integral by enclosing the integrand on the interval and
-multiplying with the intervals size.
-
-For the first two terms we have to differentiate between the case when
-`x` overlaps with `π` and when it doesn't.
-
-For the case when `x` doesn't overlap with `π` we have that the second
-term is well behaved and we can bound its integral in the same way as
-we handle the third term. For the first term we use the inequality
+Using that `clausenc(x, 1) = -log(2sin(abs(x) / 2))` we are left with
 ```
-c * (y - x) / 2 <= sin((y - x) / 2) <= (y - x) / 2
+∫ clausenc((y - x) / 2, 1) + clausenc((y + x) / 2, 1) - 2clausenc(y / 2, 1) dy
 ```
-which holds for `c = sin(δ / 2) / (δ / 2)` on `0 <= x <= π` and `x <=
-y <= a`. In particular it also holds for `c = sin(ubound(δ) / 2) /
-(ubound(δ) / 2)` due to monotonicity. This gives us
+on the interval ``[x, a]``. A primitive function of the integral can
+be determined to be
 ```
-log(c * (y - x) / 2) <= log(sin((y - x) / 2)) <= log((y - x) / 2)
+2(clausens((y - x) / 2, 2) + clausens((y + x) / 2, 2) - 2clausens(y / 2, 2))
 ```
-The same inequality holds after integration from `x` to `a` and
-gives us
+This gives us the integral
 ```
-δ * (log(c * δ / 2) - 1) <= ∫log(sin((y - x) / 2)) <= δ * (log(δ / 2) - 1)
+2(
+    (clausens((a - x) / 2, 2) + clausens((a + x) / 2, 2) - 2clausens(a / 2, 2))
+    -(clausens(0, 2) + clausens(x, 2) - 2clausens(x / 2, 2))
+)
 ```
-where `δ = a - x`.
-
-If `x` overlaps with `π` or is very close to `π` (less than
-`sqrt(eps(x))`) then we take `a = π` as the upper integration limit
-since even if a smaller `a` is given this will only give a small
-overestimation. We have that both the first and the second term are
-singular. We can get a direct upper bound for both of them by using
-that `log(sin(t)) <= 0` for all `t`, hence they are both upper bounded
-by `0`.
-
-For lower bounding the first term we use that `(y - x) / 2 < π / 2`
-and hence `sin((y - x) / 2) >= 2 / π * (y - x) / 2. We can thus lower
-bound the integral by integrating `log(2 / π * (y - x) / 2)` from `x`
-to `π`. This integral is given by `(π - x) * (-1 + log(2 / π * (π - x)
-/ 2))`, which is strictly increasing in `x` and a lower bound is hence
-given by evaluating it at `Arblib.lbound(x)`.
-
-For the second term we use that `sin((x + y) / 2) = sin(π - (x + y) /
-2)` and as long as `π - (x + y) / 2 < π / 2` this is lower bounded by
-`2 / π * (π - (x + y) / 2)`. The inequality `π - (x + y) / 2 < π / 2`
-holds on the interval as long as `x <= π / 2`. The integral of `2 / π
-* (π - (x + y) / 2)` from `x` to `π` is given by `(π - x) * (-1 +
-log(4 / π * (π - x)))`, which, similar to above, is strictly
-increasing in `x` and we can hence evaluate it at `Arblib.lbound(x)`
-to get a lower bound.
 """
-function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
-    return (x, a = x + δ2) -> begin
-        x = convert(Arb, x)
-        a = convert(Arb, a)
-        δ = a - x
-
-        interval = union(x, a)
-
-        weight_factor = -u0.w(interval)
-
-        if !(x < π - sqrt(eps(x)))
-            @assert Arblib.overlaps(a, Arb(π)) # Take π to be the upper integration limit
-
-            x >= Arb(π) / 2 ||
-                throw(ArgumentError("we require that x >= π / 2, got x = $x"))
-
-            x_lower = Arblib.lbound(Arb, x)
-
-            x_lower < π || throw(
-                ArgumentError("we require that the lower bound of x is less than π"),
-            )
-
-            part1 = begin
-                part1_lower = (π - x_lower) * (-1 + log(2 / Arb(π) * (π - x_lower) / 2))
-                part1_upper = zero(x)
-
-                Arb((part1_lower, part1_upper))
-            end
-
-            part2 = begin
-                part2_lower = (π - x_lower) * (-1 + log(4 / Arb(π) * (π - x_lower)))
-                part2_upper = zero(x)
-
-                Arb((part2_lower, part2_upper))
-            end
-        else
-            part1 = let c = sin(Arblib.ubound(Arb, δ) / 2) / (Arblib.ubound(δ) / 2)
-                part1_lower = δ * (log(c * δ / 2) - 1)
-                part1_upper = δ * (log(δ / 2) - 1)
-
-                Arb((part1_lower, part1_upper))
-            end
-
-            part2 = log(sin((x + interval) / 2)) * δ
+function T021(u0::BHAnsatz, ::Ball = Ball(); skip_div_u0 = false)
+    return (x::Arb, a::Arb) -> begin
+        K2 = let y = Arb((x, a))
+            y * sqrt(log(1 + inv(y)))
         end
 
-        part3 = -2log(sin(interval / 2)) * δ
+        integral = ArbExtras.enclosure_series(x, degree = 4) do y
+            2(
+                (
+                    clausens((a - y) / 2, 2) + clausens((a + y) / 2, 2) -
+                    2clausens(a / 2, 2)
+                ) - (clausens(Arb(0), 2) + clausens(y, 2) - 2clausens(y / 2, 2))
+            )
+        end
 
-        integral = weight_factor * (part1 + part2 + part3)
+        res = K2 * integral / (π * u0.w(x))
 
-        res = integral / (π * u0.w(x))
         if skip_div_u0
             return res
         else
@@ -557,20 +498,28 @@ function T021(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
 end
 
 """
-    T022(u0::BHAnsatz)
-Computes the (not yet existing) integral T_{0,2,2} from the paper.
+    T022(u0::BHAnsatz{Arb}; skip_div_u0)
 
-The interval of integration is given by `[a, π]`. In practice `a`
-should be a thin ball to not give problems with the integration.
+Return a function taking the arguments `(x, a)` for computing an
+enclosure of
+```
+inv(u0(x)) * U22(x) / (π * u0.w(x))
+```
+where
+```
+U22(x) = ∫ -log(sin((y - x) / 2) * sin((y + x) / 2) / sin(y / 2)^2) * y * sqrt(log(1 + inv(y))) dy
+```
+on the interval ``[a, π]``.
 
-This is done by directly computing the integral with the integrator in
-Arb. Accounting for the fact that the integrand is non-analytic at `y
-= x`.
+This is done by numerically integrating with
+[`Arblib.integrate`](@ref). To not give problems with integration `a`
+should be a thin ball.
 
-Notice that the expression inside the absolute value is always
-negative, so we can replace the absolute value with a negation.
+# Arguments
+- `skip_div_u0::Bool = false`: If true it skips the factor
+  `inv(u0(x))`.
 """
-function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
+function T022(u0::BHAnsatz, ::Ball = Ball(); skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
@@ -578,27 +527,23 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
         @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
     end
 
-    return (x, a = x + δ2) -> begin
-        x = convert(Arb, x)
-        a = convert(Arb, a)
-
-        # Variables for storing temporary values during integration
-        x_complex = convert(Acb, x)
-        tmp = zero(x_complex)
+    return (x::Arb, a::Arb) -> begin
+        # Allocate space to store temporary variables in integration
+        tmp = Acb()
 
         integrand!(res, y; analytic::Bool) = begin
             # The code below is an inplace version of the following code
             #res = -log(sin((y - x) / 2) * sin((x + y) / 2) / sin(y / 2)^2)
-            #weight = y * Arblib.sqrt_analytic!(zero(y), log((y + 1) / y), analytic)
+            #weight = y * Arblib.sqrt_analytic!(zero(y), log(1 + inv(y)), analytic)
             #return res * weight
 
             # res = sin((y - x) / 2)
-            Arblib.sub!(tmp, y, x_complex)
+            Arblib.sub!(tmp, y, x)
             Arblib.mul_2exp!(tmp, tmp, -1)
             Arblib.sin!(res, tmp)
 
             # res *= sin((x + y) / 2)
-            Arblib.add!(tmp, x_complex, y)
+            Arblib.add!(tmp, y, x)
             Arblib.mul_2exp!(tmp, tmp, -1)
             Arblib.sin!(tmp, tmp)
             Arblib.mul!(res, res, tmp)
@@ -613,9 +558,9 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
 
             Arblib.neg!(res, res)
 
-            # tmp = y * sqrt(log((y + 1) / y))
-            Arblib.add!(tmp, y, 1)
-            Arblib.div!(tmp, tmp, y)
+            # tmp = y * sqrt(log(1 + inv(y)))
+            Arblib.inv!(tmp, y)
+            Arblib.add!(tmp, tmp, 1)
             Arblib.log!(tmp, tmp)
             Arblib.sqrt_analytic!(tmp, tmp, analytic)
             Arblib.mul!(tmp, tmp, y)
@@ -625,21 +570,21 @@ function T022(u0::BHAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 =
             return
         end
 
-        res = Arblib.integrate!(
-            integrand!,
-            zero(x_complex),
-            a,
-            π,
-            check_analytic = true,
-            rtol = 1e-10,
-            atol = 1e-10,
-            warn_on_no_convergence = false,
-            #opts = Arblib.calc_integrate_opt_struct(0, 0, 0, 0, 1),
+        U22 = real(
+            Arblib.integrate!(
+                integrand!,
+                zero(Acb),
+                a,
+                π,
+                check_analytic = true,
+                rtol = 1e-10,
+                atol = 1e-10,
+                warn_on_no_convergence = false,
+                opts = Arblib.calc_integrate_opt_struct(0, 10_000, 0, 0, 0),
+            ),
         )
-        @assert !isfinite(res) || isreal(res)
-        res = real(res)
 
-        res = res / (π * u0.w(x))
+        res = U22 / (π * u0.w(x))
 
         if skip_div_u0
             return res
