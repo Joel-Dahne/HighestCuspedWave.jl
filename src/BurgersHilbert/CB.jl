@@ -29,13 +29,6 @@ the result together. While this doesn't decrease the number of times
 we have to evaluate `T0(u0)` (in fact it probably increases it), it
 does decrease the number of times we have to evaluate `u0`, which
 turns out to be the more costly part of the procedure.
-
-One problem we have to deal with is that `T0(u0)` currently doesn't
-fully allow evaluation on `x` values strictly larger than `π`. To
-handle this we use [`ArbExtras.extrema_enclosure`](@ref) on the
-interval `[ϵ, lbound(Arb(π))]`, which is strictly less than `π`, and
-then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
-separately.
 """
 function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
     ϵ = Arf(1e-2)
@@ -50,29 +43,27 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
     g(x) = begin
         # Split x into several smaller intervals and evaluate f on
         # each, the put them together.
-        xs = HighestCuspedWave.mince(x, 400)
+        xs = mince(x, 25)
         res = f(xs[1])
         for i = 2:length(xs)
             isfinite(res) || break
-            res = union(res, f(xs[i]))
+            Arblib.union!(res, res, f(xs[i]))
         end
 
         isfinite(res) || return res
 
         invu0 = inv(ArbExtras.enclosure_series(u0, x))
 
-        return res * invu0
+        return res * invu0#/ ArbExtras.enclosure_series(u0, x)
     end
 
-    # Bound it on [ϵ, lbound(Arb(π))]
-    a = ϵ
-    b = Arblib.lbound(Arb(π))
-    estimate = maximum(abs.(T0(u0).(range(Arb(a), Arb(b), length = 10))))
+    # Bound it on [ϵ, π]
+    estimate = maximum(abs.(T0(u0).(range(Arb(ϵ), π, length = 10))))
 
-    m1 = ArbExtras.maximum_enclosure(
+    m = ArbExtras.maximum_enclosure(
         g,
-        a,
-        b,
+        ϵ,
+        ubound(Arb(π)),
         degree = -1,
         abs_value = true,
         point_value_max = estimate,
@@ -81,23 +72,21 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
         atol,
         verbose,
     )
-
-    # Bound it on [lbound(Arb(π)), π]
-    m2 = T0(u0)(union(Arb(b), Arb(π)))
-
-    m = max(m1, m2)
-
+    return m
     # Show that it is bounded by m on [0, ϵ]
     h = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
     ϵ2 = Arf(1e-100)
 
     # Handle the interval [0, ϵ2] with one evalution
-    h(Arb((0, ϵ2))) <= m ||
-        throw(ErrorException("bound doesn't hold on $((0, Float64(ϵ2)))"))
-    verbose && @info "Bound satisfied on $((0, Float64(ϵ2)))"
+    if !(h(Arb((0, ϵ2))) <= m)
+        verbose && @error "Bounds not satisfied on [0, $(Float64(ϵ2))]"
+        return Arblib.indeterminate!(zero(Arb))
+    end
+
+    verbose && @info "Bound satisfied on [0, $(Float64(ϵ2))]"
 
     # Bound it on [ϵ2, ϵ]
-    check_bound = ArbExtras.bounded_by(
+    bounded = ArbExtras.bounded_by(
         h,
         ϵ2,
         ϵ,
@@ -108,9 +97,14 @@ function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
         verbose,
     )
 
-    if !check_bound
-        throw(ErrorException("bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"))
+    if !bounded
+        verbose && @error "Could not prove bound on [$(Float64(ϵ2)), $(Float64(ϵ))]"
+        if return_details
+            return Arblib.indeterminate!(zero(Arb)), ϵ
+        else
+            return Arblib.indeterminate!(zero(Arb))
+        end
     end
 
-    return max(m1, m2)
+    return m
 end
