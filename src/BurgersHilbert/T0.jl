@@ -1,12 +1,11 @@
 function T0(
     u0::BHAnsatz,
     evaltype::Ball;
-    δ0::Arb = Arb(1e-5),
     δ1::Arb = Arb(1e-5),
     δ2::Arb = Arb(1e-5),
     skip_div_u0 = false,
 )
-    f = T01(u0, evaltype, skip_div_u0 = true; δ0, δ1)
+    f = T01(u0, evaltype, skip_div_u0 = true; δ1)
     g = T02(u0, evaltype, skip_div_u0 = true; δ2)
 
     return x -> begin

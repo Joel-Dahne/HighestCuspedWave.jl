@@ -1,25 +1,108 @@
 """
-    T01(u0::BHAnsatz, ::Ball; δ1, δ2, skip_div_u0)
-Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
-integral T_{0,1} from the paper.
+    _integrand_compute_root(u0::BHAnsatz{Arb}, x::Arb)
 
-If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
+Compute the unique root of
+```
+log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2)
+```
+in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
+
+For wide values of `x` it uses that the root is decreasing in `x` to
+only have to evaluate at the endpoints.
+
+If the lower bound of `x` is zero or close to zero (smaller than
+`eps(x)`) it computes an upper bound of the root by considering the
+limiting case as `x` goes to zero. The limiting root is then given by
+`inv(sqrt(2))`, which is the root of
+```
+log(inv(t^2) - 1)
+```
+
+If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
+compute the root at `eps(x)` and use that as a lower bound. This
+avoids computing with very small values of `x`.
 """
-function T01(
-    u0::BHAnsatz,
-    evaltype::Ball;
-    δ0::Arb = Arb(1e-5),
-    δ1::Arb = Arb(1e-5),
-    skip_div_u0 = false,
-)
-    f = T011(u0, evaltype, skip_div_u0 = true; δ0)
-    g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
-    h = T013(u0, evaltype, skip_div_u0 = true; δ1)
+function _integrand_compute_root(u0::BHAnsatz{Arb}, x::Arb)
+    # Root for x = 0
+    root_zero = inv(sqrt(Arb(2)))
+
+    compute_root(x) =
+        let
+            # Function we are computing the root of
+            f = t -> log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2)
+
+            # The root is lower bounded by 1 / 2, take a value
+            # slightly smaller so that we can still isolate it even if
+            # it touches 1 / 2.
+            root_lower = Arf(0.5) - sqrt(eps(Arf))
+
+            # The root is upper bounded by the root at zero
+            root_upper = ubound(root_zero)
+
+            # Improve the enclosure of the root
+            roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
+            if length(flags) == 1 && flags[1]
+                # Refine the unique root
+                root = ArbExtras.refine_root(f, Arb(only(roots)))
+            else
+                root = Arb((roots[1][1], roots[end][2]))
+            end
+
+            return root
+        end
+
+    xₗ, xᵤ = getinterval(Arb, x)
+    xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
+    ϵ = eps(x)
+
+    if iszero(x)
+        root = root_zero
+    elseif !iswide(x)
+        root = compute_root(x) # In this case x never overlaps zero
+    elseif xᵤ < ϵ
+        root = Arb((compute_root(ϵ), root_zero))
+    elseif xₗ < eps(Arb)
+        root = Arb((compute_root(xᵤ), root_zero))
+    else
+        root = Arb((compute_root(xᵤ), compute_root(xₗ)))
+    end
+
+    return root
+end
+
+"""
+    T01(u0::BHAnsatz, ::Ball; δ1, skip_div_u0)
+
+Return a function for computing an enclosure of
+```
+inv(u0(x)) * U1(x) / (π * x* sqrt(log(1 + inv(x))))
+```
+
+It computes the `inv(u0(x))` separately and then splits the rest into
+the two terms
+```
+x * (U11(x) + U121(x)) / (π * sqrt(log(1 + inv(x))))
+```
+and
+```
+x * U122(x) / (π * sqrt(log(1 + inv(x))))
+```
+computed by [`T011`](@ref) and [`T012`](@ref) respectively.
+
+# Arguments
+- `δ1::Arb = 1e-5`: Determines the interval of integration for
+  `U121(x)` and `U122(x)`.
+- `skip_div_u0::Bool = false`: If true it skips the factor
+  `inv(u0(x))`.
+"""
+function T01(u0::BHAnsatz{Arb}, evaltype::Ball; δ1::Arb = Arb(1e-5), skip_div_u0 = false)
+    f = T011(u0, evaltype, skip_div_u0 = true; δ1)
+    g = T012(u0, evaltype, skip_div_u0 = true; δ1)
 
     if skip_div_u0
-        return x -> f(x) + g(x) + h(x)
+        return x::Arb -> f(x) + g(x)
     else
-        return x -> (f(x) + g(x) + h(x)) / u0(x)
+        return x::Arb -> (f(x) + g(x)) / u0(x)
     end
 end
 
@@ -386,54 +469,43 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 end
 
 """
-    T011(u0::BHAnsatz; δ0)
-Computes the integral T_{0,1,1} from the paper.
+    T011(u0::BHAnsatz; δ1, skip_div_u0)
 
-It uses the fact that the integrand is strictly increasing on the
-interval `[0, 0.5]` for every value of `x` and 0 at `x = 0`. This
-allows us to enclose the integrand on the interval which then easily
-gives an enclosure of the integral by multiplying with the size of the
-interval.
+Return a function for computing an enclosure of
+```
+inv(u0(x)) * x * (U11(x) + U121(x)) / (π * sqrt(log(1 + inv(x))))
+```
+where
+```
+U11(x) = ∫ log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2) * t * sqrt(log(1 + inv(x * t))) dt
+U121(x) = ∫ -log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2) * t * sqrt(log(1 + inv(x * t))) dt
+```
+and `U11(x)` is integrated on ``[0, r_x]`` and `U121(x)` on ``[r_x, 1
+- δ1]``. Here `r_x` is the unique root of the integrand on the
+interval ``[0, 1]``, as computed by [`_integrand_compute_root`](@ref).
 
-**PROVE**: That the integrand indeed is increasing on the said interval.
+# Arguments
+- `δ1::Arb = 1e-5`: Determines the interval of integration for `U121(x)`
+- `skip_div_u0::Bool = false`: If true it skips the factor
+  `inv(u0(x))`.
+
+# Implementation
+This is done by directly computing the integrals using
+[`Arblib.integrate`](@ref).
+
+The only thing to take care of is that the integrand is non-analytic
+at `t = 0`. In that case we make use of monotonicity to enclose the
+integrand. We split it as
+```
+log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2)) * t * sqrt(log(1 + inv(x * t)))
+- 2log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
+```
+For the first term we use that `t * sqrt(log(1 + inv(x * t)))` is
+increasing for `t < inv(x * (exp(1 / 2) - 1))`. For the second term we
+use that the whole term is decreasing for `t < XXX`
+- FIXME: Determine when the second term is decreasing.
 """
-function T011(u0::BHAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u0 = false)
-    δ0 < 0.5 || Throw(ArgumentError("δ0 must be less than 0.5, got $δ0"))
-    return x -> begin
-        x = convert(Arb, x)
-
-        integrand(t) =
-            abs(log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)) *
-            t *
-            sqrt(log((t * x + 1) / (t * x)))
-
-        integral = δ0 * Arb((0, integrand(δ0)))
-
-        res = integral * x / (π * sqrt(log((x + 1) / x)))
-        if skip_div_u0
-            return res
-        else
-            return res / u0(x)
-        end
-    end
-end
-
-"""
-    T012(u0::BHAnsatz; δ0, δ1)
-Returns a function such that `T012(u0; δ0, δ1)(x)` computes the integral
-T_{0,1,2} from the paper.
-
-This is done by directly computing the integral with the integrator in
-Arb. Accounting for the fact that the integrand is non-analytic at `t
-= x`.
-"""
-function T012(
-    u0::BHAnsatz,
-    ::Ball = Ball();
-    δ0::Arb = Arb(1e-5),
-    δ1::Arb = Arb(1e-5),
-    skip_div_u0 = false,
-)
+function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     # This uses a hard coded version of the weight so just as an extra
     # precaution we check that it seems to be the same as the one
     # used.
@@ -441,84 +513,66 @@ function T012(
         @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
     end
 
-    a = δ0
-    b = 1 - δ1
+    return x::Arb -> begin
+        # IMPROVE: Use inplace arithmetic to a larger extent
+        integrand(t; analytic) = begin
+            if Arblib.contains_zero(t)
+                analytic && return Arblib.indeterminate!(zero(t))
 
-    return x -> begin
-        x = convert(Arb, x)
+                @assert isreal(t)
+                t = real(t)
 
-        # Variables for storing temporary values during integration
-        x_complex = convert(Acb, x)
-        xdiv2 = x_complex / 2
-        tmp = zero(x_complex)
-        tx = zero(x_complex)
+                # Check that t * sqrt(log(1 + inv(x * t))) is monotone
+                t < inv(x * (exp(Arb(1 // 2)) - 1)) ||
+                    return Arblib.indeterminate!(zero(t))
 
-        integrand!(res, t; analytic::Bool) = begin
-            # The code below is an inplace version of the following code
-            #res = log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(t * x / 2)^2)
-            #Arblib.real_abs!(res, res, analytic)
-            #weight = t * Arblib.sqrt_analytic!(zero(t), log((t * x + 1) / (t * x)), analytic)
-            #return res * weight
+                # Check that log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
+                # is monotone
+                # FIXME: Properly implement this check
+                true || return Arblib.indeterminate!(zero(t))
 
-            # Check that the real part of t is strictly between 0 and
-            # 1 or return an indeterminate result
-            if !(Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1)
-                Arblib.indeterminate!(res)
-                return
+                tᵤ = ubound(Arb, t)
+
+                # Enclosure of t * sqrt(log(1 + inv(x * t)))
+                tsqrt = Arb((0, tᵤ * sqrt(log(1 + inv(x * tᵤ)))))
+
+                # Enclosure of log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
+                logsin_tsqrt =
+                    Arb((log(sin(x * tᵤ / 2)) * tᵤ * sqrt(log(1 + inv(x * tᵤ))), 0))
+
+                return log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2)) * tsqrt +
+                       logsin_tsqrt
+            else
+                return log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2) *
+                       t *
+                       sqrt(log(1 + inv(x * t)))
             end
-
-            Arblib.mul!(tx, t, x_complex)
-
-            # res = sin((1 - t) * x / 2)
-            Arblib.neg!(tmp, t)
-            Arblib.add!(tmp, tmp, 1)
-            Arblib.mul!(tmp, tmp, xdiv2)
-            Arblib.sin!(res, tmp)
-
-            # res *= sin((1 + t) * x / 2)
-            Arblib.add!(tmp, t, 1)
-            Arblib.mul!(tmp, tmp, xdiv2)
-            Arblib.sin!(tmp, tmp)
-            Arblib.mul!(res, res, tmp)
-
-            # res /= sin(t * x / 2)^2
-            Arblib.mul_2exp!(tmp, tx, -1)
-            Arblib.sin!(tmp, tmp)
-            Arblib.sqr!(tmp, tmp)
-            Arblib.div!(res, res, tmp)
-
-            Arblib.log!(res, res)
-
-            Arblib.real_abs!(res, res, analytic)
-
-            # tmp = t * sqrt(log((tx + 1) / tx))
-            Arblib.add!(tmp, tx, 1)
-            Arblib.div!(tmp, tmp, tx)
-            Arblib.log!(tmp, tmp)
-            Arblib.sqrt_analytic!(tmp, tmp, analytic)
-            Arblib.mul!(tmp, tmp, t)
-
-            Arblib.mul!(res, res, tmp)
-
-            return
         end
 
-        res = Arblib.integrate!(
-            integrand!,
-            zero(x_complex),
-            a,
-            b,
-            check_analytic = true,
-            rtol = 1e-10,
-            atol = 1e-10,
-            warn_on_no_convergence = false,
-            opts = Arblib.calc_integrate_opt_struct(0, 10_000, 0, 0, 0),
+        # Compute root of integrand
+        r_x = _integrand_compute_root(u0, x)
+        @assert r_x < 1 - δ1
+
+        rtol = 1e-10
+        atol = 1e-10
+
+        # IMPROVE: Integrate to lower and upper bound of r_x and add
+        # remaining part separately.
+        U11 =
+            real(Arblib.integrate(integrand, 0, r_x, check_analytic = true; rtol, atol))
+
+        U121 = real(
+            Arblib.integrate(
+                (t; analytic) -> -integrand(t; analytic),
+                r_x,
+                1 - δ1,
+                check_analytic = true;
+                rtol,
+                atol,
+            ),
         )
 
-        @assert !isfinite(res) || isreal(res)
-        res = real(res)
-
-        res = res * x / (π * sqrt(log((x + 1) / x)))
+        res = x * (U11 + U121) / (π * sqrt(log(1 + inv(x))))
 
         if skip_div_u0
             return res
@@ -529,105 +583,66 @@ function T012(
 end
 
 """
-    T013(u0::BHAnsatz; δ1)
-Computes the integral T_{0,1,3} from the paper.
+    T012(u0::BHAnsatz; δ1, skip_div_u0)
 
+Return a function for computing an enclosure of
+```
+inv(u0(x)) * x * U122(x) / (π * sqrt(log(1 + inv(x))))
+```
+where
+```
+U122(x) = ∫ -log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2) * t * sqrt(log(1 + inv(x * t))) dt
+```
+in the interval ``[1 - δ1, 1]``.
+
+# Arguments
+- `δ1::Arb = 1e-5`: Determines the interval of integration.
+- `skip_div_u0::Bool = false`: If true it skips the factor
+  `inv(u0(x))`.
+
+# Implementation
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
 interval.
 
-We are left with integrating the log-term. By noticing that the value
-inside the absolute value is negative so we can remove the absolute
-value by putting a minus sign. This allows us to split the integrand
-into three terms
-1. `log(sin(x * (1 - t) / 2))`
-2. `log(sin(x * (1 + t) / 2))`
-3. `-2log(sin(x * t / 2))`
-
-For the first term we have the inequality
+Using that `clausenc(x, 1) = -log(2sin(abs(x) / 2))` we are left with
 ```
-c * x * (1 - t) / 2 <= sin(x * (1 - t) / 2) <= x * (1 - t) / 2
+∫ clausenc(x * (1 - t) / 2, 1) + clausenc(x * (1 + t) / 2, 1) - 2clausenc(x * t / 2, 1) dt
 ```
-which holds for `c = sin(x * δ1 / 2) / (x * δ1 / 2)` on `0 <= x <= π`
-and `1 - δ1 <= t <= 1`. This gives us
+on the interval ``[1 - δ1, 1]``. A primitive function can be
+determined to be
 ```
-log(c * x * (1 - t) / 2) <= log(sin(x * (1 - t) / 2)) <= log(x * (1 - t) / 2)
+2 / x * (-clausens(x * (1 - t) / 2, 2) + clausens(x * (1 + t) / 2, 2) - 2clausens(x * t / 2, 2))
 ```
-and the same inequality holds after integration for `1 - δ1` to `1`
-and gives us
+This gives us the integral
 ```
-δ1 * (log(c * x * δ1 / 2) - 1) <= ∫log(sin(x * (1 - t) / 2)) <= δ1 * (log(x * δ1 / 2) - 1)
+2 / x * (
+    (-clausens(0, 2) + clausens(x, 2) - 2clausens(x / 2, 2))
+    - (-clausens(x * δ1 / 2, 2) + clausens(x * (2 - δ1) / 2, 2) - 2clausens(x * (1 - δ1) / 2, 2))
+)
 ```
-
-The third term is well behaved for any `x` bounded away from zero and
-`t` on the interval. We can thus enclose the integral by directly
-enclosing the integrand on the interval and multiplying by the size of
-the interval.
-
-If `x` is bounded away from `π` then the second term is also well
-behaved and we can treat it similarly to the third term. However, if
-`x` overlaps with `π` then it becomes singular and we have to handle
-it differently. We first do the change of variables `t → 1 - s`,
-together with the identity `sin(x) = sin(π - x)`, giving us the
-integral `∫ log(sin(π - x + x * s / 2)) ds` from `0` to ` δ1`. We then
-take the very crude upper bound `sin(π - x + x * s / 2) <= 1` and for
-the lower bound we notice that `sin(π - x + x * s / 2)` is minimized
-by taking `x = π`, giving us the lower bound `sin(x * s / 2) <= sin(x
-- x * s / 2), which then gives the lower bound `x * s / 2`. This means
-  we have the bounds
-```
-x * s / 2 <= sin(π - x + x * s / 2) <= 1
-```
-and hence
-```
-log(x * s / 2) <= log(sin(π - x + x * s / 2)) <= log(1) = 0
-```
-After integration we thus get
-```
-δ1 * (log(c * x * δ1 / 2) - 1) <= ∫log(sin(π - x + x * s / 2)) <= 0
-```
-We use this bound if `x` is less than `sqrt(eps(x))` away from `π`.
-
-- **IMPROVE**: The upper bound for when `x` contains `π` could be
-    improved, but this is probably not needed.
-- **PROVE**: There are several minor details here that might need to
-    be proved.
+Since we multiply this with `x` we can explicitly cancel the `x`
+factor.
 """
-function T013(u0::BHAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
-    return x -> begin
-        x = convert(Arb, x)
-
-        weight_factor = let t = Arb((1 - δ1, 1))
-            -t * sqrt(log((t * x + 1) / (t * x)))
+function T012(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
+    return x::Arb -> begin
+        # Enclosure of t * sqrt(log(1 + inv(x * t))) on the interval
+        # [1 - δ1, 1]
+        K1 = let t = Arb((1 - δ1, 1))
+            t * sqrt(log(1 + inv(x * t)))
         end
 
-        part1 = let c = sin(x * δ1 / 2) / (x * δ1 / 2)
-            part1_lower = δ1 * (log(c * x * δ1 / 2) - 1)
-            part1_upper = δ1 * (log(x * δ1 / 2) - 1)
-
-            Arb((part1_lower, part1_upper))
+        # Enclosure of integral of Clausen functions multiplied with x
+        integral_mul_x = ArbExtras.enclosure_series(x, degree = 4) do y
+            2(
+                (-clausens(Arb(0), 2) + clausens(y, 2) - 2clausens(y / 2, 2)) - (
+                    -clausens(y * δ1 / 2, 2) + clausens(y * (2 - δ1) / 2, 2) -
+                    2clausens(y * (1 - δ1) / 2, 2)
+                )
+            )
         end
 
-        part2 = let t = Arb((1 - δ1, 1))
-            if x < π - sqrt(eps(x))
-                log(sin(x * (1 + t) / 2)) * δ1
-            else
-                c = sin(x * δ1 / 2) / (x * δ1 / 2)
-
-                part2_lower = δ1 * (log(c * x * δ1 / 2) - 1)
-                part2_upper = zero(x)
-
-                Arb((part2_lower, part2_upper))
-            end
-        end
-
-        part3 = let t = Arb((1 - δ1, 1))
-            -2log(sin(x * t / 2)) * δ1
-        end
-
-        integral = weight_factor * (part1 + part2 + part3)
-
-        res = integral * x / (π * sqrt(log((x + 1) / x)))
+        res = K1 * integral_mul_x / (π * sqrt(log((1 + inv(x)))))
 
         if skip_div_u0
             return res
