@@ -262,13 +262,6 @@ This expression has a removable singularities that we handle using
 [`fx_div_x`](@ref).
 """
 function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Arb(2e-1))
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert Arblib.overlaps(u0.w(x), x * sqrt(log(1 + inv(x))))
-    end
-
     0 < ϵ < 1 // 2 || throw(DomainError(ϵ, "must have 0 < ϵ < 1 / 2"))
 
     inv_u0 = inv_u0_normalised(u0; ϵ)
@@ -302,7 +295,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
             2log(sinc(Arb(1 // 2)))
         end
 
-    # Enclosure of ∫y * sqrt(log((y + 1) / y)) dy from 0 to π
+    # Enclosure of ∫y * sqrt(log(1 + inv(y))) dy from 0 to π
     c2 = begin
         integrand_c2(y; analytic) = begin
             if Arblib.contains_zero(y)
@@ -520,13 +513,6 @@ should be a thin ball.
   `inv(u0(x))`.
 """
 function T022(u0::BHAnsatz, ::Ball = Ball(); skip_div_u0 = false)
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
-    end
-
     return (x::Arb, a::Arb) -> begin
         # Allocate space to store temporary variables in integration
         tmp = Acb()

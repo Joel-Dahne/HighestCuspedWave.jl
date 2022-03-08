@@ -437,13 +437,6 @@ function F0(
 )
     @assert ϵ < 1
 
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
-    end
-
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
     Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
 
@@ -506,18 +499,18 @@ function F0(
         push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff_Du0))
     end
 
-    # The function inv(sqrt(log((abs(x) + 1) / abs(x))))
+    # The function inv(sqrt(log(1 + inv(x))))
     w!(res::Arb, x::Arb) = begin
-        Arblib.add!(res, x, 1)
-        Arblib.div!(res, res, x)
+        Arblib.inv!(res, x)
+        Arblib.add!(res, res, 1)
         Arblib.log!(res, res)
         Arblib.sqrt!(res, res)
         return Arblib.inv!(res, res)
     end
     w!(res::ArbSeries, x::ArbSeries) = begin
         len = length(x)
-        Arblib.add!(res, x, 1)
-        Arblib.div_series!(res, res, x, len)
+        Arblib.inv_series!(res, x, len)
+        Arblib.add!(res, res, 1)
         Arblib.log_series!(res, res, len)
         Arblib.sqrt_series!(res, res, len)
         return Arblib.inv_series!(res, res, len)

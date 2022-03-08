@@ -300,13 +300,6 @@ W(x) * U1(x) <= inv(sqrt(log(1 + inv(x)))) * (
 ```
 """
 function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Arb(2e-1))
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert Arblib.overlaps(u0.w(x), x * sqrt(log(1 + inv(x))))
-    end
-
     # This also checks that ϵ < 1
     inv_u0 = inv_u0_normalised(u0; ϵ)
 
@@ -505,13 +498,6 @@ increasing for `t < inv(x * (exp(1 / 2) - 1))`. For the second term we
 use that the whole term is decreasing for `t < inv(10x)`.
 """
 function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert isequal(u0.w(x), abs(x) * sqrt(log((abs(x) + 1) / abs(x))))
-    end
-
     return x::Arb -> begin
         # Precompute and preallocate for integrand
         xdiv2 = Arblib.mul_2exp!(zero(x), x, -1)
