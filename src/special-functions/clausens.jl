@@ -319,12 +319,11 @@ If `x` contains zero and we don't have `s > 1` it returns an
 indeterminate result.
 - **IMPROVE:** Use that for odd negative integers it is exactly zero.
 
-If `x` contains zero and `s > 1` it uses the asymptotic expansion at
-`x = 0` from [`clausens_expansion`](@ref). This is unless `x` is wide
-enough to also include `π`, in which case it uses the trivial upper
-bound of the absolute value given by `zeta(s)`. If `s == 2` then
-[`clausens_expansion`](@ref) doesn't give finite values and in this
-case we use the known expansion for this case.
+If `x` contains zero and `s > 1` it first checks if `x` contains `π`,
+in which case it returns a trivial bound. Otherwise it checks if it is
+increasing by checking if `clausenc(abs_ubound(x), s - 1) > 0`, this
+uses the fact that `clausenc(x, s - 1)` is decreasing on ``[0, π]``.
+If it's not monotone it returns a trivial bound.
 
 If `x` doesn't contain zero we are assured by
 [`_reduce_argument_clausen`](@ref) that `0 < x < 2π`.
@@ -360,56 +359,13 @@ function clausens(x::Arb, s::Arb)
             return union(-z, z)
         elseif iszero(x)
             return zero(x)
+        elseif Arblib.ispositive(clausenc(abs_ubound(Arb, x), s - 1))
+            # Monotone on the interval
+            xₗ, xᵤ = getinterval(Arb, x)
+            return Arb((-clausens(-xₗ, s), clausens(xᵤ, s)))
         else
-            # Compute asymptotic expansion
-            M = 4
-            C, e, P, E = clausens_expansion(x, s, M)
-
-            if s == 2
-                # Handle special case when s = 2 which is needed in BH
-                # The term C * sign(y) * abs(y)^e and P[1] * x collide
-                # and blow up. They are instead given by -x * log(x)
-                P[1] = 0
-                # Evaluate asymptotic expansion on [lbound(x), 0]
-                res_left = let x = Arb((lbound(x), 0)), xₗ = lbound(Arb, x)
-                    # Enclosure of x * log(-x)
-                    # It has a critical point at -exp(-1)
-                    xlogx = if xₗ > -exp(Arb(-1))
-                        Arb((0, xₗ * log(-xₗ)))
-                    else
-                        Arblib.indeterminate!(xₗ)
-                    end
-                    -xlogx + x + P(x) + E * x^(2M + 1)
-                end
-                # Evaluate asymptotic expansion on [0, ubound(x)]
-                res_right = let x = Arb((0, ubound(x))), xᵤ = ubound(Arb, x)
-                    # Enclosure of x * log(x)
-                    # It has a critical point at exp(-1)
-                    xlogx = if xᵤ < exp(Arb(-1))
-                        Arb((xᵤ * log(xᵤ), 0))
-                    else
-                        Arblib.indeterminate!(xᵤ)
-                    end
-
-                    -xlogx + x + P(x) + E * x^(2M + 1)
-                end
-
-                return union(res_left, res_right)
-            end
-
-            # IMPROVE: We could compute tighter enclosures by
-            # evaluating these more carefully, but this is likely not
-            # needed.
-            # Evaluate asymptotic expansion on [lbound(x), 0]
-            res_left = let x = Arb((lbound(x), 0))
-                -C * abspow(x, e) + P(x) + E * x^(2M + 1)
-            end
-            # Evaluate asymptotic expansion on [0, ubound(x)]
-            res_right = let x = Arb((0, ubound(x)))
-                C * abspow(x, e) + P(x) + E * x^(2M + 1)
-            end
-
-            return union(res_left, res_right)
+            z = zeta(s) # Trivial upper bound
+            return union(-z, z)
         end
     end
 
