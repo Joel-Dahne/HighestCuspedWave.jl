@@ -10,7 +10,7 @@ It requires that `0 <= x < 1`, any negative parts of `x` are ignored.
 The terms are stored as `((p, q, i, j, k, l, m), y)`. The parameters `(i, j,
 k l, m)` correspond to the term
 ```
-y * x^(i * α + j * p0 - k*u0.v0.v0.α + l*u0.v0.v0.p0 + m)
+y * x^(i * α + j * p0 - k*u0.v0.α + l*u0.v0.p0 + m)
 ```
 where `α ∈ (-1, -1 + u0.ϵ]` and `p0 = 1 + α + (1 + α)^2 / 2`.
 
@@ -76,7 +76,7 @@ function eval_expansion(
     end
 
     # In-place method for computing the exponent i * α + j * p0 -
-    # k*u0.v0.v0.α + l*u0.v0.v0.p0 + m in a way that also accounts for
+    # k*u0.v0.α + l*u0.v0.p0 + m in a way that also accounts for
     # the dependence between α and p0
     exponent = zero(α)
 
@@ -118,9 +118,9 @@ function eval_expansion(
             Arblib.addmul!(exponent, p0mα, j)
         end
 
-        # Add - k*u0.v0.v0.α + l*u0.v0.v0.p0
-        Arblib.submul!(exponent, u0.v0.v0.α, k)
-        Arblib.addmul!(exponent, u0.v0.v0.p0, l)
+        # Add - k*u0.v0.α + l*u0.v0.p0
+        Arblib.submul!(exponent, u0.v0.α, k)
+        Arblib.addmul!(exponent, u0.v0.p0, l)
 
         return exponent
     end
@@ -268,16 +268,16 @@ with `l >= 1` and `m >= 2`
 It first considers all keys of the form `(0, 0, 0, 0, 1, l, 0)`, they
 correspond to terms of the form
 ```
-y * x^^(-u0-v0.v0.α + l*u0.v0.v0.p0)
+y * x^^(-u0 - v0.α + l*u0.v0.p0)
 ```
 Let `y₁` be the coefficient for `l = 1` and `S` be the sum of the
 coefficients with `l > 1`. It checks that `S` is negative and that `y₁
 + S > 0`, ensuring us that this sum is positive for all `0 < x < 1`
-and a lower bound is given by `(y₁ + S) * x^(-u0.v0.v0.α +
-u0.v0.v0.p0)` for all `0 < x < 1`.
+and a lower bound is given by `(y₁ + S) * x^(-u0.v0.α +
+u0.v0.p0)` for all `0 < x < 1`.
 
 The next step is to prove that the sum of the terms with `m > 0` are
-smaller than (y₁ + S) * x^(-u0.v0.v0.α + u0.v0.v0.p0)`. This is done
+smaller than (y₁ + S) * x^(-u0.v0.α + u0.v0.p0)`. This is done
 by noting that it's enough to check it for `x = ϵ`
 
 **TODO:** Check that this is correct.
@@ -288,7 +288,7 @@ function expansion_ispositive(
     ϵ::Arb,
 )
     @assert 0 < ϵ < 1
-    @assert 0 < -u0.v0.v0.α + u0.v0.v0.p0 < 2
+    @assert 0 < -u0.v0.α + u0.v0.p0 < 2
 
     # Isolate all keys of the from (0, 0, 0, 0, 1, l, 0)
     expansion_1 = filter(expansion) do ((p, q, i, j, k, l, m), y)
@@ -312,7 +312,7 @@ function expansion_ispositive(
     S < 0 || return false
     y₁ + S > 0 || return false
 
-    a = (y₁ + S) * ϵ^(-u0.v0.v0.α + u0.v0.v0.p0)
+    a = (y₁ + S) * ϵ^(-u0.v0.α + u0.v0.p0)
     b = eval_expansion(u0, expansion_2, ϵ)
 
     a > b || return false
@@ -368,13 +368,13 @@ function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
     # Tail term
 
     # Clausen terms
-    for j = 1:u0.v0.v0.N0
-        s = 1 - u0.v0.v0.α + j * u0.v0.v0.p0
-        res += u0.v0.v0.a[j] * clausencmzeta(x, s)
+    for j = 1:u0.v0.N0
+        s = 1 - u0.v0.α + j * u0.v0.p0
+        res += u0.v0.a[j] * clausencmzeta(x, s)
     end
 
     # Fourier terms
-    for n = 1:u0.v0.N
+    for n = 1:u0.v0.N1
         res += u0.v0.b[n] * (cos(n * x) - 1)
     end
 
@@ -498,25 +498,25 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # Tail term
 
     # Clausen terms
-    for j = 1:u0.v0.v0.N0
-        s = 1 - u0.v0.v0.α + j * u0.v0.v0.p0
+    for j = 1:u0.v0.N0
+        s = 1 - u0.v0.α + j * u0.v0.p0
         C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
-        res[(0, 0, 0, 0, 1, j, 0)] = C * u0.v0.v0.a[j]
+        res[(0, 0, 0, 0, 1, j, 0)] = C * u0.v0.a[j]
         for m = 1:M-1
-            res[(0, 0, 0, 0, 0, 0, 2m)] += p[2m] * u0.v0.v0.a[j]
+            res[(0, 0, 0, 0, 0, 0, 2m)] += p[2m] * u0.v0.a[j]
         end
-        res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
+        res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.a[j]
     end
 
     # Fourier terms
-    if !iszero(u0.v0.N)
+    if !iszero(u0.v0.N1)
         for m = 1:M-1
             res[(0, 0, 0, 0, 0, 0, 2m)] +=
-                (-1)^m * sum(Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) / factorial(2m)
+                (-1)^m * sum(Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N1) / factorial(2m)
         end
         Arblib.add_error!(
             res[(0, 0, 0, 0, 0, 0, 2M)],
-            sum(Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) / factorial(2M),
+            sum(Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N1) / factorial(2M),
         )
     end
 
@@ -583,13 +583,13 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
             # from _clausenc_zeta.
 
             # Clausen terms
-            for j = 1:u0.v0.v0.N0
-                s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
-                res -= u0.v0.v0.a[j] * clausencmzeta(x, s)
+            for j = 1:u0.v0.N0
+                s = 1 - α - u0.v0.α + j * u0.v0.p0
+                res -= u0.v0.a[j] * clausencmzeta(x, s)
             end
 
             # Fourier terms
-            for n = 1:u0.v0.N
+            for n = 1:u0.v0.N1
                 res -= u0.v0.b[n] * n^α * (cos(n * x) - 1)
             end
         end
@@ -644,12 +644,12 @@ This gives good enclosures for the Fourier terms. For the Clausen
 terms it give good enclosures unless `j` is small. For small values of
 `j` the two terms
 ```
-gamma(α + u0.v0.v0.α - j * u0.v0.v0.p0) * cospi((α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2) *
-    x^-(α + u0.v0.v0.α - j * u0.v0.v0.p0)
+gamma(α + u0.v0.α - j * u0.v0.p0) * cospi((α + u0.v0.α - j * u0.v0.p0) / 2) *
+    x^-(α + u0.v0.α - j * u0.v0.p0)
 ```
 and
 ```
--zeta(-1 - α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2 * x^2
+-zeta(-1 - α + u0.v0.α - j * u0.v0.p0) / 2 * x^2
 ```
 have very large cancellations.
 
@@ -679,10 +679,8 @@ function H(
 )
     @assert M >= 3
 
-    skip_singular_j_until > u0.v0.v0.N0 && throw(
-        ArgumentError(
-            "can't skip more j-terms than there are, j = $j, N0 = $(u0.v0.v0.N0)",
-        ),
+    skip_singular_j_until > u0.v0.N0 && throw(
+        ArgumentError("can't skip more j-terms than there are, j = $j, N0 = $(u0.v0.N0)"),
     )
 
     # Enclosure of α
@@ -749,39 +747,39 @@ function H(
         # Tail term
 
         # Clausen terms
-        for j = 1:u0.v0.v0.N0
-            s = 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0
+        for j = 1:u0.v0.N0
+            s = 1 - α - u0.v0.α + j * u0.v0.p0
             C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
             if j > skip_singular_j_until
                 if isone(j) && approximate_j_one_singular
-                    C2, _, p2, _ = let s = 1 - (-1 + u0.ϵ) - u0.v0.v0.α + j * u0.v0.v0.p0
-                            clausenc_expansion(x, s, M, skip_constant = true)
-                        end
-                    res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.v0.a[j]
-                    res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.v0.a[j]
+                    C2, _, p2, _ = let s = 1 - (-1 + u0.ϵ) - u0.v0.α + j * u0.v0.p0
+                        clausenc_expansion(x, s, M, skip_constant = true)
+                    end
+                    res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.a[j]
+                    res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.a[j]
                 else
-                    res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.v0.a[j]
-                    res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.v0.a[j]
+                    res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.a[j]
+                    res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.a[j]
                 end
             end
 
             for m = 2:M-1
-                res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.v0.a[j]
+                res[(0, 0, 0, 0, 0, 0, 2m)] -= p[2m] * u0.v0.a[j]
             end
-            res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.v0.a[j]
+            res[(0, 0, 0, 0, 0, 0, 2M)] += E * u0.v0.a[j]
         end
 
         # Fourier terms
-        if !iszero(u0.v0.N)
+        if !iszero(u0.v0.N1)
             for m = 1:M-1
                 res[(0, 0, 0, 0, 0, 0, 2m)] -=
-                    (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N) /
+                    (-1)^m * sum(n^α * Arb(n)^(2m) * u0.v0.b[n] for n = 1:u0.v0.N1) /
                     factorial(2m)
             end
             Arblib.add_error!(
                 res[(0, 0, 0, 0, 0, 0, 2M)],
-                sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N) / factorial(2M),
+                sum(n^α * Arb(n)^(2M) * abs(u0.v0.b[n]) for n = 1:u0.v0.N1) / factorial(2M),
             )
         end
 
@@ -1054,12 +1052,12 @@ below.
 ## Handling `T2`: tail Clausen with small `j`
 For small values of `j` the two terms
 ```
-gamma(α + u0.v0.v0.α - j * u0.v0.v0.p0) * cospi((α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2) *
-    x^-(α + u0.v0.v0.α - j * u0.v0.v0.p0)
+gamma(α + u0.v0.α - j * u0.v0.p0) * cospi((α + u0.v0.α - j * u0.v0.p0) / 2) *
+    x^-(α + u0.v0.α - j * u0.v0.p0)
 ```
 and
 ```
--zeta(-1 - α + u0.v0.v0.α - j * u0.v0.v0.p0) / 2 * x^2
+-zeta(-1 - α + u0.v0.α - j * u0.v0.p0) / 2 * x^2
 ```
 in the asymptotic expansion of the Clausen functions in the tail have
 very large cancellations. It is therefore beneficial to treat them
@@ -1071,7 +1069,7 @@ separately.
 
 We are thus interested in bounding
 ```
--u0.v0.v0.a[j] * clausenc(x, 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0) /
+-u0.v0.a[j] * clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0) /
     (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
 ```
 We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` by
@@ -1081,9 +1079,9 @@ compute at the endpoints of `x`. For `x = 0` it is given by
 approach as in [`inv_u0_bound`](@ref) for enclosing it. We are then
 interested in enclosing the rest.
 
-Let `r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1`, then `r > 0` and for
+Let `r = -u0.v0.α + j * u0.v0.p0 - 1`, then `r > 0` and for
 small values of `j` it is very close to zero. We have `1 - α -
-u0.v0.v0.α + j * u0.v0.v0.p0 = 2 - α + r`. The sum of the first two
+u0.v0.α + j * u0.v0.p0 = 2 - α + r`. The sum of the first two
 terms in the asymptotic expansion of the Clausen is then given by
 ```
 gamma(α - 1 - r) * cospi((α - 1 - r) / 2) * x^(1 - α + r) -
@@ -1351,7 +1349,7 @@ function F0(
     # IMPROVE: Compute tighter enclosure when α + 1 - r is close to
     # zero
     T21_α = map(1:skip_singular_j_until) do j
-        let r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+        let r = -u0.v0.α + j * u0.v0.p0 - 1
             ArbExtras.enclosure_series(α, degree = 4) do α
                 let res = -zeta_deflated(-α + r, one(Arb)) / 2
                     if (α isa Arb && Arblib.contains_zero(α + 1 - r)) ||
@@ -1374,7 +1372,7 @@ function F0(
 
     # Enclosure of zeta_deflated(-α + r) for j = 1:skip_singular_j_until
     zeta_deflated_mαpr = map(1:skip_singular_j_until) do j
-        let r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+        let r = -u0.v0.α + j * u0.v0.p0 - 1
             ArbExtras.enclosure_series(α -> zeta_deflated(-α + r, one(r)), α, degree = 8)
         end
     end
@@ -1469,10 +1467,10 @@ function F0(
         end
 
         # Enclosure of the two singular terms in the expansion of
-        # clausenc(x, 1 - α - u0.v0.v0.α + j * u0.v0.v0.p0) for
+        # clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0) for
         # j = 1:skip_singular_j_until
         T2s = map(1:skip_singular_j_until) do j
-            let r = -u0.v0.v0.α + j * u0.v0.v0.p0 - 1
+            let r = -u0.v0.α + j * u0.v0.p0 - 1
                 # Enclosure of
                 # (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x)
                 T21 = T21_α[j] * abspow(x, r) * invlogx
@@ -1518,7 +1516,7 @@ function F0(
 
                 term *= invgamma1mxp0
 
-                -u0.v0.v0.a[j] * term
+                -u0.v0.a[j] * term
             end
         end
 
