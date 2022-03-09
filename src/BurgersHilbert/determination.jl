@@ -1,5 +1,5 @@
 """
-    findbs!(u0::BHAnsatz)
+    findbs(u0::BHAnsatz)
 Find values of `b[n]` to minimize the defect `D(u0)`.
 
 This is done by solving the non-linear system given by requiring that
@@ -7,10 +7,10 @@ This is done by solving the non-linear system given by requiring that
 
 For performance reasons this is always done in `Float64`
 """
-function findbs!(u0::BHAnsatz{Float64})
-    u0.N == 0 && return u0
+function findbs(u0::BHAnsatz{Float64})
+    u0.N1 == 0 && return Float64[]
 
-    n = u0.N
+    n = u0.N1
     xs = π * (1:2:2n-1) / 2n
 
     # Function for computing D(u0) on the points xs. It takes the
@@ -18,7 +18,7 @@ function findbs!(u0::BHAnsatz{Float64})
     f = D(u0, xs)
 
     # The initial value we use depends on if u0.v0 is set or not
-    if isnothing(u0.v0)
+    if iszero(u0.N0)
         # Initial values which originally came from following the branch
         # but are now taken as given.
         initial = [
@@ -41,17 +41,8 @@ function findbs!(u0::BHAnsatz{Float64})
 
     sol.f_converged || @warn "Solution did not converge for u0.N = $n" sol
 
-    copy!(u0.b, sol.zero)
-
-    return u0
+    return sol.zero
 end
 
-function findbs!(u0::BHAnsatz)
-    u0_float = convert(BHAnsatz{Float64}, u0)
-
-    findbs!(u0_float)
-
-    copy!(u0.b, u0_float.b)
-
-    return u0
-end
+findbs(u0::BHAnsatz{T}) where {T} =
+    convert(Vector{T}, findbs(convert(BHAnsatz{Float64}, u0)))

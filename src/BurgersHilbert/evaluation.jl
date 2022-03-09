@@ -2,7 +2,7 @@
     eval_expansion(u0::BHAnsatz, expansion, x)
 
 Evaluate the given expansion. The term `((i, m, k, l), y)` is
-evaluated to `y * log(abs(x))^i * abs(x)^(-k*u0.v0.α + l*u0.v0.p0 +
+evaluated to `y * log(abs(x))^i * abs(x)^(-k*u0.α + l*u0.p0 +
 m)` and then they are all summed.
 
 In general `x` needs to be given both when computing the expansion and
@@ -34,7 +34,7 @@ function eval_expansion(
         if iszero(k) && iszero(l)
             exponent = m
         else
-            exponent = -k * u0.v0.α + l * u0.v0.p0 + m
+            exponent = -k * u0.α + l * u0.p0 + m
         end
 
         if iszero(i)
@@ -197,15 +197,13 @@ function (u0::BHAnsatz{T})(x, ::Ball) where {T}
     res = u0.a0 * clausencmzeta(x, 2, 1)
 
     # Clausen terms
-    if !isnothing(u0.v0)
-        for j = 1:u0.v0.N0
-            s = 1 - u0.v0.α + j * u0.v0.p0
-            res += u0.v0.a[j] * clausencmzeta(x, s)
-        end
+    for j = 1:u0.N0
+        s = 1 - u0.α + j * u0.p0
+        res += u0.a[j] * clausencmzeta(x, s)
     end
 
     # Fourier terms
-    for n = 1:u0.N
+    for n = 1:u0.N1
         res += u0.b[n] * (cos(n * x) - 1)
     end
 
@@ -241,27 +239,25 @@ function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     res[(0, 2M, 0, 0)] += clausenc_expansion_remainder(x, Arb(2), 1, M)
 
     # Clausens terms
-    if !isnothing(u0.v0)
-        for j = 1:u0.v0.N0
-            s = 1 - u0.v0.α + j * u0.v0.p0
-            C, _, p, E = clausenc_expansion(x, s, M)
-            res[(0, 0, 1, j)] = C * u0.v0.a[j]
-            for m = 1:M-1
-                res[(0, 2m, 0, 0)] += p[2m] * u0.v0.a[j]
-            end
-            res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
+    for j = 1:u0.N0
+        s = 1 - u0.α + j * u0.p0
+        C, _, p, E = clausenc_expansion(x, s, M)
+        res[(0, 0, 1, j)] = C * u0.a[j]
+        for m = 1:M-1
+            res[(0, 2m, 0, 0)] += p[2m] * u0.a[j]
         end
+        res[(0, 2M, 0, 0)] += E * u0.a[j]
     end
 
     # Fourier terms
-    if !iszero(u0.N)
+    if !iszero(u0.N1)
         for m = 1:M-1
             res[(0, 2m, 0, 0)] +=
-                (-1)^m * sum(Arb(n)^(2m) * u0.b[n] for n = 1:u0.N) / factorial(2m)
+                (-1)^m * sum(Arb(n)^(2m) * u0.b[n] for n = 1:u0.N1) / factorial(2m)
         end
         Arblib.add_error!(
             res[(0, 2M, 0, 0)],
-            sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
+            sum(Arb(n)^(2M) * abs(u0.b[n]) for n = 1:u0.N1) / factorial(2M),
         )
     end
 
@@ -273,15 +269,13 @@ function H(u0::BHAnsatz{T}, ::Ball) where {T}
         res = -u0.a0 * clausencmzeta(x, 3, 1)
 
         # Clausen terms
-        if !isnothing(u0.v0)
-            for j = 1:u0.v0.N0
-                s = 2 - u0.v0.α + j * u0.v0.p0
-                res -= u0.v0.a[j] * clausencmzeta(x, s)
-            end
+        for j = 1:u0.N0
+            s = 2 - u0.α + j * u0.p0
+            res -= u0.a[j] * clausencmzeta(x, s)
         end
 
         # Fourier terms
-        for n = 1:u0.N
+        for n = 1:u0.N1
             res -= u0.b[n] / n * (cos(n * x) - 1)
         end
 
@@ -330,28 +324,24 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
         res[(0, 2M, 0, 0)] += clausenc_expansion_remainder(x, Arb(3), 1, M)
 
         # Clausen terms
-        if !isnothing(u0.v0)
-            let α = u0.v0.α, p0 = u0.v0.p0
-                for j = 1:u0.v0.N0
-                    C, _, p, E = clausenc_expansion(x, 2 - α + j * p0, M)
-                    res[(0, 1, 1, j)] = -C * u0.v0.a[j]
-                    for m = 1:M-1
-                        res[(0, 2m, 0, 0)] -= p[2m] * u0.v0.a[j]
-                    end
-                    res[(0, 2M, 0, 0)] += E * u0.v0.a[j]
-                end
+        for j = 1:u0.N0
+            C, _, p, E = clausenc_expansion(x, 2 - u0.α + j * u0.p0, M)
+            res[(0, 1, 1, j)] = -C * u0.a[j]
+            for m = 1:M-1
+                res[(0, 2m, 0, 0)] -= p[2m] * u0.a[j]
             end
+            res[(0, 2M, 0, 0)] += E * u0.a[j]
         end
 
         # Fourier terms
-        if !iszero(u0.N)
+        if !iszero(u0.N1)
             for m = 1:M-1
                 res[(0, 2m, 0, 0)] -=
-                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N) / factorial(2m)
+                    (-1)^m * sum(Arb(n)^(2m - 1) * u0.b[n] for n = 1:u0.N1) / factorial(2m)
             end
             Arblib.add_error!(
                 res[(0, 2M, 0, 0)],
-                sum(Arb(n)^(2M - 1) * abs(u0.b[n]) for n = 1:u0.N) / factorial(2M),
+                sum(Arb(n)^(2M - 1) * abs(u0.b[n]) for n = 1:u0.N1) / factorial(2M),
             )
         end
 
@@ -445,11 +435,10 @@ function F0(
     u0_expansion_div_xlogx = Vector{Tuple{Int,Arb,Arb}}(undef, length(u0_expansion))
     Du0_expansion_div_x2logx = Vector{Tuple{Int,Arb,Arb}}(undef, length(Du0_expansion))
     for (index, ((i, m, k, l), value)) in enumerate(u0_expansion)
-        u0_expansion_div_xlogx[index] = (i - 1, -k * u0.v0.α + l * u0.v0.p0 + m - 1, value)
+        u0_expansion_div_xlogx[index] = (i - 1, -k * u0.α + l * u0.p0 + m - 1, value)
     end
     for (index, ((i, m, k, l), value)) in enumerate(Du0_expansion)
-        Du0_expansion_div_x2logx[index] =
-            (i - 1, -k * u0.v0.α + l * u0.v0.p0 + m - 2, value)
+        Du0_expansion_div_x2logx[index] = (i - 1, -k * u0.α + l * u0.p0 + m - 2, value)
     end
 
     # If an exponent limit is given, collapse all terms with an
@@ -624,16 +613,16 @@ function D(u0::BHAnsatz, xs::AbstractVector)
     u0.b .= 0
 
     u0_xs_a0_precomputed = zeros(length(xs))
-    u0_xs_b_precomputed = zeros(length(xs), u0.N)
+    u0_xs_b_precomputed = zeros(length(xs), u0.N1)
     Hu0_xs_a0_precomputed = zeros(length(xs))
-    Hu0_xs_b_precomputed = zeros(length(xs), u0.N)
+    Hu0_xs_b_precomputed = zeros(length(xs), u0.N1)
 
     Hu0 = H(u0)
     for (i, x) in enumerate(xs)
         u0_xs_a0_precomputed[i] = u0(x)
         Hu0_xs_a0_precomputed[i] = Hu0(x)
 
-        for n = 1:u0.N
+        for n = 1:u0.N1
             u0_xs_b_precomputed[i, n] = cos(n * x) - 1
             Hu0_xs_b_precomputed[i, n] = -(cos(n * x) - 1) / n
         end
