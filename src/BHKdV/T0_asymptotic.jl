@@ -179,7 +179,9 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
         @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
 
         # Compute for the interval [0, b]
-        part1 = Arblib.integrate(integrand_J1, 0, b, check_analytic = true, rtol = 1e-5)
+        part1 = real(
+            Arblib.integrate(integrand_J1, 0, b, check_analytic = true, rtol = 1e-5),
+        )
 
         # Compute for the interval [b, 1]. Note that we factor out
         # t^(-γ * (1 + α))
@@ -236,7 +238,9 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
         @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
 
         # Compute for the interval [0, b]
-        part1 = Arblib.integrate(integrand_J2, 0, b, check_analytic = true, rtol = 1e-5)
+        part1 = real(
+            Arblib.integrate(integrand_J2, 0, b, check_analytic = true, rtol = 1e-5),
+        )
 
         # Compute for the interval [b, 1]. Note that we factor out
         # t^(-γ * (1 + α)) * log(t)
