@@ -104,8 +104,8 @@ easily seen from the integral representation
 ```
 """
 function beta_inc_zeroone(a::Arb, b::Arb, z::Arb)
-    z_lower = Arblib.ispositive(z) ? lbound(Arb, z) : zero(z)
-    z_upper = z < 1 ? ubound(Arb, z) : one(z)
+    z_lower = max(lbound(Arb, z), zero(z))
+    z_upper = min(ubound(Arb, z), one(z))
     return Arb((beta_inc(a, b, z_lower), beta_inc(a, b, z_upper)))
 end
 
