@@ -525,7 +525,6 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
                 # is monotone
                 if !(t < inv(10x))
                     return Arblib.indeterminate!(res)
-                    return
                 end
 
                 tᵤ = ubound(Arb, t)

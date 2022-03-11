@@ -1384,8 +1384,7 @@ function F0(
         invlogx = if iszero(x)
             zero(x)
         elseif Arblib.contains_zero(x)
-            xᵤ = ubound(Arb, x)
-            Arb((inv(log(xᵤ)), 0))
+            Arb((inv(log(ubound(Arb, x))), 0))
         else
             inv(log(x))
         end

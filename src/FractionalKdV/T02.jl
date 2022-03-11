@@ -30,7 +30,7 @@ function T02(
     skip_div_u0 = false,
 )
     return x -> begin
-        a = Arblib.ubound(Arb, x + δ2)
+        a = ubound(Arb, x + δ2)
 
         # Compute with the asymptotic expansion on the whole interval
         res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π), skip_div_u0 = true)
@@ -214,7 +214,7 @@ function T021(
     N::Integer = 3,
 )
     return x -> begin
-        T021(u0, Ball(), Arblib.ubound(Arb, x + δ2), x; ϵ, N)
+        T021(u0, Ball(), ubound(Arb, x + δ2), x; ϵ, N)
     end
 end
 

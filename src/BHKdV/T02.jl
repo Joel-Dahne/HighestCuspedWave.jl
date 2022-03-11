@@ -25,8 +25,8 @@ function T02(u0::BHKdVAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-5), skip_div_u0 
 
     return x -> begin
         x = convert(Arb, x)
-        δ2 = max(δ2, 8Arblib.radius(Arb, x))
-        a = Arblib.ubound(Arb, x + δ2)
+        δ2 = max(δ2, 8radius(Arb, x))
+        a = ubound(Arb, x + δ2)
 
         if !(a < π)
             return f(x, π)

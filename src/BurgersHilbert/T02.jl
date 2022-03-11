@@ -30,7 +30,7 @@ function T02(u0::BHAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-5), skip_div_u0 = f
     return x::Arb -> begin
         # If x is wide it is beneficial to take a larger δ2
         δ = max(δ2, 8radius(Arb, x))
-        a = Arblib.ubound(Arb, x + δ)
+        a = ubound(Arb, x + δ)
 
         if a < π
             res = f(x, a) + g(x, a)

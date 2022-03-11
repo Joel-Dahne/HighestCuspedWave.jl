@@ -60,7 +60,6 @@ function eval_expansion(
                         ErrorException("zero x-exponent with non-negative log-exponent"),
                     )
                     if !iszero(x)
-                        #x_upper = Arblib.abs_ubound(Arb, x)
                         x_upper < 1 || throw(ErrorException("division by log(1)"))
                         factor = union(zero(res), logx_upper^i * x_upper^exponent)
                     else
