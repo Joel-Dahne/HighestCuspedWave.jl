@@ -482,8 +482,8 @@ function clausenc(x::Arb, s::Arb)
         elseif iszero(x)
             return zeta(s)
         else
-            # Extrema at x = 0 and upper bound of x
-            return union(zeta(s), clausenc(abs_ubound(x), s))
+            # Extrema at x = 0 and upper bound of abs(x)
+            return union(zeta(s), clausenc(ArbExtras.enclosure_ubound(abs(x)), s))
         end
     end
 
@@ -495,7 +495,7 @@ function clausenc(x::Arb, s::Arb)
 
         prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 
-        xₗ, xᵤ = getinterval(Arb, setprecision(x, prec))
+        xₗ, xᵤ = ArbExtras.enclosure_getinterval(setprecision(x, prec))
         res = union(clausenc(xₗ, s), clausenc(xᵤ, s))
         if haspi
             res = union(res, clausenc(Arb(π; prec), s))
@@ -676,7 +676,7 @@ function clausenc(x::Arb, s::Arb, β::Integer)
             res = Arblib.add_error!(clausenc(mid, s, β), (x - mid) * dclausenc)
         else
             # Use that it's monotone
-            xₗ, xᵤ = Arblib.getinterval(Arb, x)
+            xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
         end
         return setprecision(res, orig_prec)
@@ -1044,6 +1044,7 @@ use case.
 function clausencmzeta(x::Arb, s::Arb)
     if s > 1 && iswide(s)
         sₗ, sᵤ = getinterval(Arb, s)
+        sₗ > 1 || return Arblib.indeterminate!(zero(x))
         res_lower = clausenc(x, sₗ) - zeta(sₗ)
         res_upper = clausenc(x, sᵤ) - zeta(sᵤ)
         return Arb((res_lower, res_upper))

@@ -361,7 +361,7 @@ function clausens(x::Arb, s::Arb)
             return zero(x)
         elseif Arblib.ispositive(clausenc(abs_ubound(Arb, x), s - 1))
             # Monotone on the interval
-            xₗ, xᵤ = getinterval(Arb, x)
+            xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             return Arb((-clausens(-xₗ, s), clausens(xᵤ, s)))
         else
             z = zeta(s) # Trivial upper bound
@@ -386,7 +386,7 @@ function clausens(x::Arb, s::Arb)
             res = Arblib.add_error!(clausens(mid, s), (x - mid) * dclausens)
         else
             # Use that it's monotone
-            xₗ, xᵤ = Arblib.getinterval(Arb, x)
+            xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             res = union(clausens(xₗ, s), clausens(xᵤ, s))
         end
         return setprecision(res, orig_prec)
@@ -534,7 +534,7 @@ function clausens(x::Arb, s::Arb, β::Integer)
             res = Arblib.add_error!(clausens(mid, s, β), (x - mid) * dclausens)
         else
             # Use that it's monotone
-            xₗ, xᵤ = Arblib.getinterval(Arb, x)
+            xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             res = union(clausens(xₗ, s, β), clausens(xᵤ, s, β))
         end
         return setprecision(res, orig_prec)
