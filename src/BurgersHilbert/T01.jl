@@ -340,19 +340,19 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
                 @assert isreal(t)
                 t = real(t)
 
+                tᵤ = ubound(Arb, t)
+
                 # Check that log(t - 1) * sqrt(log(inv(t))) is
                 # monotone
-                contains(t, root1) && return Arblib.indeterminate!(zero(t))
+                tᵤ < root1 || return Arblib.indeterminate!(zero(t))
 
                 # Check that log(t + 1) * sqrt(log(inv(t))) is
                 # monotone
-                contains(t, root2) && return Arblib.indeterminate!(zero(t))
+                tᵤ < root2 || return Arblib.indeterminate!(zero(t))
 
                 # Check that log(t) * t * sqrt(log(inv(t))) is
                 # monotone
-                contains(t, root3) && return Arblib.indeterminate!(zero(t))
-
-                tᵤ = ubound(Arb, t)
+                tᵤ < root3 || return Arblib.indeterminate!(zero(t))
 
                 term1 = Arb((log(1 - tᵤ) * sqrt(log(inv(tᵤ))), 0))
                 term2 = Arb((0, log(1 + tᵤ) * sqrt(log(inv(tᵤ)))))
@@ -364,19 +364,19 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
                 @assert isreal(t)
                 t = real(t)
 
+                tₗ = lbound(Arb, t)
+
                 # Check that log(t - 1) * sqrt(log(inv(t))) is
                 # monotone
-                contains(t, root1) && return Arblib.indeterminate!(zero(t))
+                tₗ > root1 || return Arblib.indeterminate!(zero(t))
 
                 # Check that log(t + 1) * sqrt(log(inv(t))) is
                 # monotone
-                contains(t, root2) && return Arblib.indeterminate!(zero(t))
+                tₗ > root2 || return Arblib.indeterminate!(zero(t))
 
                 # Check that log(t) * t * sqrt(log(inv(t))) is
                 # monotone
-                contains(t, root3) && return Arblib.indeterminate!(zero(t))
-
-                tₗ = lbound(Arb, t)
+                tₗ > root3 || return Arblib.indeterminate!(zero(t))
 
                 term1 = Arb((log(1 - tₗ) * sqrt(log(inv(tₗ))), 0))
                 term2 = Arb((0, log(1 + tₗ) * sqrt(log(inv(tₗ)))))
@@ -515,19 +515,20 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
                 @assert isreal(t)
                 t = real(t)
 
+                tᵤ = ubound(Arb, t)
+
                 # Check that t * sqrt(log(1 + inv(x * t))) is monotone
-                if !(t < inv(x * (exp(Arb(1 // 2)) - 1)))
+                if !(tᵤ < inv(x * (exp(Arb(1 // 2)) - 1)))
                     Arblib.indeterminate!(res)
                     return
                 end
 
                 # Check that log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
                 # is monotone
-                if !(t < inv(10x))
-                    return Arblib.indeterminate!(res)
+                if !(tᵤ < inv(10x))
+                    Arblib.indeterminate!(res)
+                    return
                 end
-
-                tᵤ = ubound(Arb, t)
 
                 # Enclosure of t * sqrt(log(1 + inv(x * t)))
                 tsqrt = Arb((0, tᵤ * sqrt(log(1 + inv(x * tᵤ)))))
