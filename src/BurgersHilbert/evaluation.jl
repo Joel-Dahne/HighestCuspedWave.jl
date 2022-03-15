@@ -487,40 +487,23 @@ function F0(
         push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff_Du0))
     end
 
-    # The function inv(sqrt(log(1 + inv(x))))
+    # The function sqrt(log(1 + inv(x)))
     w!(res::Arb, x::Arb) = begin
         Arblib.inv!(res, x)
         Arblib.add!(res, res, 1)
         Arblib.log!(res, res)
-        Arblib.sqrt!(res, res)
-        return Arblib.inv!(res, res)
+        return Arblib.sqrt!(res, res)
     end
     w!(res::ArbSeries, x::ArbSeries) = begin
         len = length(x)
         Arblib.inv_series!(res, x, len)
         Arblib.add!(res, res, 1)
         Arblib.log_series!(res, res, len)
-        Arblib.sqrt_series!(res, res, len)
-        return Arblib.inv_series!(res, res, len)
-    end
-
-    # Version of w! that also handles x overlapping 0
-    # PROVE: That w! is monotonically increasing on [0, ∞]
-    weight!(res, x) = begin
-        iszero(x) && return Arblib.zero!(res)
-
-        if x isa Arb && Arblib.contains_zero(x)
-            w!(res, ubound(Arb, x))
-            return Arblib.union!(res, res, zero(res))
-        end
-
-        return w!(res, x)
+        return Arblib.sqrt_series!(res, res, len)
     end
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
-
-        res = weight!(zero(x), x)
 
         tmp = zero(x)
         buffer = zero(x)
@@ -529,6 +512,20 @@ function F0(
             # invlogx = inv(log(x))
             invlogx = log(x)
             invlogx = Arblib.inv!(invlogx, invlogx)
+
+            res = zero(x)
+
+            # res = inv(sqrt(log(1 + inv(x))))
+            if iszero(x)
+                Arblib.zero!(x)
+            elseif Arblib.contains_zero(x)
+                w!(res, ubound(Arb, x))
+                Arblib.inv!(res, res)
+                return Arblib.union!(res, res, zero(res))
+            else
+                w!(res, x)
+                Arblib.inv!(res, res)
+            end
 
             Arblib.div!(
                 res,
@@ -541,22 +538,25 @@ function F0(
                 _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx, buffer),
             )
         elseif x isa ArbSeries
-            len = length(res)
+            len = length(x)
 
             # invlogx = inv(log(x))
             invlogx = log(x)
             invlogx = Arblib.inv_series!(invlogx, invlogx, len)
 
-            Arblib.div_series!(
+            # res = sqrt(log(1 + inv(x)))
+            res = w!(zero(x), x)
+
+            Arblib.mullow!(
                 res,
                 res,
                 _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx, buffer),
                 len,
             )
-            Arblib.mullow!(
-                res,
+            Arblib.div_series!(
                 res,
                 _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx, buffer),
+                res,
                 len,
             )
         end
