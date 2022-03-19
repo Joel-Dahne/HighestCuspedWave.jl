@@ -433,6 +433,89 @@ let pl = plot(legend = :none, xlabel = "\$\\log_{10}(x)\$", ylabel = "\$F(x)\$")
     pl
 end
 
+# ╔═╡ 8a9cd9da-1719-4b2d-98bf-4e13de8a5ca8
+md"""
+### Computing the first Fourier coefficient
+We can compute the first Fourier coefficient of the solution $u(x) = u_0(x) + w(x)v(x)$ by computing them for $u_0(x)$ and using the bounds for $v(x)$.
+"""
+
+# ╔═╡ 64a709b3-0e29-4c03-8bb0-c8bd173ea5a2
+md"""
+All terms in the approximation $u_0$ are given in terms of their Fourier series, it is therefore easy to compute the first Fourier coefficient. We have
+
+$C_2^{(1)}(x) = \sum_{n = 1}^\infty \frac{\cos(nx)}{n^2}\log(n)$
+
+which for $n = 1$ gives us the coefficient $0$. Next we have
+
+$C_s(x) = \sum_{n = 1}^\infty \frac{\cos(nx)}{n^s}$
+
+which means the first Fourier coefficient is $1$, hence the Fourier coefficient of the Clausen tail is the sum of the coefficients. Finally for the Fourier tail the first Fourier coefficient is simply the first coefficient in the tail.
+"""
+
+# ╔═╡ 589218e4-b34f-4f92-b5f4-ae875f300e0e
+u0_a1 = sum(u0.a) + u0.b[1]
+
+# ╔═╡ d568ad46-2eb7-4b3f-a226-87e8927348ea
+md"""
+To bound we first fourier coefficient of $w(x)v(x)$ we want to bound
+
+$\frac{1}{\pi}\int_{-\pi}^\pi w(x)v(x)\cos(x)\ dx = \frac{2}{\pi}\int_{0}^\pi w(x)v(x)\cos(x)\ dx.$
+
+Taking the absolute value we get that an upper bound is given by
+
+$\frac{2\|v\|_{L^\infty}}{\pi}\int_{0}^\pi x\sqrt{\log(1 + 1/x)}|\cos(x)|\ dx$
+"""
+
+# ╔═╡ cb47f946-fc9d-46c7-9808-e1d4c0b87e5d
+vnorm = (1 - D0 - sqrt((1 - D0)^2 - 4δ0 * n0)) / 4n0
+
+# ╔═╡ 790d36ed-3629-4812-bd07-c8e0763205ae
+wv_a1 = let
+    integrand(x; analytic) =
+        if Arblib.contains_zero(x)
+            analytic && return Arblib.indeterminate!(zero(x))
+            x = real(x)
+            xᵤ = ubound(Arb, x)
+
+            # Enclosure of x * sqrt(log(1 + inv(x)))
+            xsqrtlogx = Arb((0, xᵤ * sqrt(log(1 + inv(xᵤ)))))
+
+            return xsqrtlogx * abs(cos(x))
+        else
+            x *
+            Arblib.sqrt_analytic!(zero(x), log(1 + inv(x)), analytic) *
+            Arblib.real_abs!(zero(x), cos(x), analytic)
+        end
+
+    bound = real(2vnorm / π * Arblib.integrate(integrand, 0, π, check_analytic = true))
+
+    Arblib.add_error!(Arb(0), bound)
+end
+
+# ╔═╡ 54cd2d1c-940b-494a-9546-8c2d0834a2c3
+u_a1 = u0_a1 + wv_a1
+
+# ╔═╡ cb6add10-d51a-474e-b708-0c65e896f99a
+ArbExtras.format_interval(getinterval(u_a1)...)
+
+# ╔═╡ 87b4508a-2b23-4c3e-b50c-2141f58013b0
+md"""
+### Plot of approximation with error bounds
+"""
+
+# ╔═╡ aa12b03c-9236-4f04-acb5-6eac04234bc4
+let xs = range(Arb(0), π, length = 100)
+    ys = Folds.map(u0, xs)
+    error = Folds.map(x -> u0.w(x) * vnorm, xs)
+    error[1] = 0
+    xs = [-reverse(xs[2:end]); xs]
+    ys = [reverse(ys[2:end]); ys]
+    error = [reverse(error[2:end]); error]
+    pl = plot(xs, ys, ribbon = error, xlabel = "\$x\$", ylabel = "\$u(x)\$", legend = :none)
+    savefig(pl, "../figures/publication/BH-u-asymptotic-2.pdf")
+    pl
+end
+
 # ╔═╡ Cell order:
 # ╟─a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 # ╟─3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
@@ -484,3 +567,13 @@ end
 # ╟─4654b37d-fcb5-43ab-8b67-5f946637943d
 # ╟─1c2d23d0-9e30-4830-a923-3ce15e8deb04
 # ╟─7e1e6379-4cde-4a6f-9390-41618a989490
+# ╟─8a9cd9da-1719-4b2d-98bf-4e13de8a5ca8
+# ╟─64a709b3-0e29-4c03-8bb0-c8bd173ea5a2
+# ╠═589218e4-b34f-4f92-b5f4-ae875f300e0e
+# ╟─d568ad46-2eb7-4b3f-a226-87e8927348ea
+# ╠═cb47f946-fc9d-46c7-9808-e1d4c0b87e5d
+# ╠═790d36ed-3629-4812-bd07-c8e0763205ae
+# ╠═54cd2d1c-940b-494a-9546-8c2d0834a2c3
+# ╠═cb6add10-d51a-474e-b708-0c65e896f99a
+# ╟─87b4508a-2b23-4c3e-b50c-2141f58013b0
+# ╟─aa12b03c-9236-4f04-acb5-6eac04234bc4
