@@ -3,7 +3,7 @@
 
 Attempts to prove that the ansatz `u0` satisfies the requirements, that is
 ```
-δ₀ <= 1 / (4α₀ * β^2)
+δ₀ < 1 / (4α₀ * β^2)
 ```
 with `β = inv(1 - C_B)` and `α₀` is given by [`alpha0`](@ref), `δ₀` by
 [`delta0`](@ref) and `C_B` by [`CB`](@ref).
@@ -61,7 +61,7 @@ function prove(
     D = 1 - 2Arblib.sqrtpos!(zero(α₀), α₀ * δ₀)
 
     if verbose
-        @info "Must have δ₀ ≤ 1 / (4α₀ * β^2) = C or equivalently C_B ≤ 1 - 2√(α₀δ₀) = D" lbound(
+        @info "Must have δ₀ < 1 / (4α₀ * β^2) = C or equivalently C_B < 1 - 2√(α₀δ₀) = D" lbound(
             C_estimate,
         ) δ₀ < C_estimate lbound(D) C_B_estimate < D
     end
