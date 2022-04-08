@@ -853,32 +853,129 @@ remainder is of order `2M`.
 
 This is the tail in the expansion at `x = 0` and is given by
 ```
-sum((-1)^m * dzeta(s - 2m) * x^2m / factorial(2m) for m = M:Inf) / x^2M
+sum((-1)^m * dzeta(s - 2m, β) * x^2m / factorial(2m) for m = M:Inf) / x^2M
 ```
+where we by `dzeta(s - 2m, β)` mean the zeta-function differentiated
+`β` times.
 
-It requires that `abs(x) < 2π` and `2M >= s + 1`. In this case an
-upper bound for the absolute value of the remainder is given by
-```
-((log(2π) + π / 2 + 1 + 2(4M * π^2 + x^2 * (1 - M)) / (4π^2 - x^2)) * zeta(2M + 1 - s) + abs(dzeta(2M + 1 - s))) * 2(2π)^(1 + s - 2M) / (4π^2 - x^2)
-```
-and this functions returns a ball centered at zero with this radius.
+It requires that `abs(x) < 2π` and `2M >= s + 1`.
+
+The upper bound of the absolute value of the remainder is given by a
+somewhat awkward expression involving a multitude of special
+functions. See the paper for details.
+**IMPROVE:** Add some more details here, in particular since we use a
+  slightly different formulation of the bound.
+This functions returns a ball centered at zero with the upper bound as
+radius.
 """
 function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
     β == 0 && return clausenc_expansion_remainder(x, s, M)
-    β == 1 || throw(DomainError(β, "only supports β equal to 0 or 1"))
-
-    pi = Arb(π)
 
     abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
     2M >= s + 1 || throw(DomainError(M, "must have 2M >= s + 1, got s = $s"))
 
-    return Arblib.add_error!(
-        zero(x),
-        (
-            (log(2pi) + pi / 2 + 1 + 2(4M * pi^2 + x^2 * (1 - M)) / (4pi^2 - x^2)) *
-            zeta(2M + 1 - s) + abs(dzeta(2M + 1 - s))
-        ) * 2(2pi)^(1 + s - 2M) / (4pi^2 - x^2),
-    )
+    twopi = 2Arb(π)
+
+    # Function for computing multinomial
+    # Denominator is smaller than numerator, so overflow
+    # would always be caught by factorial(β)
+    multinomial(β, j1, j2, j3) =
+        Arb(factorial(β) // (factorial(j1) * factorial(j2) * factorial(j3)))
+
+    # Upper bound of absolute value of polygamma functions for
+    # 1 <= k <= β
+    polygamma_bounds = [abs(real(polygamma(Acb(k), Acb(1 + 2M - s)))) for k = 1:β]
+
+    # Upper bounds of zeta function and derivatives up to β
+    zeta_expansion = zeta(ArbSeries((1 + 2M - s, 1), degree = β))
+    zeta_bounds(j3) = abs(zeta_expansion[j3]) * factorial(j3)
+
+    # p_k for 0 <= k <= β
+    ps = let
+        p_0 = OrderedDict(Int[] => 1)
+        ps = OffsetVector([p_0], 0:0)
+
+        for k = 1:β
+            p_k = empty(ps[k-1])
+
+            # The term ψ^(0) * p_k
+            for (exponents, coefficient) in ps[k-1]
+                if isempty(exponents)
+                    new_exponents = [1]
+                else
+                    new_exponents = copy(exponents)
+                    new_exponents[1] += 1 # Multiply by ψ^(0)
+                end
+                p_k[new_exponents] = coefficient
+            end
+
+            # The term p_k'
+            for (exponents, coefficient) in ps[k-1]
+                for l = 1:length(exponents)
+                    if !iszero(exponents[l])
+                        # Differentiate ψ^(l+1)^exponents[l]
+                        new_exponents = copy(exponents)
+
+                        new_exponents[l] -= 1
+                        if l == length(exponents)
+                            push!(new_exponents, 1)
+                        else
+                            new_exponents[l+1] += 1
+                        end
+
+                        p_k[new_exponents] =
+                            get(p_k, new_exponents, 0) + coefficient * exponents[l]
+                    end
+                end
+            end
+
+            push!(ps, p_k)
+        end
+
+        ps
+    end
+
+    res = zero(x)
+
+    for j1 = 0:β
+        for j2 = 0:β-j1
+            j3 = β - j1 - j2
+
+            # Compute upper bound of
+            # sum(abs(p_j2(1 + 2m - s)) * (x / 2π)^2m for m = M:Inf)
+            term = zero(x)
+            for (exponents, coefficient) in ps[j2]
+                q0 = Arb(isempty(exponents) ? 0 : exponents[1])
+
+                # Upper bound of
+                # sum((m + M + 1 / 2)^(q0 / 2) * (x / 2π)^2m for m = 0:Inf)
+                S = lerch_phi((x / twopi)^2, -q0 / 2, M + Arb(1 // 2))
+
+                # Add factor to get an upper bound of
+                # sum((1 + 2m)^(q0 / 2) * (x / 2π)^2m for m = M:Inf) / x^2M
+                S *= twopi^(-2M) / 2^(q0 / 2)
+
+                # Upper bound of polygamma-factors
+                polygamma_factor = one(x)
+                for i = 2:length(exponents)
+                    polygamma_factor *= polygamma_bounds[i-1]^exponents[i]
+                end
+
+                term += coefficient * polygamma_factor * S
+            end
+
+            # Multiply with bounds for remaining factors
+
+            # Upper bound of part of f factor
+            F = 2(log(twopi) + Arb(π) / 2)^j1 * twopi^(s - 1)
+
+            term *= multinomial(β, j1, j2, j3) * F * zeta_bounds(j3)
+
+            res += term
+        end
+    end
+
+    return Arblib.add_error!(zero(res), res)
 end
 
 """

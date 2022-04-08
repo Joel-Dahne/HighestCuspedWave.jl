@@ -598,3 +598,34 @@ function fx_div_x(
 
     return Arblib.compose(res, x_tmp)
 end
+
+"""
+    lerch_phi(z::Arb, s::Arb, a::Arb)
+
+Compute a naive enclosure of the Lerch transendent
+```
+lerch_phi(z::Arb, s::Arb, a::Arb) = sum(z^n / (n + a)^s for n = 0:Inf)
+```
+
+It only supports `abs(z) < 1`, `s < 0` and `a > 0`. We treat the whole
+series as a tail, for bounding it see
+[https://fredrikj.net/blog/2022/02/computing-the-lerch-transcendent/](Fredrik
+Johanssons blog).
+
+Note that this is a very naive implementation and only intended for
+use in [`clausenc_expansion_remainder`](@ref). Once the version of Arb
+that implements this function is released we should switch to using
+that one.
+"""
+function lerch_phi(z::Arb, s::Arb, a::Arb)
+    @assert abs(z) < 1
+    @assert Arblib.isnonpositive(s)
+    @assert Arblib.ispositive(a)
+
+    # Find C
+    C = exp(-s / a)
+
+    abs(C * z) < 1 || throw(ArgumentError("C to large to satisfy C * z < 1"))
+
+    return a^-s / (1 - C * abs(z))
+end
