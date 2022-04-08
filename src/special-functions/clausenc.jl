@@ -989,25 +989,27 @@ The remainder term is given by
 ```
 x^2M * sum((-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(2m) for m = M:Inf)
 ```
-where we enclose the sum. We want to compute an enclosure of each term
-in the expansion in `s`.
+where we enclose the sum.
 
-**FIXME:** Properly implement this. For now we compute a finite number
-of terms in the expansion and sum them. For the constant term we do
-use the rigorous enclosure.
+We want to compute an enclosure of each term in the expansion in `s`.
+
+We use that `clausenc_expansion_remainder(x, s[0], β, M)` gives an
+enclosure of the `β` derivative of the sum. The term in the expansion
+is thus given by dividing this by `factorial(β)`.
 """
 function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
-    @warn "remainder not rigorously bounded" maxlog = 1
-
     res = zero(s)
-    for m = M:M+10
-        term = (-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(big(2m))
-        res += term
+
+    # Compute series for s[0]
+    for β in 0:Arblib.degree(s)
+        res[β] = clausenc_expansion_remainder(x, s[0], β, M) / factorial(β)
     end
 
-    res[0] = clausenc_expansion_remainder(x, s[0], M)
+    # Compose the Taylor series with that of the input
+    s_tmp = copy(s)
+    s_tmp[0] = 0
 
-    return res
+    return Arblib.compose(res, s_tmp)
 end
 
 """
