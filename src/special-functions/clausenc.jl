@@ -1001,7 +1001,7 @@ function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
     res = zero(s)
 
     # Compute series for s[0]
-    for β in 0:Arblib.degree(s)
+    for β = 0:Arblib.degree(s)
         res[β] = clausenc_expansion_remainder(x, s[0], β, M) / factorial(β)
     end
 
