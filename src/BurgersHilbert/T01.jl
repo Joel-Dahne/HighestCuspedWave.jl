@@ -657,18 +657,18 @@ interval.
 
 Using that `clausenc(x, 1) = -log(2sin(abs(x) / 2))` we are left with
 ```
-∫ clausenc(x * (1 - t) / 2, 1) + clausenc(x * (1 + t) / 2, 1) - 2clausenc(x * t / 2, 1) dt
+∫ clausenc(x * (1 - t), 1) + clausenc(x * (1 + t), 1) - 2clausenc(x * t, 1) dt
 ```
 on the interval ``[1 - δ1, 1]``. A primitive function can be
 determined to be
 ```
-2 / x * (-clausens(x * (1 - t) / 2, 2) + clausens(x * (1 + t) / 2, 2) - 2clausens(x * t / 2, 2))
+1 / x * (-clausens(x * (1 - t), 2) + clausens(x * (1 + t), 2) - 2clausens(x * t, 2))
 ```
 This gives us the integral
 ```
-2 / x * (
-    (-clausens(0, 2) + clausens(x, 2) - 2clausens(x / 2, 2))
-    - (-clausens(x * δ1 / 2, 2) + clausens(x * (2 - δ1) / 2, 2) - 2clausens(x * (1 - δ1) / 2, 2))
+1 / x * (
+    (-clausens(0, 2) + clausens(2x, 2) - 2clausens(x, 2))
+    - (-clausens(x * δ1, 2) + clausens(x * (2 - δ1), 2) - 2clausens(x * (1 - δ1), 2))
 )
 ```
 Since we multiply this with `x` we can explicitly cancel the `x`
@@ -684,10 +684,10 @@ function T012(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
 
         # Enclosure of integral of Clausen functions multiplied with x
         integral_mul_x = ArbExtras.enclosure_series(x, degree = 4) do y
-            2(
-                (-clausens(Arb(0), 2) + clausens(y, 2) - 2clausens(y / 2, 2)) - (
-                    -clausens(y * δ1 / 2, 2) + clausens(y * (2 - δ1) / 2, 2) -
-                    2clausens(y * (1 - δ1) / 2, 2)
+            (
+                (-clausens(Arb(0), 2) + clausens(2y, 2) - 2clausens(y, 2)) - (
+                    -clausens(y * δ1, 2) + clausens(y * (2 - δ1), 2) -
+                    2clausens(y * (1 - δ1), 2)
                 )
             )
         end

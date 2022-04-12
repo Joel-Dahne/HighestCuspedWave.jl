@@ -450,19 +450,17 @@ interval.
 
 Using that `clausenc(x, 1) = -log(2sin(abs(x) / 2))` we are left with
 ```
-∫ clausenc((y - x) / 2, 1) + clausenc((y + x) / 2, 1) - 2clausenc(y / 2, 1) dy
+∫ clausenc(y - x, 1) + clausenc(y + x, 1) - 2clausenc(y, 1) dy
 ```
 on the interval ``[x, a]``. A primitive function of the integral can
 be determined to be
 ```
-2(clausens((y - x) / 2, 2) + clausens((y + x) / 2, 2) - 2clausens(y / 2, 2))
+clausens(y - x, 2) + clausens(y + x, 2) - 2clausens(y, 2)
 ```
 This gives us the integral
 ```
-2(
-    (clausens((a - x) / 2, 2) + clausens((a + x) / 2, 2) - 2clausens(a / 2, 2))
-    -(clausens(0, 2) + clausens(x, 2) - 2clausens(x / 2, 2))
-)
+(clausens(a - x, 2) + clausens(a + x, 2) - 2clausens(a, 2))
+- (clausens(0, 2) + clausens(2x, 2) - 2clausens(x, 2))
 ```
 """
 function T021(u0::BHAnsatz, ::Ball = Ball(); skip_div_u0 = false)
@@ -472,11 +470,9 @@ function T021(u0::BHAnsatz, ::Ball = Ball(); skip_div_u0 = false)
         end
 
         integral = ArbExtras.enclosure_series(x, degree = 4) do y
-            2(
-                (
-                    clausens((a - y) / 2, 2) + clausens((a + y) / 2, 2) -
-                    2clausens(a / 2, 2)
-                ) - (clausens(Arb(0), 2) + clausens(y, 2) - 2clausens(y / 2, 2))
+            (
+                (clausens(a - y, 2) + clausens(a + y, 2) - 2clausens(a, 2)) -
+                (clausens(Arb(0), 2) + clausens(2y, 2) - 2clausens(y, 2))
             )
         end
 
