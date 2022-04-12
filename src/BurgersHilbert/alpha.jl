@@ -45,7 +45,6 @@ function alpha0(
     inv_u0 = inv_u0_normalised(u0, ϵ = Arb(0.6); M)
     g = x -> begin
         # Enclosure of -sqrt(log(1 + inv(x))) / 2log(x)
-        # PROVE: That -sqrt(log(1 + inv(x))) / 2log(x) is increasing in x
         factor = if iszero(x)
             zero(x)
         elseif Arblib.contains_zero(x) && x < 1
