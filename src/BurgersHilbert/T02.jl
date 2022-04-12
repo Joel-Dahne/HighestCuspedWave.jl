@@ -219,12 +219,10 @@ coming from `U2_m2`.
 1. For the term `sqrt(log(2)) * log(inv(x))` we can directly cancel
    `log(inv(x))`.
 2. For the term `2 / 3 * log(inv(2x))^(3 // 2)` we use that it is
-  monotone in `x` after division by `log(inv(x)) * sqrt(log(1 +
-  inv(x)))`.
-  - **PROVE:** That this function indeed is monotone in `x`
-3. For the term `- D2 * sqrt(log(inv(2x))) / 8` we use that
+  decreasing in `x` after division by `log(inv(x)) * sqrt(log(1 +
+  inv(x)))` and tends to `2 / 3` at `x = 0`.
+3. For the term `- R2 * sqrt(log(inv(2x))) / 8` we use that
   `sqrt(log(inv(2x))) / sqrt(log(1 + inv(x)))` is monotone in `x`.
-  - **PROVE:** That this function indeed is monotone in `x`
 
 # Handling `U2_r`
 Recall that
