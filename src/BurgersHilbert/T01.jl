@@ -205,7 +205,7 @@ monotone. We can then use monotonicity near the endpoints.
 
 For `f3` we can differentiate to get
 ```
-f3'(t) = log(inv(t)) * (2sqrt(log(inv(t)))) * (3 + 2log(t))
+f3'(t) = sqrt(log(inv(t))) / 2 * (3 + 2log(t))
 ```
 For ``t ∈ (0, 1)`` this has the unique root `t = exp(-3 / 2)`.
 
