@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
@@ -76,7 +76,7 @@ $T[v](x) = -\frac{1}{w(x) u_0(x)}\mathcal{H}[wv](x)$
 
 Let $n_0 = \|N\|_{L^\infty}$, $\delta_0 = \|F\|_{L^\infty}$ and $D_0 = \|T\|$. Proving the existence of a fixed point for $G$ reduces to checking the inequality
 
-$\delta_0 \leq \frac{(1 - D_0)^2}{4n_0}.$
+$\delta_0 < \frac{(1 - D_0)^2}{4n_0}.$
 
 This notebook is concerned with bounding these three values and checking this inequality.
 """
@@ -135,7 +135,7 @@ The code can either compute rigorous error bounds for the required constants or 
 -  $n_0$ $(@bind use_rigorous_bounds_n0 CheckBox(default = false))
 -  $\delta_0$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = false))
 -  $D_0$ $(@bind use_rigorous_bounds_D0 CheckBox(default = false))
-Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X with 12 cores the computation of $n_0$ takes around 7 seconds, the computation of $\delta_0$ around 15 minutes and the computation of $D_0$ around 2 minutes. The computation of $\delta_0$ also uses a **large amount of memory**, around 20GB.
+Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X with 12 cores the computation of $n_0$ takes around 7 seconds, the computation of $\delta_0$ around 15 minutes and the computation of $D_0$ around 2 minutes.
 """
 
 # ╔═╡ 4c4cbf2a-3aec-4257-9fac-d8a0418d12d7
@@ -364,14 +364,26 @@ md"""
 When giving the enclosures in the paper we want to make sure that the printed version is less than the given upper bound. Here we check that this is the case. Note that this is not important for the result to hold, just for the printed values to look nice.
 """
 
+# ╔═╡ 8d00fdce-e433-464e-adcd-88c21552439d
+n0_printed = string(n0)
+
 # ╔═╡ ff9462b6-3ff1-4fd9-af14-eebce04f349c
-Arb(string(n0)) < n0_rounded
+Arb(n0_printed) < n0_rounded
+
+# ╔═╡ a80ae53d-c3ec-4f51-9866-1b2f7a23c85f
+δ0_printed = string(δ0)
+
+# ╔═╡ c940e613-622f-43e0-939a-bf30c033b810
+δ0_subintervals_printed = string.(δ0_subintervals)
 
 # ╔═╡ 7fc04a7b-1082-4af7-ac87-426e73276c18
-all([Arb(string(δ)) < δ0_rounded for δ in (δ0, δ0_subintervals...)])
+all([
+    Arb(δ_printed) < δ0_rounded for (δ_printed, δ) in
+    zip((δ0_printed, δ0_subintervals_printed...), (δ0, δ0_subintervals...))
+])
 
-# ╔═╡ 121874d0-43ef-4463-8046-f91985cfc6fe
-Arb(string(D0)) < D0_rounded
+# ╔═╡ 74392233-bb8a-44d4-8f7f-ff8b5090142e
+D0_printed = ArbExtras.format_interval(getinterval(D0)...)
 
 # ╔═╡ f0110b12-a782-4840-abbf-ed623175c276
 let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$N(x)\$")
@@ -558,9 +570,12 @@ end
 # ╠═7aab4811-7e37-4828-8e5a-18423f9330e1
 # ╟─4d5054ff-6001-4d34-913b-a8029017d217
 # ╟─f25bcedf-cf4f-45f6-929a-abba66e7730c
+# ╠═8d00fdce-e433-464e-adcd-88c21552439d
 # ╠═ff9462b6-3ff1-4fd9-af14-eebce04f349c
+# ╠═a80ae53d-c3ec-4f51-9866-1b2f7a23c85f
+# ╠═c940e613-622f-43e0-939a-bf30c033b810
 # ╠═7fc04a7b-1082-4af7-ac87-426e73276c18
-# ╠═121874d0-43ef-4463-8046-f91985cfc6fe
+# ╠═74392233-bb8a-44d4-8f7f-ff8b5090142e
 # ╟─f0110b12-a782-4840-abbf-ed623175c276
 # ╟─16b4c640-6b4c-46a3-a505-e0eb7bbb2632
 # ╠═fe196d34-c822-4da0-8ed1-955d2fb6ffa6
@@ -576,4 +591,4 @@ end
 # ╠═54cd2d1c-940b-494a-9546-8c2d0834a2c3
 # ╠═cb6add10-d51a-474e-b708-0c65e896f99a
 # ╟─87b4508a-2b23-4c3e-b50c-2141f58013b0
-# ╟─aa12b03c-9236-4f04-acb5-6eac04234bc4
+# ╠═aa12b03c-9236-4f04-acb5-6eac04234bc4
