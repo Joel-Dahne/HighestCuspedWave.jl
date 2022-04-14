@@ -445,7 +445,7 @@ function F0(
     if !isnothing(exponent_limit)
         # A ball representing [0, 1]
         unit_interval = Arblib.unit_interval!(Arb())
-        # A ball representing the interval [0, inv(log(ϵ))]
+        # A ball representing the interval [inv(log(ϵ)), 0]
         invlog_interval = Arb((inv(log(ϵ)), 0))
 
         # Compute the coefficient in front of the error term for u0
