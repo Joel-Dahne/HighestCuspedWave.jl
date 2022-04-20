@@ -180,7 +180,10 @@ function _clausenc_zeta(x::Arb, s::Arb)
     Arblib.ispositive(x) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
-    inv2pi = inv(2Arb(π, prec = precision(x)))
+    inv2pi = let tmp = Arb(π, prec = precision(x))
+        Arblib.mul_2exp!(tmp, tmp, 1)
+        Arblib.inv!(tmp, tmp)
+    end
     xinv2pi = x * inv2pi
     onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
         Arblib.neg!(onemxinv2pi, xinv2pi)
