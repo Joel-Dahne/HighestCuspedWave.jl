@@ -813,6 +813,70 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
 end
 
 """
+    _clausen_expansion_remainder_ps(β::Integer)
+
+Helper function for computing a representation of `p_k` for `k = 0:β`
+
+Here `p_k` is defined by the recurrence ``p_{k + 1}(s) =
+ψ^{(0)}(s)p_k(s) + p_k'(s)`` and ``p_0 = 1``.
+
+It returns an `OffsetVector` with indices `0:β`. Each element is a
+dictionary which maps a list of exponents to a coefficient. More
+precisely the element `[q0, q1, ..., qk] => c` in the dictionary
+represents the term
+```
+c * ψ(s, 0)^q0 * ψ(s, 1)^q1 * ... *ψ(s, k)^qk
+```
+where `ψ(s, i)` here means the function ``ψ^{(i)}(s)``. Note that this
+doesn't actually evaluate the `ψ` functions in any way, it only stores
+the representation of the terms.
+"""
+function _clausen_expansion_remainder_ps(β::Integer)
+    p_0 = OrderedDict(Int[] => 1)
+    ps = OffsetVector([p_0], 0:0)
+
+    for k = 1:β
+        p_k = empty(ps[k-1])
+
+        # The term ψ^(0) * p_k
+        for (exponents, coefficient) in ps[k-1]
+            if isempty(exponents)
+                new_exponents = [1] # ψ^(0) * 1 = ψ^(0)
+            else
+                new_exponents = copy(exponents)
+                new_exponents[1] += 1 # Multiply by ψ^(0)
+            end
+            p_k[new_exponents] = coefficient
+        end
+
+        # The term p_k'
+        for (exponents, coefficient) in ps[k-1]
+            for l = 1:length(exponents)
+                if !iszero(exponents[l])
+                    # Differentiate ψ^(l+1)^exponents[l]
+                    new_exponents = copy(exponents)
+
+                    new_exponents[l] -= 1
+                    if l == length(exponents)
+                        push!(new_exponents, 1)
+                    else
+                        new_exponents[l+1] += 1
+                    end
+
+                    p_k[new_exponents] =
+                        get(p_k, new_exponents, 0) + coefficient * exponents[l]
+                end
+            end
+        end
+
+        push!(ps, p_k)
+    end
+
+    return ps
+end
+
+
+"""
     clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer)
 
 Compute an enclosure of the remainder term in the asymptotic expansion
@@ -891,49 +955,7 @@ function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
     zeta_bounds(j3) = abs(zeta_expansion[j3]) * factorial(j3)
 
     # p_k for 0 <= k <= β
-    ps = let
-        p_0 = OrderedDict(Int[] => 1)
-        ps = OffsetVector([p_0], 0:0)
-
-        for k = 1:β
-            p_k = empty(ps[k-1])
-
-            # The term ψ^(0) * p_k
-            for (exponents, coefficient) in ps[k-1]
-                if isempty(exponents)
-                    new_exponents = [1]
-                else
-                    new_exponents = copy(exponents)
-                    new_exponents[1] += 1 # Multiply by ψ^(0)
-                end
-                p_k[new_exponents] = coefficient
-            end
-
-            # The term p_k'
-            for (exponents, coefficient) in ps[k-1]
-                for l = 1:length(exponents)
-                    if !iszero(exponents[l])
-                        # Differentiate ψ^(l+1)^exponents[l]
-                        new_exponents = copy(exponents)
-
-                        new_exponents[l] -= 1
-                        if l == length(exponents)
-                            push!(new_exponents, 1)
-                        else
-                            new_exponents[l+1] += 1
-                        end
-
-                        p_k[new_exponents] =
-                            get(p_k, new_exponents, 0) + coefficient * exponents[l]
-                    end
-                end
-            end
-
-            push!(ps, p_k)
-        end
-
-        ps
-    end
+    ps = _clausen_expansion_remainder_ps(β)
 
     res = zero(x)
 
