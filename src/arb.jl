@@ -489,7 +489,6 @@ function taylor_with_remainder(f, x0::Acb, interval::Acb; degree::Integer)
     res = AcbSeries(res; degree)
 
     # Compute remainder term
-    # PROVE: That his gives a correct remainder term
     res[degree] = f(AcbSeries((interval, 1); degree))[degree]
 
     return res
