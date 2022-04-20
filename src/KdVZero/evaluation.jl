@@ -120,9 +120,12 @@ For wide values of `x` direct evaluation of `zeta(α, x / 2π) + zeta(α,
 1 - x / 2π)` gives a poor enclosure. To get better enclosures we use
 that all derivatives of that `zeta(α, x / 2π) + zeta(α, 1 - x / 2π)`
 are monotone on the interval `(0, π)`. We don't do this for the
-remainder term because it doesn't give much of an improvement
-- **PROVE:** That all derivatives of `zeta(α, x / 2π) + zeta(α, 1 - x
-  / 2π)` are monotone on `(0, π)`.
+remainder term because it doesn't give much of an improvement. To see
+that all derivatives are monotone we can rewrite it as
+```
+zeta(α, x / 2π) + zeta(α, 1 - x / 2π) = clausenc(x, α) / (gamma(v) * inv(2π)^v * cospi(v / 2))
+```
+The left hand side is monotone on `(0, π)` since `clausenc(x, α)` is.
 
 For computing `a[0] * zeta(1 - α)` we rewrite it as
 ```
@@ -462,9 +465,8 @@ For wide values of `x` direct evaluation of `zeta(2α, x / 2π) +
 zeta(2α, 1 - x / 2π)` gives a poor enclosure. To get better enclosures
 we use that all derivatives of that `zeta(2α, x / 2π) + zeta(2α, 1 - x
 / 2π)` are monotone on the interval `(0, π)`. We don't do this for the
-remainder term because it doesn't give much of an improvement
-- **PROVE:** That all derivatives of `zeta(2α, x / 2π) + zeta(2α, 1 -
-  x / 2π)` are monotone on `(0, π)`.
+remainder term because it doesn't give much of an improvement. For
+proof of monotonicity see `u0(x)`.
 
 For computing `a[0] * zeta(1 - 2α)` we rewrite it as
 ```
