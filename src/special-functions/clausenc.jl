@@ -271,29 +271,29 @@ end
 
 Evaluation of the `clausenc` function through the zeta function.
 
-This uses the same formula as the method with `x::Arb`.
-- **PROVE:** Check if this formula holds for complex `x`, it seems to
-  give correct results at least.
-
-It currently only handles `0 < real(x) < 2π`. If `s` overlaps with any
-non-negative integer the result will be indeterminate.
+This uses the same formula as the method with `x::Arb`, valid for `0 <
+real(x) < 2π`. If `s` overlaps with any non-negative integer the
+result will be indeterminate.
 
 This method is only used in the integration for bounding the error
 term. It is therefore not as optimized as many of the other methods.
 """
 function _clausenc_zeta(x::Acb, s::Arb)
-    0 < real(x) < 2Arb(π) || throw(
+    twopi = 2Arb(π)
+
+    0 < real(x) < twopi || throw(
         DomainError(x, "method only supports x with real part on the interval (0, 2π)"),
     )
 
-    inv2pi = inv(2Arb(π))
+    inv2pi = inv(twopi)
+    xdiv2pi = x / twopi
     v = 1 - s
 
     return ArbExtras.enclosure_series(
         v -> gamma(v) * inv2pi^v * cospi(v / 2),
         v,
         degree = 2,
-    ) * (zeta(Acb(v), x * inv2pi) + zeta(Acb(v), 1 - x * inv2pi))
+    ) * (zeta(Acb(v), xdiv2pi) + zeta(Acb(v), 1 - xdiv2pi))
 end
 
 """
