@@ -1011,7 +1011,6 @@ The remainder term is given by
 ```
 x^2M * sum((-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(2m) for m = M:Inf)
 ```
-where we enclose the sum.
 
 We want to compute an enclosure of each term in the expansion in `s`.
 
