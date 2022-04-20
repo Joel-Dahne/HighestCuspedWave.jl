@@ -223,9 +223,10 @@ or
 ```
 2log(t) / (1 + t) + log(1 + t) / t = 0
 ```
-- **PROVE:** That these two functions have a unique root on ``(0,
-  1)``. They are both increasing in `t`, it would be enough to prove
-  that.
+These functions can be checked to be monotone on ``[0, 1]`` (for
+details see paper) with limits ``±∞`` at `t = 0` and `t = 1`, they
+hence have a unique root which we can isolate. We can then use
+monotonicity of `f1` and `f3` as long as we avoid these roots.
 
 # Handling `U1_r`
 For `U1_r` we give a uniform bound of
