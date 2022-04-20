@@ -145,26 +145,13 @@ clausens(x * δ1, 1 - α) +
 2(clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α))
 ```
 
-In the case that `x` overlaps with `π` we get issues when evaluating
-`(clausens(2x, 1 - α)` since it doesn't have a good implementation in
-that case. We could subtract `2π` from the argument since it is `2π`
-periodic, but that doesn't solve the issue since `clausens` currently
-doesn't support evaluation on intervals containing zero.
-- **FIXME:** Currently we do this by assuming that `clausens` is
-  monotonic in `s`. In practice this is true for small enough
-  arguments but not in general. If `x` is sufficiently close to `π`
-  this will thus give a correct result, but it is not rigorously
-  proved.
-
 - **IMPROVE:** Could improve enclosures by better handling
   cancellations for `clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 -
   α)` and `clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α)`. Though
   this might not be needed.
 """
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
-    return x -> begin
-        x = convert(Arb, x)
-
+    return x::Arb -> begin
         weight_factor = let t = Arb((1 - δ1, 1))
             -t * u0.wdivx(x * t)
         end
@@ -172,31 +159,10 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
         # s = 1 - α
         s = Arb((2 - u0.ϵ, 2))
 
-        integral = clausens(x * δ1, s) - 2(clausens(x, s) - clausens(x * (1 - δ1), s))
-        if Arblib.overlaps(x, Arb(π))
-            # FIXME: This assumes that clausens is monotonic on the
-            # interval. In practice this is true for small enough
-            # argument. But it is not true in general.
+        integral =
+            clausens(x * δ1, s) + (clausens(2x, s) - clausens(x * (2 - δ1), s)) -
+            2(clausens(x, s) - clausens(x * (1 - δ1), s))
 
-            # Compute an enclosure of clausens(2(x - π), s) on the
-            # symmetric interval [-abs(2(x - π)), abs(2(x - π))] using
-            # the oddness and assuming that the maximum is attained at
-            # the endpoint.
-            term = Arblib.add_error!(zero(x), clausens(abs_ubound(Arb, 2(x - Arb(π))), s))
-            integral += term
-
-            # Compute an enclosure of clausens(x * (2 - δ1) - 2π, s)
-            # on the symmetric interval [-abs(x * (2 - δ1) - 2π),
-            # abs(x * (2 - δ1) - 2π)] using the oddness and assuming
-            # the maximum is attained at the endpoint.
-            term = Arblib.add_error!(
-                zero(x),
-                clausens(abs_ubound(Arb, x * (2 - δ1) - 2Arb(π)), s),
-            )
-            integral -= term
-        else
-            integral += clausens(2x, s) - clausens(x * (2 - δ1), s)
-        end
         integral *= weight_factor
 
         res = integral / (π * u0.wdivx(x))
