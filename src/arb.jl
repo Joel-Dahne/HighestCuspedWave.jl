@@ -228,12 +228,7 @@ function abspow(x::Arb, y::ArbSeries)
                 res[2] = term / 2
             end
         end
-        if deg >= 3
-            # I DONT WANT TO DO THIS!!!
-            @warn "not properly implemented for degree 3"
-            res[3] =
-                (6y[3] * log(x) + 6y[1] * y[2] * log(x)^2 + (y[1] * log(x))^3) / 6 * res[0]
-        end
+        deg >= 3 && error("supports degree at most 3")
 
         return res
     end
