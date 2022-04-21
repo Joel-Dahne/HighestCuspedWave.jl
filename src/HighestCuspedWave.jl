@@ -17,6 +17,7 @@ include("special-functions/clausens.jl")
 include("types.jl")
 include("evaluation.jl")
 
+include("estimates.jl")
 include("alpha.jl")
 include("delta.jl")
 include("T0.jl")
