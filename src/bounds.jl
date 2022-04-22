@@ -1,11 +1,11 @@
-export alpha0, delta0, CB, CB_bounded_by
+export n0_bound, delta0, CB, CB_bounded_by
 
 """
-    alpha0(u0::AbstractAnsatz{Arb})
+    n0_bound(u0::AbstractAnsatz{Arb})
 
-Compute upper bound of `α₀` from the paper.
+Compute upper bound of `n₀` from the paper.
 """
-function alpha0 end
+function n0_bound end
 
 """
     delta0(u0::AbstractAnsatz{Arb})

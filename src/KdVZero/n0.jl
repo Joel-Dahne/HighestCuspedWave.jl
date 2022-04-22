@@ -1,11 +1,11 @@
 """
-    alpha0(u0::KdVZeroAnsatz; rtol, verbose)
+    n0_bound(u0::KdVZeroAnsatz; rtol, verbose)
 
-Compute an upper bound of
+Compute an upper bound of `n₀` from the paper. This is the supremum of
 ```
-u0.w(x) / 2u0(x)
+N(x) = u0.w(x) / 2u0(x)
 ```
-for `0 < x < π`, valid for the full range of `α`.
+for `0 < x < π`. The bound is valid for the full range of `α`.
 
 The computation is done by computing the asymptotic expansion of `u0`.
 The terms in the expansion are then evaluated in `α`, giving us an
@@ -15,7 +15,7 @@ expansion in `x` where the coefficients are just balls. We factor out
 x^(1 + α) / 2(x^α * u0(x))
 ```
 """
-function alpha0(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
+function n0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
     # Compute expansion of u0 and evaluate the terms in α
     expansion = let expansion = u0(Arb(3.2), AsymptoticExpansion())
         res = empty(expansion, Arb)

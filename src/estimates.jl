@@ -1,9 +1,9 @@
-export alpha0_estimate, delta0_estimate, CB_estimate
+export n0_estimate, delta0_estimate, CB_estimate
 
 """
-    alpha0_estimate(u0::AbstractAnsatz)
+    n0_estimate(u0::AbstractAnsatz)
 
-Estimate the value of `alpha0(u0)`.
+Estimate the value of `n0(u0)`.
 
 Uses the observation that the maximum is typically obtained at `x =
 π`.
@@ -11,7 +11,7 @@ Uses the observation that the maximum is typically obtained at `x =
 **IMPROVE:** This is not necessarily true in all cases for all choices
 of weights. But since it's only an estimate it doesn't really matter.
 """
-alpha0_estimate(u0::AbstractAnsatz{T}) where {T} = u0.w(convert(T, π)) / (2u0(covert(T, π)))
+n0_estimate(u0::AbstractAnsatz{T}) where {T} = u0.w(convert(T, π)) / (2u0(covert(T, π)))
 
 """
     delta0_estimate(u0::AbstractAnsatz; n::Integer = 100, ϵ = 0, <keyword arguments>)

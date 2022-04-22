@@ -1,8 +1,11 @@
 """
-    alpha0(u0::FractionalKdVAnsatz; M::Integer, rtol, threaded, verbose)
+    n0_bound(u0::FractionalKdVAnsatz; M::Integer, rtol, threaded, verbose)
 
-Enclose the value of `α₀`, given by the maximum of `u0.w(x) / 2u0(x)`
-on ``[0, π]``.
+Enclose the value of `n₀`. This is the supremum of
+```
+N(x) = u0.w(x) / 2u0(x)
+```
+for `0 < x < π`.
 
 It uses an asymptotic expansion with `M` terms close to zero and ball
 arithmetic on the remaining.
@@ -21,7 +24,7 @@ If `threaded = true` it enables threading when calling
 [`ArbExtras.maximum_enclosure`](@ref). If `verbose = true` print more
 information about the process.
 """
-function alpha0(
+function n0_bound(
     u0::FractionalKdVAnsatz{Arb};
     M::Integer = 3,
     rtol = 1e-5,

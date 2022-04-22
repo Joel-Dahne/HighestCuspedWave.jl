@@ -3,17 +3,17 @@
 
 Attempts to prove that the ansatz `u0` satisfies the requirements, that is
 ```
-δ₀ < 1 / (4α₀ * β^2)
+δ₀ < 1 / (4n₀ * β^2)
 ```
-with `β = inv(1 - C_B)` and `α₀` is given by [`alpha0`](@ref), `δ₀` by
+with `β = inv(1 - C_B)` and `n₀` is given by [`n0`](@ref), `δ₀` by
 [`delta0`](@ref) and `C_B` by [`CB`](@ref).
 
 The most expensive part is the computation of `C_B`. Therefore it
-first computes enclosures of `α₀` and `δ₀` but only an estimate of
+first computes enclosures of `n₀` and `δ₀` but only an estimate of
 `C_B` and checks if the condition holds. If the condition holds it
 tries to prove that `C_B` is bounded by
 ```
-1 - 2sqrt(α₀ * δ₀)
+1 - 2sqrt(n₀ * δ₀)
 ```
 which is equivalent to the former inequality.
 
@@ -43,8 +43,8 @@ function prove(
     # issues. So we take it to be 15.
     x_error = Arblib.mul_2exp!(zero(Arb), Arb(π), -15)
 
-    α₀_time = @elapsed α₀ = alpha0(u0, verbose = extra_verbose; M, threaded)
-    verbose && @info "Computed α₀" α₀ α₀_time
+    n₀_time = @elapsed n₀ = n0_bound(u0, verbose = extra_verbose; M, threaded)
+    verbose && @info "Computed n₀" n₀ n₀_time
 
     δ₀_time = @elapsed δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
     verbose && @info "Computed δ₀" δ₀ δ₀_time
@@ -55,13 +55,13 @@ function prove(
     β_estimate = 1 / (1 - C_B_estimate)
 
     # Bound that δ₀ needs to satisfy
-    C_estimate = 1 / (4α₀ * β_estimate^2)
+    C_estimate = 1 / (4n₀ * β_estimate^2)
 
     # Bound that C_B needs to satisfy
-    D = 1 - 2Arblib.sqrtpos!(zero(α₀), α₀ * δ₀)
+    D = 1 - 2Arblib.sqrtpos!(zero(n₀), n₀ * δ₀)
 
     if verbose
-        @info "Must have δ₀ < 1 / (4α₀ * β^2) = C or equivalently C_B < 1 - 2√(α₀δ₀) = D" lbound(
+        @info "Must have δ₀ < 1 / (4n₀ * β^2) = C or equivalently C_B < 1 - 2√(n₀δ₀) = D" lbound(
             C_estimate,
         ) δ₀ < C_estimate lbound(D) C_B_estimate < D
     end
@@ -87,11 +87,11 @@ function prove(
     return (;
         proved,
         proved_estimate,
-        α₀,
+        n₀,
         δ₀,
         C_B_estimate,
         C_B,
-        α₀_time,
+        n₀_time,
         δ₀_time,
         C_B_estimate_time,
         C_B_time,

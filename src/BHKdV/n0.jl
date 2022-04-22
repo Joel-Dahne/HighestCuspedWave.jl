@@ -1,11 +1,11 @@
 """
-    alpha0(u0::BHKdVAnsatz{Arb})
+    n0_bound(u0::BHKdVAnsatz{Arb})
 
-Compute an upper bound of `α₀` from the paper. This is the supremum of
+Compute an upper bound of `n₀` from the paper. This is the supremum of
 ```
-u0.w(x) / 2u0(x)
+N(x) = u0.w(x) / 2u0(x)
 ```
-for `x ∈ [0, π]`.
+for `0 < x < π`.
 
 It splits the interval `[0, π]` into two parts, `[0, ϵ]` and `[ϵ, π]`.
 
@@ -61,7 +61,7 @@ This means that `u0.w(x) / 2u0(x)` is **upper** bounded by `u0.w(x) /
 `BHAnsatz` which the only difference being the different weight and
 that we only get an upper bound instead of an enclosure.
 """
-function alpha0(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
+function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
     # Function for asymptotic evaluation
 
     # This uses a hard coded version of the weight so just as an extra

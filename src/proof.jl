@@ -46,40 +46,40 @@ function prove(
 end
 
 """
-    round_for_publishing(α₀, δ₀, C_B; sigdigits = 10)
+    round_for_publishing(n₀, δ₀, C_B; sigdigits = 10)
 
-Convert `α₀, δ₀, C_B` to `Float64`, rounding up to the prescribed
+Convert `n₀, δ₀, C_B` to `Float64`, rounding up to the prescribed
 number of significant digits, and check that the inequality `δ₀ <= (1
-- C_B)^2 / 4α₀` holds for the rounded values as well.
+- C_B)^2 / 4n₀` holds for the rounded values as well.
 
 This is used to get upper bounds of the values in a simpler format
 than the `Arb` type.
 """
-function round_for_publishing(α₀::Arb, δ₀::Arb, C_B::Arb; sigdigits = 10)
-    α₀_float = Arblib.get_d(ubound(α₀), RoundUp)
+function round_for_publishing(n₀::Arb, δ₀::Arb, C_B::Arb; sigdigits = 10)
+    n₀_float = Arblib.get_d(ubound(n₀), RoundUp)
     δ₀_float = Arblib.get_d(ubound(δ₀), RoundUp)
     C_B_float = Arblib.get_d(ubound(C_B), RoundUp)
 
     # Check that the inequality holds before rounding. Conversion to
     # Float64 loses precision so this is not guaranteed.
-    inequality_holds = Arb(δ₀_float) < (1 - Arb(C_B_float))^2 / 4Arb(α₀_float)
+    inequality_holds = Arb(δ₀_float) < (1 - Arb(C_B_float))^2 / 4Arb(n₀_float)
 
     if !inequality_holds
-        @warn "Inequality doesn't hold after conversion" α₀_float, δ₀_float, C_B_float
-        return false, α₀_float, δ₀_float, C_B_float
+        @warn "Inequality doesn't hold after conversion" n₀_float, δ₀_float, C_B_float
+        return false, n₀_float, δ₀_float, C_B_float
     end
 
-    α₀_float_rounded = round(α₀_float, RoundUp; sigdigits)
+    n₀_float_rounded = round(n₀_float, RoundUp; sigdigits)
     δ₀_float_rounded = round(δ₀_float, RoundUp; sigdigits)
     C_B_float_rounded = round(C_B_float, RoundUp; sigdigits)
 
-    @assert α₀ <= α₀_float_rounded
+    @assert n₀ <= n₀_float_rounded
     @assert δ₀ <= δ₀_float_rounded
     @assert C_B <= C_B_float_rounded
 
     # Check that the inequality holds after rounding
     inequality_holds =
-        Arb(δ₀_float_rounded) < (1 - Arb(C_B_float_rounded))^2 / 4Arb(α₀_float_rounded)
+        Arb(δ₀_float_rounded) < (1 - Arb(C_B_float_rounded))^2 / 4Arb(n₀_float_rounded)
 
-    return inequality_holds, α₀_float_rounded, δ₀_float_rounded, C_B_float_rounded
+    return inequality_holds, n₀_float_rounded, δ₀_float_rounded, C_B_float_rounded
 end

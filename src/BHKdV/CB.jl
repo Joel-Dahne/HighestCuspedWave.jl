@@ -16,7 +16,7 @@ This method uses the fact that `u0.v0(x)` gives a **lower** bound for
 u0.ϵ]`. This means that `inv(u0(x))` is **upper** bounded by
 `inv(u0.v0(x))`.
 - **PROVE:** That `u0(x)` indeed is lower bounded by `u0.v0(x)`. See
-  [`alpha0`](@ref).
+  [`n0_bound`](@ref).
 
 For the non-asymptotic version we do a number of optimizations for
 performance reasons.

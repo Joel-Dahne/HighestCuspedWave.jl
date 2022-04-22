@@ -9,7 +9,7 @@ The function `u0(x)` is **lower bounded** by `u0.v0(x)` for all `x ∈
 This is used when upper bounding terms where `u0` occurs in the
 denominator since we can then replace it by `u0.v0` and still get an
 upper bound. For example this is used in
-- [`alpha0`](@ref)
+- [`n0_bound`](@ref)
 
 # Proof
 The only difference between `u0` and `u0.v0` is the leading term. The

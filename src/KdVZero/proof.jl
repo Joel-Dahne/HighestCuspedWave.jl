@@ -22,8 +22,8 @@ function prove(
         Set{NTuple{3,Int}}([(2, 0, 0)]),
     )
 
-    α₀_time = @elapsed α₀ = alpha0(u0, verbose = extra_verbose)
-    verbose && @info "Computed α₀" α₀ α₀_time
+    n₀_time = @elapsed n₀ = n0_bound(u0, verbose = extra_verbose)
+    verbose && @info "Computed n₀" n₀ n₀_time
 
     # The maximum of T0 is in practice attained at x = 0
     C_B_estimate_time = @elapsed C_B_estimate = T0(u02, Asymptotic())(Arb(0))
@@ -31,7 +31,7 @@ function prove(
 
     # Compute estimate of required bound of defect
     β_estimate = 1 / (1 - C_B_estimate)
-    δ₀_goal = 1 / (4α₀ * β_estimate^2)
+    δ₀_goal = 1 / (4n₀ * β_estimate^2)
 
     verbose && @info "Required bound for defect $δ₀_goal"
 
@@ -53,7 +53,7 @@ function prove(
         verbose && @info "Computed δ₀" δ₀ δ₀_time
 
         # Compute required bound for C_B, adding a little bit of head room
-        C_B_goal = lbound(Arb, 1 - 2Arblib.sqrtpos!(zero(Arb), α₀ * δ₀)) - sqrt(eps())
+        C_B_goal = lbound(Arb, 1 - 2Arblib.sqrtpos!(zero(Arb), n₀ * δ₀)) - sqrt(eps())
 
         verbose && @info "Required bound for C_B" C_B_goal
 
@@ -80,11 +80,11 @@ function prove(
     return (;
         proved,
         proved_estimate,
-        α₀,
+        n₀,
         δ₀,
         C_B_estimate,
         C_B,
-        α₀_time,
+        n₀_time,
         δ₀_time,
         C_B_estimate_time,
         C_B_time,
