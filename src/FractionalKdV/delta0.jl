@@ -1,5 +1,5 @@
 """
-    delta0(u0::FractionalKdVAnsatz; ϵ, M, degree, rtol, threaded, verbose)
+    delta0_bound(u0::FractionalKdVAnsatz; ϵ, M, degree, rtol, threaded, verbose)
 
 Enclose the value of `δ₀` from the paper.
 
@@ -20,7 +20,7 @@ on `[ϵ, π]`.
   [`ArbExtras.maximum_enclosure`](@ref).
 - `verbose = false`: Print information about the process.
 """
-function delta0(
+function delta0_bound(
     u0::FractionalKdVAnsatz{Arb};
     ϵ::Arf = zero(Arf),
     M::Integer = 3,

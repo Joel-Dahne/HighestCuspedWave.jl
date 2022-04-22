@@ -43,7 +43,7 @@ function prove(
         δ₀_time = NaN
         D₀_time = NaN
     else
-        δ₀_time = @elapsed δ₀ = delta0(
+        δ₀_time = @elapsed δ₀ = delta0_bound(
             u0,
             atol = 0.5δ₀_goal,
             maxevals = 1000,

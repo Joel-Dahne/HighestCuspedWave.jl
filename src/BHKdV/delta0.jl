@@ -1,5 +1,5 @@
 """
-    delta0(u0::BHKdVAnsatz{Arb}; atol = Arb(0), rtol = Arb(1e-1), verbose = false)
+    delta0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(0), rtol = Arb(1e-1), verbose = false)
 
 Enclose the value of `δ₀` from the paper.
 
@@ -22,7 +22,12 @@ such that the enclosure for the interval `[0, ϵ1]` is less than this
 approximate maximum. The interval `[ϵ1, ϵ]` is then handled by
 bisection.
 """
-function delta0(u0::BHKdVAnsatz{Arb}; atol = Arb(0), rtol = Arb(1e-1), verbose = false)
+function delta0_bound(
+    u0::BHKdVAnsatz{Arb};
+    atol = Arb(0),
+    rtol = Arb(1e-1),
+    verbose = false,
+)
     # Determine a good choice of ϵ. Take it as large as possible so
     # that the asymptotic version still satisfies the specified
     # tolerance or it is better than the non-asymptotic version.

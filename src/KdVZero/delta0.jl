@@ -1,5 +1,5 @@
 """
-    delta0(u0::KdVZeroAnsatz; rtol, atol, maxevals, threaded, verbose)
+    delta0_bound(u0::KdVZeroAnsatz; rtol, atol, maxevals, threaded, verbose)
 
 Compute an upper bound of `abs(F0(u0)(x))`.
 
@@ -37,7 +37,7 @@ The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `F0(u0)` whereas on ´[ϵ,
 π]` we use the non-asymptotic version.
 """
-function delta0(
+function delta0_bound(
     u0::KdVZeroAnsatz;
     rtol = Arb(1e-2),
     atol = ifelse(iszero(u0.α0), Arb(1e-3), Arb(0)),

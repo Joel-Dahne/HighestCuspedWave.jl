@@ -394,9 +394,9 @@ end
 Returns a function such that `F0(u0, Asymptotic())(x)` is computed
 accurately for small values of `x`.
 
-This method is one of the bottlenecks of [`delta0`](@ref) and for this
-reasons it is heavily optimized. The method assumes that `x >= 0` and
-any negative parts of the ball `x` are ignored.
+This method is one of the bottlenecks of [`delta0_bound`](@ref) and
+for this reasons it is heavily optimized. The method assumes that `x
+>= 0` and any negative parts of the ball `x` are ignored.
 
 It precomputes the expansions of `u0` and `D(u0)` and for that reason
 a number `ϵ` has to be given, the resulting expansion will be valid

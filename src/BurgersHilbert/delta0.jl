@@ -1,5 +1,5 @@
 """
-    delta0(u0::BHAnsatz{Arb}; rtol, degree, verbose)
+    delta0_bound(u0::BHAnsatz{Arb}; rtol, degree, verbose)
 
 Enclose the value of `δ₀` from the paper.
 
@@ -39,7 +39,7 @@ allocations in that case.
 - `verbose = false`: If true it prints more information about the
   progress.
 """
-function delta0(
+function delta0_bound(
     u0::BHAnsatz{Arb};
     rtol = Arb(1e-3),
     degree = 4,

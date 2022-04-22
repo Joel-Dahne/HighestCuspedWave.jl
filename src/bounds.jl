@@ -1,4 +1,4 @@
-export n0_bound, delta0, D0_bound, D0_bounded_by
+export n0_bound, delta0_bound, D0_bound, D0_bounded_by
 
 """
     n0_bound(u0::AbstractAnsatz{Arb})
@@ -8,11 +8,11 @@ Compute upper bound of `n₀` from the paper.
 function n0_bound end
 
 """
-    delta0(u0::AbstractAnsatz{Arb})
+    delta0_bound(u0::AbstractAnsatz{Arb})
 
 Compute upper bound of `δ₀` from the paper.
 """
-function delta0 end
+function delta0_bound end
 
 """
     D0_bound(u0::AbstractAnsatz{Arb})

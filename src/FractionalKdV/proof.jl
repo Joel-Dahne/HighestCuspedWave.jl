@@ -6,7 +6,7 @@ Attempts to prove that the ansatz `u0` satisfies the requirements, that is
 δ₀ < 1 / (4n₀ * β^2)
 ```
 with `β = inv(1 - D₀)` and `n₀` is given by [`n0_bound`](@ref), `δ₀`
-by [`delta0`](@ref) and `D₀` by [`D0_bound`](@ref).
+by [`delta0_bound`](@ref) and `D₀` by [`D0_bound`](@ref).
 
 The most expensive part is the computation of `D₀`. Therefore it
 first computes enclosures of `n₀` and `δ₀` but only an estimate of
@@ -46,7 +46,7 @@ function prove(
     n₀_time = @elapsed n₀ = n0_bound(u0, verbose = extra_verbose; M, threaded)
     verbose && @info "Computed n₀" n₀ n₀_time
 
-    δ₀_time = @elapsed δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
+    δ₀_time = @elapsed δ₀ = delta0_bound(u0, verbose = extra_verbose; M, threaded)
     verbose && @info "Computed δ₀" δ₀ δ₀_time
 
     D₀_estimate_time = @elapsed D₀_estimate = D0_estimate(u0; M, x_error, threaded)
