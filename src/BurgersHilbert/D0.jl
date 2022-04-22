@@ -1,7 +1,7 @@
 """
-    CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
+    D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
 
-Upper bound the value of `C_B` from the paper.
+Upper bound the value of `D₀` from the paper.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use an asymptotic expansion of `T0(u0)` whereas on ´[ϵ,
@@ -30,7 +30,7 @@ we have to evaluate `T0(u0)` (in fact it probably increases it), it
 does decrease the number of times we have to evaluate `u0`, which
 turns out to be the more costly part of the procedure.
 """
-function CB(u0::BHAnsatz; atol = 1e-3, verbose = false)
+function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
     ϵ = Arf(1e-2)
 
     # Bound the value on [ϵ, π]

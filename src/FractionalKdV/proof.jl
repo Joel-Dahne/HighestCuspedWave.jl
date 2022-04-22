@@ -1,24 +1,24 @@
 """
-    prove(u0::FractionalKdVAnsatz{Arb}; M = 5; only_estimate_CB, threaded, verbose, extra_verbose)
+    prove(u0::FractionalKdVAnsatz{Arb}; M = 5; only_estimate_D0, threaded, verbose, extra_verbose)
 
 Attempts to prove that the ansatz `u0` satisfies the requirements, that is
 ```
 δ₀ < 1 / (4n₀ * β^2)
 ```
-with `β = inv(1 - C_B)` and `n₀` is given by [`n0`](@ref), `δ₀` by
-[`delta0`](@ref) and `C_B` by [`CB`](@ref).
+with `β = inv(1 - D₀)` and `n₀` is given by [`n0_bound`](@ref), `δ₀`
+by [`delta0`](@ref) and `D₀` by [`D0_bound`](@ref).
 
-The most expensive part is the computation of `C_B`. Therefore it
+The most expensive part is the computation of `D₀`. Therefore it
 first computes enclosures of `n₀` and `δ₀` but only an estimate of
-`C_B` and checks if the condition holds. If the condition holds it
-tries to prove that `C_B` is bounded by
+`D₀` and checks if the condition holds. If the condition holds it
+tries to prove that `D₀` is bounded by
 ```
 1 - 2sqrt(n₀ * δ₀)
 ```
 which is equivalent to the former inequality.
 
-If `only_estimate_CB = true` it doesn't attempt to prove the bound on
-`C_B` but only uses the estimate. This doesn't give a rigorous proof
+If `only_estimate_D0 = true` it doesn't attempt to prove the bound on
+`D₀` but only uses the estimate. This doesn't give a rigorous proof
 but is useful if you only want to determine of the bound seems to
 hold.
 
@@ -30,13 +30,13 @@ more information `extra_verbose` can also be set to be true.
 function prove(
     u0::FractionalKdVAnsatz{Arb};
     M = 5,
-    only_estimate_CB = false,
+    only_estimate_D0 = false,
     threaded = true,
     verbose = false,
     extra_verbose = false,
 )
     # We don't wont to have to go further than a too large depth when
-    # bounding C_B. Therefore we want to check the C_B values using x
+    # bounding D₀. Therefore we want to check the D₀ values using x
     # values with a radius similar to that we would have at a depth we
     # are comfortable going to. Typically we have to go to around
     # depth = 12 but we could go a bit longer than that without
@@ -49,39 +49,39 @@ function prove(
     δ₀_time = @elapsed δ₀ = delta0(u0, verbose = extra_verbose; M, threaded)
     verbose && @info "Computed δ₀" δ₀ δ₀_time
 
-    C_B_estimate_time = @elapsed C_B_estimate = CB_estimate(u0; M, x_error, threaded)
-    verbose && @info "Computed C_B estimate" C_B_estimate C_B_estimate_time
+    D₀_estimate_time = @elapsed D₀_estimate = D0_estimate(u0; M, x_error, threaded)
+    verbose && @info "Computed D₀ estimate" D₀_estimate D₀_estimate_time
 
-    β_estimate = 1 / (1 - C_B_estimate)
+    β_estimate = 1 / (1 - D₀_estimate)
 
     # Bound that δ₀ needs to satisfy
     C_estimate = 1 / (4n₀ * β_estimate^2)
 
-    # Bound that C_B needs to satisfy
+    # Bound that D₀ needs to satisfy
     D = 1 - 2Arblib.sqrtpos!(zero(n₀), n₀ * δ₀)
 
     if verbose
-        @info "Must have δ₀ < 1 / (4n₀ * β^2) = C or equivalently C_B < 1 - 2√(n₀δ₀) = D" lbound(
+        @info "Must have δ₀ < 1 / (4n₀ * β^2) = C or equivalently D₀ < 1 - 2√(n₀δ₀) = D" lbound(
             C_estimate,
-        ) δ₀ < C_estimate lbound(D) C_B_estimate < D
+        ) δ₀ < C_estimate lbound(D) D₀_estimate < D
     end
 
     if !(δ₀ < C_estimate)
         proved = false
         proved_estimate = false
-        C_B = Arblib.indeterminate!(zero(Arb))
-        C_B_time = NaN
-    elseif only_estimate_CB
+        D₀ = Arblib.indeterminate!(zero(Arb))
+        D₀_time = NaN
+    elseif only_estimate_D0
         proved = false
         proved_estimate = true
-        C_B = Arblib.indeterminate!(zero(Arb))
-        C_B_time = NaN
+        D₀ = Arblib.indeterminate!(zero(Arb))
+        D₀_time = NaN
     else
         proved_estimate = true
-        C_B = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
-        C_B_time = @elapsed proved = CB_bounded_by(u0, lbound(C_B); M, threaded, verbose)
+        D₀ = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
+        D₀_time = @elapsed proved = D0_bounded_by(u0, lbound(D₀); M, threaded, verbose)
 
-        verbose && @info "Bounded C_B" C_B C_B_time
+        verbose && @info "Bounded D₀" D₀ D₀_time
     end
 
     return (;
@@ -89,11 +89,11 @@ function prove(
         proved_estimate,
         n₀,
         δ₀,
-        C_B_estimate,
-        C_B,
+        D₀_estimate,
+        D₀,
         n₀_time,
         δ₀_time,
-        C_B_estimate_time,
-        C_B_time,
+        D₀_estimate_time,
+        D₀_time,
     )
 end

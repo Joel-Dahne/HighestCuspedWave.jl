@@ -4,7 +4,7 @@ export T0
     T0(u0::AbstractAnsatz, evaltype = Ball())
 Returns a function such that T0(u0)(x) computes the integral T_0
 from the paper. This is the function whose supremum on [0, π] gives
-C_B.
+`D₀`.
 
 In general it returns an **enclosure** but in some cases it only
 returns an **upper bound**.

@@ -1,7 +1,7 @@
 """
-    CB(u0::BHAnsatz; atol, verbose = false)
+    D0_bound(u0::BHAnsatz; atol, verbose = false)
 
-Compute an upper bound of `C_B` from the paper.
+Compute an upper bound of `D₀` from the paper.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use an asymptotic expansion of `T0(u0)` whereas on ´[ϵ,
@@ -44,7 +44,7 @@ interval `[ϵ, lbound(Arb(π))]`, which is strictly less than `π`, and
 then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
 separately.
 """
-function CB(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
+function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
     ϵ = midpoint(Arb("1e-1"))
 
     # Bound the value on [ϵ, π]

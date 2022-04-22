@@ -1,14 +1,14 @@
 """
-    CB(u0::KdVZeroAnsatz; verbose = false)
+    D0_bound(u0::KdVZeroAnsatz; verbose = false)
 
-Compute an expansion in `α` such that it gives an upper bound of
-`T0(u0)(x)` for all values of `α` in `u0.α`.
+Compute an expansion in `α` such that it gives an upper bound of `D₀`
+for all values of `α` in `u0.α`.
 
 More precisely it returns an `ArbSeries` `p` of the form
 ```
 p = 1 + p[1] * α
 ```
-satisfying that `p(α)` gives an enclosure of ``C_B`` for every `α ∈
+satisfying that `p(α)` gives an enclosure of `D₀` for every `α ∈
 u0.α`.
 
 For a given value of `x` [`T0`](@ref) gives us an expansion in `α` of
@@ -33,7 +33,7 @@ at `x = 0` and then trying to pick `ϵ` as large but so that the
 enclosure from the asymptotic version of `T0` is larger than the value
 at `x = 0`
 """
-function CB(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = false)
+function D0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = false)
     # Compute the value at x = 0, this is the minimum in practice
     p1_zero = T0(u0, Asymptotic())(Arb(0))[1]
 
@@ -109,17 +109,17 @@ function CB(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = fals
 end
 
 """
-    CB_estimate(u0::KdVZeroAnsatz)
+    D0_estimate(u0::KdVZeroAnsatz)
 
-Compute an estimate of `CB(u0)`. It returns an `ArbSeries` `p` of the
+Compute an estimate of `D0(u0)`. It returns an `ArbSeries` `p` of the
 form
 ```
 p = 1 + p[1] * α
 ```
-such that `p(α)` gives an estimate of ``C_B`` for the given `α ∈
+such that `p(α)` gives an estimate of ``D₀`` for the given `α ∈
 u0.α`.
 """
-function CB_estimate(
+function D0_estimate(
     u0::KdVZeroAnsatz;
     n::Integer = 100,
     return_values = false,

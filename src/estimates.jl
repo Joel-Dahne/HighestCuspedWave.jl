@@ -1,4 +1,4 @@
-export n0_estimate, delta0_estimate, CB_estimate
+export n0_estimate, delta0_estimate, D0_estimate
 
 """
     n0_estimate(u0::AbstractAnsatz)
@@ -73,9 +73,9 @@ function delta0_estimate(
 end
 
 """
-    CB_estimate(u0::AbstractAnsatz{T}; n::Integer = 20, <keyword arguments>)
+    D0_estimate(u0::AbstractAnsatz{T}; n::Integer = 20, <keyword arguments>)
 
-Estimate the value of `CB(u0)`.
+Estimate the value of `D0(u0)`.
 
 Does this by evaluating the norm on `n` linearly spaced points on the
 interval ``[0, π]``.
@@ -97,7 +97,7 @@ of the norm.
 - `threaded = false`: If true then use multiple threads when
   evaluating.
 """
-function CB_estimate(
+function D0_estimate(
     u0::AbstractAnsatz{T};
     n::Integer = 20,
     M::Integer = 3,

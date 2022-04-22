@@ -1,10 +1,10 @@
 """
-    prove(u0::KdVZeroansatz{Arb}; only_estimate_CB, threaded, verbose, extra_verbose)
+    prove(u0::KdVZeroansatz{Arb}; only_estimate_D0, threaded, verbose, extra_verbose)
 """
 function prove(
     u0::KdVZeroAnsatz;
     M = 5, # Not used
-    only_estimate_CB = false,
+    only_estimate_D0 = false,
     maxevals = 1000,
     threaded = true,
     verbose = false,
@@ -26,11 +26,11 @@ function prove(
     verbose && @info "Computed n₀" n₀ n₀_time
 
     # The maximum of T0 is in practice attained at x = 0
-    C_B_estimate_time = @elapsed C_B_estimate = T0(u02, Asymptotic())(Arb(0))
-    verbose && @info "Computed C_B estimate" C_B_estimate C_B_estimate_time
+    D₀_estimate_time = @elapsed D₀_estimate = T0(u02, Asymptotic())(Arb(0))
+    verbose && @info "Computed D₀ estimate" D₀_estimate D₀_estimate_time
 
     # Compute estimate of required bound of defect
-    β_estimate = 1 / (1 - C_B_estimate)
+    β_estimate = 1 / (1 - D₀_estimate)
     δ₀_goal = 1 / (4n₀ * β_estimate^2)
 
     verbose && @info "Required bound for defect $δ₀_goal"
@@ -39,9 +39,9 @@ function prove(
         proved = false
         proved_estimate = false
         δ₀ = Arblib.indeterminate!(zero(Arb))
-        C_B = Arblib.indeterminate!(zero(Arb))
+        D₀ = Arblib.indeterminate!(zero(Arb))
         δ₀_time = NaN
-        C_B_time = NaN
+        D₀_time = NaN
     else
         δ₀_time = @elapsed δ₀ = delta0(
             u0,
@@ -52,28 +52,28 @@ function prove(
         )
         verbose && @info "Computed δ₀" δ₀ δ₀_time
 
-        # Compute required bound for C_B, adding a little bit of head room
-        C_B_goal = lbound(Arb, 1 - 2Arblib.sqrtpos!(zero(Arb), n₀ * δ₀)) - sqrt(eps())
+        # Compute required bound for D₀, adding a little bit of head room
+        D₀_goal = lbound(Arb, 1 - 2Arblib.sqrtpos!(zero(Arb), n₀ * δ₀)) - sqrt(eps())
 
-        verbose && @info "Required bound for C_B" C_B_goal
+        verbose && @info "Required bound for D₀" D₀_goal
 
-        if !(C_B_estimate < C_B_goal)
+        if !(D₀_estimate < D₀_goal)
             proved = false
             proved_estimate = false
-            C_B = Arblib.indeterminate!(zero(Arb))
-            C_B_time = NaN
+            D₀ = Arblib.indeterminate!(zero(Arb))
+            D₀_time = NaN
 
-            verbose && @warn "Required bound for C_B not satisfied at x = 0"
-        elseif only_estimate_CB
+            verbose && @warn "Required bound for D₀ not satisfied at x = 0"
+        elseif only_estimate_D0
             proved = false
             proved_estimate = true
-            C_B = Arblib.indeterminate!(zero(Arb))
-            C_B_time = NaN
+            D₀ = Arblib.indeterminate!(zero(Arb))
+            D₀_time = NaN
         else
             proved_estimate = true
-            C_B = C_B_goal
-            C_B_time = @elapsed proved =
-                CB_bounded_by(u02, lbound(C_B); maxevals, threaded, verbose)
+            D₀ = D₀_goal
+            D₀_time = @elapsed proved =
+                D0_bounded_by(u02, lbound(D₀); maxevals, threaded, verbose)
         end
     end
 
@@ -82,11 +82,11 @@ function prove(
         proved_estimate,
         n₀,
         δ₀,
-        C_B_estimate,
-        C_B,
+        D₀_estimate,
+        D₀,
         n₀_time,
         δ₀_time,
-        C_B_estimate_time,
-        C_B_time,
+        D₀_estimate_time,
+        D₀_time,
     )
 end

@@ -1,7 +1,7 @@
 """
-    CB_bounded_by(u0::AbstractAnsatz{Arb}, C::Arf; ϵ = 0, ...)
+    D0_bounded_by(u0::AbstractAnsatz{Arb}, C::Arf; ϵ = 0, ...)
 
-Attempt to prove that ``C_B`` is bounded by `C`. Returns `true` on
+Attempt to prove that `D₀` is bounded by `C`. Returns `true` on
 success and `false` on failure.
 
 If `ϵ = 0` it tries to determine an optimal choice of `ϵ` by starting
@@ -11,7 +11,7 @@ with `ϵ = 1` and then iteratively decreasing it until the bound
 It then uses the asymptotic version on the interval `[0, ϵ]` and the
 non-asymptotic version on `[ϵ, π]`.
 """
-function CB_bounded_by(
+function D0_bounded_by(
     u0::FractionalKdVAnsatz{Arb},
     C::Arf;
     M::Integer = 3,
