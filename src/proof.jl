@@ -62,7 +62,8 @@ function round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = 10)
 
     # Check that the inequality holds before rounding. Conversion to
     # Float64 loses precision so this is not guaranteed.
-    inequality_holds = Arb(δ₀_float) < (1 - Arb(D₀_float))^2 / 4Arb(n₀_float)
+    inequality_holds =
+        D₀_float < 1 && Arb(δ₀_float) < (1 - Arb(D₀_float))^2 / 4Arb(n₀_float)
 
     if !inequality_holds
         @warn "Inequality doesn't hold after conversion" n₀_float, δ₀_float, D₀_float
@@ -79,6 +80,7 @@ function round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = 10)
 
     # Check that the inequality holds after rounding
     inequality_holds =
+        D₀_float_rounded < 1 &&
         Arb(δ₀_float_rounded) < (1 - Arb(D₀_float_rounded))^2 / 4Arb(n₀_float_rounded)
 
     return inequality_holds, n₀_float_rounded, δ₀_float_rounded, D₀_float_rounded
