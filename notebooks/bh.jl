@@ -156,16 +156,16 @@ n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
 end
 
 # ╔═╡ f1ca794b-e1fc-481b-9b75-1e42a0b48a58
-n0_bound, n0_time = if use_rigorous_bounds_n0
-    n0_time = @elapsed n0_bound = alpha0(u0, verbose = true)
-    n0_bound, n0_time
+n0_enclosure, n0_time = if use_rigorous_bounds_n0
+    n0_time = @elapsed n0_enclosure = n0_bound(u0, verbose = true)
+    n0_enclosure, n0_time
 else
     missing, missing
 end
 
 # ╔═╡ 61151255-15d4-45ec-a3ad-573c46d34d93
 n0 = if use_rigorous_bounds_n0
-    n0_bound
+    n0_enclosure
 else
     maximum(abs.(n0_ys))
 end
@@ -220,7 +220,7 @@ end
 # ╔═╡ 664df5e6-152a-4b9a-adf8-352bdef59055
 δ0_bound, δ0_time, δ0_subintervals = if use_rigorous_bounds_δ0
     δ0_time = @elapsed δ0_bound, δ0_subintervals... =
-        delta0(u0, return_subresults = true, verbose = true)
+        delta0_bound(u0, return_subresults = true, verbose = true)
     δ0_bound, δ0_time, δ0_subintervals
 else
     missing, missing, (Arb(NaN), Arb(NaN), Arb(NaN), Arb(NaN), Arb(NaN))
@@ -250,16 +250,16 @@ D0_xs, D0_ys = let xs = range(Arb(1e-1), π, length = 100)
 end
 
 # ╔═╡ de5bed6f-7079-40a9-a5eb-f315abc20ddf
-D0_bound, D0_time = if use_rigorous_bounds_D0
-    D0_time = @elapsed D0_bound = CB(u0, verbose = true)
-    D0_bound, D0_time
+D0_enclosure, D0_time = if use_rigorous_bounds_D0
+    D0_time = @elapsed D0_enclosure = D0_bound(u0, verbose = true)
+    D0_enclosure, D0_time
 else
     missing, missing
 end
 
 # ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 D0 = if use_rigorous_bounds_D0
-    D0_bound
+    D0_enclosure
 else
     maximum(abs.(D0_ys))
 end
@@ -394,7 +394,7 @@ let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$N(x)\$")
 end
 
 # ╔═╡ 16b4c640-6b4c-46a3-a505-e0eb7bbb2632
-let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$T(x)\$")
+let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$\\mathcal{T}(x)\$")
     plot!(pl, D0_xs, D0_ys, ribbon = radius.(Arb, D0_ys), m = :circle, ms = 2)
     hline!(pl, [D0_rounded], color = :green, label = "C_B")
     savefig(pl, "../figures/publication/BH-T.pdf")
