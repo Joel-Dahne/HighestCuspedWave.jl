@@ -235,3 +235,5 @@ function abspow(x::Arb, y::ArbSeries)
 
     return abs(x)^y
 end
+
+abspow(x, y) = abs(x)^y

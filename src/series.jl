@@ -1,5 +1,3 @@
-abspow(x, y) = abs(x)^y
-
 """
     <<(p::Union{ArbSeries,AcbSeries}, n::Integer)
 
