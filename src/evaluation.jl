@@ -1,4 +1,14 @@
-export H, D, F0
+export eval_expansion, H, D, F0
+
+"""
+    eval_expansion(u0::AbstractAnsatz, expansion, x)
+
+Evaluate the given `expansion` at the point `x`
+
+This is in general used for evaluation around `x = 0`. How the
+expansion is represented depends on the precise ansatz used.
+"""
+function eval_expansion end
 
 """
     (u0::AbstractAnsatz)(x, evaltype = Ball())

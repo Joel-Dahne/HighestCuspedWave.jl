@@ -1,8 +1,6 @@
 # This file contains code for evaluation of the approximate solution
 # in different ways
 
-export eval_expansion
-
 """
     eval_expansion(u0::FractionalKdVAnsatz, expansion, x; offset_i = 0, offset = 0)
 
