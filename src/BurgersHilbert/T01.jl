@@ -244,12 +244,13 @@ log(sinc(y)) = R1 * y^2
 In particular this gives
 ```
 abs(log(sinc(x * (1 - t) / 2π)) + log(sinc(x * (1 + t) / 2π)) - 2log(sinc(x * t / 2π))) <=
-    R1 * x^2 / π^2 * abs((1 - t)^2 / 4 + (1 + t)^2 / 4 - t^2 / 2)) =
-    R1 / 2π^2 * x^2
+    R1 * x^2 / π^2 * abs((1 - t)^2 / 4 + (1 + t)^2 / 4 + t^2 / 2)) =
+    R1 * x^2 / π^2 * abs(t^2 + 1 / 2) <=
+    3R1 / 2π^2 * x^2
 ```
 Inserting this into `U1_r` we have
 ```
-U1_r(x) <= R1 / 2π^2 * x^2 * ∫ t * sqrt(log(1 + inv(x * t))) dt
+U1_r(x) <= 3R1 / 2π^2 * x^2 * ∫ t * sqrt(log(1 + inv(x * t))) dt
 ```
 Similarly to for `U1_m` we use the inequality
 ```
@@ -258,7 +259,7 @@ sqrt(log(1 + inv(x * t))) = sqrt(log(inv(x)) + log(inv(t)) + log(1 + x * t))
 ```
 giving us
 ```
-U1_r(x) <= R1 / 2π^2 * x^2 * (
+U1_r(x) <= 3R1 / 2π^2 * x^2 * (
     sqrt(log(inv(x))) * ∫ t dt
     + ∫ t * sqrt(log(inv(t))) dt
     + sqrt(log(1 + x)) * ∫ t dt
@@ -270,11 +271,11 @@ We have `∫ t dt = 1 / 2` and
 ```
 Giving us
 ```
-U1_r(x) <= R1 / 2π^2 * x^2 * (
+U1_r(x) <= 3R1 / 2π^2 * x^2 * (
     sqrt(log(inv(x))) / 2
     + sqrt(π / 2) / 4
     + sqrt(log(1 + x)) / 2
-) = R1 / 8π^2 * x^2 * (
+) = 3R1 / 8π^2 * x^2 * (
     2sqrt(log(inv(x)))
     + sqrt(π / 2)
     + 2sqrt(log(1 + x))
@@ -286,14 +287,14 @@ From the above we have
 ```
 U1_m(x) <= <= sqrt(log(inv(x))) * log(2) + c1 * sqrt(log(1 + x)) * log(2)
 
-U1_r(x) <= R1 / 4π^2 * x^2 * (sqrt(log(inv(x))) + sqrt(π / 2) / 2 + sqrt(log(1 + x)))
+U1_r(x) <= 3R1 / 4π^2 * x^2 * (sqrt(log(inv(x))) + sqrt(π / 2) / 2 + sqrt(log(1 + x)))
 ```
 This gives us
 ```
 W(x) * U1(x) <= inv(sqrt(log(1 + inv(x)))) * (
     log(2) / sqrt(log(inv(x)))
     + (c1 + log(2) * sqrt(log(1 + x))) / log(inv(x))
-    + R1 / 8π^2 * x^2 * (
+    + 3R1 / 8π^2 * x^2 * (
         2 / sqrt(log(inv(x)))
         + (sqrt(π / 2) + 2sqrt(log(1 + x))) / log(inv(x))
     )
@@ -450,7 +451,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
             invsqrtlog1pinvx * (
                 log(Arb(2)) * sqrt(invloginvx) +
                 (c1 + log(Arb(2)) * Arblib.sqrtpos(log1p(x))) * invloginvx +
-                R1 / 8Arb(π)^2 *
+                3R1 / 8Arb(π)^2 *
                 x^2 *
                 (
                     2sqrt(invloginvx) +
