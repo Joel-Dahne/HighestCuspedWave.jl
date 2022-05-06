@@ -9,8 +9,8 @@ setprecision(Arb, 128) do
         end
 
         @testset "BurgersHilbert" begin
-            include("KdVZero/evaluation.jl")
-            include("KdVZero/T0.jl")
+            include("BurgersHilbert/evaluation.jl")
+            include("BurgersHilbert/T0.jl")
         end
 
         @testset "KdVZero" begin
