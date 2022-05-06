@@ -746,13 +746,8 @@ enclosure of the coefficients using a Taylor expansion in `s`.
 
 The coefficient `C` is given by `gamma(1 - s) * sinpi(s / 2)` has a
 singularity for positive integer values of `s` where the `gamma`
-function blows up.
-
-For even values this singularity is removable and in this case we can
-still compute an enclosure of `C` by expanding at the integer,
-including a remainder term, and explicitly cancel the removable
-singularity. To do this we rewrite it using the reciprocal gamma
-function [`rgamma`](@ref) as `sin(s / 2) / rgamma(1 - s)`
+function blows up. For even values this singularity is removable and
+can be handled using [`fx_div_x`](@ref).
 
 For odd values of `s` the singularity is not removable, instead the
 non-analytic term coincides with one of the analytic terms, with their
@@ -767,17 +762,16 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     # Non-analytic term
     if unique && s_integer > 0
         if iseven(s_integer)
-            rgamma_expansion =
-                taylor_with_remainder(s -> rgamma(1 - s), Arb(s_integer), s, degree = 2)
+            # Enclosure of sinpi(s / 2) / (s - s_integer)
+            sin_div_s =
+                fx_div_x(t -> sinpi((t + s_integer) / 2), s - s_integer, extra_degree = 2)
 
-            sin_expansion =
-                taylor_with_remainder(s -> sinpi(s / 2), Arb(s_integer), s, degree = 2)
+            # Enclosure of rgamma(1 - s) / (s - s_integer)
+            rgamma_div_s =
+                fx_div_x(t -> rgamma(1 - s_integer - t), s - s_integer, extra_degree = 2)
 
-            # Expansion of gamma(1 - s) * sin(s / 2) with remainder term
-            expansion =
-                div_with_remainder(sin_expansion << 1, rgamma_expansion << 1, s - s_integer)
-
-            C = expansion(s - s_integer)
+            # Enclosure of gamma(1 - s) * sin(s / 2) with remainder term
+            C = sin_div_s * rgamma_div_s
         else
             C = Arblib.indeterminate!(zero(s))
         end
