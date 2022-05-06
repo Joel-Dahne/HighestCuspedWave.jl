@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.19.3
 
 using Markdown
 using InteractiveUtils
@@ -25,7 +25,7 @@ end
 begin
     using Pkg, Revise
     Pkg.activate("../")
-    using Arblib, ArbExtras, Folds, HighestCuspedWave, Plots, PlutoUI
+    using Arblib, ArbExtras, Folds, HighestCuspedWave, LaTeXStrings, Plots, PlutoUI
 
     setprecision(Arb, 100)
 
@@ -35,7 +35,7 @@ end
 # ╔═╡ 3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
 md"""
 # Burgers-Hilberts Equation
-This notebook contains the computer assisted part of the proof for the existence of a $2\pi$-periodic highest cusped traveling wave for the Burgers-Hilbert equation. The Buregers-Hilbert equation is given by
+This notebook contains the computer assisted part of the proof for the existence of a $2\pi$-periodic highest cusped traveling wave for the Burgers-Hilbert equation. The Burgers-Hilbert equation is given by
 
 $f_t + f f_x = H[f]$
 
@@ -48,17 +48,13 @@ where $c$ is the wave speed.
 
 # ╔═╡ a75ba6b9-fe0b-4d3a-a88b-cc8ef9492404
 md"""
-For details about the proof see the paper, we here give a very short overview of the reduction to a fixed point problem. 
+For details about the proof see the paper, we here give a very short overview of the reduction to a fixed point problem.
 
 With the ansatz $\varphi(x) = c - u(x)$ and integrating the we can further reduce it to the equation
 
 $\frac{1}{2}u^2 = -\mathcal{H}[u]$
 
-where
-
-$\mathcal{H}[u](x) = \int H[u](x) - \int H[u](0).$
-
-If we now make the ansatz
+where $\mathcal{H}[u](x)$ is the integral of the Hilbert transform with the constant of integration taken such that $\mathcal{H}[u](0) = 0$. If we now make the ansatz
 
 $u(x) = u_0(x) + w(x)v(x)$
 
@@ -121,12 +117,7 @@ end
 # ╔═╡ 43ff127c-f7fa-4ff0-9827-36fc9507fb0b
 md"""
 ## Bounding constants
-To prove the result we need to bound three different value $n_0$, $\delta_0$ and $D_0$, given by the supremum on the interval $[0, \pi]$ for the functions $N(x)$, $F(x)$ and $T(x)$ respectively. Note that the notation $T(x)$ is a slight abuse of notation, it denotes the function which supremum gives the norm of the operator $T$, see the paper for more details about it.
-"""
-
-# ╔═╡ 821589e9-ae94-445c-9bf4-34b8a587a6f5
-md"""
-For historical reasons the code uses a **different notation** than the paper. The names for the functions in the library are therefore not the same as those used in the paper. We have that `alpha0` corresponds to $n_0$, `delta0` to $\delta_0$ and `CB` to $D_0$.
+To prove the result we need to bound three different value $n_0$, $\delta_0$ and $D_0$, given by the supremum on the interval $[0, \pi]$ for the functions $N(x)$, $F(x)$ and $\mathcal{T}(x)$ respectively. Here $\mathcal{T}(x)$ denotes the function which supremum gives the norm of the operator $T$, see the paper for more details about it.
 """
 
 # ╔═╡ f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
@@ -244,8 +235,8 @@ The code uses **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates")
 """
 
 # ╔═╡ de4546e1-4a9f-4d37-b59c-ee4509d09868
-D0_xs, D0_ys = let xs = range(Arb(1e-1), π, length = 100)
-    ys = Folds.map(HighestCuspedWave.T0(u0, Ball()), xs)
+D0_xs, D0_ys = let xs = range(Arb(1e-3), π, length = 100)
+    ys = Folds.map(T0(u0, Ball()), xs)
     xs, ys
 end
 
@@ -385,18 +376,52 @@ all([
 # ╔═╡ 74392233-bb8a-44d4-8f7f-ff8b5090142e
 D0_printed = ArbExtras.format_interval(getinterval(D0)...)
 
+# ╔═╡ 2494dd2b-088d-402f-8c28-29b3614a5fc6
+md"""
+The plots in the paper were produced with `pgfplotsx`, this is not a dependency so is not enabled by default. The plots look a bit weird with the default backend.
+"""
+
+# ╔═╡ 34858269-7714-4210-a678-2b91357c3eb7
+#pgfplotsx()
+
 # ╔═╡ f0110b12-a782-4840-abbf-ed623175c276
-let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$N(x)\$")
-    plot!(pl, n0_xs, n0_ys, ribbon = radius.(Arb, n0_ys), m = :circle, ms = 2)
-    hline!(pl, [n0_rounded], color = :green)
+let pl = plot(
+        legend = :none,
+        xlabel = L"x",
+        ylabel = L"N(x)",
+        guidefontsize = 18,
+        tickfontsize = 18,
+    )
+    plot!(
+        pl,
+        Float64.(n0_xs),
+        Float64.(n0_ys),
+        ribbon = Float64.(radius.(Arb, n0_ys)),
+        m = :circle,
+        ms = 1,
+    )
+    hline!(pl, Float64[n0_rounded], color = :green, linestyle = :dash)
     savefig(pl, "../figures/publication/BH-N.pdf")
     pl
 end
 
 # ╔═╡ 16b4c640-6b4c-46a3-a505-e0eb7bbb2632
-let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$\\mathcal{T}(x)\$")
-    plot!(pl, D0_xs, D0_ys, ribbon = radius.(Arb, D0_ys), m = :circle, ms = 2)
-    hline!(pl, [D0_rounded], color = :green, label = "C_B")
+let pl = plot(
+        legend = :none,
+        xlabel = L"x",
+        ylabel = L"\mathcal{T}(x)",
+        guidefontsize = 18,
+        tickfontsize = 18,
+    )
+    plot!(
+        pl,
+        Float64.(D0_xs),
+        Float64.(D0_ys),
+        ribbon = Float64.(radius.(Arb, D0_ys)),
+        m = :circle,
+        ms = 1,
+    )
+    hline!(pl, Float64[D0_rounded], color = :green, linestyle = :dash)
     savefig(pl, "../figures/publication/BH-T.pdf")
     pl
 end
@@ -405,42 +430,69 @@ end
 δ0_goal_rounded = (1 - D0_rounded)^2 / 4n0_rounded
 
 # ╔═╡ 4654b37d-fcb5-43ab-8b67-5f946637943d
-let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$F(x)\$")
-    plot!(pl, δ0_xs, δ0_ys, ribbon = radius.(Arb, δ0_ys), m = :circle, ms = 2)
-    hline!([-δ0_rounded, δ0_rounded], color = :green)
-    hline!([-δ0_goal_rounded, δ0_goal_rounded], color = :red)
+let pl = plot(
+        legend = :none,
+        xlabel = L"x",
+        ylabel = L"F(x)",
+        guidefontsize = 24,
+        tickfontsize = 24,
+    )
+    plot!(
+        pl,
+        Float64.(δ0_xs),
+        Float64.(δ0_ys),
+        ribbon = Float64.(radius.(Arb, δ0_ys)),
+        m = :circle,
+        ms = 1,
+    )
+    hline!(Float64[-δ0_rounded, δ0_rounded], color = :green, linestyle = :dash)
+    hline!(Float64[-δ0_goal_rounded, δ0_goal_rounded], color = :red, linestyle = :dot)
     savefig(pl, "../figures/publication/BH-F.pdf")
     pl
 end
 
 # ╔═╡ 1c2d23d0-9e30-4830-a923-3ce15e8deb04
-let pl = plot(legend = :none, xlabel = "\$x\$", ylabel = "\$F(x)\$", xaxis = :log10)
+let pl = plot(
+        legend = :none,
+        xlabel = L"x",
+        ylabel = L"F(x)",
+        xaxis = :log10,
+        guidefontsize = 24,
+        tickfontsize = 24,
+    )
     plot!(
         pl,
-        δ0_asym_xs,
-        δ0_asym_ys,
-        ribbon = radius.(Arb, δ0_asym_ys),
+        Float64.(δ0_asym_xs),
+        Float64.(δ0_asym_ys),
+        ribbon = Float64.(radius.(Arb, δ0_asym_ys)),
         m = :circle,
-        ms = 2,
+        ms = 1,
     )
-    hline!([-δ0_rounded, δ0_rounded], color = :green)
-    hline!([-δ0_goal_rounded, δ0_goal_rounded], color = :red)
+    hline!(Float64[-δ0_rounded, δ0_rounded], color = :green, linestyle = :dash)
+    hline!(Float64[-δ0_goal_rounded, δ0_goal_rounded], color = :red, linestyle = :dot)
     savefig(pl, "../figures/publication/BH-F-asymptotic-1.pdf")
     pl
 end
 
 # ╔═╡ 7e1e6379-4cde-4a6f-9390-41618a989490
-let pl = plot(legend = :none, xlabel = "\$\\log_{10}(x)\$", ylabel = "\$F(x)\$")
+let pl = plot(
+        legend = :none,
+        xlabel = L"x",
+        ylabel = L"F(x)",
+        guidefontsize = 24,
+        tickfontsize = 24,
+        xticks = ([-2e4, -1e4, 0], [L"10^{-20000}", L"10^{-10000}", L"0"]),
+    )
     plot!(
         pl,
-        log.(δ0_very_asym_xs) ./ log(Arb(10)),
-        δ0_very_asym_ys,
-        ribbon = Arblib.radius.(Arb, δ0_very_asym_ys),
+        Float64.(log.(δ0_very_asym_xs) ./ log(Arb(10))),
+        Float64.(δ0_very_asym_ys),
+        ribbon = Float64.(Arblib.radius.(Arb, δ0_very_asym_ys)),
         m = :circle,
-        ms = 2,
+        ms = 1,
     )
-    hline!([-δ0_rounded, δ0_rounded], color = :green)
-    hline!([-δ0_goal_rounded, δ0_goal_rounded], color = :red)
+    hline!(Float64[-δ0_rounded, δ0_rounded], color = :green, linestyle = :dash)
+    hline!(Float64[-δ0_goal_rounded, δ0_goal_rounded], color = :red, linestyle = :dot)
     savefig(pl, "../figures/publication/BH-F-asymptotic-2.pdf")
     pl
 end
@@ -465,7 +517,7 @@ which means the first Fourier coefficient is $1$, hence the Fourier coefficient 
 """
 
 # ╔═╡ 589218e4-b34f-4f92-b5f4-ae875f300e0e
-u0_a1 = sum(u0.a) + u0.b[1]
+u0_fourier1 = sum(u0.a) + u0.b[1]
 
 # ╔═╡ d568ad46-2eb7-4b3f-a226-87e8927348ea
 md"""
@@ -482,7 +534,7 @@ $\frac{2\|v\|_{L^\infty}}{\pi}\int_{0}^\pi x\sqrt{\log(1 + 1/x)}|\cos(x)|\ dx$
 vnorm = (1 - D0 - sqrt((1 - D0)^2 - 4δ0 * n0)) / 4n0
 
 # ╔═╡ 790d36ed-3629-4812-bd07-c8e0763205ae
-wv_a1 = let
+wv_fourier1 = let
     integrand(x; analytic) =
         if Arblib.contains_zero(x)
             analytic && return Arblib.indeterminate!(zero(x))
@@ -505,10 +557,69 @@ wv_a1 = let
 end
 
 # ╔═╡ 54cd2d1c-940b-494a-9546-8c2d0834a2c3
-u_a1 = u0_a1 + wv_a1
+u_fourier1 = u0_fourier1 + wv_fourier1
 
 # ╔═╡ cb6add10-d51a-474e-b708-0c65e896f99a
-ArbExtras.format_interval(getinterval(u_a1)...)
+ArbExtras.format_interval(getinterval(u_fourier1)...)
+
+# ╔═╡ 857b5dfe-89ba-498b-a6b8-130df6cd5008
+md"""
+# Computing the mean
+
+We can get the wavespeed for the mean-zero solution to the Burgers-Hilbert equation by computing the mean of the solution $u(x) = u_0(x) + w(x)v(x)$. We can compute the mean of $u_0(x)$ directly and bound the mean for $w(x)v(x)$ using the bounds for $v(x)$ given above.
+"""
+
+# ╔═╡ da547c40-d829-4c2e-bbdb-b9452b18c8b9
+md"""
+The mean of $u_0$ can be computed by noticing that the mean of $\tilde{C}_s^{(1)}(x)$ is $-\zeta'(s)$, the mean of $\tilde{C}_s(x)$ is $-\zeta(s)$ and the mean of $\cos(nx) - 1$ is $-1$.
+
+For $w(x)v(x)$ the mean is upper bounded by the mean of $w(x)$ times the bound for $v(x)$ and lower bounded by the negation of this.
+"""
+
+# ╔═╡ 6f7c14aa-fbc8-4241-be80-eff13fe1fe88
+mean_u0 = let
+    # Main term
+    res = -u0.a0 * HighestCuspedWave.dzeta(Arb(2))
+
+    # Clausen terms
+    for j = 1:u0.N0
+        s = 1 - u0.α + j * u0.p0
+        res -= u0.a[j] * HighestCuspedWave.zeta(s)
+    end
+
+    # Fourier terms
+    for n = 1:u0.N1
+        res -= u0.b[n]
+    end
+
+    res
+end
+
+# ╔═╡ ea9e4964-383f-4334-a60f-b8acdc224bca
+mean_w = let
+    integrand(x; analytic) =
+        if Arblib.contains_zero(x)
+            analytic && return Arblib.indeterminate!(zero(x))
+
+            # Use monotonicity
+            let xᵤ = ubound(Arb, real(x))
+                Acb((0, xᵤ * sqrt(log(1 + inv(xᵤ)))))
+            end
+        else
+            x * Arblib.sqrt_analytic!(zero(x), log(1 + inv(x)), analytic)
+        end
+
+    real(Arblib.integrate(integrand, 0, π, check_analytic = true)) / π
+end
+
+# ╔═╡ 811cdad5-ff5d-4e45-a78f-ef68e4acea1b
+mean_wv = mean_w * Arb((-vnorm, vnorm))
+
+# ╔═╡ cbdfcb3a-722f-4ba7-b23f-0230cf7b0631
+mean_u = mean_u0 + mean_wv
+
+# ╔═╡ f0ffa9e5-5a53-4d65-9535-22aae7a50186
+ArbExtras.format_interval(getinterval(mean_u)...)
 
 # ╔═╡ 87b4508a-2b23-4c3e-b50c-2141f58013b0
 md"""
@@ -516,15 +627,25 @@ md"""
 """
 
 # ╔═╡ aa12b03c-9236-4f04-acb5-6eac04234bc4
-let xs = range(Arb(0), π, length = 100)
+let xs = range(Arb(0), π, length = 200)
     ys = Folds.map(u0, xs)
     error = Folds.map(x -> u0.w(x) * vnorm, xs)
     error[1] = 0
-    xs = [-reverse(xs[2:end]); xs]
-    ys = [reverse(ys[2:end]); ys]
+    xs = Float64[-reverse(xs[2:end]); xs]
+    ys = Float64[reverse(ys[2:end]); ys]
     error = [reverse(error[2:end]); error]
-    pl = plot(xs, ys, ribbon = error, xlabel = "\$x\$", ylabel = "\$u(x)\$", legend = :none)
-    savefig(pl, "../figures/publication/BH-u-asymptotic-2.pdf")
+    pl = plot(
+        xs,
+        ys,
+        ribbon = Float64.(error),
+        xlabel = L"x",
+        ylabel = "",
+        legend = :none,
+        xticks = ([-π, 0, π], [L"-\pi", L"0", L"\pi"]),
+        guidefontsize = 16,
+        tickfontsize = 16,
+    )
+    savefig(pl, "../figures/publication/BH-u.pdf")
     pl
 end
 
@@ -539,7 +660,6 @@ end
 # ╟─1e209f4f-4fc3-4f03-8b8f-d9aa977d25ff
 # ╟─73ae2ee7-d722-4ad8-8fc7-a57781180d35
 # ╟─43ff127c-f7fa-4ff0-9827-36fc9507fb0b
-# ╟─821589e9-ae94-445c-9bf4-34b8a587a6f5
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─4c4cbf2a-3aec-4257-9fac-d8a0418d12d7
 # ╟─28978335-5797-4ddc-bfb4-9b04a0f9c4ac
@@ -576,6 +696,8 @@ end
 # ╠═c940e613-622f-43e0-939a-bf30c033b810
 # ╠═7fc04a7b-1082-4af7-ac87-426e73276c18
 # ╠═74392233-bb8a-44d4-8f7f-ff8b5090142e
+# ╟─2494dd2b-088d-402f-8c28-29b3614a5fc6
+# ╠═34858269-7714-4210-a678-2b91357c3eb7
 # ╟─f0110b12-a782-4840-abbf-ed623175c276
 # ╟─16b4c640-6b4c-46a3-a505-e0eb7bbb2632
 # ╠═fe196d34-c822-4da0-8ed1-955d2fb6ffa6
@@ -590,5 +712,12 @@ end
 # ╠═790d36ed-3629-4812-bd07-c8e0763205ae
 # ╠═54cd2d1c-940b-494a-9546-8c2d0834a2c3
 # ╠═cb6add10-d51a-474e-b708-0c65e896f99a
+# ╟─857b5dfe-89ba-498b-a6b8-130df6cd5008
+# ╟─da547c40-d829-4c2e-bbdb-b9452b18c8b9
+# ╠═6f7c14aa-fbc8-4241-be80-eff13fe1fe88
+# ╠═ea9e4964-383f-4334-a60f-b8acdc224bca
+# ╠═811cdad5-ff5d-4e45-a78f-ef68e4acea1b
+# ╠═cbdfcb3a-722f-4ba7-b23f-0230cf7b0631
+# ╠═f0ffa9e5-5a53-4d65-9535-22aae7a50186
 # ╟─87b4508a-2b23-4c3e-b50c-2141f58013b0
-# ╠═aa12b03c-9236-4f04-acb5-6eac04234bc4
+# ╟─aa12b03c-9236-4f04-acb5-6eac04234bc4
