@@ -56,6 +56,160 @@ rgamma(x::Arb) = Arblib.rgamma!(zero(x), x)
 rgamma(x::ArbSeries) = Arblib.rgamma_series!(zero(x), x, length(x))
 
 """
+    _zeta_deflated(s::ArbSeries, a::Arb)
+
+Compute the deflated zeta function.
+
+The implementation in Arb doesn't support evaluation for `s`
+overlapping one but not exactly one. This method is a reimplementation
+of the code from Arb but adjuste to handle the removable singularity.
+
+Most of it follows the code in `_acb_poly_zeta_cpx_series`. The part
+which requires adjustments is in `_acb_poly_zeta_em_sum`, so this
+implementation is adjusted.
+"""
+function _zeta_deflated(s::ArbSeries, a::Arb)
+    if !Arblib.ispositive(a)
+        # Return an indeterminate result
+        res = zero(s)
+        for i = 0:Arblib.degree(s)
+            Arblib.indeterminate!(Arblib.ref(res, i))
+        end
+        # Since we manually set the coefficients of the polynomial we
+        # need to also manually set the degree.
+        res.arb_poly.length = length(s)
+        return res
+    end
+
+    # _acb_poly_acb_invpow_cpx is not documented and hence not
+    # included in Arblib
+    function _acb_poly_acb_invpow_cpx!(
+        res::AcbRefVector,
+        n::Acb,
+        c::Acb,
+        trunc::Clong,
+        prec::Clong,
+    )
+        ccall(
+            (:_acb_poly_acb_invpow_cpx, Arblib.libarb),
+            Cvoid,
+            (
+                Ptr{Arblib.acb_struct},
+                Ref{Arblib.acb_struct},
+                Ref{Arblib.acb_struct},
+                Clong,
+                Clong,
+            ),
+            res,
+            n,
+            c,
+            trunc,
+            prec,
+        )
+    end
+
+    # Corresponding to FLINT_BIT_COUNT
+    bit_count(n::Union{UInt64,Int64}) = 64 - leading_zeros(n)
+
+    # Compute series for constant part of s
+    d = length(s)
+    z = AcbRefVector(d)
+    s0 = Acb(s[0])
+
+    # From _acb_poly_zeta_cpx_series
+    bound = Mag()
+    vb = ArbRefVector(d)
+    prec = precision(s)
+    bound_prec = 40 + prec ÷ 20
+    # N and M are given as pointers
+    N_ptr = UInt[0]
+    M_ptr = UInt[0]
+
+    Arblib.zeta_em_choose_param!(
+        bound,
+        N_ptr,
+        M_ptr,
+        s0,
+        Acb(a),
+        min(d, 2),
+        prec,
+        bound_prec,
+    )
+    N = only(N_ptr)
+    M = only(M_ptr)
+
+    Arblib.zeta_em_bound!(vb, s0, Acb(a), N, M, d, bound_prec)
+
+
+    # Implementation of _acb_poly_zeta_em_sum
+    let prec = prec + 2 * (bit_count(N) + bit_count(d))
+        t = AcbRefVector(d + 1; prec)
+        u = AcbRefVector(d; prec)
+        v = AcbRefVector(d; prec)
+        term = AcbRefVector(d; prec)
+        sum = AcbRefVector(d; prec)
+        Na = Acb(a + N; prec)
+
+        # sum 1/(k+a)^(s+x)
+        # IMPROVE: Do not only use naive sum?
+        Arblib.powsum_series_naive!(sum, s0, Acb(a), one(s0), N, d, prec)
+
+        # t = 1/(N+a)^(s+x); take one extra term for deflation
+        _acb_poly_acb_invpow_cpx!(t, Na, s0, d + 1, prec)
+
+        # This is the updated part compared to Arb
+        begin
+            # Compute coefficients of ((N + a) * t - 1) / (s - 1)
+            w = let s = ArbSeries((s[0], 1), degree = d - 1)
+                # (N + a) * inv(N + a)^s - 1 = inv(N + a)^(s - 1) - 1
+                num(v) = inv(real(Na))^v - 1
+
+                if contains(real(s0), 1)
+                    w = fx_div_x(num, s - 1)
+                else
+                    w = num(s - 1) / (s - 1)
+                end
+                Arblib.coeffs(w)
+            end
+
+            # Compute sum += ((N + a) * t - 1) / (s - 1)
+            sum .+= w
+
+            _acb_poly_acb_invpow_cpx!(t, Na, s0, d, prec)
+        end
+
+        # sum += u = 1/2 * t
+        Arblib.mul_2exp!(u, t, d, -1)
+        Arblib.add!(sum, sum, u)
+
+        # Euler-Maclaurin formula tail
+        if d < 5 || d < M ÷ 10
+            Arblib.zeta_em_tail_naive!(u, s0, Na, t, M, d)
+        else
+            Arblib.zeta_em_tail_bsplit!(u, s0, Na, t, M, d)
+        end
+
+        Arblib.add!(z, sum, u)
+    end
+
+    for i = 1:d
+        Arblib.add_error!(Arblib.realref(z[i]), vb[i])
+    end
+
+    # This corresponds to _acb_poly_zeta_series
+    @assert all(isreal, z)
+    res = ArbSeries(real.(z))
+
+    # Compose with non-constant part
+    s_tmp = copy(s)
+    s_tmp[0] = 0
+
+    return Arblib.compose(res, s_tmp)
+end
+
+_zeta_deflated(s::Arb, a::Arb) = _zeta_deflated(ArbSeries(s), a)[0]
+
+"""
     zeta_deflated(s, a)
 
 Compute the deflated zeta function.
@@ -65,19 +219,13 @@ The deflated zeta function is defined by
 zeta_deflated(s, a) = zeta(s, a) + 1 / (1 - s)
 ```
 
-**TODO:** Arb doesn't support evaluation for `s` overlapping one.
-Since this is the main case where we need this function we currently
-implement a non-rigorous enclosure for that case. This should be
-updated with a rigorous enclosure.
+Arb doesn't support evaluation for `s` overlapping one. For this we
+use the implementation in [`_zeta_deflated`](@ref). While it would be
+possible to use that implementation for all values of `s` we opt to
+only use it when `s` overlaps one but is not exactly one.
 """
 function zeta_deflated(s::Arb, a::Arb)
-    if contains(s, 1) && !isone(s)
-        @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
-
-        # Assume monotonicity
-        sₗ, sᵤ = getinterval(Arb, s)
-        return Arb((zeta_deflated(sₗ, a), zeta_deflated(sᵤ, a)))
-    end
+    contains(s, 1) && !isone(s) && return _zeta_deflated(s, a)
 
     res = ArbSeries(s)
     Arblib.zeta_series!(res, res, a, 1, length(res))
@@ -86,28 +234,7 @@ end
 
 function zeta_deflated(s::ArbSeries, a::Arb)
     s0 = Arblib.ref(s, 0)
-    if contains(s0, 1) && !isone(s0)
-        @warn "Non-rigorous enclosure of zeta_deflated" s maxlog = 1
-
-        # Assume monotonicity
-        sₗ, sᵤ = copy(s), copy(s)
-        s0ₗ, s0ᵤ = getinterval(Arb, s0)
-        # If s0ₗ or s0ᵤ is very close to 1 we get very bad enclosures.
-        # If one of them is very close take it to have the same
-        # distance as the other one, this still would given an
-        # enclosure but is obviously larger than it needs to be.
-        if 1 - s0ₗ < Arb("1e-10")
-            s0ₗ = 1 - (s0ᵤ - 1)
-        end
-        if s0ᵤ - 1 < Arb("1e-10")
-            s0ᵤ = 1 + (1 - s0ₗ)
-        end
-        sₗ[0], sᵤ[0] = s0ₗ, s0ᵤ
-
-        res1 = zeta_deflated(sₗ, a)
-        res2 = zeta_deflated(sᵤ, a)
-        return ArbSeries(union.(Arblib.coeffs(res1), Arblib.coeffs(res2)))
-    end
+    contains(s0, 1) && !isone(s0) && return _zeta_deflated(s, a)
 
     return Arblib.zeta_series!(zero(s), s, a, 1, length(s))
 end

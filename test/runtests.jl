@@ -6,6 +6,7 @@ setprecision(Arb, 128) do
             include("arb.jl")
             include("clausenc.jl")
             include("clausens.jl")
+            include("special-functions.jl")
         end
 
         @testset "BurgersHilbert" begin
