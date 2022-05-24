@@ -96,7 +96,7 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3
             # 1, and enclose the rest.
             i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:10) - 1
             D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
-            res[(i, 0, 1)] = get(res, (1, 0, 1), zero(x)) + D
+            res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) + D
 
             @info "Encountered a term with s overlapping an integer in expansion for u0" s i (
                 -i * u0.α + 1
