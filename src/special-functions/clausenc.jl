@@ -1031,106 +1031,130 @@ function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
 end
 
 """
-    clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, e::Arb)
+    clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb)
 
 For `s` overlapping an odd positive integer `2k + 1` the exponents for
-the two terms `x^(s - 1)` and `x^2k` in the expansion overlap and
-their coefficients blow up. This method returns `C` such that `C *
-x^e` gives an enclosure for the sum of these two terms for all `x` in
-the interval `[0, ϵ]`.
+the two terms `x^(s - 1)` and `x^2k` in the expansion (see
+[`clausenc_expansion`](@ref)) overlap and their coefficients blow up.
 
-It requires that that `k` is at least `1` and that `0 < e < s - 1`. It
-also assumes that `0 <= ϵ < π`, any negative parts of `ϵ` are ignored.
+This method returns `C, r` such that `C * x^r` gives an enclosure for
+the sum of these two terms for all `x` in the interval `[0, ϵ]`.
 
-For now it only implements `s` overlapping `3`. This seems to be the
-only case we actually need. Everything below assumes that `s` overlaps
-with `3`, i.e. `k = 1`.
+It requires that the `k` corresponding to `s` is at least `1` and that
+`0 <= ϵ < π`, any negative parts of `ϵ` are ignored.
 
-In this case the sum of the two terms we are interested in are
+The sum we want to enclose is given by
 ```
-gamma(1 - s) * sinpi(s / 2) * x^(s - 1) - zeta(s - 2) / 2 * x^2
+gamma(1 - s) * sinpi(s / 2) * x^(s - 1) + (-1)^k * zeta(s - 2k) * x^2k / factorial(2k)
 ```
-Expanding at `s = 3` we have
+Let
 ```
-(-3 // 4 + log(x) / 2) * x^2 + O(s - 3)
+f(s) = gamma(1 - s) * sinpi(s / 2)
+g(s) = (-1)^k * zeta(s - 2k) / factorial(2k)
 ```
-Ignoring the `O(s - 3)` term for now we can factor out `x^e`, giving
-us
+We can then write it as
 ```
-x^e * ((-3 // 4 + log(x) / 2) * x^(2 - e))
+f(s) * x^(s - 1) + g(s) * x^2k
 ```
-We are therefore left computing an enclosure for
+Factoring out `x^r^ we have
 ```
-((-3 // 4 + log(x) / 2) * x^(2 - e))
+(f(s) * x^(s - 1 - r) + g(s) * x^(2k - r)) * x^r
 ```
-on the interval `[0, ϵ]`. Splitting it into two terms we have
+Denote the first factor by
 ```
--3 // 4 * x^(2 - e)
+F(x) = f(s) * x^(s - 1 - r) + g(s) * x^(2k - r)
 ```
-Since `e < s - 1` and `s` overlaps `3` we have `2 - e > 0` so this is
-zero at `x = 0` and decreasing in `x`, allowing us to compute an
-enclosure. The term
+We want to enclose this for `x` in ``[0, ϵ]``.
+
+# Computing `F(x)`
+To compute an enclosure of `F(x)` for a specified `x` we need to
+handle the removable singularity. As a first step we extract the
+singularities of `f` and `g`.
+
+We have that `(2k + 1 - s) * f(s)` and `(2k + 1 - s) * g(s)` are both
+analytic around `s = 2k + 1`. If we denote these two functions by
+`fp(s)` and `gp(s)` then we can write `F` as
 ```
-log(x) / 2 * x^(2 - e)
+F(x) = (fp(s) * x^(s - 1 - r) + gp(s) * x^(2k - r)) / (2k + 1 - s)
 ```
-is also zero for `x = 0`. The derivative is given by
+The numerator is zero for `s = 2k + 1` and we can handle the removable
+singularity using [`fx_div_x`](@ref). Before we do that we go through
+how to compute `fp(s)` and `gp(s)`
+
+## Computing `fp(s)` and `gp(s)`
+We have
 ```
-x^(1 - e) / 2 + (2 - e) * log(x) / 2 * x^(1 - e) = (1 + (2 - e) * log(x)) * x^(1 - e) / 2
+fp(s) = (2k + 1 - s) * gamma(1 - s) * sinpi(s / 2)
 ```
-which has the unique zero
+Using that `gamma(1 - s) = gamma(2k + 2 - s) / rising(1 - s, 2k + 1)`
+and that `rising(1 - s, 2k + 1) = (2k + 1 - s) * rising(1 - s, 2k)` we
+get
 ```
-x = exp(1 / (e - 2))
+fp(s) = gamma(2k + 2 - s) / rising(1 - s, 2k) * sinpi(s / 2)
 ```
-so we can enclose it by evaluating it at `x = 0`, `x = ϵ` and also `x
-= exp(1 / (e - 2))` if this falls in the interval `[0, ϵ]`.
-- **TODO:** Handle the remainder terms from `O(s - 3)` which we ignore
-  for now.
+which can be evaluated directly.
+
+Further we have
+```
+gp(s) = (-1)^k * (2k + 1 - s) * zeta(s - 2k) / factorial(2k)
+```
+Using the deflated zeta function we have `zeta(s - 2k) =
+zeta_deflated(s - 2k, 1) - 1 / (2k + 1 - s)`, giving us
+```
+gp(s) = (-1)^k * ((2k + 1 - s) * zeta_deflated(s - 2k, 1) - 1) / factorial(2k)
+```
+which can be evaluated directly.
+
+# Handling the removable singularity
+We want to compute
+```
+F(x) = (fp(s) * x^(s - 1 - r) + gp(s) * x^(2k - r)) / (2k + 1 - s)
+```
+If we let `t = 2k + 1 - s` we can write this as
+```
+F(x) = (fp(2k + 1 - t) * x^(2k - t - r) + gp(2k + 1 - t) * x^(2k - r)) / t
+```
+Note that the numerator has a removable singularity at `t = 0`, indeed
+inserting this we have
+```
+fp(2k + 1) * x^(2k - r) + gp(2k + 1) * x^(2k - r) = (fp(2k + 1) + gp(2k + 1)) * x^(2k - r)
+```
+and
+```
+fp(2k + 1) = gamma(1) / rising(-2k, 2k) * sinpi((2k + 1) / 2) = (-1)^k / factorial(2k)
+gp(2k + 1) = -(-1)^k / factorial(2k)
+```
+so `fp(2k + 1) + gp(2k + 1) = 0`.
+
+To get the enclosure on ``[0, ϵ]`` we simply evaluate on this interval
+directly.
 """
-function clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, e::Arb)
-    # Check requirement on e
-    0 < e < s - 1 ||
-        throw(ArgumentError("expected e < s - 1, got e = $e, s - 1 = $(s - 1)"))
+function clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, r::Arb)
+    # Check requirement on r
+    0 < r < s - 1 ||
+        throw(ArgumentError("expected r < s - 1, got r = $r, s - 1 = $(s - 1)"))
 
     # Compute the integer k
     contains_int, n = unique_integer(s)
 
-    contains_int || throw(ArgumentError("expected s overlapping integer, got s = $s"))
+    contains_int || throw(DomainError(s, "s should overlap an integer"))
 
-    isodd(n) || throw(ArgumentError("expected s overlapping odd integer, got s = $s"))
+    n > 0 && isodd(n) || throw(DomainError(s, "s should overlap a positive odd integer"))
 
-    n == 3 ||
-        throw(ArgumentError("method currently only supports s overlapping 3, got s = $s"))
+    k = n ÷ 2
 
-    iszero(ϵ) && return zero(ϵ)
+    # Compute C
 
-    # It's enough to work with the upper bound of ϵ
-    ϵ = ubound(Arb, ϵ)
+    fp(s) = gamma(2k + 2 - s) / rising(1 - s, 2k) * sinpi(s / 2)
 
-    0 < ϵ < π || throw(DomainError(ϵ, "method only supports ϵ on the interval [0, π)"))
+    gp(s) = (-1)^k * ((2k + 1 - s) * zeta_deflated(s - 2k, Arb(1)) - 1) / factorial(2k)
 
-    # We assume n = 3 from here
+    F(x) =
+        fx_div_x(2k + 1 - s, force = true) do t
+            fp(2k + 1 - t) * abspow(x, 2k - t - r) + gp(2k + 1 - t) * abspow(x, 2k - r)
+        end
 
-    # Enclosure of -3 // 4 * x^(2 - e)
-    term1_zero = zero(ϵ)
-    term1_ϵ = -3 // 4 * ϵ^(2 - e)
-
-    term1 = union(term1_zero, term1_ϵ)
-
-    # Enclosure of log(x) / 2 * x^(2 - e)
-    term2_zero = zero(ϵ)
-    term2_ϵ = log(ϵ) / 2 * ϵ^(2 - e)
-
-    term2 = union(term2_zero, term2_ϵ)
-
-    critical_point = exp(1 / (e - 2))
-    if !(ϵ < critical_point)
-        term2_critical_point = log(critical_point) / 2 * critical_point^(e - 2)
-        term2 = union(term2, term2_critical_point)
-    end
-
-    C = term1 + term2
-
-    return C
+    return F(Arb((0, ϵ)))
 end
 
 """
