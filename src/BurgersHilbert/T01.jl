@@ -146,7 +146,7 @@ where
 U1_m(x) = ∫abs(log(x * (1 - t) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2)) * t * sqrt(log(1 + inv(x * t))) dt
 U1_r(x) = ∫abs(log(sinc(x * (1 - t) / 2π)) + log(sinc(x * (1 + t) / 2π)) - 2log(sinc(x * t / 2π))) * t * sqrt(log(1 + inv(x * t))) dt
 ```
-We now handle `I1` and `I2` separately.
+We now handle `U1_m` and `U1_r` separately.
 
 # Handling `U1_m`
 We start by noticing that
@@ -170,7 +170,7 @@ We have `∫ abs(log(1 / t^2 - 1)) * t dt = log(2)` and if we let `c1 =
 ∫ abs(log(1 / t^2 - 1)) * t * sqrt(log(inv(t))) dt` this can be
 written as
 ```
-I1 <= sqrt(log(inv(x))) * log(2) + c1 + sqrt(log(1 + x)) * log(2)
+U1_m(x) <= sqrt(log(inv(x))) * log(2) + c1 + sqrt(log(1 + x)) * log(2)
 ```
 
 What remains is to compute an enclosure of

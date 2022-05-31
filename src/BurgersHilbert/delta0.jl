@@ -15,16 +15,17 @@ version takes a very long time. Instead we split the interval into
 four smaller parts, `[0, ϵ1]`, `[ϵ1, ϵ2]`, `[ϵ2, ϵ3]` and `[ϵ3, ϵ]`.
 The value of `ϵ1` is take to be small enough so that evaluating the
 function on the whole interval gives a sufficiently small enclosure.
-The difference between the handling of the intervals `[ϵ1, ϵ2]`, `[ϵ1,
-ϵ2]` and `[ϵ3, ϵ]` are how many terms in the asymptotic expansion we
+The difference between the handling of the intervals `[ϵ1, ϵ2]`, `[ϵ2,
+ϵ3]` and `[ϵ3, ϵ]` are how many terms in the asymptotic expansion we
 neglect (i.e. add to the error term). The value of `ϵ2` is taken
 sufficiently small to be able to neglect all terms with an exponent
-larger than or equal to `1e-4`, which with the standard choice of `u0`
-skips all but 5 terms. The value of `ϵ3` is taken sufficiently small
-to be able to neglect all terms with an exponent larger than or equal
-to `1 // 4`. On the interval `[ϵ3, ϵ]` we keep all the exponent.
+larger than or equal to `1e-4`, which (with the standard choice of
+`u0`) skips all but 5 terms. The value of `ϵ3` is taken sufficiently
+small to be able to neglect all terms with an exponent larger than or
+equal to `1 // 4`. On the interval `[ϵ3, ϵ]` we keep all the
+exponents.
 
-**IMRPOVE:** We could do the asymptotic part of the calculations at a
+**IMPROVE:** We could do the asymptotic part of the calculations at a
 reduced precision. However this seems to only give a marginal
 improvement. It would be more important to reduce the number of
 allocations in that case.
