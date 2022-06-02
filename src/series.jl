@@ -120,7 +120,13 @@ function taylor_with_remainder(
     return res
 end
 
-function taylor_with_remainder(f, x0::Acb, interval::Acb; degree::Integer)
+function taylor_with_remainder(
+    f,
+    x0::Acb,
+    interval::Acb;
+    degree::Integer,
+    enclosure_degree::Integer = 0,
+)
     contains(interval, x0) || throw(
         ArgumentError(
             "expected x0 to be contained in interval, got x0 = $x0, interval = $interval",
@@ -145,8 +151,8 @@ function taylor_with_remainder(f, x0::Acb, interval::Acb; degree::Integer)
 end
 
 """
-    fx_div_x(f, x::Union{Arb,Acb}[, order::Integer]; extra_degree::Integer = 0, force = false)
-    fx_div_x(f, x::ArbSeries[, order::Integer]; extra_degree::Integer = 0, force = false)
+    fx_div_x(f, x::Union{Arb,Acb}[, order::Integer]; extra_degree::Integer = 0, enclosure_degree::Integer = 0, force = false)
+    fx_div_x(f, x::ArbSeries[, order::Integer]; extra_degree::Integer = 0, enclosure_degree::Integer = 0, force = false)
 
 Compute an enclosure of `f(x) / x` for a function `f` with a zero at
 the origin.
@@ -156,7 +162,8 @@ zero of the given order at zero.
 
 Setting `extra_degree` to a value higher than `0` makes it use a
 higher order expansion to enclose the value, this can give tighter
-bounds in many cases.
+bounds in many cases. The argument `enclosure_degree` is passed to
+[`taylor_with_remainder`](@ref).
 
 If `force = false` it requires that the enclosure of `f` at zero is
 exactly zero. If `f` is known to be exactly zero at zero but the
@@ -168,6 +175,7 @@ function fx_div_x(
     x::Union{Arb,Acb},
     order::Integer = 1;
     extra_degree::Integer = 0,
+    enclosure_degree::Integer = 0,
     force = false,
 )
     @assert Arblib.contains_zero(x)
@@ -180,7 +188,13 @@ function fx_div_x(
         extra_degree = 0
     end
 
-    expansion = taylor_with_remainder(f, zero(x), x, degree = order + extra_degree)
+    expansion = taylor_with_remainder(
+        f,
+        zero(x),
+        x,
+        degree = order + extra_degree;
+        enclosure_degree,
+    )
 
     isfinite(expansion) || return Arblib.indeterminate!(zero(x))
 
@@ -199,6 +213,7 @@ function fx_div_x(
     x::ArbSeries,
     order::Integer = 1;
     extra_degree::Integer = 0,
+    enclosure_degree::Integer = 0,
     force = false,
 )
     x0 = x[0]
@@ -210,7 +225,8 @@ function fx_div_x(
         f,
         zero(x0),
         x0,
-        degree = Arblib.degree(x) + order + extra_degree,
+        degree = Arblib.degree(x) + order + extra_degree;
+        enclosure_degree,
     )
 
     if !isfinite(expansion)
