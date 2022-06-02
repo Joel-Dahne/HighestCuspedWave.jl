@@ -320,6 +320,46 @@ function expansion_ispositive(
     return true
 end
 
+"""
+    finda0αp1(α)
+
+Compute `finda0(α) * (α + 1)`.
+
+We have that
+```
+a0 = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
+```
+Using that
+```
+gamma(2α) = gamma(2α + 3) / rising(2α, 3) = gamma(2α + 3) / ((2α + 2) * (2α + 1) * 2α)
+gamma(α) = gamma(α + 2) / rising(α, 2) = gamma(α + 2) / ((α + 1) * α)
+```
+We can write this as
+```
+a0 = 2gamma(2α + 3) / ((2α + 2) * (2α + 1) * 2α) * cospi(α) / (gamma(α + 2)^2 / ((α + 1) * α)^2 * cospi(α / 2)^2)
+   = 1 / 2 * gamma(2α + 3) / (2α + 1) * cospi(α) / (gamma(α + 2)^2 / (α + 1) * α * cospi(α / 2)^2)
+   = 1 / 2 * cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) * (α + 1) / cospi(α / 2)^2
+```
+Multiplying by `α + 1` we have
+```
+a0 * (α + 1) = 1 / 2 * cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) * ((α + 1) / cospi(α / 2))^2
+```
+Using that
+```
+cospi(α / 2) / (α + 1) = sinc((α + 1) / 2) * π / 2
+```
+we can rewrite this as
+```
+a0 * (α + 1) = 4cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) / (π * sinc((α + 1) / 2)^2
+```
+"""
+function finda0αp1(α)
+    # sinc doesn't work with ArbSeries overlapping zero, therefore
+    # take it outside enclosure_series.
+    return ArbExtras.enclosure_series(α) do α
+        2cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) / Arb(π)^2
+    end / sinc((α + 1) / 2)^2
+end
 
 """
     (u0::BHKdVAnsatz)(x, ::Ball)
@@ -328,42 +368,77 @@ Evaluate the ansatz `u0` at the point `x`.
 
 The tail term is evaluated directly.
 
-To evaluate the main term, given by
+The main term is given by
 ```
 a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
 ```
-we make use of the fact that this converges to
+We rewrite this as
 ```
-2 / π^2 * clausencmzeta(x, 2, 1)
+(a0 * (α + 1)) * ((clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) / (α + 1))
 ```
-, see [`lemma_bhkdv_main_term_limit`](@ref), which is the main term
-for `BHAnsatz`, as `α -> -1`.
+and enclose the two factors separately.
 
-Combining the above with [`lemma_bhkdv_main_term_monotonicity`](@ref)
-we notice that it is enough to evaluate the limiting expression as
-well as at `α = -1 + u0.ϵ` to get an enclosure.
+We enclose `a0 * (α + 1)` using [`finda0αp1`](@ref).
 
-- **FIXME:** The above approach doesn't work directly for `ArbSeries`
-because we don't have monotonicity on `α` for all the derivatives.
-However for now we still compute at the endpoints and take the union,
-this means that the enclosure will not be correct for all value of `x`.
+# Enclosing `(clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) / (α + 1)`
+If `x::Arb` this is done directly using [`fx_div_x`](@ref). If
+`x::ArbSeries` this is not possible since we can't mix expansion in
+the argument and the parameter of `clausencmzeta`. Instead we
+differentiate manually with respect to `x`. If we let `t = α + 1` then
+we can write this as
+```
+(clausencmzeta(x, 2 - t) - clausencmzeta(x, 2 + t^2 / 2)) / t
+```
+We then use essentially the same approach as in
+`clausencmzeta(x::ArbSeries, s::Arb)`.
 """
 function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
+    α = Arb((-1, -1 + u0.ϵ))
+    αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
+
     # Main term
 
-    # Compute limiting expression and at upper bound for α
-    res_lower = 2 / Arb(π)^2 * clausencmzeta(x, 2, 1)
-    res_upper = let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
-        a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
+    # Enclosure of a0 * (α + 1)
+    a0αp1 = finda0αp1(α)
+
+    # Enclosure of
+    # (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) / (α + 1)
+    C = let
+        if x isa Arb
+            fx_div_x(αp1, force = true) do t
+                clausencmzeta(x, 2 - t) - clausencmzeta(x, 2 + t^2 / 2)
+            end
+        elseif x isa ArbSeries
+            x₀ = x[0]
+
+            C₀ = zero(x)
+            C₀[0] = fx_div_x(αp1, force = true) do t
+                clausencmzeta(x₀, 2 - t) - clausencmzeta(x₀, 2 + t^2 / 2)
+            end
+            for i = 1:Arblib.degree(x)
+                if i % 2 == 0
+                    C₀[i] = fx_div_x(αp1, force = true) do t
+                        (-1)^(i ÷ 2) *
+                        (clausenc(x₀, 2 - t - i) - clausenc(x₀, 2 + t^2 / 2 - i)) /
+                        factorial(i)
+                    end
+                else
+                    C₀[i] = fx_div_x(αp1, force = true) do t
+                        -(-1)^(i ÷ 2) *
+                        (clausens(x₀, 2 - t - i) - clausens(x₀, 2 + t^2 / 2 - i)) /
+                        factorial(i)
+                    end
+                end
+            end
+
+            x_tmp = copy(x)
+            x_tmp[0] = 0
+
+            Arblib.compose(C₀, x_tmp)
+        end
     end
 
-    if x isa Arb
-        res = Arb((res_lower, res_upper))
-    elseif x isa ArbSeries
-        @warn "Non-rigorous bounds for main term with ArbSeries" maxlog = 1
-        coefficients = union.(Arblib.coeffs(res_lower), Arblib.coeffs(res_upper))
-        res = ArbSeries(coefficients)
-    end
+    res = a0αp1 * C
 
     # Tail term
 
@@ -529,49 +604,89 @@ end
 Returns a function such that `H(u0, Ball())(x)` evaluates
 ``H^α[u0](x)``.
 
+# Main term
 The transform of the main term is given by
 ```
 -a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
 ```
-we make use of the fact that this converges to
+We rewrite this as
 ```
--2 / π^2 * clausencmzeta(x, 3, 1)
+-(a0 * (α + 1)) * ((clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0)) / (1 + α))
 ```
-, see [`lemma_bhkdv_main_term_H_limit`](@ref), which is `H` applied to
-the the main term for `BHAnsatz`, as `α -> -1`.
+and enclose the two factors separately.
 
-Combining the above with
-[`lemma_bhkdv_main_term_H_monotonicity`](@ref) we notice that it is
-enough to evaluate the limiting expression as well as at `α = -1 +
-u0.ϵ` to get an enclosure.
+We enclose `a0 * (α + 1)` using [`finda0αp1`](@ref).
 
-- **FIXME:** The above approach doesn't work directly for `ArbSeries`
-because we don't have monotonicity on `α` for all the derivatives.
-However for now we still compute at the endpoints and take the union,
-this means that the enclosure will not be correct for all value of `x`.
+## Enclosing `(clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0)) / (α + 1)`
+If `x::Arb` this is done directly using [`fx_div_x`](@ref). If
+`x::ArbSeries` this is not possible since we can't mix expansion in
+the argument and the parameter of `clausencmzeta`. Instead we
+differentiate manually with respect to `x`. If we let `t = α + 1` then
+we can write this as
+```
+(clausencmzeta(x, 3 - 2t) - clausencmzeta(x, 3 - t + t^2 / 2)) / t
+```
+We then use essentially the same approach as in
+`clausencmzeta(x::ArbSeries, s::Arb)`.
 
+# Tail
 For the tail term we need to make sure that we correctly handle the
 fact that the transform depends on the value of `α`. As long as `u0.ϵ`
 is sufficiently small we get good enough bounds by just using it as a
 ball directly.
 """
 function H(u0::BHKdVAnsatz{Arb}, ::Ball)
+    α = Arb((-1, -1 + u0.ϵ))
+    αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
+
+    # Enclosure of a0 * (α + 1)
+    a0αp1 = finda0αp1(α)
+
     return x::Union{Arb,ArbSeries} -> begin
         # Main term
 
-        # Compute limiting expression and at upper bound for α
-        res_lower = let α = -1 + u0.ϵ, a0 = finda0(α), p0 = 1 + α + (1 + α)^2 / 2
-            -a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
-        end
-        res_upper = -2 / Arb(π)^2 * clausencmzeta(x, 3, 1)
+        # Enclosure of
+        # (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0)) / (α + 1)
+        C = let
+            if x isa Arb
+                fx_div_x(αp1, force = true, enclosure_degree = -1) do t
+                    clausencmzeta(x, 3 - 2t) - clausencmzeta(x, 3 - t + t^2 / 2)
+                end
+            elseif x isa ArbSeries
+                x₀ = x[0]
 
-        if x isa Arb
-            res = Arb((res_lower, res_upper))
-        elseif x isa ArbSeries
-            @warn "Non-rigorous bounds for main term with ArbSeries" maxlog = 1
-            coefficients = union.(Arblib.coeffs(res_lower), Arblib.coeffs(res_upper))
-            res = ArbSeries(coefficients)
+                C₀ = zero(x)
+                C₀[0] = fx_div_x(αp1, force = true, enclosure_degree = -1) do t
+                    clausencmzeta(x₀, 3 - 2t) - clausencmzeta(x₀, 3 - t + t^2 / 2)
+                end
+                for i = 1:Arblib.degree(x)
+                    if i % 2 == 0
+                        C₀[i] =
+                            fx_div_x(αp1, force = true, enclosure_degree = -1) do t
+                                (-1)^(i ÷ 2) * (
+                                    clausenc(x₀, 3 - 2t - i) -
+                                    clausenc(x₀, 3 - t + t^2 / 2 - i)
+                                ) / factorial(i)
+                            end
+                    else
+                        C₀[i] =
+                            fx_div_x(αp1, force = true, enclosure_degree = -1) do t
+                                -(-1)^(i ÷ 2) * (
+                                    clausens(x₀, 3 - 2t - i) -
+                                    clausens(x₀, 3 - t + t^2 / 2 - i)
+                                ) / factorial(i)
+                            end
+                    end
+                end
+
+                x_tmp = copy(x)
+                x_tmp[0] = 0
+
+                Arblib.compose(C₀, x_tmp)
+            end
         end
+
+        res = -a0αp1 * C
 
         # Tail term
 
