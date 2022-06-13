@@ -113,7 +113,7 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
         ϵ < 1e-3 && error("ϵ too small")
     end
 
-    verbose && @show ϵ
+    verbose && @info "ϵ was determined to be" ϵ
 
     # Finally we compute the maximum on the interval [ϵ, π]
 
@@ -129,8 +129,6 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
         rtol,
         verbose,
     )
-
-    verbose && @show m
 
     return m
 end
