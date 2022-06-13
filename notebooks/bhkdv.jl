@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.8
 
 using Markdown
 using InteractiveUtils
@@ -25,7 +25,7 @@ end
 begin
     using Pkg, Revise
     Pkg.activate("../")
-    using Arblib, ArbExtras, HighestCuspedWave, Plots, PlutoUI
+    using Arblib, ArbExtras, Folds, HighestCuspedWave, Plots, PlutoUI
 
     setprecision(Arb, 128)
 
@@ -131,22 +131,28 @@ The values of `α0` and `C_B` are more or less the same for any sufficiently goo
 # ╔═╡ f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 md"""
 The code can either compute rigorous error bounds for the required constants or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect `δ0` we also make sure to use points asymptically close to `0` since that's where the largest defect is found. Check the constants to use rigorous error bounds for
--  `α₀` $(@bind use_rigorous_bounds_α0 CheckBox(default = false))
--  `C_B` $(@bind use_rigorous_bounds_C_B CheckBox(default = false))
--  `δ₀` $(@bind use_rigorous_bounds_δ0 CheckBox(default = false))
+-  $n_0$ $(@bind use_rigorous_bounds_n0 CheckBox(default = false))
+-  $δ_0$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = false))
+-  $D_0$ $(@bind use_rigorous_bounds_D0 CheckBox(default = false))
 Notice that the rigorous error bounds take **significantly** longer time to compute with.
 """
 
 # ╔═╡ 3e6b7582-bb9f-46be-84de-f568dec6780e
 md"""
 The code uses
-- **$(ifelse(use_rigorous_bounds_α0, "rigorous bounds", "estimates"))** for `α₀`
-- **$(ifelse(use_rigorous_bounds_C_B, "rigorous bounds", "estimates"))** for `C_B`
-- **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for `δ₀`
+- **$(ifelse(use_rigorous_bounds_n0, "rigorous bounds", "estimates"))** for $n_0$
+- **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $δ_0$
+- **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_0$
+"""
+
+# ╔═╡ f945013f-e7d6-4b7c-a43e-08e6ca74078d
+md"""
+### Bound $n_0$
+The code uses **$(ifelse(use_rigorous_bounds_n0, "rigorous bounds", "estimates"))** for $n_0$.
 """
 
 # ╔═╡ f1dce520-a035-43e6-9e08-4696a14c5a54
-α0_xs, α0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
+n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
     ys = similar(xs)
     f(x) = u0.w(x) / 2u0(x)
     Threads.@threads for i in eachindex(xs)
@@ -156,7 +162,7 @@ The code uses
 end
 
 # ╔═╡ 22573416-3918-4bb9-9ec2-06b87d923c1d
-α0_asym_xs, α0_asym_ys =
+n0_asym_xs, n0_asym_ys =
     let xs = exp.(range(log(Arb("1e-100")), log(Arb("1e-1")), length = 100))
         ys = similar(xs)
         f(x) = u0.w(x) / 2u0(x, Asymptotic())
@@ -167,18 +173,18 @@ end
     end
 
 # ╔═╡ 61151255-15d4-45ec-a3ad-573c46d34d93
-α0 = if use_rigorous_bounds_α0
-    @time alpha0(u0, verbose = true)
+n0 = if use_rigorous_bounds_n0
+    @time n0_bound(u0, verbose = true)
 else
     # The value at x = 0 is π / 2
-    max(maximum(α0_ys), Arb(π) / 2)
+    max(maximum(n0_ys), Arb(π) / 2)
 end
 
 # ╔═╡ ab9d59df-3488-4f8a-a321-d23aab7e01d4
 let pl = plot(legend = :bottomright)
-    plot!(pl, α0_xs, α0_ys, ribbon = radius.(Arb, α0_ys), label = "", m = :circle, ms = 1)
-    hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
-    savefig(pl, "../figures/publication/BHKdV-N.pdf")
+    plot!(pl, n0_xs, n0_ys, ribbon = radius.(Arb, n0_ys), label = "", m = :circle, ms = 1)
+    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n₀")
+    #savefig(pl, "../figures/publication/BHKdV-N.pdf")
     pl
 end
 
@@ -186,106 +192,101 @@ end
 let pl = plot(legend = :bottomleft, xaxis = :log10)
     plot!(
         pl,
-        α0_asym_xs,
-        α0_asym_ys,
-        ribbon = radius.(Arb, α0_asym_ys),
+        n0_asym_xs,
+        n0_asym_ys,
+        ribbon = radius.(Arb, n0_asym_ys),
         label = "",
         m = :circle,
         ms = 1,
     )
-    hline!(pl, [α0], ribbon = [radius(Arb, α0)], color = :green, label = "α₀")
-    savefig(pl, "../figures/publication/BHKdV-N-asymptotic.pdf")
+    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n₀")
+    #savefig(pl, "../figures/publication/BHKdV-N-asymptotic.pdf")
     pl
 end
 
-# ╔═╡ 87b3712f-1cf7-4d02-b1d1-d68d7f4464d6
-md"Next we want to determine the norm, `C_B`, given by the maximum of `T0(u0)` on the interval `[0, π]`. Again we can plot its value on a few points on the interval and take the maximum, giving us a non-rigorous estimate."
+# ╔═╡ af8899b0-eac1-442d-90ef-9d399aeb170c
+md"""
+### Bound $\delta_0$
+"""
 
-# ╔═╡ de4546e1-4a9f-4d37-b59c-ee4509d09868
-C_B_xs, C_B_ys = let xs = range(Arb(0), π, length = 100)[2:end]
-    ys = similar(xs)
-    f = T0(u0)
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = f(xs[i])
+# ╔═╡ cf99b665-f81a-4e17-8b9f-9357904cf676
+md"""
+The code uses **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_0$.
+"""
+
+# ╔═╡ 3d72c6ae-5b44-491f-bfee-c8ea23224ea9
+md"""
+For the defect we do three different plots. One non-asymptotic plot on $[0.1, \pi]$, one asymptotic plot on $[10^{-5}, 0.1]$ and when even more asymptotic plot on $[10^{-100}, 10^{-5}]$.
+"""
+
+# ╔═╡ b8c5ba34-748e-4c4b-be9c-135240287351
+δ0_xs, δ0_ys = let xs = range(Arb(0.1), Arb(π), length = 100)
+    ys = Folds.map(F0(u0), xs)
+    xs, ys
+end
+
+# ╔═╡ f88046ed-d4c4-4ce4-a424-96c87dc87711
+δ0_asym_xs, δ0_asym_ys =
+    let xs = exp.(range(log(Arb("1e-5")), log(Arb("1e-1")), length = 200))
+        ys = Folds.map(F0(u0, Asymptotic(), ϵ = 2xs[end]), xs)
+        xs, ys
     end
+
+# ╔═╡ 1bb84607-4f0f-4e7b-a24f-258b4e581c2c
+δ0_very_asym_xs, δ0_very_asym_ys =
+    let xs = exp.(range(log(Arb("1e-100")), log(Arb("1e-5")), length = 200))
+        ys = Folds.map(F0(u0, Asymptotic(), ϵ = 2xs[end]), xs)
+        xs, ys
+    end
+
+# ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
+δ0 = if use_rigorous_bounds_δ0
+    @time delta0_bound(u0, verbose = true)
+else
+    max(maximum(abs.(δ0_ys)), maximum(abs.(δ0_asym_ys)), maximum(abs.(δ0_very_asym_ys)))
+end
+
+# ╔═╡ 6dfdb4b5-fbd1-4b0d-96d9-8d4985c7b0dd
+md"""
+### Bound $D_0$
+"""
+
+# ╔═╡ cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
+md"""
+The code uses **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_0$
+"""
+
+# ╔═╡ baae040c-58f6-4657-b92f-6ca96740cbc8
+D0_xs, D0_ys = let xs = range(Arb(1e-3), π, length = 100)
+    ys = Folds.map(T0(u0, Ball()), xs)
     xs, ys
 end
 
 # ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
-C_B = if use_rigorous_bounds_C_B
-    @time CB(u0, verbose = true)
+D0 = if use_rigorous_bounds_D0
+    @time D0_bound(u0, verbose = true)
 else
-    maximum(C_B_ys)
+    maximum(D0_ys)
 end
 
 # ╔═╡ 89d54f92-8b3a-4913-875d-31068856fb62
 let pl = plot(legend = :bottomright)
     plot!(
         pl,
-        C_B_xs,
-        C_B_ys,
-        ribbon = Arblib.radius.(Arb, C_B_ys),
+        D0_xs,
+        D0_ys,
+        ribbon = Arblib.radius.(Arb, D0_ys),
         label = "",
         m = :circle,
         ms = 1,
     )
-    hline!(pl, [C_B], ribbon = [Arblib.radius(Arb, C_B)], color = :green, label = "C_B")
-    savefig(pl, "../figures/publication/BHKdV-T.pdf")
+    hline!(pl, [D0], ribbon = [Arblib.radius(Arb, D0)], color = :green, label = "D₀")
+    #savefig(pl, "../figures/publication/BHKdV-T.pdf")
     pl
 end
 
-# ╔═╡ 5bc3a7c1-9acd-49c4-afd4-e0a94b3b02d7
-md"Now we need the defect, `δ₀`, to be smaller than `1 / (4α₀ * β^2)` where `β = 1 / (1 - C_B)`"
-
-# ╔═╡ 25927755-307c-40b7-adc9-4577ab8c2f61
-β = 1 / (1 - C_B)
-
-# ╔═╡ 358b2691-3b1b-4733-a173-acf987a221ea
-δ0_goal = 1 / (4α0 * β^2)
-
-# ╔═╡ 67aa36b0-b77c-4531-a248-f7d474ffd47d
-md"""
-We can now plot the defect on the interval `[0, π]`. We do three different plots. one non-asymptotic plot on `[0.1, π]`, one asymptotic plot on `[1e-5, 0.1]` and when even more asymptotic plot on `[1e-100, 1e-5]`. For the last interval we only compute an upper bound of the absolute value, instead of an enclosure.
-"""
-
-# ╔═╡ b8c5ba34-748e-4c4b-be9c-135240287351
-δ0_xs, δ0_ys = let xs = range(Arb(0), π, length = 200)[2:end]
-    ys = similar(xs)
-    f = F0(u0)
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = f(xs[i])
-    end
-    xs, ys
-end
-
-# ╔═╡ f88046ed-d4c4-4ce4-a424-96c87dc87711
-δ0_little_asym_xs, δ0_little_asym_ys =
-    let xs = exp.(range(log(Arb("1e-5")), log(Arb("1e-1")), length = 100))
-        ys = similar(xs)
-        f = F0(u0)
-        Threads.@threads for i in eachindex(xs)
-            ys[i] = f(xs[i])
-        end
-        xs, ys
-    end
-
-# ╔═╡ 1bb84607-4f0f-4e7b-a24f-258b4e581c2c
-δ0_asym_xs, δ0_asym_ys =
-    let xs = exp.(range(log(Arb("1e-100")), log(Arb("1e-5")), length = 100))
-        ys = similar(xs)
-        f = F0(u0, Asymptotic())
-        Threads.@threads for i in eachindex(xs)
-            ys[i] = f(xs[i])
-        end
-        xs, ys
-    end
-
-# ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
-δ0 = if use_rigorous_bounds_δ0
-    @time delta0(u0, verbose = true)
-else
-    max(maximum(abs.(δ0_ys)), maximum(abs.(δ0_little_asym_ys)), maximum(abs.(δ0_asym_ys)))
-end
+# ╔═╡ c0135897-dbc9-4a56-9f0d-7002a893afa2
+δ0_goal = (1 - D0)^2 / 4n0
 
 # ╔═╡ ac03e920-25ad-4127-ad87-00e907701da3
 let pl = plot()
@@ -302,7 +303,7 @@ let pl = plot()
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
-    savefig(pl, "../figures/publication/BHKdV-F.pdf")
+    #savefig(pl, "../figures/publication/BHKdV-F.pdf")
     pl
 end
 
@@ -310,9 +311,9 @@ end
 let pl = plot()
     plot!(
         pl,
-        δ0_little_asym_xs,
-        δ0_little_asym_ys,
-        ribbon = Arblib.radius.(Arb, δ0_little_asym_ys),
+        δ0_asym_xs,
+        δ0_asym_ys,
+        ribbon = Arblib.radius.(Arb, δ0_asym_ys),
         m = :circle,
         ms = 1,
         label = "defect",
@@ -322,7 +323,7 @@ let pl = plot()
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
     hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ₀ goal")
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
-    savefig(pl, "../figures/publication/BHKdV-F-asymptotic.pdf")
+    #savefig(pl, "../figures/publication/BHKdV-F-asymptotic.pdf")
     pl
 end
 
@@ -330,9 +331,9 @@ end
 let pl = plot(legend = :bottomright)
     plot!(
         pl,
-        δ0_asym_xs,
-        δ0_asym_ys,
-        ribbon = Arblib.radius.(Arb, δ0_asym_ys),
+        δ0_very_asym_xs,
+        δ0_very_asym_ys,
+        ribbon = Arblib.radius.(Arb, δ0_very_asym_ys),
         m = :circle,
         ms = 1,
         label = "defect upper bound",
@@ -345,7 +346,7 @@ let pl = plot(legend = :bottomright)
 end
 
 # ╔═╡ Cell order:
-# ╟─a0ab3d57-b420-43c2-b69b-c403dde1f3ad
+# ╠═a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 # ╟─3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
 # ╟─73ae2ee7-d722-4ad8-8fc7-a57781180d35
 # ╟─6c2a16c7-2bcf-4a2b-9466-38309a36b937
@@ -358,23 +359,25 @@ end
 # ╟─43ff127c-f7fa-4ff0-9827-36fc9507fb0b
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─3e6b7582-bb9f-46be-84de-f568dec6780e
+# ╟─f945013f-e7d6-4b7c-a43e-08e6ca74078d
 # ╟─f1dce520-a035-43e6-9e08-4696a14c5a54
-# ╠═22573416-3918-4bb9-9ec2-06b87d923c1d
+# ╟─22573416-3918-4bb9-9ec2-06b87d923c1d
 # ╠═61151255-15d4-45ec-a3ad-573c46d34d93
 # ╟─ab9d59df-3488-4f8a-a321-d23aab7e01d4
 # ╟─681e590a-a297-4dcc-8528-2f24e05df30f
-# ╟─87b3712f-1cf7-4d02-b1d1-d68d7f4464d6
-# ╠═de4546e1-4a9f-4d37-b59c-ee4509d09868
-# ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
-# ╟─89d54f92-8b3a-4913-875d-31068856fb62
-# ╟─5bc3a7c1-9acd-49c4-afd4-e0a94b3b02d7
-# ╠═25927755-307c-40b7-adc9-4577ab8c2f61
-# ╠═358b2691-3b1b-4733-a173-acf987a221ea
-# ╟─67aa36b0-b77c-4531-a248-f7d474ffd47d
-# ╟─b8c5ba34-748e-4c4b-be9c-135240287351
+# ╟─af8899b0-eac1-442d-90ef-9d399aeb170c
+# ╟─cf99b665-f81a-4e17-8b9f-9357904cf676
+# ╟─3d72c6ae-5b44-491f-bfee-c8ea23224ea9
+# ╠═b8c5ba34-748e-4c4b-be9c-135240287351
 # ╠═f88046ed-d4c4-4ce4-a424-96c87dc87711
-# ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
+# ╠═1bb84607-4f0f-4e7b-a24f-258b4e581c2c
 # ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
 # ╟─ac03e920-25ad-4127-ad87-00e907701da3
 # ╟─9e18768c-40d0-45a8-b1fe-01d092b50f52
 # ╟─15e21dde-fb44-47d8-83d8-9f5ffffab74d
+# ╟─6dfdb4b5-fbd1-4b0d-96d9-8d4985c7b0dd
+# ╟─cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
+# ╠═baae040c-58f6-4657-b92f-6ca96740cbc8
+# ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
+# ╟─89d54f92-8b3a-4913-875d-31068856fb62
+# ╠═c0135897-dbc9-4a56-9f0d-7002a893afa2
