@@ -15,7 +15,7 @@ a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
 where both `a0` and `p0` depend on `α`. The expression for `a0` is
 that given by `finda0(α)`. The expression for `p0` is
 ```
-p0 = 1 - α + (1 - α)^2 / 2
+p0 = 1 + α + (1 + α)^2 / 2
 ```
 Note that `1 - α + p0 > 2`.
 
