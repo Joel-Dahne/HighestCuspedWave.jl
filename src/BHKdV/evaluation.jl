@@ -469,44 +469,101 @@ The highest term, `x^2M`, is an error term is which makes sure that
 evaluation of the expansion gives an enclosure of the result when
 evaluated at `|y| < |x|`.
 
+See [`eval_expansion`](@ref) for more details about how the
+coefficients are stored.
+
 For the tail term the expansions are easily computed exactly like for
 `BHAnsatz`. For the main term we have to be a bit more careful.
 
-For the main term the coefficients in front of `x^2m` is given by
-```
-a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
-```
-It has a removable singularity at `α = -1`. To compute an enclosure we
-use that
-```
-a0 = 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))^2
-```
-and write it as
-```
-(-1)^m * 2cospi(α)
-    * inv(rgamma(2α) / (1 + α))
-    * (rgamma(α) / (1 + α))^2
-    * inv(cospi(α / 2) / (1 + α))^2
-    * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α)
-    / factorial(2m)
-```
-, where `rgamma` is the reciprocal gamma function given by `rgamma(s)
-= inv(gamma(s))`, and use [`fx_div_x`](@ref) to compute enclosures of
-the individual factors.
-- **TODO:** Compute enclosure of remainder term in similar way.
+# Main term
 
-The only remaining part of the expansion of the main term is
+## Leading term
+The leading term of the expansion of the main term is
 ```
 a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) * x^-α
 ```
 which we don't evaluate at all yet. Instead store implicitly in the
 expansion.
 
-See [`eval_expansion`](@ref) for more details about how the
-coefficients are stored.
+## Non-leading terms
+For the main term the coefficients in front of `x^2m` is given by
+```
+a0 * (-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / factorial(2m)
+```
+It has a removable singularity at `α = -1`. To compute an enclosure we
+rewrite it as
+```
+a0 * (α + 1) * (-1)^m * ((zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (α + 1)) / factorial(2m)
+```
+and enclose `a0 * (α + 1)` using [`finda0αp1`](@ref) and `(zeta(1 - α
+- 2m) - zeta(1 - α + p0 - 2m)) / (α + 1)` using [`fx_div_x`](@ref).
+
+## Remainder term
+The remainder term is given by
+```
+a0 * sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) * x^2m / factorial(2m) for m = M:Inf) / x^2M
+```
+We want to bound the absolute value of this. We can rewrite it as
+```
+a0 * (1 + α) * sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α) * x^2m / factorial(2m) for m = M:Inf) / x^2M
+```
+We can enclose `a0 * (1 + α)` using [`finda0αp1`](@ref). What remains
+is to bound the absolute value of
+```
+S = sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
+```
+If we let `t = α + 1` we can write the factor with the removable
+singularity as
+```
+zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t
+= (zeta(2 - 2m - t) - zeta(2 - 2m)) / t - (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
+```
+We can write the first term as
+```
+-(zeta(2 - 2m + (-t)) - zeta(2 - 2m)) / (-t)
+```
+which is on the form `(f(s) - f(0)) / s` and hence given by `f'(ξ)`
+for some `ξ` between `0` and `-t`. For the second term we write it as
+```
+(zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
+= t / 2 * (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / (t^2 / 2)
+```
+which is given by `t / 2 * f'(ξ)` for some `ξ` between `0` and `t^2 /
+2`. Combining this gives us that
+```
+zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1) + t / 2 * dzeta(2 - 2m + ξ2)
+```
+with `ξ1` between `0` and `t-t` and `ξ2` between `0` and `t^2 / 2`. In
+terms of interval arithmetic we can write this as (using Arblib
+notation)
+```
+-dzeta(2 - 2m + Arb((-t, 0))) + t / 2 * dzeta(2 - 2m + Arb((0, t^2 / 2)))
+```
+Thus we can reduce bounding the absolute value of `S` to bounding the
+absolute value of
+```
+S1 = sum((-1)^m * zeta(2 + Arb((-(α + 1), 0)) - 2m) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
+S2 = (α + 1) * sum((-1)^m * dzeta(2 + Arb((0, (α + 1)^2 / 2)) - 2m) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
+```
+These sums are the same as those appearing in
+```
+clausenc_expansion_remainder(x, 2 + Arb((-(α + 1), 0)), 1, M)
+clausenc_expansion_remainder(x, 2 + Arb((0, (α + 1)^2 / 2)), 1, M)
+```
+- **PROVE:** This is mostly true, the issue is that we are not
+  guaranteed that the value in `Arb((-(α + 1), 0))` taken for the
+  argument of the zeta function is the same on each iteration. This
+  does not seem to be an issue because we rely on any cancellations
+  occurring in the sum. But it would need to be proved.
 """
 function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @assert M >= 3
+
+    α = Arb((-1, -1 + u0.ϵ))
+    αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
+
+    # Enclosure of a0 * (α + 1)
+    a0αp1 = finda0αp1(α)
 
     res = OrderedDict{NTuple{7,Int},Arb}()
 
@@ -517,21 +574,15 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
 
     # Main term
 
-    # Leading term
+    # Leading term - stored implicitly
     res[(1, 0, 0, 0, 0, 0, 0)] = 1
 
     # x^2m terms
-    # Interval corresponding to 1 + α
-    interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-    # Enclosure of rgamma(α) / (α + 1)
-    rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
-    # Enclosure of rgamma(2α) / (α + 1)
-    rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
-    # Enclosure of cospi(α / 2) / (α + 1)
-    cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
     for m = 1:M-1
         # Enclosure of
-        # (zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m)) / (α + 1)
+        # (zeta(1 - α - 2m) - zeta(2 + (1 - α + p0 - 2m)) / (α + 1)
+        # = (zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m)) / s
+        # with s = α + 1
         zeta_div_α = if m == 1
             # zeta(x::ArbSeries) doesn't handle balls containing
             # zero but centered at a negative number well. For
@@ -539,36 +590,30 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
             # case.
             fx_div_x(
                 s -> zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m),
-                union(-interval, interval),
+                union(-αp1, αp1),
                 extra_degree = 2,
                 force = true,
             )
         else
             fx_div_x(
                 s -> zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m),
-                interval,
+                αp1,
                 extra_degree = 2,
             )
         end
 
-        coefficient =
-            (-1)^m *
-            2cospi((Arb((-1, -1 + u0.ϵ)))) *
-            inv(rgamma2_div_α) *
-            rgamma1_div_α^2 *
-            inv(cos_div_α)^2 *
-            zeta_div_α / factorial(2m)
+        coefficient = a0αp1 * (-1)^m * zeta_div_α / factorial(2m)
 
         res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
     end
 
     # Remainder term for main term
-    # FIXME: Compute proper remainder term
-    @warn "Non-rigorous error term implemented for main term" maxlog = 1
-    Arblib.add_error!(
-        res[(0, 0, 0, 0, 0, 0, 2M)],
-        2abs(dzeta(Arb(2 - 2M)) / factorial(2M)) * u0.v0.a0,
-    )
+    remainder =
+        a0αp1 * (
+            -clausenc_expansion_remainder(x, 2 - αp1, 1, M) +
+            αp1 * clausenc_expansion_remainder(x, 2 + αp1^2 / 2, 1, M)
+        )
+    Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], remainder)
 
     # Tail term
 
