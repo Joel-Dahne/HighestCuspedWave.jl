@@ -482,8 +482,8 @@ The leading term of the expansion of the main term is
 ```
 a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) * x^-α
 ```
-which we don't evaluate at all yet. Instead store implicitly in the
-expansion.
+which we don't evaluate at all yet. Instead we store them implicitly
+in the expansion.
 
 ## Non-leading terms
 For the main term the coefficients in front of `x^2m` is given by
@@ -512,28 +512,34 @@ is to bound the absolute value of
 ```
 S = sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
 ```
+
 If we let `t = α + 1` we can write the factor with the removable
 singularity as
 ```
 zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t
 = (zeta(2 - 2m - t) - zeta(2 - 2m)) / t - (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
 ```
+
 We can write the first term as
 ```
 -(zeta(2 - 2m + (-t)) - zeta(2 - 2m)) / (-t)
 ```
 which is on the form `(f(s) - f(0)) / s` and hence given by `f'(ξ)`
-for some `ξ` between `0` and `-t`. For the second term we write it as
+for some `ξ` between `0` and `-t`.
+
+For the second term we write it as
 ```
 (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
 = t / 2 * (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / (t^2 / 2)
 ```
 which is given by `t / 2 * f'(ξ)` for some `ξ` between `0` and `t^2 /
-2`. Combining this gives us that
+2`.
+
+Combining this gives us that
 ```
 zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1) + t / 2 * dzeta(2 - 2m + ξ2)
 ```
-with `ξ1` between `0` and `t-t` and `ξ2` between `0` and `t^2 / 2`. In
+with `ξ1` between `0` and `-t` and `ξ2` between `0` and `t^2 / 2`. In
 terms of interval arithmetic we can write this as (using Arblib
 notation)
 ```
@@ -542,10 +548,11 @@ notation)
 Thus we can reduce bounding the absolute value of `S` to bounding the
 absolute value of
 ```
-S1 = sum((-1)^m * zeta(2 + Arb((-(α + 1), 0)) - 2m) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
-S2 = (α + 1) * sum((-1)^m * dzeta(2 + Arb((0, (α + 1)^2 / 2)) - 2m) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
+S1 = sum((-1)^m * zeta(2 + Arb((-(α + 1), 0)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(2 + Arb((0, (α + 1)^2 / 2)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
-These sums are the same as those appearing in
+and combine them as `S1 + (α + 1) / 2 * S2`. These sums are the same
+as those appearing in
 ```
 clausenc_expansion_remainder(x, 2 + Arb((-(α + 1), 0)), 1, M)
 clausenc_expansion_remainder(x, 2 + Arb((0, (α + 1)^2 / 2)), 1, M)
@@ -559,10 +566,9 @@ clausenc_expansion_remainder(x, 2 + Arb((0, (α + 1)^2 / 2)), 1, M)
 function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @assert M >= 3
 
+    # Enclosure of α, α + 1 and a0 * (α + 1)
     α = Arb((-1, -1 + u0.ϵ))
     αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
-
-    # Enclosure of a0 * (α + 1)
     a0αp1 = finda0αp1(α)
 
     res = OrderedDict{NTuple{7,Int},Arb}()
@@ -580,8 +586,8 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # x^2m terms
     for m = 1:M-1
         # Enclosure of
-        # (zeta(1 - α - 2m) - zeta(2 + (1 - α + p0 - 2m)) / (α + 1)
-        # = (zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m)) / s
+        # (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (α + 1)
+        # = (zeta(2 - s - 2m) - zeta(2 + s^2 / 2 - 2m)) / s
         # with s = α + 1
         zeta_div_α = if m == 1
             # zeta(x::ArbSeries) doesn't handle balls containing
@@ -589,17 +595,13 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
             # that reason we take a symmetric interval in this
             # case.
             fx_div_x(
-                s -> zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m),
+                s -> zeta(2 - s - 2m) - zeta(2 + s^2 / 2 - 2m),
                 union(-αp1, αp1),
                 extra_degree = 2,
                 force = true,
             )
         else
-            fx_div_x(
-                s -> zeta(1 - (s - 1) - 2m) - zeta(2 + (1 + (s - 1))^2 / 2 - 2m),
-                αp1,
-                extra_degree = 2,
-            )
+            fx_div_x(s -> zeta(2 - s - 2m) - zeta(2 + s^2 / 2 - 2m), αp1, extra_degree = 2)
         end
 
         coefficient = a0αp1 * (-1)^m * zeta_div_α / factorial(2m)
@@ -610,10 +612,10 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     # Remainder term for main term
     remainder =
         a0αp1 * (
-            -clausenc_expansion_remainder(x, 2 - αp1, 1, M) +
-            αp1 * clausenc_expansion_remainder(x, 2 + αp1^2 / 2, 1, M)
+            clausenc_expansion_remainder(x, 2 - αp1, 1, M) +
+            αp1 / 2 * clausenc_expansion_remainder(x, 2 + αp1^2 / 2, 1, M)
         )
-    Arblib.add_error!(res[(0, 0, 0, 0, 0, 0, 2M)], remainder)
+    res[(0, 0, 0, 0, 0, 0, 2M)] += remainder
 
     # Tail term
 
