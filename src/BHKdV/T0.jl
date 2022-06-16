@@ -264,10 +264,19 @@ x / (π * u0(x) * log(u0.c + inv(x))) *
     ∫ abs(clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
         t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
+where for the full norm the integral is taken from `0` to `π / x`.
 This method returns a function `f` such that `f(x, a, b)` computes the
-above, integrating `a` to `b`. Optionally it accepts the keyword
+above, integrating from `a` to `b`. Optionally it accepts the keyword
 argument `to_endpoint` which if true makes it compute the integral
 from `a` to `π / x`, i.e. `f(x, a, b, to_endpoint = true)`.
+
+The value of `a` should be large than the unique root of the integrand
+on ``[0, 1]`` (see [`lemma_integrand_1`](@ref)). This allows us to
+remove the absolute value in the integral. To ensure that this is the
+case we check that the integrand is positive at `t = a`. Since the
+location of the zero on ``[0, 1]`` is decreasing in `x` it is enough
+to check this for a lower bound of `x`, this makes it easier to handle
+wide values of `x`.
 
 The computation is done by factoring out part of the weight and
 integrating the rest explicitly.
@@ -279,11 +288,7 @@ out. This leaves us with the integral
 ```
 I = ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt
 ```
-taken from `a` to `b` (or `π / x`). Where we have removed the absolute
-value since the expression inside is positive on the interval.
-- **TODO:** We need to check the positivity of the integrand. This
-  could be done by checking the endpoint `a`. However for it to work
-  well for wide values of `x` we might need to do some more work.
+taken from `a` to `b` (or `π / x` if `to_endpoint` is true).
 
 We can integrate this explicitly, see [`T0_p_one`](@ref), giving us
 ```
@@ -378,14 +383,13 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
     s2 = 3 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     return (x::Arb, a::Arb, b::Arb; to_endpoint = false) -> begin
-        # Check that the integrand is positive on the left endpoint
-        # PROVE: We would need to prove that it is enough to check the
-        # lower bound of x
+        # Check that the integrand is positive on the left endpoint.
+        # It is enough to check this for a lower bound of x.
         let t = lbound(Arb, a), x = lbound(Arb, x), α = Arb((-1, -1 + u0.ϵ))
-            @assert Arblib.ispositive(
+            Arblib.ispositive(
                 clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) -
                 2clausenc(x * t, -α),
-            )
+            ) || throw(ArgumentError("integrand not positive at t = a = $a"))
         end
 
         primitive(t) =
