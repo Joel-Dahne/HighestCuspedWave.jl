@@ -776,31 +776,120 @@ end
     H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_singular_j_until::Integer = 0,)
 
 Return a dictionary containing the terms in the asymptotic expansion
-of `u0` which can then be evaluated with [`eval_expansion`](@ref).
+of `H(u0)` which can then be evaluated with [`eval_expansion`](@ref).
 
 The highest term, `x^2M`, is an error term is which makes sure that
 evaluation of the expansion gives an enclosure of the result when
 evaluated at `|y| < |x|`.
 
+See [`eval_expansion`](@ref) for more details about how the
+coefficients are stored.
+
+# Main term
+For the main term we want the expansion of
+```
+-a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
+```
+
+## Leading term
+The leading term of the expansion of the main term is
+```
+-a0 * (gamma(2α) * cospi(α) - gamma(2α - p0) * cospi((2α - p0) / 2) * x^p0) * x^(-2α)
+```
+However, as `α` approaches `-1` this overlaps with the next term in
+the expansion, `x^2`, and we need to account for their cancellations.
+That term is given by
+```
+-a0 * (zeta(1 - 2α - 2) / 2 - zeta(1 - 2α + p0 - 2) / 2) * x^2
+```
+We don't evaluate these terms at all yet. Instead we store the term
+```
+-a0 * (
+    (gamma(2α) * cospi(α) - gamma(2α - p0) * cospi((2α - p0) / 2) * x^p0) * x^(-2α)
+    + (zeta(1 - 2α - 2) / 2 - zeta(1 - 2α + p0 - 2) / 2) * x^2
+)
+```
+implicitly in the expansion.
+
+## Non-leading terms
 For the main term the coefficients in front of `x^2m` is given by
 ```
 -a0 * (-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / factorial(2m)
 ```
-For `m >= 2` it has a removable singularity and we handle it in the
-same way as in [`u0`](@ref).
-- **TODO:** Compute enclosure of remainder term in similar way.
-
-The remaining part of the expansion of `H` applied to the main term is
+For `m >= 2` it has a removable singularity at `α = -1`. To compute an
+enclosure we rewrite it as
 ```
--a0 * (
-    gamma(2α) * cospi(α) * abs(x)^(-2α) -
-    gamma(2α - p0) * cospi((1 - 2α + p0) / 2) * abs(x)^(-2α + p0)
-    (zeta(1 - 2α - 2) / 2 - zeta(1 - 2α + p0 - 2) / 2) * abs(x)^2
-)
+-a0 * (α + 1) * (-1)^m * ((zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (α + 1)) / factorial(2m)
 ```
-which we don't evaluate at all yet. Instead we store it implicitly in
-the expansion.
+and enclose `a0 * (α + 1)` using [`finda0αp1`](@ref) and `(zeta(1 - 2α
+- 2m) - zeta(1 - 2α + p0 - 2m)) / (α + 1)` using [`fx_div_x`](@ref).
 
+## Remainder term
+The remainder term is given by
+```
+-a0 * sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) * x^2m / factorial(2m) for m = M:Inf) / x^2M
+```
+We want to bound the absolute value of this. We can rewrite it as
+```
+a0 * (1 + α) * sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (1 + α) * x^2m / factorial(2m) for m = M:Inf) / x^2M
+```
+We can enclose `a0 * (1 + α)` using [`finda0αp1`](@ref). What remains
+is to bound the absolute value of
+```
+S = sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (1 + α) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
+```
+
+If we let `t = α + 1` we can write the factor with the removable
+singularity as
+```
+zeta(3 - 2m - 2t) - zeta(3 - 2m - t + t^2 / 2)) / t
+= (zeta(3 - 2m - 2t) - zeta(2 - 2m)) / t - (zeta(3 - 2m - t + t^2 / 2) - zeta(2 - 2m)) / t
+```
+
+We can write the first term as
+```
+-2(zeta(3 - 2m + (-2t)) - zeta(3 - 2m)) / (-2t)
+```
+which is on the form `(f(s) - f(0)) / s` and hence given by `f'(ξ)`
+for some `ξ` between `0` and `-2t`.
+
+For the second term we write it as
+```
+(zeta(3 - 2m - t + t^2 / 2) - zeta(3 - 2m)) / t
+= (-1 + t / 2) * (zeta(3 - 2m + t^2 / 2) - zeta(3 - 2m)) / (-t + t^2 / 2)
+```
+which is given by `(-1 + t / 2) * f'(ξ)` for some `ξ` between `0` and
+`-t + t^2 / 2`.
+
+Combining this gives us that
+```
+zeta(3 - 2m - 2t) - zeta(3 - 2m -t + t^2 / 2)) / t = -2dzeta(3 - 2m + ξ1) + (-1 + t / 2) * dzeta(3 - 2m + ξ2)
+```
+with `ξ1` between `0` and `-2t` and `ξ2` between `0` and `-t + t^2 / 2`. In
+terms of interval arithmetic we can write this as (using Arblib
+notation)
+```
+-2dzeta(3 - 2m + Arb((-2t, 0))) + (-1 + t / 2) * dzeta(3 - 2m + Arb((-t + t^2 / 2, 0)))
+```
+Thus we can reduce bounding the absolute value of `S` to bounding the
+absolute value of
+```
+S1 = sum((-1)^m * zeta(3 + Arb((-2(α + 1), 0)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(3 + Arb((0, -(α + 1) + (α + 1)^2 / 2)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
+```
+and combine them as `2S1 + (1 - (α + 1) / 2) * S2`. These sums are
+the same as those appearing in
+```
+clausenc_expansion_remainder(x, 3 + Arb((-2(α + 1), 0)), 1, M)
+clausenc_expansion_remainder(x, 3 + Arb((0, -(α + 1) + (α + 1)^2 / 2)), 1, M)
+```
+- **PROVE:** This is mostly true, the issue is that we are not
+  guaranteed that the value in e.g.g `Arb((-2(α + 1), 0))` taken for
+  the argument of the zeta function is the same on each iteration.
+  This does not seem to be an issue because we rely on any
+  cancellations occurring in the sum. But it would need to be proved.
+
+# Tail
 For both the Clausen terms and the Fourier terms we let `α` be a ball.
 This gives good enclosures for the Fourier terms. For the Clausen
 terms it give good enclosures unless `j` is small. For small values of
@@ -820,24 +909,18 @@ above terms for all Clausen functions in the tail from `j = 1` to
 `skip_singular_j_until`. This is used in [`F0`](@ref) where these
 terms are handled separately.
 
-If `approximate_j_one_singular` is true it only computes an
-approximation of the two terms for `j = 1`. This is only for testing.
-
-The argument `alpha_interval` can be set to either `:full` or
-`:endpoint`. In the former case it uses the full interval of `α` when
-computing the tail terms, in the latter it uses `α = -1 + u0.ϵ`, this
-can be used for testing.
-
-See [`eval_expansion`](@ref) for more details about how the
-coefficients are stored.
+If `approximate_singular_j_until` is greater than zero then
+approximate the two above terms for all Clausen functions in the tail
+from `j = 1` to `approximate_singular_j_until`. This is only for
+testing. Terms skipped by `skip_singular_j_until` are not
+approximated.
 """
 function H(
     u0::BHKdVAnsatz{Arb},
     ::AsymptoticExpansion;
     M::Integer = 3,
     skip_singular_j_until::Integer = 0,
-    approximate_j_one_singular::Bool = false,
-    alpha_interval = :full,
+    approximate_singular_j_until::Integer = 0,
 )
     @assert M >= 3
 
@@ -845,14 +928,10 @@ function H(
         ArgumentError("can't skip more j-terms than there are, j = $j, N0 = $(u0.v0.N0)"),
     )
 
-    # Enclosure of α
-    if alpha_interval == :full
-        α = Arb((-1, -1 + u0.ϵ))
-    elseif alpha_interval == :endpoint
-        α = -1 + u0.ϵ
-    else
-        throw(ArgumentError("unexpected value alpha_interval = $alpha_interval"))
-    end
+    # Enclosure of α, α + 1 and a0 * (α + 1)
+    α = Arb((-1, -1 + u0.ϵ))
+    αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
+    a0αp1 = finda0αp1(α)
 
     return x -> begin
         res = OrderedDict{NTuple{7,Int},Arb}()
@@ -864,47 +943,34 @@ function H(
 
         # Main term
 
-        # Three leading terms
+        # Leading term - stored implicitly
         res[(0, 1, 0, 0, 0, 0, 0)] = 1
 
         # x^2m terms with m >= 2
-        # Interval corresponding to 1 + α
-        interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-        # Enclosure of rgamma(α) / (α + 1)
-        rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval, extra_degree = 2)
-        # Enclosure of rgamma(2α) / (α + 1)
-        rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval, extra_degree = 2)
-        # Enclosure of cospi(α / 2) / (α + 1)
-        cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval, extra_degree = 2)
         for m = 2:M-1
             # Enclosure of
-            # (zeta(1 - 2(s - 1) - 2m) - zeta(2 - (s - 1) + (1 + (s - 1))^2 / 2 - 2m)) / (α + 1)
+            # (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (α + 1)
+            # = (zeta(3 - 2s - 2m) - zeta(3 - s + s^2 / 2 - 2m)) / s
+            # with s = α + 1
             zeta_div_α = fx_div_x(
-                s ->
-                    zeta(1 - 2(s - 1) - 2m) - zeta(2 - (s - 1) + (1 + (s - 1))^2 / 2 - 2m),
-                interval,
+                s -> zeta(3 - 2s - 2m) - zeta(3 - s + s^2 / 2 - 2m),
+                αp1,
                 extra_degree = 2,
                 force = true,
             )
 
-            coefficient =
-                -(-1)^m *
-                2cospi(Arb((-1, -1 + u0.ϵ))) *
-                inv(rgamma2_div_α) *
-                rgamma1_div_α^2 *
-                inv(cos_div_α)^2 *
-                zeta_div_α / factorial(2m)
+            coefficient = -a0αp1 * (-1)^m * zeta_div_α / factorial(2m)
 
             res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
         end
 
         # Remainder term for main term
-        # FIXME: Compute proper remainder term
-        @warn "No error bounds for error term of main term" maxlog = 1
-        Arblib.add_error!(
-            res[(0, 0, 0, 0, 0, 0, 2M)],
-            2abs(dzeta(Arb(3 - 2M)) / factorial(2M)) * u0.v0.a0,
-        )
+        remainder =
+            a0αp1 * (
+                2clausenc_expansion_remainder(x, 3 - 2αp1, 1, M) +
+                (1 - αp1 / 2) * clausenc_expansion_remainder(x, 3 - αp1 + αp1^2 / 2, 1, M)
+            )
+        res[(0, 0, 0, 0, 0, 0, 2M)] += remainder
 
         # Tail term
 
@@ -914,7 +980,7 @@ function H(
             C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
             if j > skip_singular_j_until
-                if isone(j) && approximate_j_one_singular
+                if j <= approximate_singular_j_until
                     C2, _, p2, _ = let s = 1 - (-1 + u0.ϵ) - u0.v0.α + j * u0.v0.p0
                         clausenc_expansion(x, s, M, skip_constant = true)
                     end
@@ -960,10 +1026,9 @@ function D(
     evaltype::AsymptoticExpansion;
     M::Integer = 3,
     skip_singular_j_until = 0,
-    alpha_interval = :full,
 )
     f = x -> u0(x, evaltype; M)
-    g = H(u0, evaltype; M, skip_singular_j_until, alpha_interval)
+    g = H(u0, evaltype; M, skip_singular_j_until)
 
     return x -> begin
         expansion1 = f(x)
@@ -1352,7 +1417,6 @@ function F0(
     M::Integer = 3,
     ϵ::Arb = Arb(0.5),
     skip_singular_j_until = 100,
-    alpha_interval = :full,
 )
     @assert ϵ < 1
 
@@ -1386,8 +1450,7 @@ function F0(
     # Compute the expansion of D(u0), skipping the Clausen term in the
     # tail corresponding to j = 1 and also remove the two leading
     # term, these three terms are handled separately.
-    Du0_expansion =
-        D(u0, AsymptoticExpansion(); M, skip_singular_j_until, alpha_interval)(ϵ)
+    Du0_expansion = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
     delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
     delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
 
