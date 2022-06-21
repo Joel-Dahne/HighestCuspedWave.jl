@@ -350,16 +350,15 @@ cospi(α / 2) / (α + 1) = sinc((α + 1) / 2) * π / 2
 ```
 we can rewrite this as
 ```
-a0 * (α + 1) = 4cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) / (π * sinc((α + 1) / 2)^2
+a0 * (α + 1) = 2cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) / (π * sinc((α + 1) / 2))^2
+             = 2 / π^2 * α * gamma(2α + 3) * cospi(α) / ((2α + 1) * (gamma(α + 2) * sinc((α + 1) / 2))^2)
 ```
 """
-function finda0αp1(α)
-    # sinc doesn't work with ArbSeries overlapping zero, therefore
-    # take it outside enclosure_series.
-    return ArbExtras.enclosure_series(α) do α
-        2cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) / Arb(π)^2
-    end / sinc((α + 1) / 2)^2
-end
+finda0αp1(α) =
+    (2 / Arb(π)^2) * ArbExtras.enclosure_series(α) do α
+        # Use _sinc to allow for ArbSeries overlapping zero
+        α * gamma(2α + 3) * cospi(α) / ((2α + 1) * (gamma(α + 2) * _sinc((α + 1) / 2))^2)
+    end
 
 """
     (u0::BHKdVAnsatz)(x, ::Ball)
