@@ -250,7 +250,7 @@ end
     expansion_ispositive(u0::BHKdVAnsatz, expansion, ϵ)
 
 Attempt to prove that the given expansion is positive on the interval
-`(0, ϵ]`. Returns true on success and false on failure. It requires
+``(0, ϵ]``. Returns true on success and false on failure. It requires
 that `0 < ϵ < 1`
 
 The method can only handle expansions on certain simple forms. More
@@ -262,24 +262,48 @@ or
 ```
 (0, 0, 0, 0, 0, 0, m)
 ```
-with `l >= 1` and `m >= 2`
+with `l >= 1` and `m >= 2` Let `L` denote the set of all keys on the
+first form and `M` the set of all keys on the second form.
 
-It first considers all keys of the form `(0, 0, 0, 0, 1, l, 0)`, they
-correspond to terms of the form
+The keys in `L` corresponds to terms of the form
 ```
-y * x^^(-u0 - v0.α + l*u0.v0.p0)
+a[l] * x^(-u0.v0.α + l*u0.v0.p0)
 ```
-Let `y₁` be the coefficient for `l = 1` and `S` be the sum of the
-coefficients with `l > 1`. It checks that `S` is negative and that `y₁
-+ S > 0`, ensuring us that this sum is positive for all `0 < x < 1`
-and a lower bound is given by `(y₁ + S) * x^(-u0.v0.α +
-u0.v0.p0)` for all `0 < x < 1`.
+and the keys in `M` to terms of the form
+```
+b[m] * x^m
+```
+Let
+```
+S_L(x) = sum(a[l] * x^(-u0.v0.α + l*u0.v0.p0) for l in L)
+S_M(x) = sum(b[m] * x^m for m in M)
+```
+We want to prove that `S_L(x) + S_M(x)` is positive for all `x` in
+``(0, ϵ]``.
 
-The next step is to prove that the sum of the terms with `m > 0` are
-smaller than (y₁ + S) * x^(-u0.v0.α + u0.v0.p0)`. This is done
-by noting that it's enough to check it for `x = ϵ`
+To begin with we compute a lower bound of `S_L`. If If `a[l]` is
+negative then a lower bound for the corresponding term is given by
+```
+a[l] * x^(-u0.v0.α + u0.v0.p0)
+```
+The method checks that `a[l]` is negative for all `l >= 2`. This means that
+```
+S_L(x) >= sum(a[l] * x^(-u0.v0.α + u0.v0.p0) for l in L)
+       = sum(a[l] for l in L) * x^(-u0.v0.α + u0.v0.p0)
+```
+it then checks that `sum(a[l] for l in L)` so that `S_L(x)` is
+positive for all `x` in the interval.
 
-**TODO:** Check that this is correct.
+The next step is to prove that `abs(S_M(x)) < S_L(x)`. We have
+```
+abs(S_M(x)) <= sum(abs(b[m]) * x^m for m in M)
+```
+So it is enough to check
+```
+sum(abs(b[m]) * x^m for m in M) < sum(a[l] for l in L) * x^(-u0.v0.α + u0.v0.p0)
+```
+Since `-u0.v0.α + u0.v0.p0 < 2` it is enough to check that this holds
+for `x = ϵ`
 """
 function expansion_ispositive(
     u0::BHKdVAnsatz{Arb},
@@ -290,31 +314,29 @@ function expansion_ispositive(
     @assert 0 < -u0.v0.α + u0.v0.p0 < 2
 
     # Isolate all keys of the from (0, 0, 0, 0, 1, l, 0)
-    expansion_1 = filter(expansion) do ((p, q, i, j, k, l, m), y)
+    expansion_1 = filter(expansion) do ((p, q, i, j, k, l, m), a)
         p == q == i == j == m == 0 && k == 1 && l >= 1
     end
 
     # Isolate all keys of the from (0, 0, 0, 0, 0, 0, m)
-    expansion_2 = filter(expansion) do ((p, q, i, j, k, l, m), y)
+    expansion_2 = filter(expansion) do ((p, q, i, j, k, l, m), b)
         p == q == i == j == k == l == 0 && m >= 2
     end
 
     # Check that this was all keys
     @assert length(expansion) == length(expansion_1) + length(expansion_2)
 
+    # Extract they key (0, 0, 0, 0, 1, 1, 0) from the expansion
     y₁ = expansion_1[(0, 0, 0, 0, 1, 1, 0)]
-    # Remove they key (0, 0, 0, 0, 1, 1, 0) from the expansion and sum
-    # the rest of the values.
     delete!(expansion_1, (0, 0, 0, 0, 1, 1, 0))
-    S = sum(values(expansion_1))
+    all(Arblib.isnegative, values(expansion_1)) || return false
+    Arblib.ispositive(y₁ + sum(values(expansion_1))) || return false
 
-    S < 0 || return false
-    y₁ + S > 0 || return false
+    # This should always hold
+    @assert -u0.v0.α + u0.v0.p0 < 2
 
-    a = (y₁ + S) * ϵ^(-u0.v0.α + u0.v0.p0)
-    b = eval_expansion(u0, expansion_2, ϵ)
-
-    a > b || return false
+    sum(abs(b) * ϵ^m for ((p, q, i, j, k, l, m), b) in expansion_2) <
+    y₁ + sum(values(expansion_1)) * ϵ^(-u0.v0.α + u0.v0.p0) || return false
 
     return true
 end
