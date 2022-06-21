@@ -1,4 +1,18 @@
 @testset "special-functions" begin
+    @testset "_sinc" begin
+        # Test around removable singularity
+        for ϵ in Arb(2) .^ (-50:5:0)
+            x0 = Arb((-ϵ, ϵ))
+            x = ArbSeries((x0, 1, 1))
+            y1 = HighestCuspedWave._sinc(x)
+            for xx0 in range(-ϵ, ϵ, 10)
+                xx = ArbSeries((xx0, 1, 1))
+                y2 = sinc(xx)
+                @test Arblib.overlaps(y1, y2)
+            end
+        end
+    end
+
     @testset "zeta_deflated" begin
         for a in range(Arb(0), 2, 10)[2:end]
             for s0 in [1; range(Arb(0), 2, 50)]

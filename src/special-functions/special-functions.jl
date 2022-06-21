@@ -1,4 +1,20 @@
 """
+    _sinc(x)
+
+The same as `sinc(x)` but for `x::ArbSeries` it allows evaluation
+around zero.
+"""
+_sinc(x) = sinc(x)
+
+function _sinc(x::ArbSeries)
+    if Arblib.degree(x) >= 1 && Arblib.contains_zero(Arblib.ref(x, 0))
+        return fx_div_x(sin, π * x)
+    else
+        return sinc(x)
+    end
+end
+
+"""
     dzeta(s)
 
 Compute the Zeta function differentiated once with respect to `s`.
