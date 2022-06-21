@@ -515,7 +515,7 @@ S = sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α) * x^(2m
 If we let `t = α + 1` we can write the factor with the removable
 singularity as
 ```
-zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t
+(zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t
 = (zeta(2 - 2m - t) - zeta(2 - 2m)) / t - (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
 ```
 
@@ -536,7 +536,7 @@ which is given by `t / 2 * f'(ξ)` for some `ξ` between `0` and `t^2 /
 
 Combining this gives us that
 ```
-zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1) + t / 2 * dzeta(2 - 2m + ξ2)
+(zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1) + t / 2 * dzeta(2 - 2m + ξ2)
 ```
 with `ξ1` between `0` and `-t` and `ξ2` between `0` and `t^2 / 2`. In
 terms of interval arithmetic we can write this as (using Arblib
@@ -841,7 +841,7 @@ S = sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (1 + α) * x^(
 If we let `t = α + 1` we can write the factor with the removable
 singularity as
 ```
-zeta(3 - 2m - 2t) - zeta(3 - 2m - t + t^2 / 2)) / t
+(zeta(3 - 2m - 2t) - zeta(3 - 2m - t + t^2 / 2)) / t
 = (zeta(3 - 2m - 2t) - zeta(2 - 2m)) / t - (zeta(3 - 2m - t + t^2 / 2) - zeta(2 - 2m)) / t
 ```
 
@@ -862,7 +862,7 @@ which is given by `(-1 + t / 2) * f'(ξ)` for some `ξ` between `0` and
 
 Combining this gives us that
 ```
-zeta(3 - 2m - 2t) - zeta(3 - 2m -t + t^2 / 2)) / t = -2dzeta(3 - 2m + ξ1) + (-1 + t / 2) * dzeta(3 - 2m + ξ2)
+(zeta(3 - 2m - 2t) - zeta(3 - 2m -t + t^2 / 2)) / t = -2dzeta(3 - 2m + ξ1) + (-1 + t / 2) * dzeta(3 - 2m + ξ2)
 ```
 with `ξ1` between `0` and `-2t` and `ξ2` between `0` and `-t + t^2 / 2`. In
 terms of interval arithmetic we can write this as (using Arblib
