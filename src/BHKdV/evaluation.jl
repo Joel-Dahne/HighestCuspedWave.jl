@@ -32,17 +32,33 @@ to the power `q`, which is the part of the expansion for `H` applied
 to the main term which is not on the form `x^2m` for `m >= 2`.
 
 # Handling of `p` and `q`
-The method currently does not support `q != 0` and only supports `p ==
-0` and `p == 1`. These cases are handled specially in [`F0`](@ref) and
-for that reason we don't bother implementing them here.
+The method currently only support `q = 0` and `p == 0` or `p == 1`.
+The other cases are handled specially in [`F0`](@ref) and for that
+reason we don't bother implementing them here.
 
-When `x != 0` the function
+For `x != 0` the factor
 ```
 a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
-has a removable singularity at `α = -1`. This removable singularity
-can be handled using [`fx_div_x`](@ref). For `x = 0` this doesn't
-work. For now we use that it converges to
+has a removable singularity at `α = -1`. To handle this we rewrite it
+as
+```
+a0 * (α + 1) * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+```
+and use [`finda0αp1`](@ref) to enclose `a0 * (α + 1)`. To evaluate
+`gamma(α) * cospi(α / 2)` and `gamma(α - p0) * cospi((α - p0) / 2)` we
+rewrite them as
+```
+gamma(α) * cospi(α / 2) = (cospi(α / 2) / (α + 1)) / (rgamma(α) / (α + 1))
+gamma(α - p0) * cospi((α - p0) / 2) = (cospi((α - p0) / 2) / (α + 1)^2) / (rgamma(α - p0) / (α + 1)^2)
+```
+and use [`fx_div_x`](@ref). We can then evaluate
+```
+(gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+```
+using [`fx_div_x`](@ref) as well.
+
+For `x = 0` this doesn't work. For now we use that it converges to
 ```
 (1 - γ - log(x)) / π
 ```
@@ -51,29 +67,24 @@ and that this gives an upper bound.
   Alternatively we don't use this method for `x = 0` (using
   [`inv_u0_bound`](@ref) instead).
 
-The arguments `use_approx_p_and_q` and `alpha_interval` are used for
-computing approximate values and is mainly intended for testing.
+The argument `use_approx_p_and_q` is used for computing approximate
+values and is mainly intended for testing.
 """
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
     expansion::AbstractDict{NTuple{7,Int},Arb},
     x::Arb;
     use_approx_p_and_q = false,
-    alpha_interval = :full,
 )
     @assert x < 1
 
     # We only care about the non-negative part of x
     x = Arblib.nonnegative_part!(zero(x), x)
 
-    # Enclosure of α
-    if alpha_interval == :full
-        α = Arb((-1, -1 + u0.ϵ))
-    elseif alpha_interval == :endpoint
-        α = -1 + u0.ϵ
-    else
-        throw(ArgumentError("unexpected value alpha_interval = $alpha_interval"))
-    end
+    # Enclosure of α, α + 1 and a0 * (α + 1)
+    α = Arb((-1, -1 + u0.ϵ))
+    αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
+    a0αp1 = finda0αp1(α)
 
     # In-place method for computing the exponent i * α + j * p0 -
     # k*u0.v0.α + l*u0.v0.p0 + m in a way that also accounts for
@@ -87,7 +98,7 @@ function eval_expansion(
     α_upper = -1 + u0.ϵ
     p0_upper = u0.ϵ + u0.ϵ^2 / 2
     # Enclosure of p0 - α
-    p0mα = 1 + Arblib.nonnegative_part!(zero(α), (1 + α)^2) / 2
+    p0mα = 1 + Arblib.nonnegative_part!(zero(α), αp1^2) / 2
     _exponent!(exponent, i, j, k, l, m) = begin
         # Compute the part i * α + j * p0 + m
         # Note that i * α + j * p0 = 3j / 2 + (i + 2j) * α + α^2 / 2
@@ -128,45 +139,32 @@ function eval_expansion(
     # Compute enclosure of the p-coefficient
     # a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
     # Note that this depends on x and is only used when x doesn't contain zero
-    if !Arblib.contains_zero(x)
-        p_coefficient = let interval = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-            extra_degree = 2
-            # Enclosure of rgamma(α) / (α + 1)
-            rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), interval; extra_degree)
-            # Enclosure of rgamma(2α) / (α + 1)
-            rgamma2_div_α = fx_div_x(s -> rgamma(2(s - 1)), interval; extra_degree)
-            # Enclosure of cospi(α / 2) / (α + 1)
-            cos_div_α = fx_div_x(s -> cospi((s - 1) / 2), interval; extra_degree)
+    p_coefficient = if !Arblib.contains_zero(x)
+        # Enclosure of
+        # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+        extra_degree = 2
+        coefficient_div_α = fx_div_x(αp1, force = true; extra_degree) do r
+            if Arblib.contains_zero(r[0])
+                # Enclosure of rgamma(α) / (α + 1)
+                rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), r; extra_degree)
+                # Enclosure of rgamma(α - p0) / (α + 1)^2
+                rgamma2_div_α2 = fx_div_x(s -> rgamma(-1 - s^2 / 2), r, 2; extra_degree)
+                # Enclosure of cospi(α / 2) / (α + 1)
+                cos1_div_α = fx_div_x(s -> cospi((s - 1) / 2), r; extra_degree)
+                # Enclosure of cospi((α - p0) / 2) / (α + 1)^2
+                cos2_div_α2 =
+                    fx_div_x(s -> cospi((-1 - s^2 / 2) / 2), r, 2; extra_degree)
 
-            # Enclosure of a0 * (α + 1)
-            a0_mul_α =
-                2cospi(Arb((-1, -1 + u0.ϵ))) / rgamma2_div_α / (cos_div_α / rgamma1_div_α)^2
-
-            # Enclosure of
-            # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
-            coefficient_div_α = fx_div_x(interval; extra_degree, force = true) do r
-                if Arblib.contains_zero(r[0])
-                    # Enclosure of rgamma(α) / (α + 1)
-                    rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), r; extra_degree)
-                    # Enclosure of rgamma(α - p0) / (α + 1)^2
-                    rgamma2_div_α2 =
-                        fx_div_x(s -> rgamma(-1 - s^2 / 2), r, 2; extra_degree)
-                    # Enclosure of cospi(α / 2) / (α + 1)
-                    cos1_div_α = fx_div_x(s -> cospi((s - 1) / 2), r; extra_degree)
-                    # Enclosure of cospi((α - p0) / 2) / (α + 1)^2
-                    cos2_div_α2 =
-                        fx_div_x(s -> cospi((-1 - s^2 / 2) / 2), r, 2; extra_degree)
-
-                    cos1_div_α / rgamma1_div_α -
-                    cos2_div_α2 / rgamma2_div_α2 * x^(r + r^2 / 2)
-                else
-                    gamma(r - 1) * cospi((r - 1) / 2) -
-                    gamma(-1 - r^2 / 2) * cospi((-1 - r^2 / 2) / 2) * x^(r + r^2 / 2)
-                end
+                cos1_div_α / rgamma1_div_α - cos2_div_α2 / rgamma2_div_α2 * x^(r + r^2 / 2)
+            else
+                gamma(r - 1) * cospi((r - 1) / 2) -
+                gamma(-1 - r^2 / 2) * cospi((-1 - r^2 / 2) / 2) * x^(r + r^2 / 2)
             end
-
-            a0_mul_α * coefficient_div_α
         end
+
+        a0αp1 * coefficient_div_α
+    else
+        Arblib.indeterminate!(zero(α))
     end
 
     res = zero(x)
@@ -196,10 +194,11 @@ function eval_expansion(
 
                     # FIXME: Prove that this gives an upper bound
                     upper = let x = ubound(Arb, x)
-                        (1 - Arb(Irrational{:γ}()) - log(x)) / π * abspow(x, exponent)
+                        @warn "Non-rigorous evaluation of expansion" maxlog = 1
+                        (1 - Arb(Irrational{:γ}()) - log(x)) / π
                     end
 
-                    term = Arb((lower, upper))
+                    term = Arb((lower, upper)) * abspow(x, exponent)
                 else
                     term = abspow(x, exponent)
                     Arblib.mul!(term, term, p_coefficient)
