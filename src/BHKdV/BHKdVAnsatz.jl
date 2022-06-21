@@ -59,8 +59,12 @@ struct BHKdVAnsatz{T} <: AbstractAnsatz{T}
     end
 end
 
-BHKdVAnsatz(ϵ::T, v0::BHAnsatz{T}; γ::T = convert(T, 0), c::T = 2convert(T, ℯ)) where {T} =
-    BHKdVAnsatz{T}(ϵ, v0; γ, c)
+BHKdVAnsatz(
+    ϵ::T,
+    v0::BHAnsatz{T};
+    γ::T = convert(T, 1 // 2),
+    c::T = 2convert(T, ℯ),
+) where {T} = BHKdVAnsatz{T}(ϵ, v0; γ, c)
 
 function Base.getproperty(u0::BHKdVAnsatz{T}, name::Symbol) where {T}
     if name == :w
