@@ -266,32 +266,20 @@ function zeta_deflated(s::ArbSeries, a::Arb)
 end
 
 """
-    lerch_phi(z, s, a)
+    lerch_phi(z::Arb, s::Arb, a::Arb)
 
-Compute a naive enclosure of the Lerch transendent
+Compute the Lerch transcendent
 ```
 lerch_phi(z, s, a) = sum(z^n / (n + a)^s for n = 0:Inf)
 ```
-
-It only supports `abs(z) < 1`, `s < 0` and `a > 0`. We treat the whole
-series as a tail, for bounding it see
-[https://fredrikj.net/blog/2022/02/computing-the-lerch-transcendent/](Fredrik
-Johanssons blog).
-
-Note that this is a very naive implementation and only intended for
-use in [`clausenc_expansion_remainder`](@ref). Once the version of Arb
-that implements this function is released we should switch to using
-that one.
+Returns an indeterminate value if the result is not real.
 """
 function lerch_phi(z::Arb, s::Arb, a::Arb)
-    @assert abs(z) < 1
-    @assert Arblib.isnonpositive(s)
-    @assert Arblib.ispositive(a)
+    res = Arblib.dirichlet_lerch_phi!(Acb(prec = precision(z)), Acb(z), Acb(s), Acb(a))
 
-    # Find C
-    C = exp(-s / a)
-
-    abs(C * z) < 1 || throw(ArgumentError("C to large to satisfy C * z < 1"))
-
-    return a^-s / (1 - C * abs(z))
+    if isreal(res)
+        return real(res)
+    else
+        return Arblib.indeterminate!(zero(z))
+    end
 end
