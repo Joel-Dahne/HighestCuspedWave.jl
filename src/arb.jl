@@ -1,6 +1,25 @@
 export iswide
 
 """
+    indeterminate(x)
+
+Construct an indeterminate version of `x`.
+"""
+indeterminate(x::Union{Arb,Acb}) = Arblib.indeterminate!(zero(x))
+indeterminate(::Type{T}) where {T<:Union{Arb,Acb}} = Arblib.indeterminate!(zero(T))
+
+function indeterminate(x::Union{ArbSeries,AcbSeries})
+    res = zero(x)
+    for i = 0:Arblib.degree(x)
+        Arblib.indeterminate!(Arblib.ref(res, i))
+    end
+    # Since we manually set the coefficients of the polynomial we
+    # need to also manually set the degree.
+    Arblib.cstruct(res).length = Arblib.degree(x) + 1
+    return res
+end
+
+"""
     mince(x::Arb, n::Integer)
 
 Return a vector with `n` balls covering the ball `x`.
