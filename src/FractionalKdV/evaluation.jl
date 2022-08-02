@@ -171,7 +171,7 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
                 # it seems like we might be able to avoid it.
                 @error "Encountered a term with s overlapping an odd integer" *
                        "in expansion for H(u0), we don't expect this to happen" s
-                res[(2, j, 0)] = Arblib.indeterminate!(zero(C))
+                res[(2, j, 0)] = indeterminate(C)
             else
                 res[(2, j, 0)] = -C * u0.a[j]
             end

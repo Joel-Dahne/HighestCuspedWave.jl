@@ -164,7 +164,7 @@ function eval_expansion(
 
         a0αp1 * coefficient_div_α
     else
-        Arblib.indeterminate!(zero(α))
+        indeterminate(α)
     end
 
     res = zero(x)
@@ -183,13 +183,13 @@ function eval_expansion(
                     if Arblib.ispositive(exponent)
                         term = zero(x)
                     else
-                        term = Arblib.indeterminate!(zero(x))
+                        term = indeterminate(x)
                     end
                 elseif Arblib.contains_zero(x)
                     if Arblib.ispositive(exponent)
                         lower = zero(x)
                     else
-                        lower = Arblib.indeterminate!(zero(x))
+                        lower = indeterminate(x)
                     end
 
                     # FIXME: Prove that this gives an upper bound

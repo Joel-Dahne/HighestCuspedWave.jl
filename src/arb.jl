@@ -5,7 +5,7 @@ export iswide
 
 Construct an indeterminate version of `x`.
 """
-indeterminate(x::Union{Arb,Acb}) = Arblib.indeterminate!(zero(x))
+indeterminate(x::Union{Arblib.ArbOrRef,Arblib.AcbOrRef}) = Arblib.indeterminate!(zero(x))
 indeterminate(::Type{T}) where {T<:Union{Arb,Acb}} = Arblib.indeterminate!(zero(T))
 
 function indeterminate(x::Union{ArbSeries,AcbSeries})
@@ -121,13 +121,13 @@ function abspow(x::Arb, y::Arb)
     iszero(y) && return one(x)
 
     if iszero(x)
-        Arblib.contains_negative(y) && return Arblib.indeterminate!(zero(x))
+        Arblib.contains_negative(y) && return indeterminate(x)
         Arblib.ispositive(y) && return zero(x)
         return Arblib.unit_interval!(zero(x))
     end
 
     if Arblib.contains_zero(x)
-        Arblib.contains_negative(y) && return Arblib.indeterminate!(zero(x))
+        Arblib.contains_negative(y) && return indeterminate(x)
         x_upp = Arblib.abs_ubound(Arb, x)
         return Arb((zero(x), x_upp^y))
     end
@@ -162,28 +162,18 @@ function abspow(x::Arb, y::ArbSeries)
     # current version it is also not optimized at all, so it could be
     # much faster.
 
-    # Helper function for creating indeterminate ArbSeries
-    function nan(p::ArbSeries)
-        indet = Arblib.indeterminate!(zero(Arb))
-        res = zero(p)
-        for i = 0:Arblib.degree(res)
-            res[i] = indet
-        end
-        return res
-    end
-
     iszero(y) && return one(y)
 
     if iszero(x)
         # If y[0] = 0 the constant term is zero but not the others. We
         # therefore need y[0] > 0 to get exactly zero.
-        Arblib.contains_nonpositive(Arblib.ref(y, 0)) && return nan(y)
+        Arblib.contains_nonpositive(Arblib.ref(y, 0)) && return indeterminate(y)
 
         return zero(y)
     end
 
     if Arblib.contains_zero(x)
-        Arblib.contains_nonpositive(Arblib.ref(y, 0)) && return nan(y)
+        Arblib.contains_nonpositive(Arblib.ref(y, 0)) && return indeterminate(y)
 
         # Differentiate with respect to the parameter of y manually
         # and enclose the terms

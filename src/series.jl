@@ -196,7 +196,7 @@ function fx_div_x(
         enclosure_degree,
     )
 
-    isfinite(expansion) || return Arblib.indeterminate!(zero(x))
+    isfinite(expansion) || return indeterminate(x)
 
     if force
         for i = 0:order-1

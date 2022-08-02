@@ -43,7 +43,7 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
             δ = Arb(0.4)
             # IMPROVE: We can remove this check if we can prove that
             # the root is less than x + δ.
-            Arblib.ispositive(f(root_lower + δ)) || return Arblib.indeterminate!(zero(x))
+            Arblib.ispositive(f(root_lower + δ)) || return indeterminate(x)
             while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
                 Arblib.mul_2exp!(δ, δ, -1)
             end
@@ -351,7 +351,7 @@ function T012(
             # Check that the real part of t is strictly between 0 and
             # 1 or return an indeterminate result
             Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
-            return Arblib.indeterminate!(zero(t))
+            return indeterminate(t)
 
             if isreal(t)
                 rt = Arblib.realref(t)
@@ -376,7 +376,7 @@ function T012(
             # Check that the real part of t is strictly between 0 and
             # 1 or return an indeterminate result
             Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
-            return Arblib.indeterminate!(zero(t))
+            return indeterminate(t)
 
             if isreal(t)
                 rt = Arblib.realref(t)

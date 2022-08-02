@@ -89,9 +89,9 @@ function n0_bound(
     if !bounded
         verbose && @error "Could not prove bound on [0, ϵ]"
         if return_details
-            return Arblib.indeterminate!(zero(Arb)), ϵ
+            return indeterminate(Arb), ϵ
         else
-            return Arblib.indeterminate!(zero(Arb))
+            return indeterminate(Arb)
         end
     end
 

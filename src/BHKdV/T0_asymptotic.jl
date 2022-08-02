@@ -968,7 +968,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             if lemma1 && lemma2
                 return 1 / (1 + γ)
             else
-                return Arblib.indeterminate!(zero(α))
+                return indeterminate(α)
             end
         else
             # TODO: Only use f1(x) + f2(x) for x not too small

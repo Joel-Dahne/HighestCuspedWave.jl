@@ -512,7 +512,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             # should use. Make a warning and return NaN. This should
             # not happen in practice.
             @warn "Unclear integration limit" b π / x x
-            return Arblib.indeterminate!(zero(x))
+            return indeterminate(x)
         end
 
         # Enclosure of factor in front of integral divided by x, excluding u0

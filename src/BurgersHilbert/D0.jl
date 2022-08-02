@@ -80,7 +80,7 @@ function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
     # Handle the interval [0, ϵ2] with one evalution
     if !(h(Arb((0, ϵ2))) <= m)
         verbose && @error "Bounds not satisfied on [0, $(Float64(ϵ2))]"
-        return Arblib.indeterminate!(zero(Arb))
+        return indeterminate(Arb)
     end
 
     verbose && @info "Bound satisfied on [0, $(Float64(ϵ2))]"
@@ -100,9 +100,9 @@ function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
     if !bounded
         verbose && @error "Could not prove bound on [$(Float64(ϵ2)), $(Float64(ϵ))]"
         if return_details
-            return Arblib.indeterminate!(zero(Arb)), ϵ
+            return indeterminate(Arb), ϵ
         else
-            return Arblib.indeterminate!(zero(Arb))
+            return indeterminate(Arb)
         end
     end
 

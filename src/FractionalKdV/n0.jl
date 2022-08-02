@@ -59,7 +59,7 @@ function n0_bound(
 
     if !bounded
         verbose && @error "Could not prove bound on [0, ϵ]"
-        return Arblib.indeterminate!(zero(Arb))
+        return indeterminate(Arb)
     end
 
     # Bound the value on [ϵ, π]

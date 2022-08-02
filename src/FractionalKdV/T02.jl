@@ -360,7 +360,7 @@ function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 
         # part of y is greater than x or return an indeterminate
         # result. This also ensures that y^u0.p is analytic on all of
         # y.
-        x < Arblib.realref(y) || return Arblib.indeterminate!(zero(y))
+        x < Arblib.realref(y) || return indeterminate(y)
 
         if isreal(y)
             y = real(y)

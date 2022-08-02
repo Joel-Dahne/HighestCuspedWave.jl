@@ -38,8 +38,8 @@ function prove(
     if !isfinite(δ₀_goal)
         proved = false
         proved_estimate = false
-        δ₀ = Arblib.indeterminate!(zero(Arb))
-        D₀ = Arblib.indeterminate!(zero(Arb))
+        δ₀ = indeterminate(Arb)
+        D₀ = indeterminate(Arb)
         δ₀_time = NaN
         D₀_time = NaN
     else
@@ -60,14 +60,14 @@ function prove(
         if !(D₀_estimate < D₀_goal)
             proved = false
             proved_estimate = false
-            D₀ = Arblib.indeterminate!(zero(Arb))
+            D₀ = indeterminate(Arb)
             D₀_time = NaN
 
             verbose && @warn "Required bound for D₀ not satisfied at x = 0"
         elseif only_estimate_D0
             proved = false
             proved_estimate = true
-            D₀ = Arblib.indeterminate!(zero(Arb))
+            D₀ = indeterminate(Arb)
             D₀_time = NaN
         else
             proved_estimate = true

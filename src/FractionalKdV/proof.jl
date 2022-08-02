@@ -69,12 +69,12 @@ function prove(
     if !(δ₀ < C_estimate)
         proved = false
         proved_estimate = false
-        D₀ = Arblib.indeterminate!(zero(Arb))
+        D₀ = indeterminate(Arb)
         D₀_time = NaN
     elseif only_estimate_D0
         proved = false
         proved_estimate = true
-        D₀ = Arblib.indeterminate!(zero(Arb))
+        D₀ = indeterminate(Arb)
         D₀_time = NaN
     else
         proved_estimate = true

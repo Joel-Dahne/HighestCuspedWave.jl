@@ -113,7 +113,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
     # Handle the interval [0, ϵ2] with one evalution
     if !(h(Arb((0, ϵ2))) <= m)
         @error "bound doesn't hold on $((0, Float64(ϵ2)))"
-        return Arblib.indeterminate!(zero(Arb))
+        return indeterminate(Arb)
     end
 
     verbose && @info "Bound satisfied on $((0, Float64(ϵ2)))"
@@ -132,7 +132,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
 
     if !check_bound
         @error "bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"
-        return Arblib.indeterminate!(zero(Arb))
+        return indeterminate(Arb)
     end
 
     return m

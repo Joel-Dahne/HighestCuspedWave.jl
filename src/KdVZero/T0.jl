@@ -102,7 +102,7 @@ function _integrand_compute_root(u0::KdVZeroAnsatz, x::Arb; degree = 1)
             δ = Arb(0.4)
             # IMPROVE: We can remove this check if we can prove that
             # the root is less than x + δ.
-            Arblib.ispositive(f(root_lower + δ)) || return Arblib.indeterminate!(zero(x))
+            Arblib.ispositive(f(root_lower + δ)) || return indeterminate(x)
             while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
                 Arblib.mul_2exp!(δ, δ, -1)
             end

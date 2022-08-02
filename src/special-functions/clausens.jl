@@ -350,7 +350,7 @@ function clausens(x::Arb, s::Arb)
     # Handle the special case when x contains zero
     if haszero
         if !(s > 1)
-            return Arblib.indeterminate!(zero(x))
+            return indeterminate(x)
         elseif haspi
             # We could give a better bound by checking if we should
             # include use the positive or negative version. But this
@@ -450,7 +450,7 @@ function clausens(x::Arb, s::ArbSeries)
     if haszero
         res = zero(s)
         for i = 0:Arblib.degree(res)
-            res[0] = Arblib.indeterminate!(zero(x))
+            res[0] = indeterminate(x)
         end
         return res
     else
@@ -498,7 +498,7 @@ function clausens(x::Arb, s::Arb, β::Integer)
     if haszero
         if !(s > 1)
             # Only finite for s > 1
-            return Arblib.indeterminate!(zero(x))
+            return indeterminate(x)
         elseif haspi
             # Absolute value upper bounded by corresponding derivative
             # of zeta function

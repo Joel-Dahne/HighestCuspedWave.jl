@@ -270,6 +270,6 @@ function lerch_phi(z::Arb, s::Arb, a::Arb)
     if isreal(res)
         return real(res)
     else
-        return Arblib.indeterminate!(zero(z))
+        return indeterminate(z)
     end
 end

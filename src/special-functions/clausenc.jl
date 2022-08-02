@@ -478,7 +478,7 @@ function clausenc(x::Arb, s::Arb)
     # Handle the special case when x contains zero
     if haszero
         if !(s > 1)
-            return Arblib.indeterminate!(zero(x))
+            return indeterminate(x)
         elseif haspi
             # Extrema at x = 0 and x = π
             return union(zeta(s), -Arblib.realref(eta(Acb(s))))
@@ -590,11 +590,7 @@ function clausenc(x::Arb, s::ArbSeries)
     x, haszero, _, _ = _reduce_argument_clausen(x)
 
     if haszero
-        res = zero(s)
-        for i = 0:Arblib.degree(res)
-            res[0] = Arblib.indeterminate!(zero(x))
-        end
-        return res
+        return indeterminate(s)
     else
         return _clausenc_zeta(x, s)
     end
@@ -643,7 +639,7 @@ function clausenc(x::Arb, s::Arb, β::Integer)
     if haszero
         if !(s > 1)
             # Only finite for s > 1
-            return Arblib.indeterminate!(zero(x))
+            return indeterminate(x)
         else
             # Value at x = 0
             z = isone(β) ? dzeta(s) : zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
@@ -773,7 +769,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
             # Enclosure of gamma(1 - s) * sin(s / 2) with remainder term
             C = sin_div_s * rgamma_div_s
         else
-            C = Arblib.indeterminate!(zero(s))
+            C = indeterminate(s)
         end
     else
         if iswide(s)
@@ -1185,7 +1181,7 @@ use case.
 function clausencmzeta(x::Arb, s::Arb)
     if s > 1 && iswide(s)
         sₗ, sᵤ = getinterval(Arb, s)
-        sₗ > 1 || return Arblib.indeterminate!(zero(x))
+        sₗ > 1 || return indeterminate(x)
         res_lower = clausenc(x, sₗ) - zeta(sₗ)
         res_upper = clausenc(x, sᵤ) - zeta(sᵤ)
         return Arb((res_lower, res_upper))

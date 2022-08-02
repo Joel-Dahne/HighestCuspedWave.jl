@@ -297,7 +297,7 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
     c2 = begin
         integrand_c2(y; analytic) = begin
             if Arblib.contains_zero(y)
-                analytic && return Arblib.indeterminate!(zero(y))
+                analytic && return indeterminate(y)
                 @assert isreal(y)
 
                 # Use monotonicity to compute enclosure

@@ -338,7 +338,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
         integrand_c1(t; analytic) = begin
             if Arblib.contains_zero(t)
-                analytic && return Arblib.indeterminate!(zero(t))
+                analytic && return indeterminate(t)
                 @assert isreal(t)
                 t = real(t)
 
@@ -346,15 +346,15 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
                 # Check that log(t - 1) * sqrt(log(inv(t))) is
                 # monotone
-                tᵤ < root1 || return Arblib.indeterminate!(zero(t))
+                tᵤ < root1 || return indeterminate(t)
 
                 # Check that log(t + 1) * sqrt(log(inv(t))) is
                 # monotone
-                tᵤ < root2 || return Arblib.indeterminate!(zero(t))
+                tᵤ < root2 || return indeterminate(t)
 
                 # Check that log(t) * t * sqrt(log(inv(t))) is
                 # monotone
-                tᵤ < root3 || return Arblib.indeterminate!(zero(t))
+                tᵤ < root3 || return indeterminate(t)
 
                 term1 = Arb((log(1 - tᵤ) * sqrt(log(inv(tᵤ))), 0))
                 term2 = Arb((0, log(1 + tᵤ) * sqrt(log(inv(tᵤ)))))
@@ -362,7 +362,7 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
                 return t * term1 + t * term2 - 2term3
             elseif Arblib.overlaps(t, one(t))
-                analytic && return Arblib.indeterminate!(zero(t))
+                analytic && return indeterminate(t)
                 @assert isreal(t)
                 t = real(t)
 
@@ -370,15 +370,15 @@ function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
                 # Check that log(t - 1) * sqrt(log(inv(t))) is
                 # monotone
-                tₗ > root1 || return Arblib.indeterminate!(zero(t))
+                tₗ > root1 || return indeterminate(t)
 
                 # Check that log(t + 1) * sqrt(log(inv(t))) is
                 # monotone
-                tₗ > root2 || return Arblib.indeterminate!(zero(t))
+                tₗ > root2 || return indeterminate(t)
 
                 # Check that log(t) * t * sqrt(log(inv(t))) is
                 # monotone
-                tₗ > root3 || return Arblib.indeterminate!(zero(t))
+                tₗ > root3 || return indeterminate(t)
 
                 term1 = Arb((log(1 - tₗ) * sqrt(log(inv(tₗ))), 0))
                 term2 = Arb((0, log(1 + tₗ) * sqrt(log(inv(tₗ)))))
