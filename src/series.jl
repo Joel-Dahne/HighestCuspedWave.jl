@@ -229,17 +229,7 @@ function fx_div_x(
         enclosure_degree,
     )
 
-    if !isfinite(expansion)
-        # Return an indeterminate result
-        res = zero(x)
-        for i = 0:Arblib.degree(x)
-            Arblib.indeterminate!(Arblib.ref(res, i))
-        end
-        # Since we manually set the coefficients of the polynomial we
-        # need to also manually set the degree.
-        res.arb_poly.length = length(x)
-        return res
-    end
+    isfinite(expansion) || return indeterminate(x)
 
     if force
         for i = 0:order-1

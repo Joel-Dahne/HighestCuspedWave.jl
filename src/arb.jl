@@ -101,14 +101,9 @@ otherwise either `-x` or `x` is returned depending on the sign of
 """
 function Base.abs(x::ArbSeries)
     if Arblib.contains_zero(Arblib.ref(x, 0))
-        res = zero(x)
+        res = indeterminate(x)
         Arblib.abs!(Arblib.ref(res, 0), Arblib.ref(x, 0))
-        for i = 1:Arblib.degree(x)
-            Arblib.indeterminate!(Arblib.ref(res, i))
-        end
-        # Since we manually set the coefficients of the polynomial we
-        # need to also manually set the degree.
-        res.arb_poly.length = Arblib.degree(x) + 1
+        Arblib.normalise!(res)
         return res
     elseif Arblib.isnegative(Arblib.ref(x, 0))
         return -x

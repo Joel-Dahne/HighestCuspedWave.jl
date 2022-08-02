@@ -95,17 +95,7 @@ which requires adjustments is in `_acb_poly_zeta_em_sum`, so this
 implementation is adjusted.
 """
 function _zeta_deflated(s::ArbSeries, a::Arb)
-    if !Arblib.ispositive(a)
-        # Return an indeterminate result
-        res = zero(s)
-        for i = 0:Arblib.degree(s)
-            Arblib.indeterminate!(Arblib.ref(res, i))
-        end
-        # Since we manually set the coefficients of the polynomial we
-        # need to also manually set the degree.
-        res.arb_poly.length = length(s)
-        return res
-    end
+    Arblib.ispositive(a) || return indeterminate(s)
 
     # _acb_poly_acb_invpow_cpx is not documented and hence not
     # included in Arblib
