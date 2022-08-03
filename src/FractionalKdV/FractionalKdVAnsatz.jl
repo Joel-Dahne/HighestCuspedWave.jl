@@ -158,36 +158,24 @@ function FractionalKdVAnsatz(
 end
 
 """
-    FractionalKdVAnsatz(α::T)
+    pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T; old_version = false) where {T}
 
-Construct a `FractionalKdVAnsatz` with the given `α` value using a
-heuristic choice of parameters.
-
-This method is meant for the bulk of the interval and not for handling
-the asymptotic cases when `α` is very close to `-1` or `0`.
+Helper function to choose parameters for construction a
+`FractionalKdVAnsatz{T}` depending on `α`. It returns `N0, N1, p`,
+which are the parameters to use.
 
 - **TODO:** Improve heuristic parameters for `α` closer to `-1`.
 """
-function FractionalKdVAnsatz(
+function pick_parameters(
+    ::Type{FractionalKdVAnsatz{T}},
     α::T;
-    pp = nothing,
     old_version = false,
-    verbose = false,
 ) where {T}
     # Store heuristic parameters, they are stored as (upper, N0, N1,
     # p) where upper is an upper bound for the α to use these values
     # for and N0, N1 and p are the corresponding parameters for the
-    # ansatz. A negative N0 means that it should be used for the
-    # auto_N0_bound argument.
-    if !old_version
-        parameters = [
-            (-0.95, 75, 32, (1 - α) / 2),
-            (-1 // 2, 20, 16, (1 - α) / 2),
-            (-1 // 3, 10, 16, T(3 // 4)),
-            (-0.01, 5, 8, one(α)),
-            (0, -5, 0, one(α)),
-        ]
-    else
+    # ansatz.
+    if old_version
         parameters = [
             (-0.885, 6, 32, (1 - α) / 2),
             (-0.87, 5, 32, (1 - α) / 2),
@@ -204,6 +192,14 @@ function FractionalKdVAnsatz(
             (-0.01, 2, 8, one(α)),
             (-0.0, 2, 0, one(α)),
         ]
+    else
+        parameters = [
+            (-0.95, 75, 32, (1 - α) / 2),
+            (-1 // 2, 20, 16, (1 - α) / 2),
+            (-1 // 3, 10, 16, T(3 // 4)),
+            (-0.01, 5, 8, one(α)),
+            (0, 5, 0, one(α)),
+        ]
     end
 
     # Find the last element in parameters for which we have an upper
@@ -212,25 +208,42 @@ function FractionalKdVAnsatz(
 
     _, N0, N1, p = parameters[i]
 
+    return N0, N1, p
+end
+
+"""
+    FractionalKdVAnsatz(α::T)
+
+Construct a `FractionalKdVAnsatz` with the given `α` value using a
+heuristic choice of parameters.
+
+This method is meant for the bulk of the interval and not for handling
+the asymptotic cases when `α` is very close to `-1` or `0`.
+"""
+function FractionalKdVAnsatz(
+    α::T;
+    pp = nothing,
+    old_version = false,
+    verbose = false,
+) where {T}
+    N0, N1, p = pick_parameters(FractionalKdVAnsatz{T}, α; old_version)
+
+    if !isnothing(pp)
+        p = pp
+    end
+
     if !old_version
         u0 = FractionalKdVAnsatz(
             α,
             0,
             N1,
-            ifelse(isnothing(pp), p, pp),
+            p,
             use_midpoint = true,
             auto_N0_bound = N0;
             verbose,
         )
     else
-        u0 = FractionalKdVAnsatz(
-            α,
-            N0,
-            N1,
-            ifelse(isnothing(pp), p, pp),
-            use_midpoint = true;
-            verbose,
-        )
+        u0 = FractionalKdVAnsatz(α, N0, N1, p, use_midpoint = true; verbose)
     end
 
     return u0
