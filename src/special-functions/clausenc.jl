@@ -920,8 +920,7 @@ It requires that `abs(x) < 2π` and `2M >= s + 1`.
 The upper bound of the absolute value of the remainder is given by a
 somewhat awkward expression involving a multitude of special
 functions. See the paper for details.
-**IMPROVE:** Add some more details here, in particular since we use a
-  slightly different formulation of the bound.
+
 This functions returns a ball centered at zero with the upper bound as
 radius.
 """
@@ -962,7 +961,7 @@ function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
             for (exponents, coefficient) in ps[j2]
                 q0 = Arb(isempty(exponents) ? 0 : exponents[1])
 
-                # Upper bound of
+                # Enclosure of
                 # sum((m + M + 1 / 2)^(q0 / 2) * (x / 2π)^2m for m = 0:Inf)
                 S = lerch_phi((x / twopi)^2, -q0 / 2, M + Arb(1 // 2))
 
