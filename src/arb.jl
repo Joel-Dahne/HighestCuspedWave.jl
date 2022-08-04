@@ -140,13 +140,8 @@ function abspow(x::ArbSeries, y::Arb)
     if Arblib.contains_zero(Arblib.ref(x, 0))
         # All non-constant terms are indeterminate, the constant term
         # is given by abs(x[0])^y
-        res = ArbSeries(abspow(x[0], y), degree = Arblib.degree(x))
-        for i = 1:Arblib.degree(x)
-            Arblib.indeterminate!(Arblib.ref(res, i))
-        end
-        # Since we manually set the coefficients of the polynomial we
-        # need to also manually set the degree.
-        res.arb_poly.length = length(x)
+        res = indeterminate(x)
+        res[0] = abspow(x[0], y)
         return res
     end
 
