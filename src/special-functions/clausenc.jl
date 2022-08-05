@@ -755,16 +755,16 @@ case if we want to allow `s` overlapping odd integers.
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     unique, s_integer = unique_integer(s)
 
-    # When s is wide and close to a positive even integer, but doesn't
-    # contain a positive integer, it is beneficial to use higher order
-    # expansions for the enclosures. Around odd integers the values
-    # blow up and higher order expansions don't work well.
-    if !unique &&
-       s > 1 &&
-       iseven(round(Float64(s))) &&
-       Float64(radius(s)) / abs(Float64(s) - round(Float64(s))) > 0.01
-        @info "clausenc parameter close to even integer" s
-        degree = 10
+    # When s is wide and close to a positive integer, but doesn't
+    # contain a positive integer, it is beneficial to change the
+    # degree for the approximation. Around even integers we want to
+    # increase it and around odd integers decrease it.
+    if !unique && s > 1 && is_approx_integer(s)
+        if iseven(round(Float64(s)))
+            degree = 10
+        else
+            degree = 1
+        end
     else
         degree = 2
     end
