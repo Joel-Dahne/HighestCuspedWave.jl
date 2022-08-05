@@ -45,7 +45,7 @@ function D0_bounded_by(
 
     verbose && @info "Bound holds on [0, ϵ]"
 
-    g = T0(u0, Ball(), δ2 = Arf(1e-1), skip_div_u0 = true)
+    g = T0(u0, Ball(), skip_div_u0 = true)
 
     h(x) = begin
         res = g(x)
