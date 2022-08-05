@@ -755,16 +755,36 @@ case if we want to allow `s` overlapping odd integers.
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     unique, s_integer = unique_integer(s)
 
+    # When s is wide and close to a positive even integer, but doesn't
+    # contain a positive integer, it is beneficial to use higher order
+    # expansions for the enclosures. Around odd integers the values
+    # blow up and higher order expansions don't work well.
+    if !unique &&
+       s > 1 &&
+       iseven(round(Float64(s))) &&
+       Float64(radius(s)) / abs(Float64(s) - round(Float64(s))) > 0.01
+        @info "clausenc parameter close to even integer" s
+        degree = 10
+    else
+        degree = 2
+    end
+
     # Non-analytic term
     if unique && s_integer > 0
         if iseven(s_integer)
             # Enclosure of sinpi(s / 2) / (s - s_integer)
-            sin_div_s =
-                fx_div_x(t -> sinpi((t + s_integer) / 2), s - s_integer, extra_degree = 2)
+            sin_div_s = fx_div_x(
+                t -> sinpi((t + s_integer) / 2),
+                s - s_integer,
+                extra_degree = degree,
+            )
 
             # Enclosure of rgamma(1 - s) / (s - s_integer)
-            rgamma_div_s =
-                fx_div_x(t -> rgamma(1 - s_integer - t), s - s_integer, extra_degree = 2)
+            rgamma_div_s = fx_div_x(
+                t -> rgamma(1 - s_integer - t),
+                s - s_integer,
+                extra_degree = degree,
+            )
 
             # Enclosure of gamma(1 - s) * sin(s / 2) with remainder term
             C = sin_div_s * rgamma_div_s
@@ -773,7 +793,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
         end
     else
         if iswide(s)
-            C = ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s, degree = 2)
+            C = ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s; degree)
         else
             C = gamma(1 - s) * sinpi(s / 2)
         end
@@ -785,7 +805,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     start = skip_constant ? 1 : 0
     for m = start:M-1
         if iswide(s)
-            z = ArbExtras.enclosure_series(s -> zeta(s - 2m), s, degree = 2)
+            z = ArbExtras.enclosure_series(s -> zeta(s - 2m), s; degree)
 
             if !isfinite(z)
                 # In some cases, when s overlaps zero (but not
