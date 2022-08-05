@@ -49,6 +49,26 @@ iswide(x::Union{Arb,Acb}; cutoff = 10) = Arblib.rel_accuracy_bits(x) < precision
 iswide(::Number; cutoff = 10) = false
 
 """
+    is_approx_integer(x::Arb; tol = 0.01)
+
+Return true if `x` is close to an integer.
+
+It compares the radius of `x` with the distance from the midpoint to
+its nearest integer, if the quotient is greater than `tol` it returns
+true.
+
+This is useful when you want to take extra care with calculations when
+the arguments are close to integers, for example in the presence of
+removable singularities.
+"""
+function is_approx_integer(x::Arb; tol = 0.01)
+    # Do the computations in Float64 since we don't have to be
+    # rigorous anyway
+    xf64 = Float64(x)
+    return Float64(radius(x)) / abs(xf64 - round(xf64)) > tol
+end
+
+"""
     stieltjes(T, n::Integer)
 
 Compute the Stieltjes constant `γₙ` in type `T`.
