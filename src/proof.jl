@@ -30,12 +30,12 @@ function prove(
     verbose = false,
     extra_verbose = false,
 )
-    if α < -1 // 6
-        u0_time = @elapsed u0 = FractionalKdVAnsatz(α)
-        p = u0.p
-    else
+    if α > -1 // 6
         u0_time = @elapsed u0 = KdVZeroAnsatz(α, midpoint(Arb, α))
         p = one(α)
+    else
+        u0_time = @elapsed u0 = FractionalKdVAnsatz(α)
+        p = u0.p
     end
 
     verbose && @info "Constructed u0" u0 u0_time
