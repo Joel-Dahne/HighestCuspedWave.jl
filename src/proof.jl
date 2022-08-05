@@ -56,6 +56,8 @@ This is used to get upper bounds of the values in a simpler format
 than the `Arb` type.
 """
 function round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = 10)
+    inequality_holds_before = D₀ < 1 && δ₀ < (1 - D₀)^2 / 4n₀
+
     n₀_float = Arblib.get_d(ubound(n₀), RoundUp)
     δ₀_float = Arblib.get_d(ubound(δ₀), RoundUp)
     D₀_float = Arblib.get_d(ubound(D₀), RoundUp)
@@ -66,7 +68,10 @@ function round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = 10)
         D₀_float < 1 && Arb(δ₀_float) < (1 - Arb(D₀_float))^2 / 4Arb(n₀_float)
 
     if !inequality_holds
-        @warn "Inequality doesn't hold after conversion" n₀_float, δ₀_float, D₀_float
+        inequality_holds_before &&
+            @warn "Inequality holds before but not after conversion" n₀_float,
+            δ₀_float,
+            D₀_float
         return false, n₀_float, δ₀_float, D₀_float
     end
 
