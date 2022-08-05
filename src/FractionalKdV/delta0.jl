@@ -47,8 +47,10 @@ function delta0_bound(
 
                 y = f(ϵ)
                 z = g(ϵ)
-                ϵ > 1e-3 ||
+                if ϵ < 1e-3
                     @warn "could not determine working ϵ, last tried value" ϵ u0.α
+                    break
+                end
             end
             ubound(ϵ)
         end
