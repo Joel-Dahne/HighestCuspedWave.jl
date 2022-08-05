@@ -759,7 +759,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     # contain a positive integer, it is beneficial to change the
     # degree for the approximation. Around even integers we want to
     # increase it and around odd integers decrease it.
-    if !unique && s > 1 && is_approx_integer(s)
+    if s > 1 && is_approx_integer(s)
         if iseven(round(Float64(s)))
             degree = 10
         else
