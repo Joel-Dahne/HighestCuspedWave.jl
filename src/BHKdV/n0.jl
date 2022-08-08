@@ -39,7 +39,7 @@ Multiplying and dividing by `log(inv(x))` we can split it into the two
 factors
 ```
 G1(x) = log(u0.c + inv(x)) / 2log(inv(x)) = -log(u0.c + inv(x)) / 2log(x)
-G2(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (2gamma(1 + α) * (1 - x^p0))
+G2(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (gamma(1 + α) * (1 - x^p0))
 ```
 
 We can enclose `G1(x)` using that it is increasing in `x` and the
