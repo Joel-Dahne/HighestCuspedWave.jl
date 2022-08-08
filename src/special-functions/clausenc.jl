@@ -781,13 +781,13 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
 
             # Enclosure of rgamma(1 - s) / (s - s_integer)
             rgamma_div_s = fx_div_x(
-                t -> rgamma(1 - s_integer - t),
+                t -> rgamma(1 - (t + s_integer)),
                 s - s_integer,
                 extra_degree = degree,
             )
 
-            # Enclosure of gamma(1 - s) * sin(s / 2) with remainder term
-            C = sin_div_s * rgamma_div_s
+            # Enclosure of gamma(1 - s) * sinpi(s / 2) with remainder term
+            C = sin_div_s / rgamma_div_s
         else
             C = indeterminate(s)
         end
