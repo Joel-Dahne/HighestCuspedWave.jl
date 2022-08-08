@@ -96,7 +96,7 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3
             # 1, and enclose the rest.
             i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:10) - 1
             D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
-            res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) + D
+            res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) + D * u0.a[j]
 
             @info "Encountered a term with s overlapping an integer in expansion for u0" s i (
                 -i * u0.α + 1
@@ -166,19 +166,38 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
             # integer.
             contains_int, n = unique_integer(s)
             if contains_int && isodd(n)
-                # It seems like we should never encounter this. Maybe
-                # we do and in that case we have to deal with it, by
-                # it seems like we might be able to avoid it.
-                @error "Encountered a term with s overlapping an odd integer" *
-                       "in expansion for H(u0), we don't expect this to happen" s
-                res[(2, j, 0)] = indeterminate(C)
+                # The term corresponding to C and p[2((n - 1) ÷ 2)]
+                # coincides and diverge so are handled separately. The
+                # rest we treat normally.
+                @assert !isfinite(C) && !isfinite(p[2((n-1)÷2)])
+                for m = 1:M-1
+                    m == (n - 1) ÷ 2 && continue # Skip this term
+                    res[(0, 0, 2m)] -= p[2m] * u0.a[j]
+                end
+
+                # IMPROVE: The approach below gives good bounds for x
+                # close to 0 but much worse than required if x is not that
+                # small.
+
+                # The term has an x-factor like x^(s - 1), we factor out
+                # x^(-i * u0.α + 1) from this where i is as large as
+                # possible but so that we still have -i * u0.α + 1 < s -
+                # 1, and enclose the rest.
+                i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:10) - 1
+                D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
+                res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - D * u0.a[j]
+
+                @info "Encountered a term with s overlapping an integer in expansion for H(u0)" s i j (
+                    -i * u0.α + 1
+                ) D
             else
                 res[(2, j, 0)] = -C * u0.a[j]
+                for m = 1:M-1
+                    res[(0, 0, 2m)] -= p[2m] * u0.a[j]
+                end
             end
-            for m = 1:M-1
-                res[(0, 0, 2m)] -= p[2m] * u0.a[j]
-            end
-            res[(0, 0, 2M)] += E * u0.a[j]
+
+            Arblib.add_error!(res[(0, 0, 2M)], E)
         end
 
         # Fourier terms

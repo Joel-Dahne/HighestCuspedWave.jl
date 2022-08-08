@@ -1046,13 +1046,13 @@ function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
 end
 
 """
-    clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb)
+    clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, r::Arb)
 
 For `s` overlapping an odd positive integer `2k + 1` the exponents for
 the two terms `x^(s - 1)` and `x^2k` in the expansion (see
 [`clausenc_expansion`](@ref)) overlap and their coefficients blow up.
 
-This method returns `C, r` such that `C * x^r` gives an enclosure for
+This method returns `Cr` such that `C * x^r` gives an enclosure for
 the sum of these two terms for all `x` in the interval `[0, ϵ]`.
 
 It requires that the `k` corresponding to `s` is at least `1` and that
