@@ -1,5 +1,5 @@
 """
-    prove(u0::FractionalKdVAnsatz{Arb}; M = 5; only_estimate_D0, threaded, verbose, extra_verbose)
+    prove(u0::FractionalKdVAnsatz{Arb}; M = 5; only_estimate_D0, D0_maxevals, threaded, verbose, extra_verbose)
 
 Attempts to prove that the ansatz `u0` satisfies the requirements, that is
 ```
@@ -31,6 +31,7 @@ function prove(
     u0::FractionalKdVAnsatz{Arb};
     M = 5,
     only_estimate_D0 = false,
+    D0_maxevals = 1000,
     threaded = true,
     verbose = false,
     extra_verbose = false,
@@ -79,7 +80,8 @@ function prove(
     else
         proved_estimate = true
         D₀ = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
-        D₀_time = @elapsed proved = D0_bounded_by(u0, lbound(D₀); M, threaded, verbose)
+        D₀_time = @elapsed proved =
+            D0_bounded_by(u0, lbound(D₀), maxevals = D0_maxevals; M, threaded, verbose)
 
         verbose && @info "Bounded D₀" D₀ D₀_time
     end
