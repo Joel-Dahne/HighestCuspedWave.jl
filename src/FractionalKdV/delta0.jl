@@ -59,7 +59,10 @@ function delta0_bound(
     end
 
     # Bound the value on [0, ϵ]
-    # Estimate the value by evaluating it at ϵ
+    # Estimate the value by evaluating it at ϵ.
+    # Asymptotic evaluation is cheap and we are therefore not too
+    # worried about extra evaluations, the absolute tolerance is
+    # therefore set rather low.
     estimate = abs(f(Arb(ϵ)))
     max_asymptotic = ArbExtras.maximum_enclosure(
         f,
@@ -67,7 +70,7 @@ function delta0_bound(
         ϵ,
         abs_value = true,
         point_value_max = estimate,
-        atol = 4radius(estimate); # We can't expect to do better than this
+        atol = 1.1radius(estimate); # We can't expect to do much better than this
         degree,
         rtol,
         threaded,
@@ -77,6 +80,9 @@ function delta0_bound(
     verbose && @info "Bound on [0, ϵ]" max_asymptotic
 
     # Bound the value on [ϵ, π] by Ball evaluation
+    # Ball evaluation is rather expensive and we are therefore worried
+    # about extra evaluations, the absolute tolerance is therefore set
+    # a bit higher.
     estimate = maximum(abs.(g.(range(Arb(ϵ), π, length = 10))))
     max_nonasymptotic = ArbExtras.maximum_enclosure(
         g,
@@ -84,7 +90,7 @@ function delta0_bound(
         ubound(Arb(π)),
         abs_value = true,
         point_value_max = estimate,
-        atol = max(max_asymptotic / 2, 3radius(estimate));
+        atol = max(max_asymptotic / 2, 2radius(estimate));
         rtol,
         degree,
         threaded,
