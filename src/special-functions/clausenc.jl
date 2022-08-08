@@ -758,12 +758,12 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     # When s is wide and close to a positive integer, but doesn't
     # contain a positive integer, it is beneficial to change the
     # degree for the approximation. Around even integers we want to
-    # increase it and around odd integers decrease it.
+    # use a higher degree. Around odd integers the default is fine.
     if s > 1 && is_approx_integer(s)
         if iseven(round(Float64(s)))
             degree = 10
         else
-            degree = 1
+            degree = 2
         end
     else
         degree = 2
@@ -793,7 +793,15 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
         end
     else
         if iswide(s)
-            C = ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s; degree)
+            # When s is close to an odd integer the series enclosure
+            # is not very good, a direct evaluation gives a better
+            # enclosure. We can therefore improve the situation by
+            # taking the intersection of the two enclosures, since it
+            # is a cheap computation we always do this.
+            C = intersect(
+                ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s; degree),
+                gamma(1 - s) * sinpi(s / 2),
+            )
         else
             C = gamma(1 - s) * sinpi(s / 2)
         end
