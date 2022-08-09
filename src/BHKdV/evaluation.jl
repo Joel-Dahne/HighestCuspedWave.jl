@@ -1141,9 +1141,9 @@ We write it as
 * (log(inv(x)) / log(u0.c + inv(x)))
 * ((u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(inv(x)) * x^(1 - u0.γ * (1 + α) - α) * (1 - x^p0)))
 ```
-The first factor we is bounded using [`inv_u0_bound`](@ref). The
-second factor is bounded by noticing that it is `1` at `x = 0` and
-decreasing in `x`.
+The first factor is bounded using [`inv_u0_bound`](@ref). The second
+factor is bounded by noticing that it is `1` at `x = 0` and decreasing
+in `x`.
 
 For the third factor we can get an upper bound, in absolute value, by
 taking `γ = 0`, giving us

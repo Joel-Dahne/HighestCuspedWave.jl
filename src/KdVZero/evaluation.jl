@@ -877,7 +877,7 @@ u0(x) = sum(a[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:2)
 ```
 and
 ```
--sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
+H(u0)(x) = -sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
 ```
 It is enough to show that the linear term of the expansion in `α` of
 ```
@@ -980,7 +980,8 @@ It uses an evaluation strategy that works asymptotically in `x`.
 
 Note that this methods doesn't compute an expansion in `α` like most
 methods for `KdVZeroansatz`. It only computes an enclosure, or an
-expansion in `x`. For this reason it make sense to use for `u0.α0 = 0`
+expansion in `x`. For this reason it doesn't make sense to use for
+`u0.α0 = 0`
 """
 function F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
     iszero(u0.α0) && @warn "F02 doesn't make sense for u0.α0 = 0"
