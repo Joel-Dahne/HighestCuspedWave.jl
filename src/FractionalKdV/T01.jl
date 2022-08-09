@@ -34,10 +34,8 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
                     clausenc(x * (1 - t), -u0.α) + clausenc(x * (1 + t), -u0.α) -
                     2clausenc(x * t, -u0.α)
 
-            # The root is lower bounded by 1 / 2, take a value
-            # slightly larger so that we can still isolate it even if
-            # it touches 1 / 2.
-            root_lower = Arf(0.5) - sqrt(eps(Arf))
+            # The root is lower bounded by 1 / 2
+            root_lower = Arf(0.5)
 
             # Find a crude upper bound for the root
             δ = Arb(0.4)
@@ -48,6 +46,13 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
                 Arblib.mul_2exp!(δ, δ, -1)
             end
             root_upper = ubound(root_lower + δ)
+
+            # Short circuit in case the sign can't be determined on
+            # the endpoints, this happens when x is very close to π
+            if Arblib.contains_zero(f(Arb(root_lower))) &&
+               Arblib.contains_zero(f(Arb(root_upper)))
+                return Arb((root_lower, root_upper))
+            end
 
             # Improve the enclosure of the root
             roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
@@ -74,15 +79,17 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
 
     xₗ, xᵤ = getinterval(Arb, x)
     xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
-    ϵ = eps(x)
+    ϵ = eps(Arb)
 
     if iszero(x)
         root = compute_root_zero()
+    elseif Arblib.overlaps(xᵤ, Arb(π))
+        root = Arb((1 // 2, compute_root(xₗ))) # Lower bound is 1 / 2
     elseif !iswide(x)
         root = compute_root(x) # In this case x never overlaps zero
     elseif xᵤ < ϵ
         root = Arb((compute_root(ϵ), compute_root_zero()))
-    elseif xₗ < eps(Arb)
+    elseif xₗ < ϵ
         root = Arb((compute_root(xᵤ), compute_root_zero()))
     else
         root = Arb((compute_root(xᵤ), compute_root(xₗ)))
