@@ -191,8 +191,8 @@ in the non-asymptotic version of this method. It expands all functions
 at `x = 0` and explicitly cancels the division by `x^(-α + 1)`.
 
 **IMPROVE:** Use `ArbSeries` to compute a tighter enclosure? Similar
-  to the non-asymptotic version. Depends on important it is for the
-  timings.
+  to the non-asymptotic version. Depends on how important it is for
+  the timings.
 **IMPROVE:** Better explain what it does.
 """
 function T0_p_one(
