@@ -9,6 +9,11 @@ setprecision(Arb, 128) do
             include("special-functions.jl")
         end
 
+        @testset "FractionalKdV" begin
+            include("FractionalKdV/evaluation.jl")
+            include("FractionalKdV/T0.jl")
+        end
+
         @testset "BurgersHilbert" begin
             include("BurgersHilbert/evaluation.jl")
             include("BurgersHilbert/T0.jl")
