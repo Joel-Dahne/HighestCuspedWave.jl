@@ -134,7 +134,7 @@ function T01(
 end
 
 """
-    T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 3, ϵ = one(Arb))
+    T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 5, ϵ = one(Arb))
 
 Returns a function for computing an **upper bound** of the integral of
 `T01(u0)`, using an evaluation strategy that works asymptotically as
@@ -200,7 +200,7 @@ bound of the sum divided by `(2ϵ)^2M`.
   form of the first few terms instead of the simplified version used
   now. See the paper for how the true form look like.
 """
-function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
     α = u0.α
     p = u0.p
 

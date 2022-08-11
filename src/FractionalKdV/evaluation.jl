@@ -55,10 +55,10 @@ function (u0::FractionalKdVAnsatz)(x, ::Ball)
     return res
 end
 
-(u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 3) =
+(u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 5) =
     eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 
-function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
+function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5)
     res = OrderedDict{NTuple{3,Int},Arb}()
 
     # Initiate even powers of x
@@ -143,12 +143,12 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
     end
 end
 
-function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 3)
+function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
     f = H(u0, AsymptoticExpansion(); M)
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) where {T}
+function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) where {T}
     return x -> begin
         res = OrderedDict{NTuple{3,Int},Arb}()
 
@@ -217,7 +217,7 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 3) wh
     end
 end
 
-function D(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 3)
+function D(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
     f = D(u0, AsymptoticExpansion(); M)
     return x -> eval_expansion(u0, f(x), x)
 end
@@ -225,7 +225,7 @@ end
 function D(
     u0::FractionalKdVAnsatz{T},
     evaltype::AsymptoticExpansion;
-    M::Integer = 3,
+    M::Integer = 5,
 ) where {T}
     f = H(u0, evaltype; M)
     return x -> begin
@@ -261,7 +261,7 @@ function D(
 end
 
 """
-    F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 3, ϵ = one(Arb))
+    F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 5, ϵ = one(Arb))
 
 Return a function for evaluating `F0(u0)(x)` accurately for small
 values of `x`.
@@ -281,7 +281,7 @@ It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref).
 For the other factor it computes the expansion of `D(u0)(x)` and
 explicitly cancels the division by `x^(u0.p - u0.α)`.
 """
-function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
     Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
@@ -296,7 +296,7 @@ function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb 
 end
 
 """
-    inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M = 3, ϵ = one(Arb))
+    inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M = 5, ϵ = one(Arb))
 
 Return a function for evaluation `x^-u0.α / u0(x)` for `x` close to
 zero.
@@ -311,7 +311,7 @@ zero.
 It computes an expansion of `u0` at `x = 0` and explicitly handles the
 cancellation with `x^-u0.α`.
 """
-function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = one(Arb))
+function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb = one(Arb))
     expansion = u0(ϵ, AsymptoticExpansion(); M)
 
     return x::Union{Arb,ArbSeries} -> begin

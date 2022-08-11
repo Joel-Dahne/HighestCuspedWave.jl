@@ -39,7 +39,7 @@ function T0(
     end
 end
 
-function T0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+function T0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
     # Use specialised implementation in the case the weight is x
     isone(u0.p) && return T0_p_one(u0, Asymptotic(); M, ϵ)
 
@@ -198,7 +198,7 @@ at `x = 0` and explicitly cancels the division by `x^(-α + 1)`.
 function T0_p_one(
     u0::FractionalKdVAnsatz{Arb},
     ::Asymptotic;
-    M::Integer = 3,
+    M::Integer = 5,
     ϵ::Arb = Arb(1),
 )
     @assert isone(u0.p)

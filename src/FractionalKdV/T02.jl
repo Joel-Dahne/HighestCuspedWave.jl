@@ -54,7 +54,7 @@ function T02(
 end
 
 """
-    T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 3, ϵ = one(Arb))
+    T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 5, ϵ = one(Arb))
 
 Returns a function for computing an **upper bound** of the integral of
 `T02(u0)`, using an evaluation strategy that works asymptotically as
@@ -109,7 +109,7 @@ Integrate[((t - 1)^(-1 - a) + (t + 1)^(-1 - a) - 2 t^(-1 - a))*t^p, {t, 1, Infin
 - **IMPROVE:** We could get a much better enclosure by using that we
   only integrate from `1` to `π / x` and not to infinity.
 """
-function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 3, ϵ::Arb = Arb(1))
+function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
     α = u0.α
     p = u0.p
 
