@@ -177,36 +177,29 @@ c = gamma(1 + α) * sinpi(-α / 2) * (
 ```
 and
 ```
-d = 4sum((-1)^m * zeta(-α - 2m) * (2ϵ)^(2m - 2) / factorial(2m) for m = 1:Inf)
+d = 2sum(1:N-1) do m
+        (-1)^m * zeta(-α - 2m) * ϵ^(2m - 2) / factorial(2m) *
+            sum(binomial(2m, 2k) / (2k + 1 + p) for k = 0:m-1)
+    end +
+    1 / ϵ^2 * sum((-1)^m * zeta(-α - 2m) * (2ϵ)^2m / factorial(2m) for m = N:Inf)
 ```
-Here `r` is the unique root of
+for any `N >= 1`. Here `r` is the unique root of
 ```
 (1 - t)^(-1 - α) + (1 + t)^(-1 - α) - 2t^(-1 - α)
 ```
 on ``[0, 1]``and is computed by [`_integrand_compute_root`](@ref).
 
-To compute an upper bound of `d` we sum the first `M - 1` terms and
-for the tail we rewrite it as
-```
-4sum((-1)^m * zeta(-α - 2m) * (2ϵ)^(2m - 2) / factorial(2m) for m = M:Inf)
-= 4(2ϵ)^(2M - 2) * (sum((-1)^m * zeta(-α - 2m) * (2x)^(2m) / factorial(2m) for m = M:Inf) / (2ϵ)^(2M))
-```
-Using [`clausenc_expansion_remainder`](@ref) we can compute an upper
-bound of the sum divided by `(2ϵ)^2M`.
-
-- **IMPROVE:** Include more details here, most of them are in the
-  paper.
-- **IMPROVE:** We could get a better bound for `d` by summing the true
-  form of the first few terms instead of the simplified version used
-  now. See the paper for how the true form look like.
+To compute an enclosure of the tail of `d` we note that it is the same
+as the sum in [`clausenc_expansion_remainder`](@ref) with `x = 2ϵ`.
 """
 function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
+    inv_u0 = inv_u0_normalised(u0; M, ϵ)
+
     α = u0.α
     p = u0.p
 
-    inv_u0 = inv_u0_normalised(u0; M, ϵ)
+    r = _integrand_compute_root(u0, zero(α))
 
-    r = _integrand_compute_root(u0, Arb(0))
     c =
         gamma(1 + α) *
         sinpi(-α / 2) *
@@ -221,10 +214,16 @@ function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb
             )
         )
 
-    # Sum first M - 1 terms
-    d = 4sum((-1)^m * zeta(-α - 2m) * (2ϵ)^(2m - 2) / factorial(2m) for m = 1:M-1)
+    N = 10
+    # Sum first N - 1 terms
+    d =
+        2sum(1:N-1) do m
+            (-1)^m * zeta(-α - 2m) * ϵ^(2m - 2) / factorial(2m) *
+            sum(binomial(2m, 2k) / (2k + 1 + p) for k = 0:m-1)
+        end
     # Enclose remainder
-    d += 4(2ϵ)^(2M - 2) * clausenc_expansion_remainder(2ϵ, -α, M)
+    # Note that 4(2ϵ)^(2M - 2) = (2ϵ)^(2M) / ϵ^2
+    d += 4(2ϵ)^(2N - 2) * clausenc_expansion_remainder(2ϵ, -α, N)
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
