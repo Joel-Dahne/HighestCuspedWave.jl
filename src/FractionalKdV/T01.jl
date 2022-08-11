@@ -14,19 +14,30 @@ For wide values of `x` it uses that the root is decreasing in `x` to
 only have to evaluate at the endpoints.
 
 If the lower bound of `x` is zero or close to zero (smaller than
-`eps(x)`) it computes an upper bound of the root by considering the
+`eps(Arb)`) it computes an upper bound of the root by considering the
 limiting case as `x` goes to zero. The limiting root can then be bound
 by computing the root of
 ```
 (1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
 ```
 
-If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
-compute the root at `eps(x)` and use that as a lower bound. This
+If the upper bound of `x` is close to zero, smaller than `eps(Arb)`,
+we compute the root at `eps(Arb)` and use that as a lower bound. This
 avoids computing with very small values of `x`.
 """
 function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
-    compute_root(x) =
+    # Compute the root at x = 0
+    root_zero = let
+        # Function we are computing root of
+        f = t -> (1 - t)^(-u0.α - 1) + (1 + t)^(-u0.α - 1) - 2t^(-u0.α - 1)
+
+        roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9))
+        length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
+
+        ArbExtras.refine_root(f, Arb(only(roots)))
+    end
+
+    compute_root(x::Arb) =
         let
             # Function we are computing the root of
             f =
@@ -38,21 +49,17 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
             root_lower = Arf(0.5)
 
             # Find a crude upper bound for the root
-            δ = Arb(0.4)
-            # IMPROVE: We can remove this check if we can prove that
-            # the root is less than x + δ.
-            Arblib.ispositive(f(root_lower + δ)) || return indeterminate(x)
-            while Arblib.ispositive(f(root_lower + δ / 2)) && δ > 1e-5
+            # root_lower + δ gives upper bound of root
+            δ = root_zero - root_lower
+            while Arblib.ispositive(f(root_lower + δ / 2))
                 Arblib.mul_2exp!(δ, δ, -1)
             end
             root_upper = ubound(root_lower + δ)
 
             # Short circuit in case the sign can't be determined on
-            # the endpoints, this happens when x is very close to π
-            if Arblib.contains_zero(f(Arb(root_lower))) &&
-               Arblib.contains_zero(f(Arb(root_upper)))
-                return Arb((root_lower, root_upper))
-            end
+            # the lower endpoint, this happens when x is very close to
+            # π
+            Arblib.contains_zero(f(Arb(root_lower))) && return Arb((root_lower, root_upper))
 
             # Improve the enclosure of the root
             roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
@@ -66,31 +73,20 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
             return root
         end
 
-    compute_root_zero() =
-        let
-            # Function we are computing root of
-            f = t -> (1 - t)^(-u0.α - 1) + (1 + t)^(-u0.α - 1) - 2t^(-u0.α - 1)
-
-            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9))
-            length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
-
-            ArbExtras.refine_root(f, Arb(only(roots)))
-        end
-
     xₗ, xᵤ = getinterval(Arb, x)
     xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
     ϵ = eps(Arb)
 
     if iszero(x)
-        root = compute_root_zero()
+        root = root_zero
     elseif Arblib.overlaps(xᵤ, Arb(π))
         root = Arb((1 // 2, compute_root(xₗ))) # Lower bound is 1 / 2
     elseif !iswide(x)
         root = compute_root(x) # In this case x never overlaps zero
     elseif xᵤ < ϵ
-        root = Arb((compute_root(ϵ), compute_root_zero()))
+        root = Arb((compute_root(ϵ), root_zero))
     elseif xₗ < ϵ
-        root = Arb((compute_root(xᵤ), compute_root_zero()))
+        root = Arb((compute_root(xᵤ), root_zero))
     else
         root = Arb((compute_root(xᵤ), compute_root(xₗ)))
     end
@@ -403,34 +399,8 @@ function T012(
             end
         end
 
-        if false
-            # Attempt to isolate the root of clausenc(x * (1 - t), mα) +
-            # clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα) using that
-            # it is lower bounded by 0.5.
-            f(t) =
-                clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(x * t, mα)
-
-            roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), ubound(real(b)))
-
-            if length(flags) == 1 && flags[1]
-                # Refine the unique root
-                root = ArbExtras.refine_root(f, Arb(only(roots)))
-                # Get lower and upper bounds for the root
-                root_lower, root_upper = getinterval(root)
-
-                isolated_root = true
-            else
-                # Get lower and upper bounds for possible roots
-                root_lower = roots[1][1]
-                root_upper = roots[end][2]
-
-                isolated_root = false
-            end
-        else
-            root = _integrand_compute_root(u0, x)
-
-            root_lower, root_upper = getinterval(root)
-        end
+        root = _integrand_compute_root(u0, x)
+        root_lower, root_upper = Acb.(getinterval(root))
 
         res1 = abs(
             real(
