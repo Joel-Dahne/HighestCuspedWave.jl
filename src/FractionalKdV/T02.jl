@@ -173,8 +173,8 @@ function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb
         (3Arb(π) / 2)^(2N) *
         clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
 
-    return x::Union{Arb,ArbSeries} -> begin
-        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
+    return x::Arb -> begin
+        @assert x <= ϵ
 
         # TODO: This is not covered in the paper yet. It doesn't work
         # very well for wide values of α close to -1, the enclosures
@@ -182,28 +182,36 @@ function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb
         # with a different solution.
 
         # Attempt to compute a better bound for c by only integrating
-        # up to π / x
-        cx_complex_part =
-            Acb(-1)^(-α + p) * (
-                beta_inc(Acb(α - p), -Acb(α), Acb(-1)) -
-                beta_inc(Acb(α - p), -Acb(α), -Acb(x / π))
-            )
-        @assert Arblib.contains_zero(imag(cx_complex_part))
+        # up to π / x. Since the integral is increasing in x it is
+        # enough to evaluate at a lower bound of x to get an upper
+        # bound.
+        cx = let x = abs_lbound(Arb, x)
+            cx_complex_part =
+                Acb(-1)^(-α + p) * (
+                    beta_inc(Acb(α - p), -Acb(α), Acb(-1)) -
+                    beta_inc(Acb(α - p), -Acb(α), -Acb(x / π))
+                )
+            @assert Arblib.contains_zero(imag(cx_complex_part))
 
-        cx =
-            gamma(1 + α) *
-            sinpi(-α / 2) *
-            (
-                gamma(-α) * gamma(α - p) / gamma(-p) +
-                2(1 - (π / x)^(-α + p)) / (-α + p) +
-                real(cx_complex_part) - beta_inc(α - p, -α, x / π)
-            )
+            cx =
+                gamma(1 + α) *
+                sinpi(-α / 2) *
+                (
+                    gamma(-α) * gamma(α - p) / gamma(-p) +
+                    2(1 - (π / x)^(-α + p)) / (-α + p) +
+                    real(cx_complex_part) - beta_inc(α - p, -α, x / π)
+                )
+
+            cx
+        end
 
         if isfinite(cx) && cx < c
-            return inv_u0(x) * (cx + d * abspow(x, 2 + α - p)) / π
+            U02 = (cx + d * abspow(x, 2 + α - p)) / π
         else
-            return inv_u0(x) * (c + d * abspow(x, 2 + α - p)) / π
+            U02 = (c + d * abspow(x, 2 + α - p)) / π
         end
+
+        return inv_u0(x) * U02
     end
 end
 
