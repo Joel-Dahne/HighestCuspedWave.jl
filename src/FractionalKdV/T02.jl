@@ -64,6 +64,9 @@ Returns a function for computing an **upper bound** of the integral of
 - `M::Integer` determines the number of terms in the expansions.
 - `ϵ::Arb` determines the interval ``[0, ϵ]`` on which the expansion
   is valid.
+- `return_enclosure::Bool` if true it returns an enclosure instead of
+  an upper bound by returning the interval between zero and the
+  computer upper bound.
 
 # Implementation
 It first splits the function as
@@ -137,7 +140,13 @@ There are some problems with this tough
   thin balls for `α`. We might have to improve the computed
   enclosures.
 """
-function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
+function T02(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 5,
+    ϵ::Arb = Arb(1),
+    return_enclosure::Bool = false,
+)
     @assert ϵ <= Arb(π) / 2 # This is required for the bound of the tail of d
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
@@ -211,7 +220,13 @@ function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb
             U02 = (c + d * abspow(x, 2 + α - p)) / π
         end
 
-        return inv_u0(x) * U02
+        res = inv_u0(x) * U02
+
+        if return_enclosure
+            return union(zero(res), res)
+        else
+            return res
+        end
     end
 end
 

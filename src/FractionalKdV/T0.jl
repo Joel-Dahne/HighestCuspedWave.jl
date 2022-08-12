@@ -39,12 +39,18 @@ function T0(
     end
 end
 
-function T0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
+function T0(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 5,
+    ϵ::Arb = Arb(1),
+    return_enclosure::Bool = false,
+)
     # Use specialised implementation in the case the weight is x
     isone(u0.p) && return T0_p_one(u0, Asymptotic(); M, ϵ)
 
-    f = T01(u0, Asymptotic(); M, ϵ)
-    g = T02(u0, Asymptotic(); M, ϵ)
+    f = T01(u0, Asymptotic(); M, ϵ, return_enclosure)
+    g = T02(u0, Asymptotic(); M, ϵ, return_enclosure)
     return x -> f(x) + g(x)
 end
 

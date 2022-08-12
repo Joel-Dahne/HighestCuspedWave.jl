@@ -35,6 +35,8 @@ function D0_bounded_by(
         verbose && @info "ϵ for asymptotic evaluation to satisfy bound" ϵ
     end
 
+    f = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ), return_enclosure = true; M)
+
     # Check that the bound holds on [0, ϵ]
     asymptotic_bound = ArbExtras.bounded_by(f, Arf(0), ϵ, C, degree = -1; threaded, verbose)
 

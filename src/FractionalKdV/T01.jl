@@ -144,6 +144,9 @@ Returns a function for computing an **upper bound** of the integral of
 - `M::Integer` determines the number of terms in the expansions.
 - `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
   is valid.
+- `return_enclosure::Bool` if true it returns an enclosure instead of
+  an upper bound by returning the interval between zero and the
+  computer upper bound.
 
 # Implementation
 It first splits the function as
@@ -192,7 +195,13 @@ on ``[0, 1]``and is computed by [`_integrand_compute_root`](@ref).
 To compute an enclosure of the tail of `d` we note that it is the same
 as the sum in [`clausenc_expansion_remainder`](@ref) with `x = 2ϵ`.
 """
-function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
+function T01(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 5,
+    ϵ::Arb = Arb(1),
+    return_enclosure::Bool = false,
+)
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
     α = u0.α
@@ -228,7 +237,13 @@ function T01(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
-        return inv_u0(x) * (c + d * abspow(x, 3 + α)) / π
+        res = inv_u0(x) * (c + d * abspow(x, 3 + α)) / π
+
+        if return_enclosure
+            return union(zero(res), res)
+        else
+            return res
+        end
     end
 end
 
