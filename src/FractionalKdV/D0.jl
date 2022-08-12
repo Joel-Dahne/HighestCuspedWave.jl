@@ -22,11 +22,9 @@ function D0_bounded_by(
 )
     # Determine ϵ such that the bound holds when evaluated at x = ϵ
     # with the asymptotic version.
-    f = T0(u0, Asymptotic(), ϵ = Arb(1.1); M)
-
     if iszero(ϵ)
         ϵ = one(ϵ)
-        while !(f(Arb(ϵ)) < C)
+        while !(T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ); M)(Arb(ϵ)) < C)
             # We use the factor 0.8 instead of, say, 0.5 to get
             # slightly better (higher) values for ϵ.
             ϵ *= 0.8
