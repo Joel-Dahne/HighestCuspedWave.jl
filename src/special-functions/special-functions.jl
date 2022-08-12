@@ -60,7 +60,8 @@ end
 Compute the hypergeometric ``₂F₁(a, b, c, z)`` function.
 """
 hypgeom_2f1(a::Arb, b::Arb, c::Arb, z::Arb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
-hypgeom_2f1(a::Acb, b::Acb, c::Acb, z::Acb) = Arblib.hypgeom_2f1!(zero(z), a, b, c, z, 0)
+hypgeom_2f1(a::Acb, b::Acb, c::Acb, z::Acb) =
+    Arblib.hypgeom_2f1!(zero(z), a, b, c, z, flags = 0)
 
 """
     rgamma(x)
