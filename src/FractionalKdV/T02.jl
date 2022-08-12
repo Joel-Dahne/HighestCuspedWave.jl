@@ -62,7 +62,7 @@ Returns a function for computing an **upper bound** of the integral of
 
 # Arguments
 - `M::Integer` determines the number of terms in the expansions.
-- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+- `ϵ::Arb` determines the interval ``[0, ϵ]`` on which the expansion
   is valid.
 
 # Implementation
@@ -91,11 +91,19 @@ c = gamma(1 + α) * sinpi(-α / 2) * (
 ```
 and
 ```
-d = 2π^(p - 1) * XXX * sum((-1)^m * zeta(-α - 2m) * (π * YYY)^(2m - 2) / factorial(2m) for m = 1:Inf)
+d = 2π^(p - 1) * do m
+        (-1)^m *
+        zeta(-α - 2m) *
+        Arb(π)^2m /
+        factorial(2m) *
+        sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1)
+    end +
+    6π^(p - 1) * sum((-1)^m * zeta(-α - 2m) * (3π / 2)^2m / factorial(2m) for m = N:Inf)
 ```
-- **TODO:** Give upper bound of `d`. For now we use a different
-  version that can be found in the paper, for which we can't bound the
-  tail.
+for any `N >= 1`.
+
+To compute an enclosure of the tail of `d` we note that it is the same
+as the sum in [`clausenc_expansion_remainder`](@ref) with `x = 3π / 2`.
 
 # Notes
 The expression for `c` was was computed using Mathematica with the
@@ -103,17 +111,39 @@ following code
 ```
 Integrate[((t - 1)^(-1 - a) + (t + 1)^(-1 - a) - 2 t^(-1 - a))*t^p, {t, 1, Infinity}, Assumptions -> -1 < a < 0]
 ```
-- **PROVE:** Mathematica gives the condition `-1 < Re[p] < 0 && a >
-  Re[p]` which is not satisfied in our case. However the expression
-  seems to give the correct values anyway.
-- **IMPROVE:** We could get a much better enclosure by using that we
-  only integrate from `1` to `π / x` and not to infinity.
+
+**TODO:** We could get a much better enclosure by using that we
+only integrate from `1` to `π / x` and not to infinity. In particular
+for `α` close to `-1` this makes a big difference. In that case `c`
+would depend on `x` and be given by
+```
+gamma(1 + α) * sinpi(-α / 2) *
+(
+    gamma(-α) * gamma(α - p) / gamma(-p) +
+    2(1 - (π / x)^(-α + p)) / (-α + p) +
+    (-1)^(-α + p) * (beta_inc(α - p, -α, -1) - beta_inc(α - p, -α, -x / π))
+    - beta_inc(α - p, -α, x / π)
+)
+```
+computed using Mathematica with the following code
+```
+Integrate[((t - 1)^(-a - 1) + (1 + t)^(-a - 1) - 2 t^(-a - 1))*t^p, {t, 1, Pi/x}, Assumptions -> a < 0 && 0 < x < Pi]
+```
+There are some problems with this tough
+- Evaluating the term with `(-1)^(-α + p)` requires complex
+  arithmetic.
+- We can't compute it when `x` is very small.
+- For `α` close to `-1` it only gives reasonable enclosures for very
+  thin balls for `α`. We might have to improve the computed
+  enclosures.
 """
 function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
-    α = u0.α
-    p = u0.p
+    @assert ϵ <= Arb(π) / 2 # This is required for the bound of the tail of d
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
+
+    α = u0.α
+    p = u0.p
 
     c =
         gamma(1 + α) *
@@ -128,28 +158,52 @@ function T02(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb
     # those are covered by T0_p_one.
     isfinite(c) || @error "non-finite enclosure for c in T02" α p
 
-    # TODO: Implement this version of d
-    #XXX = Arb(1) # FIXME
-    #YYY = Arb(1) # FIXME
-    ## Sum first M - 1 terms
-    #d = 2Arb(π)^(p - 1) * XXX * sum((-1)^m * zeta(-α - 2m) * (π * YYY)^(2m - 2) / factorial(2m) for m = 1:M-1)
-    ## Enclose remainder
-    #d += 2Arb(π)^(p - 1) * XXX * (π * YYY)^(2M) * clausenc_expansion_remainder(π * YYY, -α, M)
-
-    # FIXME: This doesn't bound the tail
+    # Take a lot of terms since the remainder is computed at a large
+    # value
+    N = 30
+    # Sum first N - 1 terms
     d =
-        2Arb(π)^(p - 1) * sum(1:10) do m
-            (-1)^m *
-            zeta(-α - 2m) *
-            Arb(π)^2m *
-            sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1) /
-            factorial(2m)
+        2Arb(π)^(p - 1) * sum(1:N-1) do m
+            (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
+            sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1)
         end
+    # Enclose remainder
+    d +=
+        6Arb(π)^(p - 1) *
+        (3Arb(π) / 2)^(2N) *
+        clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
-        return inv_u0(x) * (c + d * abspow(x, 2 + α - p)) / π
+        # TODO: This is not covered in the paper yet. It doesn't work
+        # very well for wide values of α close to -1, the enclosures
+        # are bad. This will have to be improved if we don't come up
+        # with a different solution.
+
+        # Attempt to compute a better bound for c by only integrating
+        # up to π / x
+        cx_complex_part =
+            Acb(-1)^(-α + p) * (
+                beta_inc(Acb(α - p), -Acb(α), Acb(-1)) -
+                beta_inc(Acb(α - p), -Acb(α), -Acb(x / π))
+            )
+        @assert Arblib.contains_zero(imag(cx_complex_part))
+
+        cx =
+            gamma(1 + α) *
+            sinpi(-α / 2) *
+            (
+                gamma(-α) * gamma(α - p) / gamma(-p) +
+                2(1 - (π / x)^(-α + p)) / (-α + p) +
+                real(cx_complex_part) - beta_inc(α - p, -α, x / π)
+            )
+
+        if isfinite(cx) && cx < c
+            return inv_u0(x) * (cx + d * abspow(x, 2 + α - p)) / π
+        else
+            return inv_u0(x) * (c + d * abspow(x, 2 + α - p)) / π
+        end
     end
 end
 
