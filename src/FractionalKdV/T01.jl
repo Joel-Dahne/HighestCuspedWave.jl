@@ -1,4 +1,18 @@
 """
+    _integrand_I_hat(x, t, α)
+
+Compute
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+which is part of the integrand of `T01`.
+
+**IMPROVE:** Optimize this for performance and enclosure in `x` and `α`.
+"""
+_integrand_I_hat(x, t, α) =
+    clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+
+"""
     _integrand_compute_root(u0::Fractionalkdvansatz, x::Arb)
 
 Compute the unique root of
@@ -40,10 +54,7 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
     compute_root(x::Arb) =
         let
             # Function we are computing the root of
-            f =
-                t ->
-                    clausenc(x * (1 - t), -u0.α) + clausenc(x * (1 + t), -u0.α) -
-                    2clausenc(x * t, -u0.α)
+            f = t -> _integrand_I_hat(x, t, u0.α)
 
             # The root is lower bounded by 1 / 2
             root_lower = Arf(0.5)
@@ -357,7 +368,6 @@ function T012(
     δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
     skip_div_u0 = false,
 )
-    mα = -u0.α
     cp = Acb(u0.p)
 
     a = Acb(δ0)
@@ -371,16 +381,9 @@ function T012(
             return indeterminate(t)
 
             if isreal(t)
-                rt = Arblib.realref(t)
-
-                res = Acb(
-                    clausenc(x * (1 - rt), mα) + clausenc(x * (1 + rt), mα) -
-                    2clausenc(x * rt, mα),
-                )
+                res = Acb(_integrand_I_hat(x, Arblib.realref(t), u0.α))
             else
-                res =
-                    clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) -
-                    2clausenc(x * t, mα)
+                res = _integrand_I_hat(x, t, u0.α)
             end
 
             return Arblib.real_abs!(res, res, analytic) * t^cp
@@ -397,19 +400,9 @@ function T012(
 
             if isreal(t)
                 rt = Arblib.realref(t)
-
-                return Acb(
-                    (
-                        clausenc(x * (1 - rt), mα) + clausenc(x * (1 + rt), mα) -
-                        2clausenc(x * rt, mα)
-                    ) * rt^u0.p,
-                )
-
+                return Acb(_integrand_I_hat(x, rt, u0.α) * rt^u0.p)
             else
-                return (
-                    clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) -
-                    2clausenc(x * t, mα)
-                ) * t^cp
+                return _integrand_I_hat(x, t, u0.α) * t^cp
             end
         end
 
