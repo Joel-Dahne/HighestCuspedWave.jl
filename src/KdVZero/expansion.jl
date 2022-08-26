@@ -489,14 +489,12 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::In
 end
 
 """
-    expansion_as(::Type{KdVZeroAnsatz}, α0::Arb, interval::Arb; degree::integer = 2, p0)
+    expansion_as(T::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::integer = 1, p0::TaylorModel = expansion_p0(T, α0, I; degree))
 
-Compute expansions for `a[i]` for `i = 1:3` at the point `α0` of the
-given degree. The last term is a remainder term which ensures that
-evaluating the expansion gives an enclosure of `a[i]` for all `α ∈
-interval`.
+Compute Taylor models of `a[i]` for `i = 0:2` at the point `α0` valid
+on the interval `I` of the given degree.
 
-The expansion of `a[0]` is computed to a degree one higher than the
+The Taylor model of `a[0]` is computed to a degree one higher than the
 other. The reason for this is that for `α0 = 0` the constant term in
 `a[0]` is zero and in many cases we divide `a[0]` by `α` and still
 want to have sufficiently high degree.
@@ -638,111 +636,80 @@ all are zero since they exactly cancel out.
 ## Computing `d`, `v1` and `v2`
 Recall that
 ```
+a[1] = v1 / d
+a[2] = v2 / d
+```
+with
+```
 d = z1
 v1 = a[0] * z2
 v2 = -a[0] * z3
 ```
-If we naively compute these terms with `ArbSeries` the degree after
-the multiplication will be the minimum degree of all factors. By
-factoring out `α` from `a[0]` as well as `z1`, `z2` and `z3`,
-performing the multiplication and then multiplying back the `α` we can
-avoid this issue.
-
-## Handling division by `d`
-We want to compute
-```
-a[1] = v1 / d
-a[2] = v2 / d
-```
-but since `v1[0] = v2[0] = d[0] = 0` we first need to cancel one `α`
-from all of them. To get the higher order terms we factor out one more
-`α` from `v1` and `v2` and multiply it back afterwards.
+For `α0 != 0` it can be computed directly. For `α0 = 0` the division
+by `d` has a removable singularity.
 """
 function expansion_as(
-    ::Type{KdVZeroAnsatz},
+    T::Type{KdVZeroAnsatz},
     α0::Arb,
-    interval::Arb;
+    I::Arb;
     degree::Integer = 2,
-    p0 = expansion_p0(KdVZeroAnsatz, α0, interval; degree),
+    p0 = expansion_p0(T, α0, I; degree),
 )
+    # TODO: Implement TaylorModel version of p0
+    p0 = TaylorModel(p0, I, α0)
+
+    # TODO: The degree has a different meaning for TaylorModels, we
+    # here switch to the TaylorModel version
+    degree = degree - 1
+
     a0 = if iszero(α0)
         # We compute a0 to a higher degree and then truncate, to
         # get a tighter enclosure
 
+        # Taylor model of
         # rgamma(α) / rgamma(2α) = (rgamma(α) / α) / (rgamma(2α) / α)
-        g = div_with_remainder(
-            taylor_with_remainder(rgamma, α0, interval - α0, degree = degree + 4) << 1,
-            taylor_with_remainder(
-                α -> rgamma(2α),
-                α0,
-                interval - α0,
-                degree = degree + 4,
-            ) << 1,
-            interval - α0,
+        g = div_removable(
+            TaylorModel(rgamma, I, α0, degree = degree + 5),
+            TaylorModel(α -> rgamma(2α), I, α0, degree = degree + 5),
         )
 
-        a0 = mul_with_remainder(
-            taylor_with_remainder(
-                α -> rgamma(α) * 2cospi(α) / cospi(α / 2)^2,
-                α0,
-                interval - α0,
-                degree = degree + 3,
-            ),
-            g,
-            interval - α0,
-        )
+        f = TaylorModel(I, α0, degree = degree + 4) do α
+            rgamma(α) * 2cospi(α) / cospi(α / 2)^2
+        end
 
-        truncate_with_remainder(a0, interval - α0, degree = degree + 1)
+        truncate(g * f, degree = degree + 1)
     else
         # We set enclosure_degree to a very high number since we don't
         # really care about performance for this method, getting a
         # good enclosure is more important.
-        taylor_with_remainder(
-            α -> 2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))^2,
-            α0,
-            interval,
-            degree = degree + 1,
-            enclosure_degree = 20,
-        )
+        TaylorModel(I, α0, degree = degree + 1, enclosure_degree = 20) do α
+            2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))^2
+        end
     end
 
-    α_s = ArbSeries((α0, 1); degree) # Series expansion around α0
-    z(i, j) = compose_with_remainder(zeta, -1 - i * α_s + j * p0, interval - α0)
+    # Taylor model of α
+    Mα = TaylorModel(identity, I, α0; degree)
+    z(i, j) = compose(zeta, -1 - i * Mα + j * p0)
 
-    z1 =
-        mul_with_remainder(z(2, 1), z(1, 2), interval - α0) -
-        mul_with_remainder(z(2, 2), z(1, 1), interval - α0)
-    z2 =
-        mul_with_remainder(z(2, 2), z(1, 0), interval - α0) -
-        mul_with_remainder(z(1, 2), z(2, 0), interval - α0)
-    z3 =
-        mul_with_remainder(z(2, 1), z(1, 0), interval - α0) -
-        mul_with_remainder(z(1, 1), z(2, 0), interval - α0)
+    z1 = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
+    z2 = z(2, 2) * z(1, 0) - z(1, 2) * z(2, 0)
+    z3 = z(2, 1) * z(1, 0) - z(1, 1) * z(2, 0)
 
     if iszero(α0)
         # The constant coefficients for z1, z2 and z3 are all exactly
         # equal to zero.
-        @assert all(Arblib.contains_zero(z[0]) for z in (z1, z2, z3))
-        z1[0] = z2[0] = z3[0] = 0
+        @assert all(Arblib.contains_zero(z.p[0]) for z in (z1, z2, z3))
+        z1.p[0] = z2.p[0] = z3.p[0] = 0
 
-        d = z1
-        # Compute v1 and v2 to one degree higher since we divide it by
-        # α
-        v1 = mul_with_remainder(a0, z2, interval - α0, degree = degree + 1)
-        v2 = -mul_with_remainder(a0, z3, interval - α0, degree = degree + 1)
-
-        # Factor out α^2 from v1 and v2 and α from d, multiply back
-        # one α afterwards
-        a1 = div_with_remainder(v1 << 2, d << 1, interval - α0) >> 1
-        a2 = div_with_remainder(v2 << 2, d << 1, interval - α0) >> 1
+        # Factor out α from a0 to make the degrees agree and then
+        # multiply it back afterwards
+        a1 = div_removable((a0 << 1) * z2, z1) >> 1
+        a2 = -div_removable((a0 << 1) * z3, z1) >> 1
     else
-        d = z1
-        v1 = mul_with_remainder(a0, z2, interval - α0)
-        v2 = -mul_with_remainder(a0, z3, interval - α0)
-
-        a1 = div_with_remainder(v1, d, interval - α0)
-        a2 = div_with_remainder(v2, d, interval - α0)
+        # Since a0 is computed to a higher degree we truncate it
+        a1 = truncate(a0; degree) * z2 / z1
+        a2 = -truncate(a0; degree) * z3 / z1
     end
 
-    return OffsetVector([a0, a1, a2], 0:2)
+    return OffsetVector([a0.p, a1.p, a2.p], 0:2)
 end
