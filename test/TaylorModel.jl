@@ -7,9 +7,17 @@
                 for r in Mag[1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
                     for n = 0:5
-                        M = TaylorModel(f, I, x0, degree = n)
+                        M1 = TaylorModel(f, I, x0, degree = n, enclosure_degree = -1)
+                        M2 = TaylorModel(f, I, x0, degree = n, enclosure_degree = 0)
+                        M3 = TaylorModel(f, I, x0, degree = n, enclosure_degree = 1)
+                        @test Arblib.overlaps(M1, M2)
+                        @test Arblib.overlaps(M1, M3)
+                        @test Arblib.overlaps(M2, M3)
                         for x in range(x0 - r, x0 + r, 100)
-                            @test Arblib.overlaps(f(x), M(x))
+                            fx = f(x)
+                            @test Arblib.overlaps(fx, M1(x))
+                            @test Arblib.overlaps(fx, M2(x))
+                            @test Arblib.overlaps(fx, M3(x))
                         end
                     end
                 end

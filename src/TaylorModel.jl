@@ -13,12 +13,17 @@ struct TaylorModel
 end
 
 """
-    TaylorModel(f, I::Arb, x0::Arb; degree::Integer)
+    TaylorModel(f, I::Arb, x0::Arb; degree::Integer, enclosure_degree::Integer = -1)
 
 Construct a Taylor model of `f` on the interval `I` centered at `x0`
 with the given degree.
+
+For wide values of `I` it computes a tighter enclosure of the
+remainder term using [`ArbExtras.enclosure_series`](@ref). The degree
+used for this can be set with `enclosure_degree`. Setting it to a
+negative number makes it compute it directly instead.
 """
-function TaylorModel(f, I::Arb, x0::Arb; degree::Integer)
+function TaylorModel(f, I::Arb, x0::Arb; degree::Integer, enclosure_degree::Integer = -1)
     contains(I, x0) || throw(
         ArgumentError("expected x0 to be contained in interval, got x0 = $x0, I = $I"),
     )
@@ -32,7 +37,26 @@ function TaylorModel(f, I::Arb, x0::Arb; degree::Integer)
         p = ArbSeries(p, degree = degree + 1)
 
         # Compute remainder term
-        p[degree+1] = f(ArbSeries((I, 1), degree = degree + 1))[degree+1]
+        if enclosure_degree < 0 || !iswide(I)
+            p[degree+1] = f(ArbSeries((I, 1), degree = degree + 1))[degree+1]
+        else
+            # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
+            g(x::Arb) =
+                f(ArbSeries((x, 1), degree = degree + 1))[degree+1] * factorial(degree + 1)
+            g(x::ArbSeries) =
+                if iszero(Arblib.degree(x))
+                    ArbSeries(g(x[0]))
+                else
+                    Arblib.derivative(
+                        f(ArbSeries(x, degree = Arblib.degree(x) + degree + 1)),
+                        degree + 1,
+                    )
+                end
+
+            p[degree+1] =
+                ArbExtras.enclosure_series(g, I, degree = enclosure_degree) /
+                factorial(degree + 1)
+        end
     end
 
     return TaylorModel(p, I, x0)
