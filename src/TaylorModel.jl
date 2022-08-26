@@ -92,7 +92,14 @@ Throw an error if `M1` and `M2` and not compatible according to
 **IMPROVE:** Add info about what failed.
 """
 checkcompatible(M1::TaylorModel, M2::TaylorModel) =
-    checkcompatible(Bool, M1, M2) || error("non-compatible Taylor models")
+    if !checkcompatible(Bool, M1, M2)
+        d1 = Arblib.degree(M1)
+        d2 = Arblib.degree(M2)
+        Arblib.degree(M1) == Arblib.degree(M2) || error(
+            "Taylor models with non-compatible degrees, degree(M1) = $d1, degree(M2) = $d2",
+        )
+        error("Taylor models with non-compatible intervals")
+    end
 
 function Arblib.overlaps(M1::TaylorModel, M2::TaylorModel)
     checkcompatible(M1, M2)
