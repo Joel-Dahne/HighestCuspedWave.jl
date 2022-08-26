@@ -116,10 +116,12 @@
                             Mf_plus_g = TaylorModel(x -> f(x) + g(x), I, x0, degree = n)
                             Mf_minus_g = TaylorModel(x -> f(x) - g(x), I, x0, degree = n)
                             Mf_mul_g = TaylorModel(x -> f(x) * g(x), I, x0, degree = n)
+                            Mneg_f = TaylorModel(x -> -f(x), I, x0, degree = n)
 
                             @test Arblib.overlaps(Mf + Mg, Mf_plus_g)
                             @test Arblib.overlaps(Mf - Mg, Mf_minus_g)
                             @test Arblib.overlaps(Mf * Mg, Mf_mul_g)
+                            @test Arblib.overlaps(-Mf, Mneg_f)
 
                             if !Arblib.contains_zero(Mg.p[0])
                                 Mf_div_g = TaylorModel(x -> f(x) / g(x), I, x0, degree = n)

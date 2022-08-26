@@ -225,6 +225,8 @@ Base.:-(c::Union{Arb,Integer}, M::TaylorModel) = TaylorModel(c - M.p, M.I, M.x0)
 Base.:*(c::Union{Arb,Integer}, M::TaylorModel) = M * c
 Base.:/(c::Union{Arb,Integer}, M::TaylorModel) = c * compose(inv, M)
 
+Base.:-(M::TaylorModel) = TaylorModel(-M.p, M.I, M.x0)
+
 
 function Base.:(<<)(M::TaylorModel, n::Integer)
     n <= Arblib.degree(M) || error("shift must be less than degree of TaylorModel")
