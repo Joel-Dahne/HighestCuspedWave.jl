@@ -10,6 +10,7 @@ using SpecialFunctions
 include("fmpz.jl")
 include("arb.jl")
 include("series.jl")
+include("TaylorModel.jl")
 include("special-functions/special-functions.jl")
 include("special-functions/polylog.jl")
 include("special-functions/clausenc.jl")
