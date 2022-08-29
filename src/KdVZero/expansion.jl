@@ -265,8 +265,8 @@ For `α0 != 0` we can evaluate `g(α, R)` directly using `ArbSeries`.
 For `α0 = 0` we have to handle the removable singularity from
 `gamma(2α) / gamma(α)`.
 """
-function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer = 2)
-    degree <= 2 || throw(ArgumentError("only supports degree up to 2"))
+function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer = 1)
+    degree <= 1 || throw(ArgumentError("only supports degree up to 1"))
 
     if iszero(α0)
         p00 = let π = Arb(π), γ = Arb(Irrational{:γ}())
@@ -316,7 +316,7 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
     else
         p00 = findp0(α0)
 
-        rhs = let α = ArbSeries((α0, 1); degree)
+        rhs = let α = ArbSeries((α0, 1), degree = degree + 1)
             2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
         end
 
@@ -361,13 +361,13 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
         # only to catch potential bugs.
 
         # Expansion without remainder term
-        p0_thin = ArbSeries((p00, p01, p02); degree)
+        p0_thin = ArbSeries((p00, p01, p02), degree = degree + 1)
 
-        lhs = let α = ArbSeries((α0, 1); degree)
+        lhs = let α = ArbSeries((α0, 1), degree = degree + 1)
             gamma(2α - p0_thin) * cospi((2α - p0_thin) / 2) /
             (gamma(α - p0_thin) * cospi((α - p0_thin) / 2))
         end
-        rhs = let α = ArbSeries((α0, 1); degree)
+        rhs = let α = ArbSeries((α0, 1), degree = degree + 1)
             2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
         end
 
@@ -404,7 +404,7 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
             end
 
         # Degree of zero we are finding
-        g_degree = ifelse(iszero(α0), degree + 2, degree + 1)
+        g_degree = ifelse(iszero(α0), degree + 3, degree + 2)
 
         # The function g dividing away (α - α0)^g_degree
         g_div_α(α::Union{Arb,ArbSeries}, R::Arb) =
@@ -476,9 +476,9 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
     end
 
     # Expansion with remainder
-    p0 = truncate(TaylorModel(ArbSeries((p00, p01, p02, R)), I, α0); degree = degree - 1)
+    p0 = truncate(TaylorModel(ArbSeries((p00, p01, p02, R)), I, α0); degree)
 
-    return p0.p
+    return p0
 end
 
 """
@@ -645,16 +645,9 @@ function expansion_as(
     T::Type{KdVZeroAnsatz},
     α0::Arb,
     I::Arb;
-    degree::Integer = 2,
+    degree::Integer = 1,
     p0 = expansion_p0(T, α0, I; degree),
 )
-    # TODO: Implement TaylorModel version of p0
-    p0 = TaylorModel(p0, I, α0)
-
-    # TODO: The degree has a different meaning for TaylorModels, we
-    # here switch to the TaylorModel version
-    degree = degree - 1
-
     a0 = if iszero(α0)
         # We compute a0 to a higher degree and then truncate, to
         # get a tighter enclosure
@@ -704,5 +697,5 @@ function expansion_as(
         a2 = -truncate(a0; degree) * z3 / z1
     end
 
-    return OffsetVector([a0.p, a1.p, a2.p], 0:2)
+    return OffsetVector([a0, a1, a2], 0:2)
 end
