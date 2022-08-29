@@ -29,7 +29,7 @@ function TaylorModel(f, I::Arb, x0::Arb; degree::Integer, enclosure_degree::Inte
     )
 
     if x0 == I
-        p = f(ArbSeries((x0, 1); degree))
+        p = f(ArbSeries((x0, 1), degree = degree + 1))
     else
         p = f(ArbSeries((x0, 1); degree))
 
@@ -186,9 +186,8 @@ function compose(f, M::TaylorModel)
     # Truncate to the specified degree
     # Note that the intermediate TaylorModel is not a valid Taylor
     # model, only after truncation is it valid.
-    return truncate(TaylorModel(ArbSeries(q), M.I, M.x0); degree)
+    return truncate(TaylorModel(ArbSeries(q, degree = degree + 1), M.I, M.x0); degree)
 end
-
 
 function Base.:+(M1::TaylorModel, M2::TaylorModel)
     checkcompatible(M1, M2)
@@ -209,7 +208,10 @@ function Base.:*(M1::TaylorModel, M2::TaylorModel)
     # Truncate to the specified degree
     # Note that the intermediate TaylorModel is not a valid Taylor
     # model, only after truncation is it valid.
-    return truncate(TaylorModel(ArbSeries(p), M1.I, M1.x0), degree = Arblib.degree(M1))
+    return truncate(
+        TaylorModel(ArbSeries(p, degree = Arblib.degree(M1) + 1), M1.I, M1.x0),
+        degree = Arblib.degree(M1),
+    )
 end
 
 Base.:/(M1::TaylorModel, M2::TaylorModel) = M1 * compose(inv, M2)

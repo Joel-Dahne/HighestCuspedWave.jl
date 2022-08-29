@@ -4,7 +4,7 @@
     @testset "Construction" begin
         for f in fs
             for x0 in Arb[-2, 0, 1]
-                for r in Mag[1e-10, 1e-5, 1e0]
+                for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
                     for n = 0:5
                         M1 = TaylorModel(f, I, x0, degree = n, enclosure_degree = -1)
@@ -13,11 +13,17 @@
                         @test Arblib.overlaps(M1, M2)
                         @test Arblib.overlaps(M1, M3)
                         @test Arblib.overlaps(M2, M3)
-                        for x in range(x0 - r, x0 + r, 100)
-                            fx = f(x)
-                            @test Arblib.overlaps(fx, M1(x))
-                            @test Arblib.overlaps(fx, M2(x))
-                            @test Arblib.overlaps(fx, M3(x))
+                        if iszero(r)
+                            @test Arblib.overlaps(f(x0), M1(x0))
+                            @test Arblib.overlaps(f(x0), M2(x0))
+                            @test Arblib.overlaps(f(x0), M3(x0))
+                        else
+                            for x in range(x0 - r, x0 + r, 100)
+                                fx = f(x)
+                                @test Arblib.overlaps(fx, M1(x))
+                                @test Arblib.overlaps(fx, M2(x))
+                                @test Arblib.overlaps(fx, M3(x))
+                            end
                         end
                     end
                 end
@@ -69,14 +75,18 @@
     @testset "truncate" begin
         for f in fs
             for x0 in Arb[-2, 0, 1]
-                for r in Mag[1e-10, 1e-5, 1e0]
+                for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
                     for n = 0:5
                         M = TaylorModel(f, I, x0, degree = n)
                         for m = 0:n
                             M_truncated = HighestCuspedWave.truncate(M, degree = m)
-                            for x in range(x0 - r, x0 + r, 10)
-                                @test Arblib.overlaps(M_truncated(x), M(x))
+                            if iszero(r)
+                                @test Arblib.overlaps(M_truncated(x0), M(x0))
+                            else
+                                for x in range(x0 - r, x0 + r, 10)
+                                    @test Arblib.overlaps(M_truncated(x), M(x))
+                                end
                             end
                         end
                     end
@@ -89,7 +99,7 @@
         for f in fs
             for g in fs
                 for x0 in Arb[-2, 0, 1]
-                    for r in Mag[1e-10, 1e-5, 1e0]
+                    for r in Mag[0, 1e-10, 1e-5, 1e0]
                         I = add_error(x0, r)
                         for n = 0:5
                             Mf = TaylorModel(f, I, x0, degree = n)
@@ -107,7 +117,7 @@
         for f in fs
             for g in fs
                 for x0 in Arb[-2, 0, 1]
-                    for r in Mag[1e-10, 1e-5, 1e0]
+                    for r in Mag[0, 1e-10, 1e-5, 1e0]
                         I = add_error(x0, r)
                         for n = 0:5
                             Mf = TaylorModel(f, I, x0, degree = n)
@@ -138,7 +148,7 @@
     @testset "Scalar arithmetic" begin
         for f in fs
             for x0 in Arb[-2, 0, 1]
-                for r in Mag[1e-10, 1e-5, 1e0]
+                for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
                     for n = 0:5
                         Mf = TaylorModel(f, I, x0, degree = n)
@@ -170,7 +180,7 @@
     @testset "Shift" begin
         for f in fs
             for x0 in Arb[-2, 0, 1]
-                for r in Mag[1e-10, 1e-5, 1e0]
+                for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
                     for n = 0:5
                         Mf = TaylorModel(f, I, x0, degree = n)
@@ -194,7 +204,7 @@
         for f in [sin, x -> exp(x) - 1, atan]
             for g in [sin, x -> exp(x) - 1, atan]
                 for x0 in Arb[-2, 0, 1]
-                    for r in Mag[1e-10, 1e-5, 1e0]
+                    for r in Mag[0, 1e-10, 1e-5, 1e0]
                         I = add_error(x0, r)
                         for order = 1:3
                             for n = 0:5
