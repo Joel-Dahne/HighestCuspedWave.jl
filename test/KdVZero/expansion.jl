@@ -16,17 +16,17 @@
 
         @testset "p0" begin
             for α in αs
-                @test Arblib.overlaps(u0.p0(α - α0), HighestCuspedWave.findp0(α))
+                @test Arblib.overlaps(u0.p0(α), HighestCuspedWave.findp0(α))
             end
         end
 
         @testset "as" begin
             for α in αs
-                @test Arblib.overlaps(u0.a[0](α - α0), HighestCuspedWave.finda0(α))
+                @test Arblib.overlaps(u0.a[0](α), HighestCuspedWave.finda0(α))
 
                 a1, a2 = HighestCuspedWave._finda1a2(α)
-                @test Arblib.overlaps(u0.a[1](α - α0), a1)
-                @test Arblib.overlaps(u0.a[2](α - α0), a2)
+                @test Arblib.overlaps(u0.a[1](α), a1)
+                @test Arblib.overlaps(u0.a[2](α), a2)
             end
         end
     end

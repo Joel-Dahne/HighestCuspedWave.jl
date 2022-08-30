@@ -49,8 +49,8 @@ each `α ∈ u0.α` and similarly for `p0`.
 struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
     α::Arb
     α0::Arb
-    a::OffsetVector{ArbSeries,Vector{ArbSeries}}
-    p0::ArbSeries
+    a::OffsetVector{TaylorModel,Vector{TaylorModel}}
+    p0::TaylorModel
     degree::Int
 
     function KdVZeroAnsatz(α::Arb, α0::Arb = Arb(0); degree::Integer = 2)
@@ -64,7 +64,7 @@ struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
         p0 = expansion_p0(KdVZeroAnsatz, α0, α, degree = degree - 1)
         a = expansion_as(KdVZeroAnsatz, α0, α, degree = degree - 1; p0)
 
-        u0 = new(α, α0, getfield.(a, :p), p0.p, degree)
+        u0 = new(α, α0, a, p0, degree)
 
         return u0
     end

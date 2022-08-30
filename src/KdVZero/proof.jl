@@ -15,8 +15,8 @@ function prove(
     # Construct corresponding Fractionalkdvansatz
     u02 = FractionalKdVAnsatz{Arb}(
         u0.α,
-        u0.p0(u0.α - u0.α0),
-        map(a -> a(u0.α - u0.α0), u0.a),
+        u0.p0(u0.α),
+        map(a -> a(u0.α), u0.a),
         Arb[],
         one(Arb),
         Set{NTuple{3,Int}}([(2, 0, 0)]),

@@ -23,7 +23,7 @@ function eval_expansion(
                 # Exponent is identically equal to zero
                 term = one(res)
             else
-                exponent = -(i + offset_i) * α + j * u0.p0 + (m + offset_m)
+                exponent = -(i + offset_i) * α + j * u0.p0.p + (m + offset_m)
                 term = abspow_with_remainder(x, exponent, u0.α - u0.α0)
             end
             res += mul_with_remainder(y, term, u0.α - u0.α0)
@@ -54,7 +54,7 @@ function eval_expansion(
     offset_m::Integer = 0,
 )
     # Enclosure of p0 on the interval u0.α
-    p0 = u0.p0(u0.α - u0.α0)
+    p0 = u0.p0(u0.α)
 
     res = zero(x)
 
@@ -206,7 +206,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             # multiply by α. This makes sure the degree after the
             # multiplication is correct.
             a0clausenterm =
-                mul_with_remainder(u0.a[0] << 1, clausen_term, u0.α - u0.α0) >> 1
+                mul_with_remainder(u0.a[0].p << 1, clausen_term, u0.α - u0.α0) >> 1
 
             # Expansion of α * zeta(1 - α)
             zetamulα = let
@@ -255,7 +255,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             @assert contains(zetamulα[0], -1)
             zetamulα[0] = -1
 
-            a0zeta_term = mul_with_remainder(u0.a[0] << 1, zetamulα, u0.α - u0.α0)
+            a0zeta_term = mul_with_remainder(u0.a[0].p << 1, zetamulα, u0.α - u0.α0)
 
             a0clausenterm - a0zeta_term
         end
@@ -267,9 +267,9 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         # If u0.α0 is non-zero we handle the case j = 0 here
         j_start = ifelse(iszero(u0.α0), 1, 0)
         for j = j_start:2
-            term = clausencmzeta_with_remainder(x, 1 - α + j * u0.p0, u0.α - u0.α0)
+            term = clausencmzeta_with_remainder(x, 1 - α + j * u0.p0.p, u0.α - u0.α0)
 
-            res += mul_with_remainder(u0.a[j], term, u0.α - u0.α0)
+            res += mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
         end
     end
 
@@ -359,7 +359,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     else
         a0singular_term = let
             mul_with_remainder(
-                u0.a[0],
+                u0.a[0].p,
                 compose_with_remainder(α -> gamma(α) * cospi(α / 2), α, u0.α - u0.α0),
                 u0.α - u0.α0,
             )
@@ -375,7 +375,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
             compose_with_remainder(α -> zeta(1 - α - 2m), α, u0.α - u0.α0; u0.degree) /
             factorial(2m)
 
-        expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[0], term, u0.α - u0.α0)
+        expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[0].p, term, u0.α - u0.α0)
     end
 
     # Add remainder term (in x)
@@ -384,23 +384,23 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
         α,
         u0.α - u0.α0,
     )
-    expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[0], remainder_term, u0.α - u0.α0)
+    expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[0].p, remainder_term, u0.α - u0.α0)
 
     # Handle tail terms
     for j = 1:2
-        s = 1 - α + j * u0.p0
+        s = 1 - α + j * u0.p0.p
 
         # Compute the coefficient for the singular term
         singular_term =
             compose_with_remainder(s -> gamma(1 - s) * sinpi(s / 2), s, u0.α - u0.α0)
-        expansion[(1, j, 0)] = mul_with_remainder(u0.a[j], singular_term, u0.α - u0.α0)
+        expansion[(1, j, 0)] = mul_with_remainder(u0.a[j].p, singular_term, u0.α - u0.α0)
 
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
             term =
                 (-1)^m * compose_with_remainder(s -> zeta(s - 2m), s, u0.α - u0.α0) /
                 factorial(2m)
-            expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[j], term, u0.α - u0.α0)
+            expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
         end
 
         # Add remainder term
@@ -409,7 +409,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
             s,
             u0.α - u0.α0,
         )
-        expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[j], remainder_term, u0.α - u0.α0)
+        expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[j].p, remainder_term, u0.α - u0.α0)
     end
 
     return expansion
@@ -546,7 +546,7 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                 # multiply by α. This makes sure the degree after the
                 # multiplication is correct.
                 a0clausenterm =
-                    mul_with_remainder(u0.a[0] << 1, clausen_term, u0.α - u0.α) >> 1
+                    mul_with_remainder(u0.a[0].p << 1, clausen_term, u0.α - u0.α) >> 1
 
                 # Expansion of α * zeta(1 - 2α)
                 zetamulα = let
@@ -595,7 +595,7 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                 @assert contains(zetamulα[0], Arb(-1 // 2))
                 zetamulα[0] = -1 // 2
 
-                a0zeta_term = mul_with_remainder(u0.a[0] << 1, zetamulα, u0.α - u0.α)
+                a0zeta_term = mul_with_remainder(u0.a[0].p << 1, zetamulα, u0.α - u0.α)
 
                 -(a0clausenterm - a0zeta_term)
             end
@@ -607,9 +607,9 @@ function H(u0::KdVZeroAnsatz, ::Ball)
             # If u0.α0 is non-zero we handle the case j = 0 here
             j_start = ifelse(iszero(u0.α0), 1, 0)
             for j = j_start:2
-                term = clausencmzeta_with_remainder(x, 1 - 2α + j * u0.p0, u0.α - u0.α0)
+                term = clausencmzeta_with_remainder(x, 1 - 2α + j * u0.p0.p, u0.α - u0.α0)
 
-                res -= mul_with_remainder(u0.a[j], term, u0.α - u0.α0)
+                res -= mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
             end
         end
 
@@ -707,7 +707,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
         else
             a0singular_term = let
                 mul_with_remainder(
-                    u0.a[0],
+                    u0.a[0].p,
                     compose_with_remainder(α -> gamma(2α) * cospi(α), α, u0.α - u0.α0),
                     u0.α - u0.α0,
                 )
@@ -725,7 +725,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
                     u0.degree,
                 ) / factorial(2m)
 
-            expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[0], term, u0.α - u0.α)
+            expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[0].p, term, u0.α - u0.α)
         end
 
         # Add remainder term
@@ -735,11 +735,11 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
             u0.α - u0.α0,
         )
         expansion[(0, 0, 2M)] -=
-            mul_with_remainder(u0.a[0], remainder_term, u0.α - u0.α0)
+            mul_with_remainder(u0.a[0].p, remainder_term, u0.α - u0.α0)
 
         # Handle tail terms
         for j = 1:2
-            s = 1 - 2α + j * u0.p0
+            s = 1 - 2α + j * u0.p0.p
 
             # Compute the coefficient for the singular term
             singular_term = compose_with_remainder(
@@ -748,14 +748,14 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
                 u0.α - u0.α0,
             )
             expansion[(2, j, 0)] =
-                -mul_with_remainder(u0.a[j], singular_term, u0.α - u0.α0)
+                -mul_with_remainder(u0.a[j].p, singular_term, u0.α - u0.α0)
 
             # Compute the coefficients for the analytic terms
             for m = 1:M-1
                 term =
                     (-1)^m * compose_with_remainder(s -> zeta(s - 2m), s, u0.α - u0.α0) /
                     factorial(2m)
-                expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[j], term, u0.α - u0.α0)
+                expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
             end
 
             # Add remainder term
@@ -765,7 +765,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
                 u0.α - u0.α0,
             )
             expansion[(0, 0, 2M)] -=
-                mul_with_remainder(u0.a[j], remainder_term, u0.α - u0.α0)
+                mul_with_remainder(u0.a[j].p, remainder_term, u0.α - u0.α0)
         end
 
         return expansion
