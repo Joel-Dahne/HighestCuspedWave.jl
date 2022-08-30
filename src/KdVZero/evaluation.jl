@@ -74,9 +74,7 @@ end
 """
     (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 
-Return an expansion of `u0(x)` in `α` around `u0.α0`. The last term is
-a remainder term which ensures that evaluating the expansion gives an
-enclosure of `u0` for all `α ∈ u0.α`.
+Return a Taylor model of `u0(x)`
 
 The value is given by
 ```
@@ -150,130 +148,134 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
     if iszero(u0.α0)
         # Handle the term for j = 0 manually
         res = let
-            # Compute this to one degree higher since we divide it by α,
-            # reducing the degree by one.
-            clausen_term =
-                let π = Arb(π), α = ArbSeries((u0.α0, 1), degree = u0.degree + 1)
-                    if iswide(x) && 0 < x < π
-                        z = ArbSeries(
-                            union.(
-                                Arblib.coeffs(
-                                    zeta(α, lbound(Arb, x) / 2π) +
-                                    zeta(α, 1 - lbound(Arb, x) / 2π),
+            # Compute clausenc(x, 1 - α). We compute this to one
+            # degree higher since we divide it by α, reducing the
+            # degree by one.
+
+            # Taylor model of
+            # inv(2π)^α * cospi(α / 2) * (zeta(α, x / 2π) + zeta(α, 1 - x / 2π)) / α
+            clausen_term_part1 = let π = Arb(π)
+                clausen_term_part1_expansion =
+                    let α = ArbSeries((u0.α0, 1), degree = u0.degree)
+                        if iswide(x) && 0 < x < π
+                            z = ArbSeries(
+                                union.(
+                                    Arblib.coeffs(
+                                        zeta(α, lbound(Arb, x) / 2π) +
+                                        zeta(α, 1 - lbound(Arb, x) / 2π),
+                                    ),
+                                    Arblib.coeffs(
+                                        zeta(α, ubound(Arb, x) / 2π) +
+                                        zeta(α, 1 - ubound(Arb, x) / 2π),
+                                    ),
                                 ),
-                                Arblib.coeffs(
-                                    zeta(α, ubound(Arb, x) / 2π) +
-                                    zeta(α, 1 - ubound(Arb, x) / 2π),
-                                ),
-                            ),
-                        )
-                    else
-                        z = zeta(α, x / 2π) + zeta(α, 1 - x / 2π)
+                            )
+                        else
+                            z = zeta(α, x / 2π) + zeta(α, 1 - x / 2π)
+                        end
+                        inv(2π)^α * cospi(α / 2) * z
                     end
-                    inv(2π)^α * cospi(α / 2) * z
-                end
 
-            # Compute remainder term
-            clausen_term_remainder =
-                let π = Arb(π), α = ArbSeries((u0.α, 1), degree = u0.degree + 1)
-                    (inv(2π)^α*cospi(α / 2)*(zeta(α, x / 2π)+zeta(α, 1 - x / 2π)))[u0.degree+1]
-                end
-            clausen_term[u0.degree+1] = clausen_term_remainder
+                # The constant term is exactly zero
+                @assert Arblib.contains_zero(clausen_term_part1_expansion[0])
+                clausen_term_part1_expansion[0] = 0
 
-            # The constant term is exactly zero
-            @assert Arblib.contains_zero(clausen_term[0])
-            clausen_term[0] = 0
+                clausen_term_part1_remainder =
+                    let α = ArbSeries((u0.α, 1), degree = u0.degree + 1)
+                        (inv(2π)^α*cospi(α / 2)*(zeta(α, x / 2π)+zeta(α, 1 - x / 2π)))[u0.degree+1]
+                    end
 
-            # Divide clausen term by α
-            clausen_term = clausen_term << 1
+                # Extend expansion to include remainder term
+                clausen_term_part1_expansion =
+                    ArbSeries(clausen_term_part1_expansion, degree = u0.degree + 1)
+                clausen_term_part1_expansion[u0.degree+1] = clausen_term_part1_remainder
 
-            # Expansion of α * gamma(α) = 1 / (rgamma(α) / α)
-            gammamulα = compose_with_remainder(
-                inv,
-                taylor_with_remainder(
-                    rgamma,
-                    u0.α0,
-                    u0.α - u0.α0,
-                    degree = u0.degree + 1,
-                    enclosure_degree = 1,
-                ) << 1,
-                u0.α - u0.α0,
-            )
+                # Construct Taylor model and divide by α
+                TaylorModel(clausen_term_part1_expansion, u0.α, u0.α0) << 1
+            end
 
-            clausen_term = mul_with_remainder(clausen_term, gammamulα, u0.α - u0.α0)
+            # Taylor model of α * gamma(α) = 1 / (rgamma(α) / α)
+            clausen_term_part2 =
+                1 / (
+                    TaylorModel(
+                        rgamma,
+                        u0.α,
+                        u0.α0,
+                        degree = u0.degree,
+                        enclosure_degree = 1,
+                    ) << 1
+                )
 
+            # Taylor model of clausenc(x, 1 - α)
+            clausen_term = clausen_term_part1 * clausen_term_part2
+
+            # Taylor model of a[0] * clausenc(x, 1 - α)
             # Divide a[0] by α, perform the multiplication and then
             # multiply by α. This makes sure the degree after the
             # multiplication is correct.
-            a0clausenterm =
-                mul_with_remainder(u0.a[0].p << 1, clausen_term, u0.α - u0.α0) >> 1
+            a0_clausen_term = ((u0.a[0] << 1) * clausen_term) >> 1
 
-            # Expansion of α * zeta(1 - α)
+            # Taylor model of α * zeta(1 - α)
+            # We first compute it to a slightly higher degree and then
+            # truncate
             zetamulα = let
                 # zeta(α)
                 # The Arb implementation of zeta for ArbSeries doesn't
                 # work well for intervals around zero which are not
-                # symmetric, we therefore artificially make the
+                # symmetric. We therefore artificially make the
                 # interval symmetric by widening it. It doesn't seem
                 # to affect the computed bounds much.
-                f1 = taylor_with_remainder(
-                    zeta,
+                f1 = TaylorModel(
+                    TaylorModel(zeta, union(u0.α, -u0.α), u0.α0, degree = u0.degree + 2).p,
+                    u0.α,
                     u0.α0,
-                    union(u0.α - u0.α0, -(u0.α - u0.α0)),
-                    degree = u0.degree + 3,
                 )
 
                 # sinpi(α / 2) / α
                 f2 =
-                    taylor_with_remainder(
-                        α -> sinpi(α / 2),
-                        u0.α0,
-                        u0.α - u0.α0,
-                        degree = u0.degree + 4,
-                    ) << 1
+                    TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = u0.degree + 3) << 1
 
                 # 2^α * π^(α - 1) * gamma(1 - α)
-                f3 = taylor_with_remainder(
+                f3 = TaylorModel(
                     α -> 2^α * Arb(π)^(α - 1) * gamma(1 - α),
+                    u0.α,
                     u0.α0,
-                    u0.α - u0.α0,
-                    degree = u0.degree + 3,
+                    degree = u0.degree + 2,
                 )
 
-                truncate_with_remainder(
-                    div_with_remainder(
-                        div_with_remainder(f1, f2, u0.α - u0.α0),
-                        f3,
-                        u0.α - u0.α0,
-                    ),
-                    u0.α - u0.α0,
-                    degree = u0.degree,
-                )
+                truncate(f1 / (f2 * f3), degree = u0.degree - 1)
             end
 
             # The constant term is exactly -1
-            @assert contains(zetamulα[0], -1)
-            zetamulα[0] = -1
+            @assert contains(zetamulα.p[0], -1)
+            zetamulα.p[0] = -1
 
-            a0zeta_term = mul_with_remainder(u0.a[0].p << 1, zetamulα, u0.α - u0.α0)
+            # Taylor model of a[0] * zeta(1 - α)
+            a0zeta_term = (u0.a[0] << 1) * zetamulα
 
-            a0clausenterm - a0zeta_term
+            truncate(a0_clausen_term, degree = u0.degree - 1) - a0zeta_term
         end
     else
-        res = ArbSeries(; u0.degree)
+        res = TaylorModel(ArbSeries(; u0.degree), u0.α, u0.α0)
     end
 
-    let α = ArbSeries((u0.α0, 1); u0.degree)
-        # If u0.α0 is non-zero we handle the case j = 0 here
-        j_start = ifelse(iszero(u0.α0), 1, 0)
-        for j = j_start:2
-            term = clausencmzeta_with_remainder(x, 1 - α + j * u0.p0.p, u0.α - u0.α0)
+    # Taylor model of α
+    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
 
-            res += mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
+    # If u0.α0 is non-zero we handle the case j = 0 here
+    j_start = ifelse(iszero(u0.α0), 1, 0)
+    for j = j_start:2
+        term = clausencmzeta(x, 1 - Mα + j * u0.p0)
+
+        if j == 0
+            # u0.a[0] has a higher degree to we truncate it first
+            res += truncate(u0.a[j], degree = u0.degree - 1) * term
+        else
+            res += u0.a[j] * term
         end
     end
 
-    return res
+    return res.p
 end
 
 """
@@ -418,10 +420,8 @@ end
 """
     H(u0::KdVZeroAnsatz, ::Ball)
 
-Return a function such that `H(u0)(x)` computes an expansion in `α`
-around `u0.α0`. The last term is a remainder term which ensures that
-evaluating the expansion gives an enclosure of `H(u0)` for all `α ∈
-u0.α`.
+Return a function such that `H(u0)(x)` computes a Taylor model of
+`H(u0)`.
 
 The value is given by
 ```
@@ -492,63 +492,75 @@ function H(u0::KdVZeroAnsatz, ::Ball)
         # The main term we handle manually
         if iszero(u0.α0)
             res = let
-                clausen_term =
-                    let π = Arb(π), α = ArbSeries((u0.α0, 1), degree = u0.degree + 1)
-                        if iswide(x) && 0 < x < π
-                            z = ArbSeries(
-                                union.(
-                                    Arblib.coeffs(
-                                        zeta(2α, lbound(Arb, x) / 2π) +
-                                        zeta(2α, 1 - lbound(Arb, x) / 2π),
+                # Taylor model of
+                # inv(2π)^2α * cospi(α) * (zeta(2α, x / 2π) + zeta(2α, 1 - x / 2π)) / α
+                clausen_term_part1 = let π = Arb(π)
+                    clausen_term_part1_expansion =
+                        let α = ArbSeries((u0.α0, 1), degree = u0.degree + 1)
+                            if iswide(x) && 0 < x < π
+                                z = ArbSeries(
+                                    union.(
+                                        Arblib.coeffs(
+                                            zeta(2α, lbound(Arb, x) / 2π) +
+                                            zeta(2α, 1 - lbound(Arb, x) / 2π),
+                                        ),
+                                        Arblib.coeffs(
+                                            zeta(2α, ubound(Arb, x) / 2π) +
+                                            zeta(2α, 1 - ubound(Arb, x) / 2π),
+                                        ),
                                     ),
-                                    Arblib.coeffs(
-                                        zeta(2α, ubound(Arb, x) / 2π) +
-                                        zeta(2α, 1 - ubound(Arb, x) / 2π),
-                                    ),
-                                ),
-                            )
-                        else
-                            z = zeta(2α, x / 2π) + zeta(2α, 1 - x / 2π)
+                                )
+                            else
+                                z = zeta(2α, x / 2π) + zeta(2α, 1 - x / 2π)
+                            end
+                            inv(2π)^2α * cospi(α) * z
                         end
-                        inv(2π)^2α * cospi(α) * z
-                    end
 
-                # Compute remainder term
-                clausen_term_remainder =
-                    let π = Arb(π), α = ArbSeries((u0.α, 1), degree = u0.degree + 1)
-                        (inv(2π)^2α*cospi(α)*(zeta(2α, x / 2π)+zeta(2α, 1 - x / 2π)))[u0.degree+1]
-                    end
-                clausen_term[u0.degree+1] = clausen_term_remainder
+                    # The constant term is exactly zero
+                    @assert Arblib.contains_zero(clausen_term_part1_expansion[0])
+                    clausen_term_part1_expansion[0] = 0
 
-                # The constant term is exactly zero
-                @assert Arblib.contains_zero(clausen_term[0])
-                clausen_term[0] = 0
+                    clausen_term_part1_remainder =
+                        let α = ArbSeries((u0.α, 1), degree = u0.degree + 1)
+                            (inv(2π)^2α*cospi(α)*(zeta(2α, x / 2π)+zeta(2α, 1 - x / 2π)))[u0.degree+1]
+                        end
 
-                # Divide clausen term by α
-                clausen_term = clausen_term << 1
-
-                # Expansion of α * gamma(2α)
-                gammamulα = compose_with_remainder(
-                    inv,
-                    taylor_with_remainder(
-                        α -> rgamma(2α),
-                        u0.α0,
-                        u0.α - u0.α0,
+                    # Extend expansion to include remainder term
+                    clausen_term_part1_expansion = ArbSeries(
+                        clausen_term_part1_expansion,
                         degree = u0.degree + 1,
-                        enclosure_degree = 1,
-                    ) << 1,
-                    u0.α - u0.α0,
-                )
+                    )
+                    clausen_term_part1_expansion[u0.degree+1] =
+                        clausen_term_part1_remainder
 
-                clausen_term = mul_with_remainder(clausen_term, gammamulα, u0.α - u0.α0)
+                    # Construct Taylor model and divide by α
+                    TaylorModel(clausen_term_part1_expansion, u0.α, u0.α0) << 1
+                end
 
+                # # Taylor model of α * gamma(2α) =  = 1 / (rgamma(2α) / α)
+                clausen_term_part2 =
+                    1 / (
+                        TaylorModel(
+                            α -> rgamma(2α),
+                            u0.α,
+                            u0.α0,
+                            degree = u0.degree,
+                            enclosure_degree = 1,
+                        ) << 1
+                    )
+
+                # Taylor model of clausenc(x, 1 - α)
+                clausen_term = clausen_term_part1 * clausen_term_part2
+
+                # Taylor model of a[0] * clausenc(x, 1 - α)
                 # Divide a[0] by α, perform the multiplication and then
                 # multiply by α. This makes sure the degree after the
                 # multiplication is correct.
-                a0clausenterm =
-                    mul_with_remainder(u0.a[0].p << 1, clausen_term, u0.α - u0.α) >> 1
+                a0_clausen_term = ((u0.a[0] << 1) * clausen_term) >> 1
 
-                # Expansion of α * zeta(1 - 2α)
+                # Taylor model of α * zeta(1 - 2α)
+                # We first compute it to a slightly higher degree and then
+                # truncate
                 zetamulα = let
                     # zeta(2α)
                     # The Arb implementation of zeta for ArbSeries doesn't
@@ -556,64 +568,59 @@ function H(u0::KdVZeroAnsatz, ::Ball)
                     # symmetric, we therefore artificially make the
                     # interval symmetric by widening it. It doesn't seem
                     # to affect the computed bounds much.
-                    f1 = taylor_with_remainder(
-                        α -> zeta(2α),
+                    f1 = TaylorModel(
+                        TaylorModel(
+                            α -> zeta(2α),
+                            union(u0.α, -u0.α),
+                            u0.α0,
+                            degree = u0.degree + 2,
+                        ).p,
+                        u0.α,
                         u0.α0,
-                        union(u0.α - u0.α0, -(u0.α - u0.α0)),
-                        degree = u0.degree + 3,
                     )
 
                     # sinpi(α) / α
-                    f2 =
-                        taylor_with_remainder(
-                            sinpi,
-                            u0.α0,
-                            u0.α - u0.α0,
-                            degree = u0.degree + 4,
-                        ) << 1
+                    f2 = TaylorModel(sinpi, u0.α, u0.α0, degree = u0.degree + 3) << 1
 
                     # 2^2α * π^(2α - 1) * gamma(1 - 2α)
-                    f3 = taylor_with_remainder(
+                    f3 = TaylorModel(
                         α -> 2^2α * Arb(π)^(2α - 1) * gamma(1 - 2α),
+                        u0.α,
                         u0.α0,
-                        u0.α - u0.α0,
-                        degree = u0.degree + 3,
+                        degree = u0.degree + 2,
                     )
 
-                    truncate_with_remainder(
-                        div_with_remainder(
-                            div_with_remainder(f1, f2, u0.α - u0.α0),
-                            f3,
-                            u0.α - u0.α0,
-                        ),
-                        u0.α - u0.α0,
-                        degree = u0.degree,
-                    )
+                    truncate(f1 / (f2 * f3), degree = u0.degree - 1)
                 end
 
                 # The constant term is exactly -1 / 2
-                @assert contains(zetamulα[0], Arb(-1 // 2))
-                zetamulα[0] = -1 // 2
+                @assert contains(zetamulα.p[0], Arb(-1 // 2))
+                zetamulα.p[0] = -1 // 2
 
-                a0zeta_term = mul_with_remainder(u0.a[0].p << 1, zetamulα, u0.α - u0.α)
+                # Taylor model of a[0] * zeta(1 - α)
+                a0zeta_term = (u0.a[0] << 1) * zetamulα
 
-                -(a0clausenterm - a0zeta_term)
+                -(truncate(a0_clausen_term, degree = u0.degree - 1) - a0zeta_term)
             end
         else
-            res = ArbSeries(; u0.degree)
+            res = TaylorModel(ArbSeries(; u0.degree), u0.α, u0.α0)
         end
 
-        let α = ArbSeries((u0.α0, 1); u0.degree)
-            # If u0.α0 is non-zero we handle the case j = 0 here
-            j_start = ifelse(iszero(u0.α0), 1, 0)
-            for j = j_start:2
-                term = clausencmzeta_with_remainder(x, 1 - 2α + j * u0.p0.p, u0.α - u0.α0)
+        Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
 
-                res -= mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
+        # If u0.α0 is non-zero we handle the case j = 0 here
+        j_start = ifelse(iszero(u0.α0), 1, 0)
+        for j = j_start:2
+            term = clausencmzeta(x, 1 - 2Mα + j * u0.p0)
+
+            if j == 0
+                res -= truncate(u0.a[j], degree = u0.degree - 1) * term
+            else
+                res -= u0.a[j] * term
             end
         end
 
-        return res
+        return res.p
     end
 end
 
