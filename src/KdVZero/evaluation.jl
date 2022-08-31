@@ -275,7 +275,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
         end
     end
 
-    return res.p
+    return res
 end
 
 """
@@ -595,7 +595,7 @@ function H(u0::KdVZeroAnsatz, ::Ball)
             end
         end
 
-        return res.p
+        return res
     end
 end
 
@@ -713,8 +713,7 @@ function D(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
     return x -> begin
         p = u0(x, evaltype)
-        p2 = mul_with_remainder(p, p, u0.α - u0.α0)
-        return p2 / 2 + f(x)
+        return p * p / 2 + f(x)
     end
 end
 
@@ -788,7 +787,7 @@ end
 """
     F0(u0::KdVZeroAnsatz, ::Ball)
 
-Return a function such that `F0(u0)(x)` computes an expansion in `α`
+Return a function such that `F0(u0)(x)` computes a Taylor model in `α`
 around `u0.α0` of
 ```
 (u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
@@ -841,19 +840,17 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
         p = u0(x, evaltype)
         q = f(x)
 
-        p2 = mul_with_remainder(p, p, u0.α - u0.α0)
-
-        res = div_with_remainder(p2 / 2 + q, u0.w(x) * p, u0.α - u0.α0)
+        res = (p * p / 2 + q) / (u0.w(x) * p)
 
         if iszero(u0.α0)
             # This ensures that the constant term is zero
-            @assert isone(Arblib.ref(p, 0))
-            @assert Arblib.ref(q, 0) == Arb(-1 // 2)
-            @assert iszero(Arblib.ref(res, 0)) || !isfinite(Arblib.ref(res, 0))
+            @assert isone(Arblib.ref(p.p, 0))
+            @assert Arblib.ref(q.p, 0) == Arb(-1 // 2)
+            @assert iszero(Arblib.ref(res.p, 0)) || !isfinite(Arblib.ref(res.p, 0))
 
             # The linear term should be zero
-            @assert Arblib.contains_zero(Arblib.ref(res, 1))
-            res[1] = 0
+            @assert Arblib.contains_zero(Arblib.ref(res.p, 1))
+            res.p[1] = 0
         end
 
         return res

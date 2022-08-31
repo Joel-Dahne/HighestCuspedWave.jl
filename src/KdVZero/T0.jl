@@ -504,7 +504,7 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         if skip_div_u0
             return I_mul_x_div_pi
         else
-            return div_with_remainder(I_mul_x_div_pi, u0(x), u0.α - u0.α0)
+            return div_with_remainder(I_mul_x_div_pi, u0(x).p, u0.α - u0.α0)
         end
     end
 end

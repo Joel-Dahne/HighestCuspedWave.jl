@@ -51,7 +51,7 @@ function delta0_bound(
         # tolerance when evaluated at ϵ
         ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
             y = f(ϵ)[2]
-            z = g(ϵ)[2]
+            z = g(ϵ).p[2]
 
             # Reduce ϵ until the value we get either satisfies the
             # required tolerance or is better than the non-asymptotic
@@ -64,7 +64,7 @@ function delta0_bound(
                 end
 
                 y = f(ϵ)[2]
-                z = g(ϵ)[2]
+                z = g(ϵ).p[2]
                 ϵ > 0.1 ||
                     error("could not determine working ϵ, last tried value was $ϵ")
             end
@@ -84,7 +84,7 @@ function delta0_bound(
         # Function for computing p₂(x) for x ∈ [ϵ, π]
         F0_nonasymptotic = F0(u0, Ball())
         g = x -> let
-            res = F0_nonasymptotic(x)
+            res = F0_nonasymptotic(x).p
             @assert Arblib.valuation(res) == 2 # Check that p[0] and p[1] are zero
             truncate_with_remainder(res, u0.α - u0.α0, degree = 2)[2]
         end
@@ -138,7 +138,7 @@ function delta0_bound(
         # the non-asymptotic version.
         ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
             y = f(ϵ)(u0.α - u0.α0)
-            z = g(ϵ)(u0.α - u0.α0)
+            z = g(ϵ)(u0.α)
 
             # Reduce ϵ until the value we get either satisfies the
             # required tolerance or is better than the non-asymptotic
@@ -151,7 +151,7 @@ function delta0_bound(
                 end
 
                 y = f(ϵ)(u0.α - u0.α0)
-                z = g(ϵ)(u0.α - u0.α0)
+                z = g(ϵ)(u0.α)
                 ϵ > 0.1 ||
                     error("could not determine working ϵ, last tried value was $ϵ")
             end
@@ -165,7 +165,7 @@ function delta0_bound(
 
         # Function for computing F0(u0) for x ∈ [ϵ, π]
         F0_nonasymptotic = F0(u0, Ball())
-        g = x -> F0_nonasymptotic(x)(u0.α - u0.α0)
+        g = x -> F0_nonasymptotic(x)(u0.α)
 
         # Compute an enclosure on [0, ϵ]
         res_asymptotic = ArbExtras.maximum_enclosure(
