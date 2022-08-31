@@ -308,113 +308,88 @@ where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
 similarly to how it is done in [`expansion_as`](@ref).
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
-    α = ArbSeries((u0.α0, 1); u0.degree)
+    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
 
-    expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
+    expansion = OrderedDict{NTuple{3,Int},TaylorModel}()
 
     # Initiate even powers of x
     for m = 1:M
-        expansion[(0, 0, 2m)] = ArbSeries(; u0.degree)
+        expansion[(0, 0, 2m)] = TaylorModel(ArbSeries(; u0.degree), u0.α, u0.α0)
     end
 
     # Handle main term
     # Compute the coefficient for the singular term
     if iszero(u0.α0)
+        # We compute a0 to a higher degree and then truncate, to
+        # get a tighter enclosure
         a0singular_term = let
-            # We compute a0 to a higher degree and then truncate, to
-            # get a tighter enclosure
-
-            # rgamma(α) / rgamma(2α) = (rgamma(α) / α) / (rgamma(2α) / α)
-            g = div_with_remainder(
-                taylor_with_remainder(
+            # g = rgamma(α) / rgamma(2α)
+            g = div_removable(
+                TaylorModel(
                     rgamma,
+                    u0.α,
                     u0.α0,
-                    u0.α - u0.α0,
-                    degree = Arblib.degree(α) + 4,
-                ) << 1,
-                taylor_with_remainder(
-                    α -> rgamma(2α),
-                    u0.α0,
-                    u0.α - u0.α0,
-                    degree = Arblib.degree(α) + 4,
-                ) << 1,
-                u0.α - u0.α0,
-            )
-
-            a0singular_term = mul_with_remainder(
-                taylor_with_remainder(
-                    α -> 2cospi(α) / cospi(α / 2),
-                    u0.α0,
-                    u0.α - u0.α0,
-                    degree = Arblib.degree(α) + 3,
+                    degree = u0.degree + 3,
+                    enclosure_degree = 1,
                 ),
-                g,
-                u0.α - u0.α0,
+                TaylorModel(
+                    α -> rgamma(2α),
+                    u0.α,
+                    u0.α0,
+                    degree = u0.degree + 3,
+                    enclosure_degree = 1,
+                ),
             )
 
-            truncate_with_remainder(
-                a0singular_term,
-                u0.α - u0.α0,
-                degree = Arblib.degree(α),
-            )
+            a0singular_term =
+                g * TaylorModel(
+                    α -> 2cospi(α) / cospi(α / 2),
+                    u0.α,
+                    u0.α0,
+                    degree = u0.degree + 2,
+                )
+
+            truncate(a0singular_term, degree = u0.degree - 1)
         end
     else
-        a0singular_term = let
-            mul_with_remainder(
-                u0.a[0].p,
-                compose_with_remainder(α -> gamma(α) * cospi(α / 2), α, u0.α - u0.α0),
-                u0.α - u0.α0,
-            )
-        end
+        a0singular_term =
+            truncate(u0.a[0], degree = u0.degree - 1) *
+            compose(α -> gamma(α) * cospi(α / 2), Mα)
     end
 
     expansion[(1, 0, 0)] = a0singular_term
 
     # Compute the coefficients for the analytic terms
     for m = 1:M-1
-        term =
-            (-1)^m *
-            compose_with_remainder(α -> zeta(1 - α - 2m), α, u0.α - u0.α0; u0.degree) /
-            factorial(2m)
+        term = (-1)^m * compose(α -> zeta(1 - α - 2m), Mα) / factorial(2m)
 
-        expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[0].p, term, u0.α - u0.α0)
+        expansion[(0, 0, 2m)] += truncate(u0.a[0], degree = u0.degree - 1) * term
     end
 
     # Add remainder term (in x)
-    remainder_term = compose_with_remainder(
-        α -> clausenc_expansion_remainder(x, 1 - α, M),
-        α,
-        u0.α - u0.α0,
-    )
-    expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[0].p, remainder_term, u0.α - u0.α0)
+    remainder_term = compose(α -> clausenc_expansion_remainder(x, 1 - α, M), Mα)
+    expansion[(0, 0, 2M)] += truncate(u0.a[0], degree = u0.degree - 1) * remainder_term
 
     # Handle tail terms
     for j = 1:2
-        s = 1 - α + j * u0.p0.p
+        s = 1 - Mα + j * u0.p0
 
         # Compute the coefficient for the singular term
-        singular_term =
-            compose_with_remainder(s -> gamma(1 - s) * sinpi(s / 2), s, u0.α - u0.α0)
-        expansion[(1, j, 0)] = mul_with_remainder(u0.a[j].p, singular_term, u0.α - u0.α0)
+        singular_term = compose(s -> gamma(1 - s) * sinpi(s / 2), s)
+        expansion[(1, j, 0)] = u0.a[j] * singular_term
 
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
-            term =
-                (-1)^m * compose_with_remainder(s -> zeta(s - 2m), s, u0.α - u0.α0) /
-                factorial(2m)
-            expansion[(0, 0, 2m)] += mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
+            term = (-1)^m * compose(s -> zeta(s - 2m), s) / factorial(2m)
+            expansion[(0, 0, 2m)] += u0.a[j] * term
         end
 
         # Add remainder term
-        remainder_term = compose_with_remainder(
-            s -> clausenc_expansion_remainder(x, s, M),
-            s,
-            u0.α - u0.α0,
-        )
-        expansion[(0, 0, 2M)] += mul_with_remainder(u0.a[j].p, remainder_term, u0.α - u0.α0)
+        Mremainder_term = compose(s -> clausenc_expansion_remainder(x, s, M), s)
+        expansion[(0, 0, 2M)] += u0.a[j] * remainder_term
     end
 
-    return expansion
+    return OrderedDict{NTuple{3,Int},ArbSeries}(k => M.p for (k, M) in expansion)
 end
 
 """
@@ -655,14 +630,14 @@ where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
 similarly to how it is done in [`expansion_as`](@ref).
 """
 function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
-    α = ArbSeries((u0.α0, 1); u0.degree)
+    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
 
     return x::Arb -> begin
-        expansion = OrderedDict{NTuple{3,Int},ArbSeries}()
+        expansion = OrderedDict{NTuple{3,Int},TaylorModel}()
 
         # Initiate even powers of x
         for m = 1:M
-            expansion[(0, 0, 2m)] = ArbSeries(; u0.degree)
+            expansion[(0, 0, 2m)] = TaylorModel(ArbSeries(; u0.degree), u0.α, u0.α0)
         end
 
         # Handle main term
@@ -672,110 +647,65 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
                 # We compute a0 to a higher degree and then truncate, to
                 # get a tighter enclosure
 
-                # rgamma(α) / rgamma(2α) = (rgamma(α) / α) / (rgamma(2α) / α)
-                g = div_with_remainder(
-                    taylor_with_remainder(
-                        rgamma,
-                        u0.α0,
-                        u0.α - u0.α0,
-                        degree = Arblib.degree(α) + 4,
-                    ) << 1,
-                    taylor_with_remainder(
-                        α -> rgamma(2α),
-                        u0.α0,
-                        u0.α - u0.α0,
-                        degree = Arblib.degree(α) + 4,
-                    ) << 1,
-                    u0.α - u0.α0,
+                # g = rgamma(α) / rgamma(2α)
+                g = div_removable(
+                    TaylorModel(rgamma, u0.α, u0.α0, degree = u0.degree + 3),
+                    TaylorModel(α -> rgamma(2α), u0.α, u0.α0, degree = u0.degree + 3),
                 )
 
                 # rgamma(α) * cospi(α) / (rgamma(2α) * cospi(α / 2))
-                a0singular_term = mul_with_remainder(
-                    taylor_with_remainder(
+                a0singular_term =
+                    g * TaylorModel(
                         α -> cospi(α) / cospi(α / 2),
+                        u0.α,
                         u0.α0,
-                        u0.α - u0.α0,
-                        degree = Arblib.degree(α) + 3,
-                    ),
-                    g,
-                    u0.α - u0.α0,
-                )
+                        degree = u0.degree + 2,
+                    )
 
                 # 2(rgamma(α) * cospi(α) / (rgamma(2α) * cospi(α / 2)))^2
-                a0singular_term =
-                    2mul_with_remainder(a0singular_term, a0singular_term, u0.α - u0.α0)
+                a0singular_term = 2a0singular_term * a0singular_term
 
-                truncate_with_remainder(
-                    a0singular_term,
-                    u0.α - u0.α0,
-                    degree = Arblib.degree(α),
-                )
+                truncate(a0singular_term, degree = u0.degree - 1)
             end
         else
-            a0singular_term = let
-                mul_with_remainder(
-                    u0.a[0].p,
-                    compose_with_remainder(α -> gamma(2α) * cospi(α), α, u0.α - u0.α0),
-                    u0.α - u0.α0,
-                )
-            end
+            a0singular_term =
+                truncate(u0.a[0], degree = u0.degree - 1) *
+                compose(α -> gamma(2α) * cospi(α), Mα)
         end
         expansion[(2, 0, 0)] = -a0singular_term
 
         # Compute the coefficients for the analytic terms
         for m = 1:M-1
-            term =
-                (-1)^m * compose_with_remainder(
-                    α -> zeta(1 - 2α - 2m),
-                    α,
-                    u0.α - u0.α0;
-                    u0.degree,
-                ) / factorial(2m)
+            term = (-1)^m * compose(α -> zeta(1 - 2α - 2m), Mα) / factorial(2m)
 
-            expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[0].p, term, u0.α - u0.α)
+            expansion[(0, 0, 2m)] -= truncate(u0.a[0], degree = u0.degree - 1) * term
         end
 
         # Add remainder term
-        remainder_term = compose_with_remainder(
-            α -> clausenc_expansion_remainder(x, 1 - 2α, M),
-            α,
-            u0.α - u0.α0,
-        )
+        remainder_term = compose(α -> clausenc_expansion_remainder(x, 1 - 2α, M), Mα)
         expansion[(0, 0, 2M)] -=
-            mul_with_remainder(u0.a[0].p, remainder_term, u0.α - u0.α0)
+            truncate(u0.a[0], degree = u0.degree - 1) * remainder_term
 
         # Handle tail terms
         for j = 1:2
-            s = 1 - 2α + j * u0.p0.p
+            s = 1 - 2Mα + j * u0.p0
 
             # Compute the coefficient for the singular term
-            singular_term = compose_with_remainder(
-                s -> gamma(1 - s) * sinpi(s / 2),
-                s,
-                u0.α - u0.α0,
-            )
-            expansion[(2, j, 0)] =
-                -mul_with_remainder(u0.a[j].p, singular_term, u0.α - u0.α0)
+            singular_term = compose(s -> gamma(1 - s) * sinpi(s / 2), s)
+            expansion[(2, j, 0)] = -u0.a[j] * singular_term
 
             # Compute the coefficients for the analytic terms
             for m = 1:M-1
-                term =
-                    (-1)^m * compose_with_remainder(s -> zeta(s - 2m), s, u0.α - u0.α0) /
-                    factorial(2m)
-                expansion[(0, 0, 2m)] -= mul_with_remainder(u0.a[j].p, term, u0.α - u0.α0)
+                term = (-1)^m * compose(s -> zeta(s - 2m), s) / factorial(2m)
+                expansion[(0, 0, 2m)] -= u0.a[j] * term
             end
 
             # Add remainder term
-            remainder_term = compose_with_remainder(
-                s -> clausenc_expansion_remainder(x, s, M),
-                s,
-                u0.α - u0.α0,
-            )
-            expansion[(0, 0, 2M)] -=
-                mul_with_remainder(u0.a[j].p, remainder_term, u0.α - u0.α0)
+            remainder_term = compose(s -> clausenc_expansion_remainder(x, s, M), s)
+            expansion[(0, 0, 2M)] -= u0.a[j] * remainder_term
         end
 
-        return expansion
+        return OrderedDict{NTuple{3,Int},ArbSeries}(k => M.p for (k, M) in expansion)
     end
 end
 
