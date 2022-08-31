@@ -264,3 +264,58 @@ function div_removable(M1::TaylorModel, M2::TaylorModel, order::Integer = 1; for
 
     return (M1 << order) / (M2 << order)
 end
+
+# TaylorModel implementations of some functions that are used a lot
+
+"""
+    clausencmzeta_with_remainder(x::Arb, s::ArbSeries, interval::Arb; degree)
+
+Compute a Taylor model of `clausencmzeta(x, s)` in the parameter `s`.
+
+For wide values of `x` it computes each term in the expansion
+separately, allowing it to use [`ArbExtras.enclosure_series`](@ref) to
+compute a tighter enclosure of the terms. While this could be done
+also for the remainder term it currently isn't, it doesn't give much
+improvement in the cases it could be relevant and comes with a big
+performance cost.
+"""
+function clausencmzeta(x::Arb, s::TaylorModel)
+    degree = Arblib.degree(s)
+
+    if iswide(x)
+        p = ArbSeries(degree = degree + 1)
+
+        # For the constant term it already implements handling of
+        # monotonicity and we don't have to use
+        # ArbExtras.enclosure_series
+        p[0] = clausencmzeta(x, s.p[0])
+
+        for β = 1:degree
+            p[β] =
+                ArbExtras.enclosure_series(x -> clausencmzeta(x, s.p[0], β), x, degree = 1)
+        end
+    else
+        # Compute expansion at s[0] with degree - 1
+        p = clausencmzeta(x, ArbSeries((s.p[0], 1), degree = degree))
+
+        # Increase the degree of p to make room for the remainder term
+        p = ArbSeries(p, degree = degree + 1)
+    end
+
+    # Compute remainder term
+    remainder_term = clausencmzeta(x, s(s.I), degree + 1) / factorial(degree + 1)
+
+    p[degree+1] = remainder_term
+
+    # s - s[0]
+    sms0 = copy(s.p)
+    sms0[0] = 0
+
+    # Compute a non-truncated composition
+    q = Arblib.compose(p.poly, sms0.poly)
+
+    # Truncate to the specified degree
+    # Note that the intermediate TaylorModel is not a valid Taylor
+    # model, only after truncation is it valid.
+    return truncate(TaylorModel(ArbSeries(q, degree = degree + 1), s.I, s.x0); degree)
+end
