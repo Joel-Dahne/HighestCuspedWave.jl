@@ -1,30 +1,39 @@
 @testset "TaylorModel" begin
     fs = [sin, cos, exp, atan]
 
+    # Test if M looks like it is a Taylor model of f. We check so that
+    # M overlaps with f at the midpoint, the endpoints and two points
+    # close to the midpoint.
+    test_f = (M, f) -> begin
+        Arblib.overlaps(M.p[0], f(M.x0)) || return false
+        if !Arblib.isexact(M.I)
+            x_l, x_u = getinterval(Arb, M.I)
+            Arblib.overlaps(M(x_l), f(x_l)) || return false
+            Arblib.overlaps(M(x_u), f(x_u)) || return false
+            # Points close to the midpoint
+            x1 = (4x_l + 6x_u) / 10
+            x2 = (6x_l + 4x_u) / 10
+            Arblib.overlaps(M(x1), f(x1)) || return false
+            Arblib.overlaps(M(x2), f(x2)) || return false
+        end
+        return true
+    end
+
     @testset "Construction" begin
         for f in fs
             for x0 in Arb[-2, 0, 1]
                 for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
-                    for n = 0:5
+                    for n = 0:3
                         M1 = TaylorModel(f, I, x0, degree = n, enclosure_degree = -1)
                         M2 = TaylorModel(f, I, x0, degree = n, enclosure_degree = 0)
                         M3 = TaylorModel(f, I, x0, degree = n, enclosure_degree = 1)
                         @test Arblib.overlaps(M1, M2)
                         @test Arblib.overlaps(M1, M3)
                         @test Arblib.overlaps(M2, M3)
-                        if iszero(r)
-                            @test Arblib.overlaps(f(x0), M1(x0))
-                            @test Arblib.overlaps(f(x0), M2(x0))
-                            @test Arblib.overlaps(f(x0), M3(x0))
-                        else
-                            for x in range(x0 - r, x0 + r, 100)
-                                fx = f(x)
-                                @test Arblib.overlaps(fx, M1(x))
-                                @test Arblib.overlaps(fx, M2(x))
-                                @test Arblib.overlaps(fx, M3(x))
-                            end
-                        end
+                        @test test_f(M1, f)
+                        @test test_f(M2, f)
+                        @test test_f(M3, f)
                     end
                 end
             end
@@ -77,17 +86,11 @@
             for x0 in Arb[-2, 0, 1]
                 for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
-                    for n = 0:5
+                    for n = 0:3
                         M = TaylorModel(f, I, x0, degree = n)
                         for m = 0:n
                             M_truncated = HighestCuspedWave.truncate(M, degree = m)
-                            if iszero(r)
-                                @test Arblib.overlaps(M_truncated(x0), M(x0))
-                            else
-                                for x in range(x0 - r, x0 + r, 10)
-                                    @test Arblib.overlaps(M_truncated(x), M(x))
-                                end
-                            end
+                            @test test_f(M_truncated, f)
                         end
                     end
                 end
@@ -101,11 +104,12 @@
                 for x0 in Arb[-2, 0, 1]
                     for r in Mag[0, 1e-10, 1e-5, 1e0]
                         I = add_error(x0, r)
-                        for n = 0:5
+                        for n = 0:3
                             Mf = TaylorModel(f, I, x0, degree = n)
                             Mgf = TaylorModel(g ∘ f, I, x0, degree = n)
 
                             @test Arblib.overlaps(Mgf, HighestCuspedWave.compose(g, Mf))
+                            @test test_f(HighestCuspedWave.compose(g, Mf), g ∘ f)
                         end
                     end
                 end
@@ -119,7 +123,7 @@
                 for x0 in Arb[-2, 0, 1]
                     for r in Mag[0, 1e-10, 1e-5, 1e0]
                         I = add_error(x0, r)
-                        for n = 0:5
+                        for n = 0:3
                             Mf = TaylorModel(f, I, x0, degree = n)
                             Mg = TaylorModel(g, I, x0, degree = n)
 
@@ -133,10 +137,16 @@
                             @test Arblib.overlaps(Mf * Mg, Mf_mul_g)
                             @test Arblib.overlaps(-Mf, Mneg_f)
 
+                            @test test_f(Mf + Mg, x -> f(x) + g(x))
+                            @test test_f(Mf - Mg, x -> f(x) - g(x))
+                            @test test_f(Mf * Mg, x -> f(x) * g(x))
+                            @test test_f(-Mf, x -> -f(x))
+
                             if !Arblib.contains_zero(Mg.p[0])
                                 Mf_div_g = TaylorModel(x -> f(x) / g(x), I, x0, degree = n)
 
                                 @test Arblib.overlaps(Mf / Mg, Mf_div_g)
+                                @test test_f(Mf / Mg, x -> f(x) / g(x))
                             end
                         end
                     end
@@ -150,7 +160,7 @@
             for x0 in Arb[-2, 0, 1]
                 for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
-                    for n = 0:5
+                    for n = 0:3
                         Mf = TaylorModel(f, I, x0, degree = n)
 
                         c = Arb(2)
@@ -182,7 +192,7 @@
             for x0 in Arb[-2, 0, 1]
                 for r in Mag[0, 1e-10, 1e-5, 1e0]
                     I = add_error(x0, r)
-                    for n = 0:5
+                    for n = 0:3
                         Mf = TaylorModel(f, I, x0, degree = n)
                         Mf_mul_x = TaylorModel(x -> (x - x0) * f(x), I, x0, degree = n + 1)
                         Mf_mul_x2 =
@@ -207,7 +217,7 @@
                     for r in Mag[0, 1e-10, 1e-5, 1e0]
                         I = add_error(x0, r)
                         for order = 1:3
-                            for n = 0:5
+                            for n = 0:3
                                 Mf = TaylorModel(
                                     x -> f(x - x0)^order,
                                     I,
@@ -228,13 +238,22 @@
                                         HighestCuspedWave.fx_div_x(f, x - x0)^order /
                                         HighestCuspedWave.fx_div_x(g, x - x0)^order
                                     else
-                                        f(y - x0)^order / g(y - x0)^order
+                                        f(x - x0)^order / g(x - x0)^order
                                     end
                                 end
 
                                 @test Arblib.overlaps(
                                     HighestCuspedWave.div_removable(Mf, Mg, order),
                                     Mf_div_g,
+                                )
+                                @test test_f(
+                                    Mf_div_g,
+                                    x -> if Arblib.contains_zero(x - x0)
+                                        HighestCuspedWave.fx_div_x(f, x - x0)^order /
+                                        HighestCuspedWave.fx_div_x(g, x - x0)^order
+                                    else
+                                        f(x - x0)^order / g(x - x0)^order
+                                    end,
                                 )
                             end
                         end

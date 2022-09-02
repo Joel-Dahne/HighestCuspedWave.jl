@@ -110,6 +110,29 @@ end
 (M::TaylorModel)(x::Arb) = M.p(x - M.x0)
 
 """
+    truncate_with_remainder(p::ArbPoly, I::Arb, x0::Arb; degree::Integer)
+
+Compute a polynomial `q` corresponding to a truncated version of `p`
+with the last term being a remainder term which ensures `p(x - x0) ⊂
+res(x - x0)` for all `x ∈ I`.
+"""
+function truncate_with_remainder(p::ArbPoly, I::Arb, x0::Arb; degree::Integer)
+    # Set q to a truncated version of p
+    q = Arblib.truncate!(copy(p), degree + 1)
+
+    Arblib.degree(p) <= degree && return q
+
+    # Set p_div_x to a p divided by x^degree, throwing away lower order
+    # terms.
+    p_div_x = Arblib.shift_right!(zero(p), p, degree)
+
+    # Evaluate q on the given interval and set this as the remainder term
+    q[degree] = p_div_x(I - x0)
+
+    return q
+end
+
+"""
     truncate(M::TaylorModel; degree::Integer)
 
 Compute a Taylor model enclosing `M` but of a lower `degree`.
@@ -124,17 +147,14 @@ function truncate(M::TaylorModel; degree::Integer)
     degree == Arblib.degree(M) && return M
 
     # Set the polynomial to a truncated version of M.p
-    p = ArbSeries(M.p, degree = degree + 1)
-
-    # Set q to a M.p divided by x^(degree + 1) and throwing away lower
-    # order terms.
-    q = Arblib.shift_right!(ArbPoly(), M.p, degree + 1)
-
-    # Evaluate q on the given interval and set this as the remainder
-    # term
-    p[degree+1] = q(M.I - M.x0)
-
-    return TaylorModel(p, M.I, M.x0)
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(M.p.poly, M.I, M.x0, degree = degree + 1),
+            degree = degree + 1,
+        ),
+        M.I,
+        M.x0,
+    )
 end
 
 """
@@ -183,10 +203,15 @@ function compose(f, M::TaylorModel)
     # Compute a non-truncated composition
     q = Arblib.compose(p.poly, MpmMp0.poly)
 
-    # Truncate to the specified degree
-    # Note that the intermediate TaylorModel is not a valid Taylor
-    # model, only after truncation is it valid.
-    return truncate(TaylorModel(ArbSeries(q, degree = degree + 1), M.I, M.x0); degree)
+    # Truncate the polynomial to the specified degree
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(q, M.I, M.x0, degree = degree + 1),
+            degree = degree + 1,
+        ),
+        M.I,
+        M.x0,
+    )
 end
 
 function Base.:+(M1::TaylorModel, M2::TaylorModel)
@@ -206,11 +231,13 @@ function Base.:*(M1::TaylorModel, M2::TaylorModel)
     p = M1.p.poly * M2.p.poly
 
     # Truncate to the specified degree
-    # Note that the intermediate TaylorModel is not a valid Taylor
-    # model, only after truncation is it valid.
-    return truncate(
-        TaylorModel(ArbSeries(p, degree = Arblib.degree(M1) + 1), M1.I, M1.x0),
-        degree = Arblib.degree(M1),
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(p, M1.I, M1.x0, degree = Arblib.degree(M1) + 1),
+            degree = Arblib.degree(M1) + 1,
+        ),
+        M1.I,
+        M1.x0,
     )
 end
 
@@ -317,5 +344,12 @@ function clausencmzeta(x::Arb, s::TaylorModel)
     # Truncate to the specified degree
     # Note that the intermediate TaylorModel is not a valid Taylor
     # model, only after truncation is it valid.
-    return truncate(TaylorModel(ArbSeries(q, degree = degree + 1), s.I, s.x0); degree)
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(q, s.I, s.x0, degree = degree + 1),
+            degree = degree + 1,
+        ),
+        s.I,
+        s.x0,
+    )
 end
