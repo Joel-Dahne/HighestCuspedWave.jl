@@ -318,7 +318,89 @@ end
 # TaylorModel implementations of some functions that are used a lot
 
 """
-    clausencmzeta_with_remainder(x::Arb, s::ArbSeries, interval::Arb; degree)
+    clausenc(x::Arb, s::ArbSeries, interval::Arb; degree)
+
+Compute a Taylor model of `clausenc(x, s)` in the parameter `s`.
+
+The only difference to calling `compose(s -> clausenc(x, s), s)` is
+that it computes the remainder term by direct evaluation instead of
+through `ArbSeries`.
+"""
+function clausenc(x::Arb, s::TaylorModel)
+    degree = Arblib.degree(s)
+
+    # Compute expansion of f at s.p[0]
+    p = clausenc(x, ArbSeries((s.p[0], 1); degree))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p, degree = degree + 1)
+
+    # Compute remainder term
+    J = s(s.I) # Interval to compute remainder on
+    remainder_term = clausenc(x, J, degree + 1) / factorial(degree + 1)
+    p[degree+1] = remainder_term
+
+    # s.p - s.p[0]
+    spmsp0 = copy(s.p)
+    spmsp0[0] = 0
+
+    # Compute a non-truncated composition
+    q = Arblib.compose(p.poly, spmsp0.poly)
+
+    # Truncate the polynomial to the specified degree
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(q, s.I, s.x0, degree = degree + 1),
+            degree = degree + 1,
+        ),
+        s.I,
+        s.x0,
+    )
+end
+
+"""
+    clausens(x::Arb, s::ArbSeries, interval::Arb; degree)
+
+Compute a Taylor model of `clausens(x, s)` in the parameter `s`.
+
+The only difference to calling `compose(s -> clausens(x, s), s)` is
+that it computes the remainder term by direct evaluation instead of
+through `ArbSeries`.
+"""
+function clausens(x::Arb, s::TaylorModel)
+    degree = Arblib.degree(s)
+
+    # Compute expansion of f at s.p[0]
+    p = clausens(x, ArbSeries((s.p[0], 1); degree))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p, degree = degree + 1)
+
+    # Compute remainder term
+    J = s(s.I) # Interval to compute remainder on
+    remainder_term = clausens(x, J, degree + 1) / factorial(degree + 1)
+    p[degree+1] = remainder_term
+
+    # s.p - s.p[0]
+    spmsp0 = copy(s.p)
+    spmsp0[0] = 0
+
+    # Compute a non-truncated composition
+    q = Arblib.compose(p.poly, spmsp0.poly)
+
+    # Truncate the polynomial to the specified degree
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(q, s.I, s.x0, degree = degree + 1),
+            degree = degree + 1,
+        ),
+        s.I,
+        s.x0,
+    )
+end
+
+"""
+    clausencmzeta(x::Arb, s::ArbSeries, interval::Arb; degree)
 
 Compute a Taylor model of `clausencmzeta(x, s)` in the parameter `s`.
 
