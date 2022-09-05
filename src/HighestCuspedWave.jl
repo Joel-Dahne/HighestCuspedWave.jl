@@ -59,7 +59,6 @@ include("BHKdV/D0.jl")
 include("BHKdV/lemmas.jl")
 
 include("KdVZero/KdVZeroAnsatz.jl")
-include("KdVZero/expansion_with_remainder.jl")
 include("KdVZero/expansion.jl")
 include("KdVZero/evaluation.jl")
 include("KdVZero/n0.jl")
