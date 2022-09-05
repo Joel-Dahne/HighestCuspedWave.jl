@@ -50,7 +50,7 @@ function delta0_bound(
         # that the asymptotic version still satisfies the required
         # tolerance when evaluated at ϵ
         ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
-            y = f(ϵ)[2]
+            y = f(ϵ).p[2]
             z = g(ϵ).p[2]
 
             # Reduce ϵ until the value we get either satisfies the
@@ -63,7 +63,7 @@ function delta0_bound(
                     ϵ /= 1.2
                 end
 
-                y = f(ϵ)[2]
+                y = f(ϵ).p[2]
                 z = g(ϵ).p[2]
                 ϵ > 0.1 ||
                     error("could not determine working ϵ, last tried value was $ϵ")
@@ -77,16 +77,16 @@ function delta0_bound(
         F0_asymptotic = F0(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
         f = x -> let
             res = F0_asymptotic(x)
-            @assert Arblib.valuation(res) == 2 # Check that p[0] and p[1] are zero
-            truncate_with_remainder(res, u0.α - u0.α0, degree = 2)[2]
+            @assert Arblib.valuation(res.p) == 2 # Check that p[0] and p[1] are zero
+            truncate(res, degree = 1).p[2]
         end
 
         # Function for computing p₂(x) for x ∈ [ϵ, π]
         F0_nonasymptotic = F0(u0, Ball())
         g = x -> let
-            res = F0_nonasymptotic(x).p
-            @assert Arblib.valuation(res) == 2 # Check that p[0] and p[1] are zero
-            truncate_with_remainder(res, u0.α - u0.α0, degree = 2)[2]
+            res = F0_nonasymptotic(x)
+            @assert Arblib.valuation(res.p) == 2 # Check that p[0] and p[1] are zero
+            truncate(res, degree = 1).p[2]
         end
 
         # Compute an enclosure on [0, ϵ]
@@ -137,7 +137,7 @@ function delta0_bound(
         # tolerance when evaluated at ϵ or gives a better bound than
         # the non-asymptotic version.
         ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
-            y = f(ϵ)(u0.α - u0.α0)
+            y = f(ϵ)(u0.α)
             z = g(ϵ)(u0.α)
 
             # Reduce ϵ until the value we get either satisfies the
@@ -150,7 +150,7 @@ function delta0_bound(
                     ϵ /= 1.2
                 end
 
-                y = f(ϵ)(u0.α - u0.α0)
+                y = f(ϵ)(u0.α)
                 z = g(ϵ)(u0.α)
                 ϵ > 0.1 ||
                     error("could not determine working ϵ, last tried value was $ϵ")

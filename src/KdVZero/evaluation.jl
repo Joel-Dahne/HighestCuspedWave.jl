@@ -1,5 +1,5 @@
 """
-    eval_expansion(u0::KdVZeroAnsatz, expansion::AbstractDict{NTuple{3,Int},ArbSeries}, x::Arb)
+    eval_expansion(u0::KdVZeroAnsatz, expansion::AbstractDict{NTuple{3,Int},TaylorModel}, x::Arb)
 
 Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
 ```
@@ -8,14 +8,14 @@ y*abs(x)^(-i * α + j * p0 + m)
 """
 function eval_expansion(
     u0::KdVZeroAnsatz,
-    expansion::AbstractDict{NTuple{3,Int},ArbSeries},
+    expansion::AbstractDict{NTuple{3,Int},TaylorModel},
     x::Arb;
     offset_i::Integer = 0,
     offset_m::Integer = 0,
 )
-    α = ArbSeries((u0.α0, 1); u0.degree)
+    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
 
-    res = zero(α)
+    res = zero(Mα)
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
@@ -23,10 +23,10 @@ function eval_expansion(
                 # Exponent is identically equal to zero
                 term = one(res)
             else
-                exponent = -(i + offset_i) * α + j * u0.p0.p + (m + offset_m)
-                term = abspow_with_remainder(x, exponent, u0.α - u0.α0)
+                exponent = -(i + offset_i) * Mα + j * u0.p0 + (m + offset_m)
+                term = abspow(x, exponent)
             end
-            res += mul_with_remainder(y, term, u0.α - u0.α0)
+            res += y * term
         end
     end
 
@@ -282,10 +282,7 @@ end
     (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer)
 
 Return an expansion of `u0(x)` in `x` around zero where the
-coefficients in the expansion are themselves expansions in `α` around
-`u0.α0`. The last term in each of these expansions in `α` is a
-remainder term which ensures that evaluating the expansion gives an
-enclosure of the term for all `α ∈ u0.α`.
+coefficients in the expansion are Taylor models.
 
 It returns a dictionary `expansion` where the keys are three tuples
 `(i, j, m)` and correspond to a term of the form
@@ -389,7 +386,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
         expansion[(0, 0, 2M)] += u0.a[j] * remainder_term
     end
 
-    return OrderedDict{NTuple{3,Int},ArbSeries}(k => M.p for (k, M) in expansion)
+    return expansion
 end
 
 """
@@ -603,10 +600,7 @@ end
     H(u0::KdVZeroAnsatz, ::AsymptoticExpansion)
 
 Return a function such that `H(u0)(x)` computes an expansion in `x`
-around zero there the coefficients are themselves expansion in `α`
-around `u0.α0`. The last term in each of these expansions in `α` is a
-remainder term which ensures that evaluating the expansion gives an
-enclosure of the term for all `α ∈ u0.α`.
+around zero where the coefficients in the expansion are Taylor models.
 
 It returns a dictionary `expansion` where the keys are three tuples
 `(i, j, m)` and correspond to a term of the form
@@ -705,7 +699,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
             expansion[(0, 0, 2M)] -= u0.a[j] * remainder_term
         end
 
-        return OrderedDict{NTuple{3,Int},ArbSeries}(k => M.p for (k, M) in expansion)
+        return expansion
     end
 end
 
@@ -720,9 +714,12 @@ end
 """
     D(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer)
 
-Return an expansion of `D(u0)(x)` in `x` around zero where the
-coefficients in the expansion are themselves expansions in `α` around
-zero.
+Return a function such that `D(u0)(x)` computes an expansion in `x`
+around zero of
+```
+u0(x)^2 / 2 + H(u0)(x)
+```
+where the coefficients in the expansion are Taylor models.
 
 It returns a dictionary `expansion` where the keys are three tuples
 `(i, j, m)` and correspond to a term of the form
@@ -734,16 +731,10 @@ The value of `M` determines the number of terms in the expansion in
 `x`.
 
 The expansion is computed using `u0` and `H(u0)` but some modification
-are made to it.
-
-To begin with the leading terms in the expansion are identically equal
-to zero due to the choice of `a[0]`, `a[1]`, `a[2]` and `p0`. These
-are the terms with keys `(2, 0, 0), (2, 1, 0), (0, 0, 2), (1, 0, 2)`.
-
-As is shown in [`F0`](@ref) we also know that the linear term of the
-expansion in `α` is identically equal to zero. We can therefore set
-all linear terms to zero since they must cancel out in the end anyway.
-
+are made to it. The leading terms in the expansion are identically
+equal to zero due to the choice of `a[0]`, `a[1]`, `a[2]` and `p0`.
+These are the terms with keys `(2, 0, 0), (2, 1, 0), (0, 0, 2), (1, 0,
+2)`.
 """
 function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 10)
     f = H(u0, evaltype; M)
@@ -757,14 +748,11 @@ function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 10)
         let expansion1 = collect(expansion1)
             z = zero(first(expansion1)[2]) # Avoid allocating zero multiple times
             for (i, (key1, a1)) in enumerate(expansion1)
-                expansion[2 .* key1] =
-                    get(expansion, 2 .* key1, z) +
-                    mul_with_remainder(a1, a1, u0.α - u0.α0) / 2
+                expansion[2 .* key1] = get(expansion, 2 .* key1, z) + a1 * a1 / 2
                 for j = i+1:length(expansion1)
                     (key2, a2) = expansion1[j]
                     key = key1 .+ key2
-                    expansion[key] =
-                        get(expansion, key, z) + mul_with_remainder(a1, a2, u0.α - u0.α0)
+                    expansion[key] = get(expansion, key, z) + a1 * a2
                 end
             end
         end
@@ -776,7 +764,7 @@ function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 10)
         # a[2] and p0.
         for key in ((2, 0, 0), (2, 1, 0), (0, 0, 2), (1, 0, 2))
             y = expansion[key]
-            @assert all(Arblib.contains_zero, Arblib.coeffs(y))
+            @assert all(Arblib.contains_zero, Arblib.coeffs(y.p))
             expansion[key] = zero(y)
         end
 
@@ -860,8 +848,7 @@ end
 """
     F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
 
-Return a function such that `F0(u0)(x)` computes an expansion in `α`
-around `u0.α0` of
+Return a function such that `F0(u0)(x)` computes a Taylor model of
 ```
 (u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
 ```
@@ -894,28 +881,27 @@ function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
         if iszero(u0.α0)
-            @assert iszero(Arblib.ref(num, 0))
-            @assert Arblib.contains_zero(Arblib.ref(num, 1))
-            num[1] = 0
+            @assert iszero(Arblib.ref(num.p, 0))
+            @assert Arblib.contains_zero(Arblib.ref(num.p, 1))
+            num.p[1] = 0
         end
 
-        return div_with_remainder(num, den, u0.α - u0.α0)
+        return num / den
     end
 end
 
 """
-    F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
+    F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
 
-Return a function such that `F02(u0)(x)` computes
+Return a function such that `F02(u0)(x)` computes an enclosure of
 ```
 (u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
 ```
 It uses an evaluation strategy that works asymptotically in `x`.
 
-Note that this methods doesn't compute an expansion in `α` like most
-methods for `KdVZeroansatz`. It only computes an enclosure, or an
-expansion in `x`. For this reason it doesn't make sense to use for
-`u0.α0 = 0`
+Note that this methods doesn't compute a Taylor model in `α` like most
+methods for `KdVZeroansatz`. It only computes an enclosure. For this
+reason it doesn't make sense to use for `u0.α0 = 0`
 """
 function F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
     iszero(u0.α0) && @warn "F02 doesn't make sense for u0.α0 = 0"
@@ -924,14 +910,14 @@ function F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
     D_expansion = let expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
         res = empty(expansion, Arb)
         for (key, value) in expansion
-            res[key] = value(u0.α - u0.α0)
+            res[key] = value(u0.α)
         end
         res
     end
     u0_expansion = let expansion = u0(ϵ, AsymptoticExpansion(); M)
         res = empty(expansion, Arb)
         for (key, value) in expansion
-            res[key] = value(u0.α - u0.α0)
+            res[key] = value(u0.α)
         end
         res
     end

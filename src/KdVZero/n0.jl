@@ -20,7 +20,7 @@ function n0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
     expansion = let expansion = u0(Arb(3.2), AsymptoticExpansion())
         res = empty(expansion, Arb)
         for (key, value) in expansion
-            res[key] = value(u0.α - u0.α0)
+            res[key] = value(u0.α)
         end
         res
     end

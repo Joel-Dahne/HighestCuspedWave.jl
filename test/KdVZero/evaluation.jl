@@ -6,7 +6,7 @@
         Arblib.add_error!(Arb(-1e-3), Arb(1e-6)),
     ]
 
-    for (α0, interval) in zip(α0s, intervals)
+    @testset "α0 = $α0" for (α0, interval) in zip(α0s, intervals)
         αs = range(getinterval(Arb, interval)..., 100)
         if iszero(α0)
             αs = αs[1:end-1]
@@ -58,7 +58,6 @@
                     p = u0(x)
                     for (i, α) in enumerate(αs)
                         @test Arblib.overlaps(p(α), u0s[i](x))
-                        #@show p(α) - u0s[i](x)
                     end
                 end
             end
@@ -67,8 +66,7 @@
                 for x in xs_asym
                     p = eval_expansion(u0, u0(x, AsymptoticExpansion()), x)
                     for (i, α) in enumerate(αs)
-                        @test Arblib.overlaps(p(α - α0), u0s[i](x, Asymptotic()))
-                        #@show p(α) - u0s[i](x, Asymptotic())
+                        @test Arblib.overlaps(p(α), u0s[i](x, Asymptotic()))
                     end
                 end
             end
@@ -79,10 +77,9 @@
             )
                 expansion = u0(Arb(1), AsymptoticExpansion())
                 for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
-                    p1 = u0_tight(x).p
+                    p1 = u0_tight(x)
                     p2 = eval_expansion(u0, expansion, x)
-                    @test Arblib.overlaps(p1, p2)
-                    #@show p1 - p2
+                    @test Arblib.overlaps(p1, p2, require_compatible = false)
                 end
             end
         end
@@ -93,7 +90,6 @@
                     p = H(u0)(x)
                     for (i, α) in enumerate(αs)
                         @test Arblib.overlaps(p(α), H(u0s[i])(x))
-                        #@show p(α) - H(u0s[i])(x)
                     end
                 end
             end
@@ -102,8 +98,7 @@
                 for x in xs_asym
                     p = eval_expansion(u0, H(u0, AsymptoticExpansion())(x), x)
                     for (i, α) in enumerate(αs)
-                        @test Arblib.overlaps(p(α - α0), H(u0s[i], Asymptotic())(x))
-                        #@show p(α) - H(u0s[i], Asymptotic())(x)
+                        @test Arblib.overlaps(p(α), H(u0s[i], Asymptotic())(x))
                     end
                 end
             end
@@ -114,12 +109,11 @@
             )
                 f = H(u0)
                 expansion = H(u0, AsymptoticExpansion())(Arb(1))
-                g = x -> eval_expansion(u0_tight, expansion, x)
+                g = x -> eval_expansion(u0, expansion, x)
                 for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
-                    p1 = f(x).p
+                    p1 = f(x)
                     p2 = g(x)
-                    @test Arblib.overlaps(p1, p2)
-                    #@show p1 - p2
+                    @test Arblib.overlaps(p1, p2, require_compatible = false)
                 end
             end
         end
@@ -130,7 +124,6 @@
                     p = D(u0)(x)
                     for (i, α) in enumerate(αs)
                         @test Arblib.overlaps(p(α), D(u0s[i])(x))
-                        #@show p(α) - D(u0s[i])(x)
                     end
                 end
             end
@@ -139,8 +132,7 @@
                 for x in xs_asym
                     p = eval_expansion(u0, D(u0, AsymptoticExpansion())(x), x)
                     for (i, α) in enumerate(αs)
-                        @test Arblib.overlaps(p(α - α0), D(u0s[i], Asymptotic())(x))
-                        #@show p(α)  D(u0s[i], Asymptotic())(x)
+                        @test Arblib.overlaps(p(α), D(u0s[i], Asymptotic())(x))
                     end
                 end
             end
@@ -154,10 +146,9 @@
                 expansion = D(u0, AsymptoticExpansion())(Arb(1))
                 g = x -> eval_expansion(u0, expansion, x)
                 for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
-                    p1 = f(x).p
+                    p1 = f(x)
                     p2 = g(x)
-                    @test Arblib.overlaps(p1, p2)
-                    #@show p1 - p2
+                    @test Arblib.overlaps(p1, p2, require_compatible = false)
                 end
             end
         end
@@ -168,7 +159,6 @@
                     p = F0(u0)(x)
                     for (i, α) in enumerate(αs)
                         @test Arblib.overlaps(p(α), F0(u0s[i])(x))
-                        #@show p(α) - F0(u0s[i])(x)
                     end
                 end
             end
@@ -177,8 +167,7 @@
                 for x in xs_asym
                     p = F0(u0, Asymptotic())(x)
                     for (i, α) in enumerate(αs)
-                        @test Arblib.overlaps(p(α - α0), F0(u0s[i], Asymptotic())(x))
-                        #@show p(α) - F0(u0s[i], Asymptotic())(x)
+                        @test Arblib.overlaps(p(α), F0(u0s[i], Asymptotic())(x))
                     end
                 end
             end
@@ -190,10 +179,9 @@
                 f = F0(u0)
                 g = F0(u0, Asymptotic())
                 for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
-                    p1 = f(x).p
+                    p1 = f(x)
                     p2 = g(x)
-                    @test Arblib.overlaps(p1, p2)
-                    #@show p1 - p2
+                    @test Arblib.overlaps(p1, p2, require_compatible = false)
                 end
             end
         end

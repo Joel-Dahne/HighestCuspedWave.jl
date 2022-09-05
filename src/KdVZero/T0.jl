@@ -762,7 +762,7 @@ function T0(
         else
             res = div_with_remainder(
                 I_mul_x_onepα_div_pi,
-                eval_expansion(u0, u0_expansion, x, offset_i = -1),
+                eval_expansion(u0, u0_expansion, x, offset_i = -1).p,
                 u0.α,
             )
         end
