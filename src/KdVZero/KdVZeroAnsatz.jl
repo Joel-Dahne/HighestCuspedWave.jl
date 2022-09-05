@@ -4,47 +4,32 @@ export KdVZeroAnsatz
     KdVZeroAnsatz(α::Arb, α0::Arb; degree::Integer = 2) <: AbstractAnsatz{Arb}
 
 Represents an ansatz for an approximate solution for the fractional
-KdV equations as an expansion around `α0`.
-
-The computed expansions are valid on the interval given by `α` and we
-require that `α0` is contained in `α`.
+KdV equations as an expansion centered at `α0` and valid on `α`.
 
 The ansatz is given by
 ```
 a[0] * clausencmzeta(x, 1 - α) + a[1] * clausencmzeta(x, 1 - α + p0) + a[2] * clausencmzeta(x, 1 - α + 2p0)
 ```
-where `a0`, `a1`, `a2` and `p0` all give as expansions in around `α0`.
-
-Any expansions computed with this approximation are typically computed
-to the given degree, though some methods compute to a lower or higher
-degree.
+where `a0`, `a1`, `a2` and `p0` are given by expansions around `α0`.
 
 The value of `α` is assumed to be non-positive. However the enclosure
 for `α` might contain spurious positive parts. We explicitly remove
 these so that the right endpoint of the enclosure is non-negative.
 
+The expansions are handled using Taylor models through the
+[`TaylorModel`](@ref) type. In general the models are computed to the
+given degree, though in some cases lower or higher degrees are used.
+
+It stores precomputed Taylor models for `a` and `p0`. The Taylor
+models for `a` and `p0` are computed to the degree `degree` with the
+exception of `a[0]` which is computed to one degree higher, the reason
+for this is that for `α0 = 0` the constant term in `a[0]` is zero and
+in many cases we divide `a[0]` by `α` and still want to have
+sufficiently high degree.
+
 For the case `α0 = 0` there are typically several removable
 singularities to handle and for that reason this case often have a
 special implementation.
-
-It stores precomputed expansions for `a` and `p0`. The expansions for
-`a` and `p0` are computed to the degree `degree` with the exception of
-`a[0]` which is computed to one degree higher, the reason for this is
-that for `α0 = 0` the constant term in `a[0]` is zero and in many
-cases we divide `a[0]` by `α` and still want to have sufficiently high
-degree. The last term in each expansion is a remainder term which
-ensures that that evaluating the expansion gives an enclosure of the
-value for the full interval in `α`, i.e. `a[i] ∈ u0.a[i](α - α0)` for
-each `α ∈ u0.α` and similarly for `p0`.
-
-!!! Note that this way of having the last term in the expansion
-    represent a remainder term is a non-standard way of using
-    `ArbSeries`. The normal way is to have each term represent the
-    corresponding derivative and any remainder term is stored outside
-    of the expansion. For that reason we have to take care when
-    computing with these expansions. Most of the functionality for
-    this is implemented in several `_with_remainder` methods, e.g.
-    [`compose_with_remainder`](@ref).
 """
 struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
     α::Arb

@@ -11,7 +11,7 @@ gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)
 ```
 If we consider `p0` as a function of `α` with the expansion
 ```
-p0(α) = p00 + p01 * (α - α) + p02 * (α - α0)^2 + ...
+p0(α) = p00 + p01 * (α - α0) + p02 * (α - α0)^2 + ...
 ```
 plugging this into the left hand side and expanding both sides at the
 point `α0` we can solve for the coefficients `p00, p01, p02, ...`.
