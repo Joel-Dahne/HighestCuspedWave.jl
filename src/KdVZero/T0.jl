@@ -178,10 +178,8 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
-Return an expansion of the integral ``T_0`` in `α` around `α = 0` of
-degree `1`. The last term is a remainder term which ensures that
-evaluating the expansion gives an enclosure of `u0` for all values in
-the interval `α`.
+Return a Taylor model of the integral ``T_0`` in `α` around `α = 0` of
+degree `1`.
 
 This method is similar to [`T0_p_one`](@ref) in that it explicitly
 computes the integral. It computes an expansion in `α` around `α = 0`
@@ -265,11 +263,11 @@ x * I = primitive_mul_x(0) - 2primitive_mul_x(root) + primitive_mul_x(π / x)
 
 # Expanding in `α`
 We are now interested in computing an expansion, in `α`, of this. Most
-of this can be done with direct evaluation using `ArbSeries`. However
-we need to prove that the constant term in the expansion is exactly
-`π` and this requires some additional work. In addition to this we
-also need to handle that `root` is given as an expansion in `α`, so we
-need to work a bit more to get the expansion of
+of this can be done with direct evaluation using Taylor models.
+However we need to prove that the constant term in the expansion is
+exactly `π` and this requires some additional work. In addition to
+this we also need to handle that `root` is given as an expansion in
+`α`, so we need to work a bit more to get the expansion of
 `primitive_mul_x(root)`.
 
 ## Computing the constant term
@@ -413,7 +411,7 @@ compute its expansion in `α`.
 function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
     iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
 
-    α = ArbSeries((0, 1), degree = 1)
+    Mα = TaylorModel(identity, u0.α, u0.α0, degree = 0)
 
     return x::Arb -> begin
         # The derivative of the result doesn't depend on the
@@ -422,18 +420,16 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
         primitive_mul_x(t::Arb) =
             (
-                clausenc_with_remainder(x * (1 - t), 2 - α, u0.α) +
-                clausenc_with_remainder(x * (1 + t), 2 - α, u0.α) -
-                2clausenc_with_remainder(x * t, 2 - α, u0.α)
+                clausenc(x * (1 - t), 2 - Mα) + clausenc(x * (1 + t), 2 - Mα) -
+                2clausenc(x * t, 2 - Mα)
             ) / x +
             t * (
-                -clausens_with_remainder(x * (1 - t), 1 - α, u0.α) +
-                clausens_with_remainder(x * (1 + t), 1 - α, u0.α) -
-                2clausens_with_remainder(x * t, 1 - α, u0.α)
+                -clausens(x * (1 - t), 1 - Mα) + clausens(x * (1 + t), 1 - Mα) -
+                2clausens(x * t, 1 - Mα)
             )
 
         # primitive_mul_x(0)
-        primitive_mul_x_zero = 2clausencmzeta_with_remainder(x, 2 - α, u0.α) / x
+        primitive_mul_x_zero = 2clausencmzeta(x, 2 - Mα) / x
 
         # primitive_mul_x(π / x)
         # If x overlaps with π this gives an indeterminate result
@@ -444,67 +440,50 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
             # evaluate it.
             # To compute the expansion around x = 0 it uses the same
             # approach as the asymptotic version of T0 does.
-            clausenc_x_plus_pi = let y = abs(x - π), s = 2 - α, M = 2
+            clausenc_x_plus_pi = let y = abs(x - π), Ms = 2 - Mα, M = 2
                 # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α
                 # / 2) / α) / (rgamma(α - 1) / α).
-                gamma_sin = div_with_remainder(
-                    taylor_with_remainder(
-                        α -> sinpi(α / 2),
-                        u0.α0,
-                        u0.α - u0.α0,
-                        degree = 2,
-                        enclosure_degree = 2,
-                    ) << 1,
-                    taylor_with_remainder(
-                        α -> rgamma(α - 1),
-                        u0.α0,
-                        u0.α - u0.α0,
-                        degree = 2,
-                        enclosure_degree = 2,
-                    ) << 1,
-                    u0.α - u0.α0,
+                gamma_sin = truncate(
+                    div_removable(
+                        TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = 3),
+                        TaylorModel(α -> rgamma(α - 1), u0.α, u0.α0, degree = 3),
+                    ),
+                    degree = 0,
                 )
 
                 # Singular term
-                res = mul_with_remainder(
-                    gamma_sin,
-                    compose_with_remainder(e -> abspow(y, e), 1 - α, u0.α),
-                    u0.α,
-                )
+                res = gamma_sin * compose(e -> abspow(y, e), 1 - Mα)
+
                 # Analytic terms
                 res += sum(
-                    (-1)^m * compose_with_remainder(zeta, s - 2m, u0.α) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
+                    (-1)^m * compose(zeta, Ms - 2m) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
                 )
                 # Remainder term
                 res +=
-                    abspow(y, 2M) * compose_with_remainder(
-                        s -> clausenc_expansion_remainder(y, s, M),
-                        s,
-                        u0.α0 - u0.α0,
-                    )
+                    abspow(y, 2M) * compose(s -> clausenc_expansion_remainder(y, s, M), Ms)
 
                 res
             end
         else
-            clausenc_x_plus_pi = clausenc_with_remainder(x + π, 2 - α, u0.α)
+            clausenc_x_plus_pi = clausenc(x + π, 2 - Mα)
         end
-        primitive_mul_x_pi_div_x =
-            2(clausenc_x_plus_pi - clausenc_with_remainder(Arb(π), 2 - α, u0.α)) / x
+
+        primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi - clausenc(Arb(π), 2 - Mα)) / x
 
         I_mul_x =
             primitive_mul_x_zero - 2primitive_mul_x(root) + primitive_mul_x_pi_div_x
 
-        I_mul_x_div_pi = I_mul_x / π
+        I_mul_x_div_pi = I_mul_x / Arb(π)
 
         # The constant term should be exactly 1
-        @assert Arblib.contains(Arblib.ref(I_mul_x_div_pi, 0), 1) ||
-                !isfinite(Arblib.ref(I_mul_x_div_pi, 0))
-        I_mul_x_div_pi[0] = 1
+        @assert Arblib.contains(Arblib.ref(I_mul_x_div_pi.p, 0), 1) ||
+                !isfinite(Arblib.ref(I_mul_x_div_pi.p, 0))
+        I_mul_x_div_pi.p[0] = 1
 
         if skip_div_u0
             return I_mul_x_div_pi
         else
-            return div_with_remainder(I_mul_x_div_pi, u0(x).p, u0.α - u0.α0)
+            return (I_mul_x_div_pi / truncate(u0(x), degree = 0))
         end
     end
 end
@@ -512,11 +491,8 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Asymptotic)
 
-Return an expansion of the integral ``T_0`` in `α` around `α = 0` of
-degree `1`. Computed in a way that works for `x` close to zero. The
-last term is a remainder term which ensures that evaluating the
-expansion gives an enclosure of `u0` for all values in the interval
-`α`.
+Return a Taylor model of the integral ``T_0`` in `α` around `α = 0` of
+degree `1`. Computed in a way that works for `x` close to zero.
 
 The method is similar to the non-asymptotic version but it evaluates
 the terms that depend on `x` in an asymptotic way. From the
@@ -575,31 +551,20 @@ function T0(
 )
     iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
 
-    α = ArbSeries((0, 1), degree = 1)
+    Mα = TaylorModel(identity, u0.α, u0.α0, degree = 0)
 
     u0_expansion = u0(ϵ, AsymptoticExpansion())
 
     # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α / 2) / α) /
     # (rgamma(α - 1) / α). We compute it to higher degree and then
     # truncate to get a better enclosure.
-    gamma_sin = div_with_remainder(
-        taylor_with_remainder(
-            α -> sinpi(α / 2),
-            u0.α0,
-            u0.α - u0.α0,
-            degree = 4,
-            enclosure_degree = 2,
-        ) << 1,
-        taylor_with_remainder(
-            α -> rgamma(α - 1),
-            u0.α0,
-            u0.α - u0.α0,
-            degree = 4,
-            enclosure_degree = 2,
-        ) << 1,
-        u0.α - u0.α0,
+    gamma_sin = truncate(
+        div_removable(
+            TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = 3),
+            TaylorModel(α -> rgamma(α - 1), u0.α, u0.α0, degree = 3),
+        ),
+        degree = 0,
     )
-    gamma_sin = truncate_with_remainder(gamma_sin, u0.α - u0.α0, degree = 1)
 
     return x::Arb -> begin
         x <= ϵ || throw(ArgumentError("x needs to be smaller than ϵ, got x = $x, ϵ = $ϵ"))
@@ -610,23 +575,18 @@ function T0(
         # Compute primitive_mul_x(t) * x^α = primitive(t) * x^(1 + α)
         primitive_mul_x_onepα(t::Arb) =
             let
-                part1 = let s = 2 - α
+                part1 = let Ms = 2 - Mα
                     # Singular term
-                    res = mul_with_remainder(
-                        gamma_sin,
-                        abspow_with_remainder(1 - t, 1 - α, u0.α) +
-                        abspow_with_remainder(1 + t, 1 - α, u0.α) -
-                        2abspow_with_remainder(t, 1 - α, u0.α),
-                        u0.α,
-                    )
+                    res =
+                        gamma_sin * (
+                            abspow(1 - t, 1 - Mα) + abspow(1 + t, 1 - Mα) -
+                            2abspow(t, 1 - Mα)
+                        )
                     # Analytic terms
                     res += sum(
                         (-1)^m *
-                        mul_with_remainder(
-                            compose_with_remainder(zeta, s - 2m, u0.α),
-                            abspow_with_remainder(x, 2m - 1 + α, u0.α),
-                            u0.α,
-                        ) *
+                        compose(zeta, Ms - 2m) *
+                        abspow(x, 2m - 1 + Mα) *
                         ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m) for
                         m = 1:M-1
                     )
@@ -634,51 +594,32 @@ function T0(
                     # Here we use that max(1 - t, 1 + t, t) = 1 + t so
                     # it is enough to compute the remainder term at x * (1 + t)
                     res +=
-                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) * mul_with_remainder(
-                            abspow_with_remainder(x, 2M - 1 + α, u0.α),
-                            compose_with_remainder(
-                                s -> clausenc_expansion_remainder(x * (1 + t), s, M),
-                                s,
-                                u0.α - u0.α0,
-                            ),
-                            u0.α,
-                        )
+                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) *
+                        abspow(x, 2M - 1 + Mα) *
+                        compose(s -> clausenc_expansion_remainder(x * (1 + t), s, M), Ms)
 
                     res
                 end
 
-                part2 = let s = 1 - α
+                part2 = let Ms = 1 - Mα
                     # Singular term
-                    res = mul_with_remainder(
-                        mul_with_remainder((α - 1), gamma_sin, u0.α),
-                        -abspow_with_remainder(1 - t, -α, u0.α) +
-                        abspow_with_remainder(1 + t, -α, u0.α) -
-                        2abspow_with_remainder(t, -α, u0.α),
-                        u0.α,
-                    )
+                    res =
+                        (Mα - 1) *
+                        gamma_sin *
+                        (-abspow(1 - t, -Mα) + abspow(1 + t, -Mα) - 2abspow(t, -Mα))
                     # Analytic terms
                     res += sum(
                         (-1)^m *
-                        mul_with_remainder(
-                            compose_with_remainder(zeta, s - 2m - 1, u0.α),
-                            abspow_with_remainder(x, 2m + 1 + α, u0.α),
-                            u0.α,
-                        ) *
+                        compose(zeta, Ms - 2m - 1) *
+                        abspow(x, 2m + 1 + Mα) *
                         (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) /
                         factorial(2m + 1) for m = 0:M-1
                     )
                     # Remainder term
                     res +=
                         ((1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
-                        mul_with_remainder(
-                            abspow_with_remainder(x, 2M + 1 + α, u0.α),
-                            compose_with_remainder(
-                                s -> clausens_expansion_remainder(x * (1 + t), s, M),
-                                s,
-                                u0.α - u0.α0,
-                            ),
-                            u0.α,
-                        )
+                        abspow(x, 2M + 1 + Mα) *
+                        compose(s -> clausens_expansion_remainder(x * (1 + t), s, M), Ms)
 
                     t * res
                 end
@@ -687,36 +628,26 @@ function T0(
             end
 
         # Compute primitive_mul_x_onepα(0) = 2clausencmzeta(x, 2 - α) / x^(1 - α)
-        primitive_mul_x_onepα_zero = let s = 2 - α
+        primitive_mul_x_onepα_zero = let Ms = 2 - Mα
             # Singular term
             res = gamma_sin
 
             # Analytic terms
             res += sum(
-                (-1)^m * mul_with_remainder(
-                    compose_with_remainder(zeta, s - 2m, u0.α),
-                    abspow_with_remainder(x, 2m - 1 + α, u0.α),
-                    u0.α,
-                ) / factorial(2m) for m = 1:M-1
+                (-1)^m * compose(zeta, Ms - 2m) * abspow(x, 2m - 1 + Mα) / factorial(2m) for m = 1:M-1
             )
 
             # Remainder term
-            res += mul_with_remainder(
-                abspow_with_remainder(x, 2M - 1 + α, u0.α),
-                compose_with_remainder(
-                    s -> clausenc_expansion_remainder(x, s, M),
-                    s,
-                    u0.α - u0.α0,
-                ),
-                u0.α,
-            )
+            res +=
+                abspow(x, 2M - 1 + Mα) *
+                compose(s -> clausenc_expansion_remainder(x, s, M), Ms)
 
             2res
         end
 
         # Compute primitive_mul_x_onepα(π / x) =
         # 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(1 - α)
-        primitive_mul_x_onepα_pi_div_x = let s = 2 - α
+        primitive_mul_x_onepα_pi_div_x = let Ms = 2 - Mα
             res = zero(primitive_mul_x_onepα_zero)
 
             # The function is even around π so it is beneficial to
@@ -727,26 +658,20 @@ function T0(
             # values of m since the function is even around x = π
             for m = 2:2:N-1
                 # m-th derivative at x = π, note that m is always even
-                deriv = (-1)^(m ÷ 2) * clausenc_with_remainder(Arb(π), s - m, u0.α)
+                deriv = (-1)^(m ÷ 2) * clausenc(Arb(π), Ms - m)
 
                 # We have x^(m - 1 + α) since we divide by x^(1 - α)
-                res +=
-                    mul_with_remainder(
-                        deriv,
-                        abspow_with_remainder(x, m - 1 + α, u0.α),
-                        u0.α,
-                    ) / factorial(m)
+                res += deriv * abspow(x, m - 1 + Mα) / factorial(m)
             end
 
             # Remainder term
             # Interval for the Taylor expansion
-            interval = union(Arb(π), Arb(π) + x)
+            J = union(Arb(π), Arb(π) + x)
             # Enclosure of N-th derivative on interval
-            deriv = (-1)^(N ÷ 2) * clausenc_with_remainder(interval, s - N, u0.α)
+            deriv = (-1)^(N ÷ 2) * clausenc(J, Ms - N)
 
             # Add enclosure of the remainder term
-            res +=
-                mul_with_remainder(deriv, abspow_with_remainder(x, N - 1 + α, u0.α), u0.α) / factorial(N)
+            res += deriv * abspow(x, N - 1 + Mα) / factorial(N)
 
             2res
         end
@@ -755,24 +680,22 @@ function T0(
             primitive_mul_x_onepα_zero - 2primitive_mul_x_onepα(root) +
             primitive_mul_x_onepα_pi_div_x
 
-        I_mul_x_onepα_div_pi = I_mul_x_onepα / π
+        I_mul_x_onepα_div_pi = I_mul_x_onepα / Arb(π)
 
         if skip_div_u0
             res = I_mul_x_onepα_div_pi
         else
-            res = div_with_remainder(
-                I_mul_x_onepα_div_pi,
-                eval_expansion(u0, u0_expansion, x, offset_i = -1).p,
-                u0.α,
-            )
+            res =
+                I_mul_x_onepα_div_pi /
+                truncate(eval_expansion(u0, u0_expansion, x, offset_i = -1), degree = 0)
         end
 
-        # The constant term should be exactly 1. This holds not matter
+        # The constant term should be exactly 1. This holds no matter
         # if we divide by u0 or not since the constant term of u0 is
         # exactly 1.
-        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi, 0), 1) ||
-                !isfinite(Arblib.ref(I_mul_x_onepα_div_pi, 0))
-        res[0] = 1
+        @assert Arblib.contains(Arblib.ref(I_mul_x_onepα_div_pi.p, 0), 1) ||
+                !isfinite(Arblib.ref(I_mul_x_onepα_div_pi.p, 0))
+        res.p[0] = 1
 
         return res
     end

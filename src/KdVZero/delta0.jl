@@ -13,24 +13,17 @@ In this case we compute an enclosure of an upper bound of
 `abs(F0(u0))` for `x ∈ [0, π]`.
 
 # `u0.α0 = 0`
-In this case we compute an expansion in `α` such that it gives an
+In this case we compute a Taylor model in `α` such that it gives an
 upper bound of `abs(F0(u0)(x))` for all `α ∈ u0.α`.
 
-More precisely it returns an `ArbSeries` `p` of the form
+For a given value of `x` [`F0`](@ref) gives us a Taylor model in `α`.
+We truncate this expansion to degree `2`, giving us a polynomial of
+the form
 ```
-p = 0 + 0 * α + p[2] * α^2
-```
-satisfying that `p(α)` gives an enclosure of ``δ_0`` for every `α ∈
-u0.α`.
-
-For a given value of `x` [`F0`](@ref) gives us an expansion in `α`.
-We truncate this expansion to degree `2` using
-[`trunace_with_remainder`](@ref), giving us a polynomial of the form
-```
-0 + 0 * α + p₂(x) * α^2
+0 + 0 * α + Δ(x) * α^2
 ```
 that gives an enclosure of `abs(F0(u0)(x))` for every `α ∈ u0.α`. We
-are then interested in computing the maximum value of `abs(p₂(x))` for
+are then interested in computing the maximum value of `abs(Δ(x))` for
 `x ∈ [0, π]`.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
@@ -50,8 +43,8 @@ function delta0_bound(
         # that the asymptotic version still satisfies the required
         # tolerance when evaluated at ϵ
         ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
-            y = f(ϵ).p[2]
-            z = g(ϵ).p[2]
+            y = truncate(f(ϵ), degree = 1).p[2]
+            z = truncate(g(ϵ), degree = 1).p[2]
 
             # Reduce ϵ until the value we get either satisfies the
             # required tolerance or is better than the non-asymptotic
@@ -90,7 +83,7 @@ function delta0_bound(
         end
 
         # Compute an enclosure on [0, ϵ]
-        p2_asymptotic = ArbExtras.maximum_enclosure(
+        Δ_asymptotic = ArbExtras.maximum_enclosure(
             f,
             zero(ϵ),
             ϵ,
@@ -103,16 +96,16 @@ function delta0_bound(
             verbose,
         )
 
-        verbose && @info "Bound of p[2] from [0, ϵ]" p2_asymptotic
+        verbose && @info "Bound of p[2] from [0, ϵ]" Δ_asymptotic
 
         if ϵ >= Arb(π)
             # If ϵ = π then we don't need to compute any non-asymptotic
             # part
             verbose && @info "ϵ = π so [ϵ, π] is skipped"
-            p2 = p2_asymptotic
+            Δ = Δ_asymptotic
         else
             # Compute an enclosure on [ϵ, π]
-            p2_nonasymptotic = ArbExtras.maximum_enclosure(
+            Δ_nonasymptotic = ArbExtras.maximum_enclosure(
                 g,
                 ϵ,
                 ubound(Arb(π)),
@@ -125,12 +118,12 @@ function delta0_bound(
                 verbose,
             )
 
-            verbose && @info "Bound of p[2] on [ϵ, π]" p2_nonasymptotic
+            verbose && @info "Bound of p[2] on [ϵ, π]" Δ_nonasymptotic
 
-            p2 = max(p2_asymptotic, p2_nonasymptotic)
+            Δ = max(Δ_asymptotic, Δ_nonasymptotic)
         end
 
-        return ArbSeries((0, 0, p2))
+        return TaylorModel(ArbSeries((0, 0, Δ), degree = 2), u0.α, u0.α0)
     else
         # Determine a good choice of ϵ. Take it as large as possible
         # so that the asymptotic version still satisfies the required

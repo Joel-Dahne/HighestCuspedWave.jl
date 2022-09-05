@@ -9,11 +9,11 @@
 
             @test 1.56 < n₀ < 1.58
 
-            A = delta0_bound(u0, maxevals = 10000, atol = Arb(0.0025); verbose)[2]
+            A = delta0_bound(u0, maxevals = 10000, atol = Arb(0.0025); verbose).p[2]
 
             @test -9e-3 < abs_ubound(A) < 9e-3
 
-            B = D0_bound(u0; verbose)[1]
+            B = D0_bound(u0; verbose).p[1]
 
             @test 0.23 < B < 0.25
 
