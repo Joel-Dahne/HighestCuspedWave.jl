@@ -274,4 +274,38 @@
             end
         end
     end
+
+    @testset "clausenc" begin
+        for x in Arb[0.1, 1, 3]
+            for f in [identity, sin, exp]
+                for s0 in Arb[0.5, 1.6, 2.7]
+                    for r in Mag[0, 1e-10, 1e-5]
+                        I = add_error(s0, r)
+                        for n = 0:3
+                            Ms = TaylorModel(f, I, s0, degree = n)
+                            M = clausencmzeta(x, Ms)
+                            @test test_f(M, s -> clausencmzeta(x, f(s)))
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    @testset "abspow" begin
+        for x in Arb[0, 0.5, 1.5]
+            for f in [identity, sin, exp, y -> -y]
+                for y0 in Arb[0.1, 1.6, 2.7]
+                    for r in Mag[0, 1e-10, 1e-5]
+                        I = add_error(y0, r)
+                        for n = 0:3
+                            My = TaylorModel(f, I, y0, degree = n)
+                            M = HighestCuspedWave.abspow(x, My)
+                            @test test_f(M, y -> HighestCuspedWave.abspow(x, f(y)))
+                        end
+                    end
+                end
+            end
+        end
+    end
 end

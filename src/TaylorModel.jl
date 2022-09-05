@@ -374,3 +374,51 @@ function clausencmzeta(x::Arb, s::TaylorModel)
         s.x0,
     )
 end
+
+"""
+    abspow(x::Arb, y::TaylorModel)
+
+Compute a Taylor model of `abspow(x, y)` in the argument `y`.
+
+This is equivalent to `compose_with_remainder(s -> abspow(x, y), y,
+interval)`, with one specialised optimizations. If `Arblib.is_x(-y)`
+is true then instead of evaluating `y(interval)` it takes `-interval`
+directly. These two are obviously equivalent, the reason for doing
+this optimization is that in some cases we have an exponent which is
+non-positive but whose left endpoint is zero, in that case
+`y(interval)` is supposed to non-negative but naive evaluation doesn't
+preserve this.
+"""
+function abspow(x::Arb, y::TaylorModel)
+    degree = Arblib.degree(y)
+
+    # Compute expansion at y[0] with degree - 1
+    p = abspow(x, ArbSeries((y.p[0], 1); degree))
+
+    # Increase the degree of p to make room for the remainder term
+    p = ArbSeries(p, degree = degree + 1)
+
+    # Compute remainder term
+    # We compute the interval in this way to avoid spurious negative
+    # values of y in the special case Arblib.is_x(-y)
+    yinterval = Arblib.is_x(-y.p) ? -y.I : y(y.I)
+
+    p[degree+1] = abspow(x, (ArbSeries((yinterval, 1), degree = degree + 1)))[degree+1]
+
+    # y - y[0]
+    ymy0 = copy(y.p)
+    ymy0[0] = 0
+
+    # Compute a non-truncated composition
+    q = Arblib.compose(p.poly, ymy0.poly)
+
+    # Truncate to the specified degree
+    return TaylorModel(
+        ArbSeries(
+            truncate_with_remainder(q, y.I, y.x0, degree = degree + 1),
+            degree = degree + 1,
+        ),
+        y.I,
+        y.x0,
+    )
+end
