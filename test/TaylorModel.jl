@@ -38,6 +38,18 @@
                 end
             end
         end
+
+        M = zero(TaylorModel(ArbSeries((1, 2)), Arb((-1, 1)), Arb(0.5)))
+        @test izero(M)
+        @test !isone(M)
+        @test isequal(M.I, Arb((-1, 1)))
+        @test isequal(M.x0, 0.5)
+
+        M = one(TaylorModel(ArbSeries((1, 2)), Arb((-1, 1)), Arb(0.5)))
+        @test one(M)
+        @test !iszero(M)
+        @test isequal(M.I, Arb((-1, 1)))
+        @test isequal(M.x0, 0.5)
     end
 
     @testset "checkcompatible" begin

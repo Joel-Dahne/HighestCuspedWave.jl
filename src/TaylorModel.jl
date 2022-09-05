@@ -62,6 +62,11 @@ function TaylorModel(f, I::Arb, x0::Arb; degree::Integer, enclosure_degree::Inte
     return TaylorModel(p, I, x0)
 end
 
+Base.zero(M::TaylorModel) = TaylorModel(zero(M.p), M.I, M.x0)
+Base.one(M::TaylorModel) = TaylorModel(one(M.p), M.I, M.x0)
+Base.iszero(M::TaylorModel) = iszero(M.p)
+Base.isone(M::TaylorModel) = isone(M.p)
+
 Arblib.degree(M::TaylorModel) = Arblib.degree(M.p) - 1
 
 function Base.show(io::IO, ::MIME"text/plain", M::TaylorModel)
@@ -101,8 +106,26 @@ checkcompatible(M1::TaylorModel, M2::TaylorModel) =
         error("Taylor models with non-compatible intervals")
     end
 
-function Arblib.overlaps(M1::TaylorModel, M2::TaylorModel)
-    checkcompatible(M1, M2)
+"""
+    overlaps(M1::TaylorModel, M2::TaylorModel; require_compatible::Bool = true)
+
+Return true if the coefficients and remainder term of `M1` and `M2`
+overlaps.
+
+By default it throws an error if `M1` and `M2` are not compatible,
+according to [`checkcompatible`](@ref). Setting `require_compatible`
+to false removes the requirement that `M1.I` and `M2.I` should be
+equal, it still requires that they have the same degree and midpoint.
+"""
+function Arblib.overlaps(M1::TaylorModel, M2::TaylorModel; require_compatible::Bool = true)
+    if require_compatible
+        checkcompatible(M1, M2)
+    else
+        Arblib.degree(M1) == Arblib.degree(M2) || error(
+            "Taylor models with non-compatible degrees, degree(M1) = $d1, degree(M2) = $d2",
+        )
+        M1.x0 == M2.x0 || error("Taylor models with different midpoints")
+    end
 
     return Arblib.overlaps(M1.p, M2.p)
 end
@@ -342,8 +365,6 @@ function clausencmzeta(x::Arb, s::TaylorModel)
     q = Arblib.compose(p.poly, sms0.poly)
 
     # Truncate to the specified degree
-    # Note that the intermediate TaylorModel is not a valid Taylor
-    # model, only after truncation is it valid.
     return TaylorModel(
         ArbSeries(
             truncate_with_remainder(q, s.I, s.x0, degree = degree + 1),
