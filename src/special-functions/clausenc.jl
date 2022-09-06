@@ -610,7 +610,7 @@ It first performs an argument reduction of `x`, using that the
 function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 
 If `x` contains zero and we don't have `s > 1` it returns an
-indeterminate result. If `s > 1` and `x`is not exactly zero it
+indeterminate result. If `s > 1` and `x` is not exactly zero it
 computes an extremely naive enclosure using that `abs(clausenc(x, s,
 β)) < abs(clausenc(0, s, β))`
 - **IMPROVE:** Compute a tighter enclosure in this case. Either

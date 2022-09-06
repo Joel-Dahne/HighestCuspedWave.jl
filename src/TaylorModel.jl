@@ -318,7 +318,7 @@ end
 # TaylorModel implementations of some functions that are used a lot
 
 """
-    clausenc(x::Arb, s::ArbSeries, interval::Arb; degree)
+    clausenc(x::Arb, s::TaylorModel)
 
 Compute a Taylor model of `clausenc(x, s)` in the parameter `s`.
 
