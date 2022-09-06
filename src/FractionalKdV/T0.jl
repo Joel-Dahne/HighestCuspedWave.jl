@@ -138,7 +138,7 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
     @assert isone(u0.p)
 
     return x::Arb -> begin
-        r = _integrand_compute_root(u0, x)
+        r = _integrand_compute_root(typeof(u0), x, u0.α)
 
         # primitive(0)
         primitive_mul_x_zero(x) = 2clausencmzeta(x, 2 - u0.α) / x
@@ -213,7 +213,7 @@ function T0_p_one(
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
-    r0 = _integrand_compute_root(u0, Arb(0))
+    r0 = _integrand_compute_root(typeof(u0), zero(α), α)
 
     # Asymptotic expansion of clausencmzeta(x, 2 - α) for x ∈ [0, ϵ * (1 + r0)]
     C1, e1, P1, E1 = clausenc_expansion(ϵ * (1 + r0), 2 - α, M, skip_constant = true)
@@ -250,7 +250,7 @@ function T0_p_one(
         x <= ϵ || @show x ϵ
         @assert x <= ϵ
 
-        r = _integrand_compute_root(u0, x)
+        r = _integrand_compute_root(typeof(u0), x, u0.α)
 
         # clausencmzeta(x, 2 - α) / x^(-α + 1)
         term1 = C1 + eval_poly(P1, x, one(x), α - 1) + E1 * abspow(x, 2M + α - 1)

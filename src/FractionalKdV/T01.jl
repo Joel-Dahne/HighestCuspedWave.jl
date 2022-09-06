@@ -13,7 +13,7 @@ _integrand_I_hat(x, t, α) =
     clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 
 """
-    _integrand_compute_root(u0::Fractionalkdvansatz, x::Arb)
+    _integrand_compute_root(::Type{<:Fractionalkdvansatz}, x::Arb, α::Arb)
 
 Compute the unique root of
 ```
@@ -39,11 +39,11 @@ If the upper bound of `x` is close to zero, smaller than `eps(Arb)`,
 we compute the root at `eps(Arb)` and use that as a lower bound. This
 avoids computing with very small values of `x`.
 """
-function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
+function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
     # Compute the root at x = 0
     root_zero = let
         # Function we are computing root of
-        f = t -> (1 - t)^(-u0.α - 1) + (1 + t)^(-u0.α - 1) - 2t^(-u0.α - 1)
+        f = t -> (1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)
 
         roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9))
         length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
@@ -54,7 +54,7 @@ function _integrand_compute_root(u0::FractionalKdVAnsatz, x::Arb)
     compute_root(x::Arb) =
         let
             # Function we are computing the root of
-            f = t -> _integrand_I_hat(x, t, u0.α)
+            f = t -> _integrand_I_hat(x, t, α)
 
             # The root is lower bounded by 1 / 2
             root_lower = Arf(0.5)
@@ -218,7 +218,7 @@ function T01(
     α = u0.α
     p = u0.p
 
-    r = _integrand_compute_root(u0, zero(α))
+    r = _integrand_compute_root(typeof(u0), zero(α), α)
 
     c =
         gamma(1 + α) *
@@ -406,7 +406,7 @@ function T012(
             end
         end
 
-        root = _integrand_compute_root(u0, x)
+        root = _integrand_compute_root(typeof(u0), x, u0.α)
         root_lower, root_upper = Acb.(getinterval(root))
 
         res1 = abs(
