@@ -44,8 +44,6 @@ struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
         # α is non-positive, this removes any spurious positive parts
         α = -Arblib.nonnegative_part!(zero(α), -α)
 
-        # TODO: These return Taylor models which we for now have to
-        # convert to the raw underlying polynomial
         p0 = expansion_p0(KdVZeroAnsatz, α0, α, degree = degree - 1)
         a = expansion_as(KdVZeroAnsatz, α0, α, degree = degree - 1; p0)
 
