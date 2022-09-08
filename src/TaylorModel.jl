@@ -359,7 +359,7 @@ function clausenc(x::Arb, s::TaylorModel)
 end
 
 """
-    clausens(x::Arb, s::ArbSeries, interval::Arb; degree)
+    clausens(x::Arb, s::TaylorModel)
 
 Compute a Taylor model of `clausens(x, s)` in the parameter `s`.
 
