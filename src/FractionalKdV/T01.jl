@@ -24,8 +24,8 @@ in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
 The existence and uniqueness of the root is based on lemma
 [`lemma_integrand_1`](@ref).
 
-For wide values of `x` it uses that the root is decreasing in `x` to
-only have to evaluate at the endpoints.
+It uses that the root is increasing in `α` and decreasing in `x` to
+better handle wide input intervals.
 
 If the lower bound of `x` is zero or close to zero (smaller than
 `eps(Arb)`) it computes an upper bound of the root by considering the
@@ -51,7 +51,12 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
         ArbExtras.refine_root(f, Arb(only(roots)))
     end
 
-    compute_root(x::Arb) =
+    # If x or α is wide we don't need to compute the root to very high
+    # precision. We therefore take the absolute tolerance to depend on
+    # their radius.
+    atol = Arblib.mul_2exp!(Mag(), max(radius(x), radius(α)), -20)
+
+    compute_root(x::Arb, α::Arb) =
         let
             # Function we are computing the root of
             f = t -> _integrand_I_hat(x, t, α)
@@ -76,7 +81,7 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
             roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
             if length(flags) == 1 && flags[1]
                 # Refine the unique root
-                root = ArbExtras.refine_root(f, Arb(only(roots)))
+                root = ArbExtras.refine_root(f, Arb(only(roots)); atol)
             else
                 root = Arb((roots[1][1], roots[end][2]))
             end
@@ -86,20 +91,27 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
 
     xₗ, xᵤ = getinterval(Arb, x)
     xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
+    αₗ, αᵤ = getinterval(Arb, α)
+
     ϵ = eps(Arb)
 
     if iszero(x)
         root = root_zero
     elseif Arblib.overlaps(xᵤ, Arb(π))
-        root = Arb((1 // 2, compute_root(xₗ))) # Lower bound is 1 / 2
+        root = Arb((1 // 2, compute_root(xₗ, αₗ))) # Lower bound is 1 / 2
     elseif !iswide(x)
-        root = compute_root(x) # In this case x never overlaps zero
+        # In this case x never overlaps zero
+        if iswide(α)
+            root = Arb((compute_root(x, αᵤ), compute_root(x, αₗ)))
+        else
+            root = compute_root(x, α)
+        end
     elseif xᵤ < ϵ
-        root = Arb((compute_root(ϵ), root_zero))
+        root = Arb((compute_root(ϵ, αᵤ), root_zero))
     elseif xₗ < ϵ
-        root = Arb((compute_root(xᵤ), root_zero))
+        root = Arb((compute_root(xᵤ, αᵤ), root_zero))
     else
-        root = Arb((compute_root(xᵤ), compute_root(xₗ)))
+        root = Arb((compute_root(xᵤ, αᵤ), compute_root(xₗ, αₗ)))
     end
 
     return root
