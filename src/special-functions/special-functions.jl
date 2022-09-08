@@ -399,3 +399,54 @@ function abspow(x::Arb, y::ArbSeries)
 end
 
 abspow(x, y) = abs(x)^y
+
+"""
+    logabspow(x, i::Integer, y)
+
+Compute `log(abs(x))^i * abs(x)^y` in a way that works for `x`
+overlapping zero.
+
+For `x` overlapping zero it uses that for `x > 0` and `y != 0` the
+unique critical point of `log(x)^i * x^y` is given by `exp(-i / y)`.
+It is hence enough to evaluate at the endpoints of the interval as
+well as possibly this point.
+"""
+logabspow(x, i, y) = iszero(i) ? abspow(x, y) : log(abs(x))^i * abspow(x, y)
+
+function logabspow(x::Arb, i::Integer, y::Arb)
+    iszero(i) && return abspow(x, y)
+
+    if Arblib.contains_zero(x)
+        if Arblib.ispositive(y)
+            iszero(x) && return zero(x)
+
+            # Evaluate at endpoints of x
+            xᵤ = abs_ubound(Arb, x)
+            res = union(zero(x), log(xᵤ)^i * xᵤ^y)
+
+            # Check if critical point is contained in x, if so evaluate on
+            # it
+            critical_point = exp(-i / y)
+            if Arblib.overlaps(x, critical_point)
+                res = union(res, log(critical_point)^i * critical_point^y)
+            end
+
+            return res
+        elseif iszero(y) && i < 0
+            iszero(x) && return zero(x)
+
+            xᵤ = abs_ubound(Arb, x)
+
+            # log(1) = 0 so we get an indeterminate value there
+            xᵤ < 1 || return indeterminate(x)
+
+            # Monotone for 0 < x < 1, evaluate on endpoints
+            return union(zero(x), log(xᵤ)^i)
+        else
+            # Non-zero at x = 0
+            return indeterminate(x)
+        end
+    end
+
+    return log(abs(x))^i * abspow(x, y)
+end
