@@ -130,7 +130,7 @@ We start by computing an enclosure of $n_\alpha$ and plot it together with $N_\a
 """
 
 # ╔═╡ 13373308-42e3-44ac-bf99-2a5145e6a5df
-n0_time = @elapsed n0 = n0_bound(u0, verbose = true)
+n0_time = @elapsed n0 = n0_bound(u0)
 
 # ╔═╡ fa901388-6f0a-4de5-8323-d9b4832062f6
 n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
@@ -167,9 +167,9 @@ Note that the polynomial for the Taylor model is zero, we can plot the remainder
 # ╔═╡ 51603714-bb7e-4691-b80d-7b18cf159b94
 Δδ_xs, Δδ_ys = let xs = range(Arb(0), π, length = 200)
     f = let F0_nonasym = F0(u0), F0_asym = F0(u0, Asymptotic(), ϵ = Arb(3.2), M = 10)
-		# We only use the asymptotic evaluation
+        # We only use the asymptotic evaluation
         x -> begin
-			expansion = F0_asym(x)
+            expansion = F0_asym(x)
             @assert iszero(expansion.p[0]) && iszero(expansion.p[1])
             expansion.p[2]
         end
@@ -178,23 +178,8 @@ Note that the polynomial for the Taylor model is zero, we can plot the remainder
     xs, ys
 end
 
-# ╔═╡ 616c4ebf-b2ca-4c5d-a300-30f4c1918223
-Δδ_xs_asym, Δδ_ys_asym =
-    let xs = exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), length = 200))
-        f = let F0 = F0(u0, Asymptotic(), ϵ = one(Arb))
-            x -> begin
-                expansion = F0(x)
-                @assert iszero(expansion.p[0]) && iszero(expansion.p[1])
-                expansion.p[2]
-            end
-        end
-        ys = Folds.map(f, xs)
-        xs, ys
-    end
-
 # ╔═╡ 581ee14a-acac-4a3e-b854-f46a6f26dcc3
-Δδ_time = @elapsed Δδ =
-	delta0_bound(u0, maxevals = 10000, verbose = true, atol = Arb(0.0025)).p[2]
+Δδ_time = @elapsed Δδ = delta0_bound(u0).p[2]
 
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
 let pl = plot(legend = :bottomright)
@@ -202,22 +187,6 @@ let pl = plot(legend = :bottomright)
     hline!([Δδ], ribbon = [radius(Arb, Δδ)], color = :green, label = "Δδ bound")
     hline!([-Δδ], ribbon = [radius(Arb, Δδ)], color = :green, label = "")
     pl
-end
-
-# ╔═╡ 17860367-ec0a-4dd4-8650-7bd99c5320c6
-let pl = plot(legend = :bottomright)
-    plot!(
-        pl,
-        Δδ_xs_asym,
-        Δδ_ys_asym,
-        ribbon = radius.(Arb, Δδ_ys_asym),
-        label = "",
-        m = :circle,
-        ms = 1,
-        xaxis = :log10,
-    )
-    hline!([Δδ], ribbon = [radius(Arb, Δδ)], color = :green, label = "Δδ bound")
-    hline!([-Δδ], ribbon = [radius(Arb, Δδ)], color = :green, label = "")
 end
 
 # ╔═╡ ce0c9835-7448-4344-86d8-83e89181208b
@@ -242,7 +211,7 @@ Note that the first coefficient in the expansion is $1$. We can plot the remaind
 ΔD_xs, ΔD_ys = let xs = range(Arb(0), π, length = 200)[2:end]
     f = let T0_nonasym = T0(u0), T0_asym = T0(u0, Asymptotic())
         x -> begin
-            if x < 1
+            if x < 0.1
                 expansion = T0_asym(x)
             else
                 expansion = T0_nonasym(x)
@@ -255,21 +224,8 @@ Note that the first coefficient in the expansion is $1$. We can plot the remaind
     xs, ys
 end
 
-# ╔═╡ f01b115e-0f4a-403a-807c-92d876c7e7c6
-ΔD_xs_asym, ΔD_ys_asym = let xs = exp.(range(log(Arb("1e-10")), log(Arb(0.9)), length = 200))
-    f = let T0 = T0(u0, Asymptotic(), ϵ = one(Arb))
-        x -> begin
-            expansion = T0(x)
-            @assert isone(expansion.p[0])
-            expansion.p[1]
-        end
-    end
-    ys = Folds.map(f, xs)
-    xs, ys
-end
-
 # ╔═╡ 39ce2082-2b36-4ce5-bcda-809c9c5214ec
-ΔD_time = @elapsed ΔD = D0_bound(u0, verbose = true).p[1]
+ΔD_time = @elapsed ΔD = D0_bound(u0).p[1]
 
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
 let pl = plot(legend = :bottomright)
@@ -277,24 +233,6 @@ let pl = plot(legend = :bottomright)
     hline!([ΔD], ribbon = [radius(Arb, ΔD)], color = :green, label = "ΔD bound")
     pl
 end
-
-# ╔═╡ 89599cbf-2571-4475-a360-bc4e165d71d8
-let pl = plot(legend = :topleft)
-    plot!(
-        pl,
-        ΔD_xs_asym,
-        ΔD_ys_asym,
-        ribbon = radius.(Arb, ΔD_ys_asym),
-        label = "",
-        m = :circle,
-        ms = 1,
-        xaxis = :log10,
-    )
-    hline!([ΔD], ribbon = [radius(Arb, ΔD)], color = :green, label = "ΔD bound")
-end
-
-# ╔═╡ 0ba5ede7-9c13-46c4-b288-47ef301ad092
-lbound(ΔD)
 
 # ╔═╡ 11e831ac-4e18-4822-bc53-ee99394ab64f
 md"""
@@ -318,17 +256,53 @@ We compute rounded values of the upper bounds that are given in the paper, as we
 
 # ╔═╡ 8289dd0e-c400-444d-b6df-aa525e41b3a8
 md"""
-**TODO:** Prepare values of bounds to be printed in the paper.
+**TODO:** This should possibly be done in a `round_for_publishing` method.
 """
 
 # ╔═╡ 47d4faa9-ecdd-4a04-b485-7e75333632ab
-n0_rounded = round(Arblib.get_d(ubound(n0), RoundUp), RoundUp, sigdigits = 5)
+n0_rounded = round(Arblib.get_d(ubound(n0), RoundUp), RoundUp, sigdigits = 3)
 
 # ╔═╡ 9d432aa8-ecb4-44d7-9180-595c9167cf09
-Δδ_rounded = round(Arblib.get_d(ubound(Δδ), RoundUp), RoundUp, sigdigits = 5)
+Δδ_rounded = round(Arblib.get_d(ubound(Δδ), RoundUp), RoundUp, sigdigits = 2)
 
 # ╔═╡ 3ebb3003-a281-43ba-9122-e75e20e84041
-ΔD_rounded = round(Arblib.get_d(lbound(ΔD), RoundDown), RoundDown, sigdigits = 5)
+ΔD_rounded = round(Arblib.get_d(lbound(ΔD), RoundDown), RoundDown, sigdigits = 3)
+
+# ╔═╡ c901abd7-4ca4-4e13-bf1e-ed157259864f
+md"""
+Check that the inequality holds after rounding.
+"""
+
+# ╔═╡ c8de1b4b-2085-45a1-b61d-789ed3428687
+proved = Arb(Δδ_rounded) < Arb(ΔD_rounded)^2 / 4Arb(n0_rounded)
+
+# ╔═╡ ee0c1ff9-baed-416f-b0db-7740ebdd288e
+md"""
+When giving the enclosures in the paper we want to make sure that the printed version is less than the given upper bound. Here we check that this is the case. Note that this is not important for the result to hold, just for the printed values to look nice.
+"""
+
+# ╔═╡ 80c61213-b801-4aef-9c0e-7a9f74f880f3
+n0_printed = string(n0)
+
+# ╔═╡ a0376989-d0e2-4be5-b9f8-c694aafe83d4
+Arb(n0_printed) < n0_rounded
+
+# ╔═╡ cdd7a87e-70d6-4c93-b65c-b6e35afbd721
+Δδ_printed = string(Δδ)
+
+# ╔═╡ a03d3f5f-e9e6-45bf-9b7a-c77a38e7d05d
+Arb(Δδ_printed) < Δδ_rounded
+
+# ╔═╡ 83078a21-fd16-4b4d-9cba-e92c66f3dbeb
+md"""
+For $\Delta_D$ we need to print a few more digits to get the enclosures correct.
+"""
+
+# ╔═╡ ca217129-82ba-4062-a387-67f4f78b87c1
+ΔD_printed = Arblib.string_nice(ΔD, 2, UInt(1))
+
+# ╔═╡ 4f1d46e1-2301-43a3-a2ad-897aaf16b2b1
+Arb(ΔD_printed) > ΔD_rounded
 
 # ╔═╡ 14a37967-e894-4571-8aa6-8733c544dee2
 md"""
@@ -363,7 +337,7 @@ end
 let pl = plot(
         legend = :none,
         xlabel = L"x",
-        ylabel = L"\Delta_D(x)",
+        ylabel = L"\Delta_{M_T(x)}",
         guidefontsize = 18,
         tickfontsize = 18,
     )
@@ -387,7 +361,7 @@ end
 let pl = plot(
         legend = :none,
         xlabel = L"x",
-        ylabel = L"\Delta_\delta(x)",
+        ylabel = L"\Delta_{M_F(x)}",
         guidefontsize = 24,
         tickfontsize = 24,
     )
@@ -428,20 +402,15 @@ end
 # ╠═054103ee-ac90-4310-afa3-55291712829d
 # ╟─38e338b0-f7e7-45e6-b84d-45c6946736b3
 # ╟─51603714-bb7e-4691-b80d-7b18cf159b94
-# ╟─616c4ebf-b2ca-4c5d-a300-30f4c1918223
 # ╠═581ee14a-acac-4a3e-b854-f46a6f26dcc3
 # ╟─03cf0016-f828-4049-90ae-5ce560ab644b
-# ╟─17860367-ec0a-4dd4-8650-7bd99c5320c6
 # ╟─ce0c9835-7448-4344-86d8-83e89181208b
 # ╟─e12220bf-4434-424d-afcc-bf204fd81411
 # ╠═353a6fb2-054c-4398-9c6f-2eafda12e4fa
 # ╟─ce8d3cb4-ee97-4f9a-8466-e1709b478bd5
 # ╟─9a568a65-91d0-4758-9cbb-15cc088f9aef
-# ╟─f01b115e-0f4a-403a-807c-92d876c7e7c6
 # ╠═39ce2082-2b36-4ce5-bcda-809c9c5214ec
 # ╟─feb38bc2-3963-4143-8e1c-9077a967fba4
-# ╟─89599cbf-2571-4475-a360-bc4e165d71d8
-# ╠═0ba5ede7-9c13-46c4-b288-47ef301ad092
 # ╟─11e831ac-4e18-4822-bc53-ee99394ab64f
 # ╠═e21e7ba1-7bd9-47c6-aa75-cebc4e413c4d
 # ╠═b142ad21-e34e-42b5-b73f-8a32e71feb26
@@ -451,6 +420,16 @@ end
 # ╠═47d4faa9-ecdd-4a04-b485-7e75333632ab
 # ╠═9d432aa8-ecb4-44d7-9180-595c9167cf09
 # ╠═3ebb3003-a281-43ba-9122-e75e20e84041
+# ╟─c901abd7-4ca4-4e13-bf1e-ed157259864f
+# ╠═c8de1b4b-2085-45a1-b61d-789ed3428687
+# ╟─ee0c1ff9-baed-416f-b0db-7740ebdd288e
+# ╠═80c61213-b801-4aef-9c0e-7a9f74f880f3
+# ╠═a0376989-d0e2-4be5-b9f8-c694aafe83d4
+# ╠═cdd7a87e-70d6-4c93-b65c-b6e35afbd721
+# ╠═a03d3f5f-e9e6-45bf-9b7a-c77a38e7d05d
+# ╟─83078a21-fd16-4b4d-9cba-e92c66f3dbeb
+# ╠═ca217129-82ba-4062-a387-67f4f78b87c1
+# ╠═4f1d46e1-2301-43a3-a2ad-897aaf16b2b1
 # ╟─14a37967-e894-4571-8aa6-8733c544dee2
 # ╠═c25e8495-28fe-4454-a9c4-10b5ed43b917
 # ╟─534cf54b-9044-43ca-8d47-d8917e2856cb
