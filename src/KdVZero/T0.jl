@@ -58,6 +58,11 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
         ArbExtras.refine_root(f, Arb(only(roots)))
     end
 
+    # If x is wide we don't need to compute the root to very high
+    # precision. We therefore take the absolute tolerance to depend on
+    # its radius.
+    atol = Arblib.mul_2exp!(Mag(), radius(x), -20)
+
     # Compute root for α = 0 at a given x
     compute_root0(x::Arb) =
         let
@@ -88,7 +93,7 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
             roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
             if length(flags) == 1 && flags[1]
                 # Refine the unique root
-                root = ArbExtras.refine_root(f, Arb(only(roots)))
+                root = ArbExtras.refine_root(f, Arb(only(roots)); atol)
             else
                 root = Arb((roots[1][1], roots[end][2]))
             end
@@ -637,6 +642,9 @@ function T0(
         degree = 0,
     )
 
+    # Precompute clausenc(Arb(π), 2 - α - m) for m = 2:2:M
+    clausenc_pi = OrderedDict(m => clausenc(Arb(π), 2 - Mα - m) for m = 2:2:M)
+
     return x::Arb -> begin
         x <= ϵ || throw(ArgumentError("x needs to be smaller than ϵ, got x = $x, ϵ = $ϵ"))
 
@@ -879,7 +887,8 @@ function T0(
             # values of m since the function is even around x = π
             for m = 2:2:N-1
                 # m-th derivative at x = π, note that m is always even
-                deriv = (-1)^(m ÷ 2) * clausenc(Arb(π), Ms - m)
+                # Note that clausenc_pi[m] = clausenc(Arb(π), Ms - m)
+                deriv = (-1)^(m ÷ 2) * clausenc_pi[m]
 
                 # We have x^(m - 1 + α) since we divide by x^(1 - α)
                 res += deriv * abspow(x, m - 1 + Mα) / factorial(m)
