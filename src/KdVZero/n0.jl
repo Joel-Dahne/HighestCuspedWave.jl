@@ -1,16 +1,17 @@
 """
     n0_bound(u0::KdVZeroAnsatz; rtol, verbose)
 
-Compute an upper bound of `n₀` from the paper. This is the supremum of
+Enclose the value of `n₀`. This is the supremum of
 ```
 N(x) = u0.w(x) / 2u0(x)
 ```
-for `0 < x < π`. The bound is valid for the full range of `α`.
+for `0 < x < π`.
 
-The computation is done by computing the asymptotic expansion of `u0`.
-The terms in the expansion are then evaluated in `α`, giving us an
-expansion in `x` where the coefficients are just balls. We factor out
-`x^-α` from this expansion and compute
+It uses an asymptotic expansion on the whole interval. The expansion
+is given by computing the asymptotic expansion of `u0`. The terms in
+the expansion are then evaluated in `α`, giving us an expansion in `x`
+where the coefficients are just balls. We factor out `x^-α` from this
+expansion and compute
 ```
 x^(1 + α) / 2(x^α * u0(x))
 ```
