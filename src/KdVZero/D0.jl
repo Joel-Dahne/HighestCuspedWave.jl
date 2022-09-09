@@ -21,37 +21,16 @@ In practice the the minimum is attained at `x = 0`, we therefore
 compute the minimum on `[0, ϵ]` first and then only prove that this is
 a lower bound of the value on `[ϵ, π]`.
 
-The value for `ϵ` is chosen dynamically by first computing the value
-at `x = 0` and then trying to pick `ϵ` as large but so that the
-enclosure from the asymptotic version of `T0` is larger than the value
-at `x = 0`
+We take `ϵ = 1`, it might be possible to get better results by tuning
+this choice but in practice it is good enough.
 """
 function D0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose = false)
+    ϵ = Arf(1)
+
     # Compute the value at x = 0, this is the minimum in practice
     Δ_zero = T0(u0, Asymptotic())(Arb(0)).p[1]
 
-    # Determine a good choice of ϵ
-    ϵ = let ϵ = Arb(π), f = T0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = T0(u0)
-        y = f(ϵ).p[1]
-        z = g(ϵ).p[1]
-
-        # Reduce ϵ until the value we get either has a lower bound
-        # greater than the lower bound of the value at x = 0 or the
-        # asymptotic version gives a better enclosure than the
-        # non-asymptotic version.
-        while !(isfinite(y) && lbound(y) > lbound(Δ_zero)) && radius(y) > radius(z)
-            if ϵ > 1
-                ϵ -= 0.05
-            else
-                ϵ /= 1.2
-            end
-            y = f(ϵ).p[1]
-            z = g(ϵ).p[1]
-            ϵ > 0.1 || error("could not determine working ϵ, last tried value was $ϵ")
-        end
-        ubound(ϵ)
-    end
-    verbose && @info "Determined ϵ" ϵ
+    verbose && @info "Δ(0) = $Δ_zero"
 
     # Function for computing Δ(x) for x ∈ [0, ϵ]
     T0_asymptotic = T0(u0, Asymptotic(), ϵ = Arb(ϵ + 0.1))
