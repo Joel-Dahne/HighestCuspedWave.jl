@@ -29,17 +29,22 @@ absolute value of `x` to this function and handle the sign outside of
 it.
 """
 function _reduce_argument_clausen(x::Arb)
-    pi = Arb(π)
-    twopi = let tmp = Arb(π)
+    twopi = let tmp = Arb(π, prec = precision(x))
         Arblib.mul_2exp!(tmp, tmp, 1)
     end
 
     if Arblib.ispositive(x) && x < twopi
         # Happy path, when 0 < x < 2π
-        y = copy(x)
+        # Optimize this case for performance so reuse twopi as much as
+        # possible
         haszero = has2pi = false
+        pi = Arblib.mul_2exp!(twopi, twopi, -1)
         haspi = Arblib.overlaps(x, pi)
+
+        y = Arblib.set!(twopi, x)
     else
+        pi = Arb(π, prec = precision(x))
+
         xdiv2pi = x / twopi
 
         if Arblib.cmp_2exp(Arblib.radref(xdiv2pi), -1) >= 0
