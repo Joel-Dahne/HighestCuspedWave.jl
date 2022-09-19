@@ -8,6 +8,8 @@ using OrderedCollections
 using SpecialFunctions
 using Folds
 using DataFrames
+using Tables
+using CSV
 
 include("fmpz.jl")
 include("arb.jl")
@@ -25,6 +27,7 @@ include("estimates.jl")
 include("T0.jl")
 include("lemmas.jl")
 include("proof.jl")
+include("data-handling.jl")
 
 include("FractionalKdV/FractionalKdVAnsatz.jl")
 include("FractionalKdV/determination.jl")
