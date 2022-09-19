@@ -103,7 +103,124 @@ function prove(
 end
 
 """
-    round_for_publishing(n₀, δ₀, D₀; sigdigits = 10)
+    proof_interval_subdivisions()
+    proof_interval_subdivisions(i)
+
+Return the subdivision used for the interval ``[1 - δ₁, -δ₂]``.
+
+The interval ``(1, 1 - δ₁)`` is proved using [`BHKdVAnsatz`](@ref) and
+``(-δ₂, 0)`` using [`KdVZeroAnsatz`](@ref). The remaining part of the
+interval is split into several small balls and handled using a
+combination of [`FractionalKdVAnsatz`](@ref) and
+[`KdVZeroAnsatz`](@ref). This function handles the splitting into
+several smaller intervals.
+
+With no arguments it returns a vector with elements of the form
+```
+((αₗ, αᵤ), n)
+```
+This means that the interval ``[αₗ, αᵤ]`` should be split into `n`
+equally sized balls. The elements of the vector are ordered with
+respect to the endpoints of the intervals, with the right endpoint of
+one element being the left endpoint of the next element. That this
+indeed is the case can be checked with
+[`proof_interval_subdivisions_check`](@ref).
+
+If the argument `i` is given it returns element number `i` in the
+vector.
+
+The endpoints of the intervals are stored as `Float64`. This works
+well since the endpoints can be picked arbitrarily and in particular
+we can choose them to be exact `Float64` numbers.
+
+See also [`proof_interval_subdivisions_mince`](@ref) for getting a
+subinterval and splitting it into balls directly.
+
+- **TODO:** Finish the subdivision close to `-1`.
+- **TODO:** Figure out a good way to handle computational time for the
+  intervals. At the moment most of them are tuned to take around one
+  hour, this is currently not the case closer to `-1`.
+"""
+function proof_interval_subdivisions()
+    return [
+        ((-0.95, -0.9), 8000),
+        ((-0.9, -0.85), 8000),
+        ((-0.85, -0.8), 4000),
+        ((-0.8, -0.7), 2000),
+        ((-0.7, -0.6), 1000),
+        ((-0.6, -0.5), 1500),
+        ((-0.5, -0.45), 1000),
+        ((-0.45, -0.41), 1000),
+        ((-0.41, -0.37), 1000),
+        ((-0.37, -0.33), 1000),
+        ((-0.33, -0.16), 25000),
+        ((-0.16, -0.1), 1000),
+        ((-0.1, -0.05), 1000),
+        ((-0.05, -0.025), 1000),
+        ((-0.025, -0.0125), 2000),
+        ((-0.0125, -0.00625), 4000),
+        ((-0.00625, -0.003125), 8000),
+        ((-0.003125, -0.0015625), 16000),
+        ((-0.0015625, -0.0012), 16000),
+    ]
+end
+
+proof_interval_subdivisions(i) = proof_interval_subdivisions()[i]
+
+"""
+    proof_interval_subdivisions_mince(i, m = nothing; thin = false)
+
+Use [`mince`](@ref) to split the interval given by
+`proof_interval_subdivisions(i)` into a number of balls given by
+`proof_interval_subdivisions(i). It then returns `m` of these balls.
+
+If `m = nothing` or `m` is larger than the number of balls it returns
+all of them.
+"""
+function proof_interval_subdivisions_mince(i, m = nothing; thin = false)
+    ((a, b), n) = proof_interval_subdivisions(i)
+
+    if isnothing(m)
+        m = n
+    else
+        m = min(m, n)
+    end
+
+    indices = round.(Int, range(1, n, m))
+
+    αs = mince(Arb((a, b)), n)[indices]
+
+    if thin
+        return midpoint.(Arb, αs)
+    else
+        return αs
+    end
+end
+
+"""
+    proof_interval_subdivisions_check(subdivision = proof_interval_subdivisions())
+
+Check that the subdivisions are valid. Throw an error on failure.
+
+It checks that the interval for each subdivision is a valid interval
+and that the right endpoint of each interval is equal to the left
+endpoint of the next interval. It doesn't check the left endpoint
+of the first interval or the right endpoint of the last interval.
+"""
+function proof_interval_subdivisions_check(subdivision = proof_interval_subdivisions())
+    # Check that the endpoints define an interval
+    for ((a, b), _) in subdivision
+        ArbExtras.check_interval(Arf(a), Arf(b))
+    end
+
+    # Check that all subintervals are consecutive
+    for i = 1:length(subdivision)-1
+        @assert subdivision[i][1][2] == subdivision[i+1][1][1]
+    end
+end
+
+"""
+    round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = nothing)
 
 Convert `n₀, δ₀, D₀` to `Float64`, rounding up to the prescribed
 number of significant digits, and check that the inequality `δ₀ <= (1
