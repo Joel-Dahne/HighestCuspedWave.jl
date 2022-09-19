@@ -6,6 +6,8 @@ using NLsolve
 using OffsetArrays
 using OrderedCollections
 using SpecialFunctions
+using Folds
+using DataFrames
 
 include("fmpz.jl")
 include("arb.jl")

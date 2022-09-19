@@ -47,6 +47,30 @@ function prove(
     return (α = α, p = p, proof_data..., u0_time = u0_time, prec = precision(α))
 end
 
+function prove(
+    αs::Vector{Arb};
+    M = 10,
+    only_estimate_D0 = true,
+    D0_maxevals = 4000,
+    executor = ThreadedEx(basesize = 1),
+    threaded = false,
+    verbose = false,
+)
+    res = Folds.map(αs, executor) do α
+        HighestCuspedWave.prove(
+            α,
+            verbose = false,
+            extra_verbose = false;
+            M,
+            only_estimate_D0,
+            D0_maxevals,
+            threaded,
+        )
+    end
+
+    return DataFrame(res)
+end
+
 """
     round_for_publishing(n₀, δ₀, D₀; sigdigits = 10)
 
