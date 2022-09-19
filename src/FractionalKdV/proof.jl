@@ -97,5 +97,7 @@ function prove(
         δ₀_time,
         D₀_estimate_time,
         D₀_time,
+        u0_N0 = u0.N0,
+        u0_N1 = u0.N1,
     )
 end
