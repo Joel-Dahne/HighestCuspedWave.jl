@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.3
+# v0.19.11
 
 using Markdown
 using InteractiveUtils
@@ -50,7 +50,7 @@ where $c$ is the wave speed.
 md"""
 For details about the proof see the paper, we here give a very short overview of the reduction to a fixed point problem.
 
-With the ansatz $\varphi(x) = c - u(x)$ and integrating the we can further reduce it to the equation
+With the ansatz $\varphi(x) = c - u(x)$ and integrating we can further reduce it to the equation
 
 $\frac{1}{2}u^2 = -\mathcal{H}[u]$
 
