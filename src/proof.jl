@@ -17,7 +17,8 @@ uses the [`prove`](@ref) methods corresponding to them.
   give a rigorous proof but is useful if you only want to determine of
   the bound seems to hold.
 - `D0_maxevals::Integer = 4000`: The maximum number of evaluations
-  when bounding `D₀`.
+  when bounding `D₀`. For [`KdVZeroAnsatz`](@ref) this number is
+  multiplied by `3` since it in some cases requires more subdivisions.
 - `threaded::Bool = true`: determines if it uses multiple threads for the
   computations or only a single thread.
 - `verbose::Bool = false`: if true it prints information about the
@@ -43,6 +44,10 @@ function prove(
     end
 
     verbose && @info "Constructed u0" u0 u0_time
+
+    if u0 isa KdVZeroAnsatz
+        D0_maxevals *= 3 # This case usually requires more subdivision
+    end
 
     proof_data =
         prove(u0; M, only_estimate_D0, D0_maxevals, threaded, verbose, extra_verbose)
