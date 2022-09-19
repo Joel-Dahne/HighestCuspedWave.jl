@@ -31,7 +31,7 @@ function prove(
     u0::FractionalKdVAnsatz{Arb};
     M = 5,
     only_estimate_D0 = false,
-    D0_maxevals = 1000,
+    D0_maxevals = 4000,
     threaded = true,
     verbose = false,
     extra_verbose = false,

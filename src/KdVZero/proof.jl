@@ -5,7 +5,7 @@ function prove(
     u0::KdVZeroAnsatz;
     M = 5, # Not used
     only_estimate_D0 = false,
-    maxevals = 1000,
+    D0_maxevals = 4000,
     threaded = true,
     verbose = false,
     extra_verbose = false,
@@ -72,8 +72,13 @@ function prove(
         else
             proved_estimate = true
             D₀ = D₀_goal
-            D₀_time = @elapsed proved =
-                D0_bounded_by(u02, lbound(D₀); maxevals, threaded, verbose)
+            D₀_time = @elapsed proved = D0_bounded_by(
+                u02,
+                lbound(D₀),
+                maxevals = D0_maxevals;
+                threaded,
+                verbose,
+            )
         end
     end
 

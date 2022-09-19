@@ -26,6 +26,7 @@ function prove(
     α::Arb;
     M = 5,
     only_estimate_D0 = false,
+    D0_maxevals = 4000,
     threaded = true,
     verbose = false,
     extra_verbose = false,
@@ -40,7 +41,8 @@ function prove(
 
     verbose && @info "Constructed u0" u0 u0_time
 
-    proof_data = prove(u0; M, only_estimate_D0, threaded, verbose, extra_verbose)
+    proof_data =
+        prove(u0; M, only_estimate_D0, D0_maxevals, threaded, verbose, extra_verbose)
 
     return (p = p, proof_data..., u0_time = u0_time)
 end
