@@ -60,6 +60,16 @@ function D0_bounded_by(
         return res
     end
 
+    # For α close to -1 the value of ϵ can get very small and in some
+    # cases the non-asymptotic evaluation doesn't even satisfy the
+    # bound when evaluated exactly at ϵ. In this case the bound can
+    # never be proved. Check for this case and return quickly in case
+    # it fails.
+    if !(h(Arb(ϵ)) < C)
+        verbose && @info "Bound doesn't hold at x = ϵ"
+        return false
+    end
+
     # Check that the bound holds on [ϵ, π]
     non_asymptotic_bound = ArbExtras.bounded_by(
         h,
