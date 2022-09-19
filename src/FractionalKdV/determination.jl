@@ -146,6 +146,9 @@ function _findas(u0::FractionalKdVAnsatz; verbose = true)
 
     initial = u0.a[1:end]
 
+    # IMPROVE: This zero finding problem is not always that stable. It
+    # might be helpful to look at stabilising it more for larger
+    # systems. Possibly by tuning the tolerance or other parameters.
     sol = nlsolve(g, initial, autodiff = :forward, iterations = 50)
 
     if verbose && !sol.f_converged
