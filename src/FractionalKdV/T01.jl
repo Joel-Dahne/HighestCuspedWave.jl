@@ -132,8 +132,8 @@ The integral is split into three parts, one on `[0, δ1]`, one on `[δ1,
 function T01(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
-    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
-    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ0::Arf = Arf(1e-3),
+    δ1::Arf = Arf(1e-3),
     skip_div_u0 = false,
 )
     f = T011(u0, evaltype, skip_div_u0 = true; δ0)
@@ -305,7 +305,7 @@ integrand is of constant sign and determine the sign.
 function T011(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ0::Arf = Arf(1e-3),
     N::Integer = 3,
     skip_div_u0 = false,
 )
@@ -524,7 +524,7 @@ integrand is of constant sign and determine the sign.
 function T013(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ1::Arf = Arf(1e-3),
     ϵ::Arb = Arb(1e-2),
     N::Integer = 3,
     skip_div_u0 = false,
