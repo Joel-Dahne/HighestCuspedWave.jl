@@ -182,7 +182,7 @@ asymptotic approach that works for small values of `x`.
 # Implementation
 It first splits the function as
 ```
-T0(x) = inv(π) * inv(u0(x) / x^-α) * (u0(x) / x^(-α + 1))
+T0(x) = inv(π) * inv(u0(x) / x^-α) * (U0(x) / x^(-α + 1))
 ```
 where `α = u0.α`, `p = u0.p` and
 ```
@@ -196,9 +196,6 @@ For enclosing `U0 / x^(-α + 1)` it uses the primitive function given
 in the non-asymptotic version of this method. It expands all functions
 at `x = 0` and explicitly cancels the division by `x^(-α + 1)`.
 
-**IMPROVE:** Use `ArbSeries` to compute a tighter enclosure? Similar
-  to the non-asymptotic version. Depends on how important it is for
-  the timings.
 **IMPROVE:** Better explain what it does.
 """
 function T0_p_one(
@@ -253,13 +250,13 @@ function T0_p_one(
         r = _integrand_compute_root(typeof(u0), x, u0.α)
 
         # clausencmzeta(x, 2 - α) / x^(-α + 1)
-        term1 = C1 + eval_poly(P1, x, one(x), α - 1) + E1 * abspow(x, 2M + α - 1)
+        term1(x) = C1 + eval_poly(P1, x, one(α), α - 1) + E1 * abspow(x, 2M + α - 1)
 
         # (clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^(-α + 1)
-        term2 = eval_poly(P3, x, one(x), α - 1)
+        term2(x) = eval_poly(P3, x, one(α), α - 1)
 
         # (clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) / x^(-α + 1)
-        term3 = begin
+        term3(x) = begin
             (
                 C1 * (1 - r)^e1 +
                 eval_poly(P1, x, 1 - r, α - 1) +
@@ -276,7 +273,7 @@ function T0_p_one(
         end
 
         # r * (clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α)) / x^-α
-        term4 = begin
+        term4(x) = begin
             r * (
                 -(
                     C2 * (1 - r)^e2 +
@@ -292,7 +289,9 @@ function T0_p_one(
             )
         end
 
-        res = 2(term1 + term2 - term3 - term4)
+        terms(x) = 2(term1(x) + term2(x) - term3(x) - term4(x))
+
+        res = ArbExtras.enclosure_series(terms, x)
 
         return inv_u0(x) * res / π
     end
