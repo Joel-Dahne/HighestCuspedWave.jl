@@ -80,9 +80,9 @@ function add_rounded_data(
         δ₀_time::Float64,
         D₀_estimate_time::Float64,
         D₀_time::Float64,
-        u0_time::Float64,
         u0_N0::Int,
         u0_N1::Int,
+        u0_time::Float64,
         prec::Int,
     };
     sigdigits = 15,
@@ -112,9 +112,9 @@ function add_rounded_data(
         data.δ₀_time,
         data.D₀_estimate_time,
         data.D₀_time,
-        data.u0_time,
         data.u0_N0,
         data.u0_N1,
+        data.u0_time,
         data.prec,
     )
 end
