@@ -7,7 +7,9 @@ clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
 which is part of the integrand of `T01`.
 
-**IMPROVE:** Optimize this for performance and enclosure in `x` and `α`.
+**IMPROVE:** Optimize this for performance and enclosure in `x` and
+  `α`. It seems to be that the integrand is monotone in `x` for `t`
+  less than the root with `x = 0`.
 """
 _integrand_I_hat(x, t, α) =
     clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
