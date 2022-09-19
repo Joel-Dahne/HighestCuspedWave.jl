@@ -83,7 +83,11 @@ function prove(
         D₀_time = @elapsed proved =
             D0_bounded_by(u0, lbound(D₀), maxevals = D0_maxevals; M, threaded, verbose)
 
-        verbose && @info "Bounded D₀" D₀ D₀_time
+        if proved
+            verbose && @info "Bounded D₀" D₀ D₀_time
+        else
+            verbose && @info "Failed to bound D₀" D₀ D₀_time
+        end
     end
 
     return (;
