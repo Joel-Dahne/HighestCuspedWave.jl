@@ -195,15 +195,15 @@ function pick_parameters(
     else
         parameters = [
             (-0.95, 75, 32, (1 - α) / 2),
-            (-1 // 2, 20, 16, (1 - α) / 2),
-            (-1 // 3, 10, 16, T(3 // 4)),
+            (-0.5, 20, 16, (1 - α) / 2),
+            (-0.33, 10, 16, T(3 // 4)),
             (-0.01, 5, 8, one(α)),
             (0, 5, 0, one(α)),
         ]
     end
 
-    # Find the last element in parameters for which we have an upper
-    # bound for α.
+    # Find the first element in parameters which α is not greater
+    # than.
     i = findfirst(value -> !(α > value[1]), parameters)
 
     _, N0, N1, p = parameters[i]
