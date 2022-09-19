@@ -188,7 +188,9 @@ function T02(
         # TODO: This is not covered in the paper yet. It doesn't work
         # very well for wide values of α close to -1, the enclosures
         # are bad. This will have to be improved if we don't come up
-        # with a different solution.
+        # with a different solution. It is not used at the moment. It
+        # makes the computed enclosure non-monotone in x which leads
+        # to issues in the way ϵ is currently chose in D0_bounded_by.
 
         # Attempt to compute a better bound for c by only integrating
         # up to π / x. Since the integral is increasing in x it is
@@ -214,7 +216,7 @@ function T02(
             cx
         end
 
-        if isfinite(cx) && cx < c
+        if false #isfinite(cx) && cx < c
             U02 = (cx + d * abspow(x, 2 + α - p)) / π
         else
             U02 = (c + d * abspow(x, 2 + α - p)) / π
