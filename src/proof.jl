@@ -44,7 +44,7 @@ function prove(
     proof_data =
         prove(u0; M, only_estimate_D0, D0_maxevals, threaded, verbose, extra_verbose)
 
-    return (p = p, proof_data..., u0_time = u0_time)
+    return (α = α, p = p, proof_data..., u0_time = u0_time, prec = precision(α))
 end
 
 """
