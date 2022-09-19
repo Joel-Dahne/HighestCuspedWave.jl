@@ -3,7 +3,7 @@
 """
 function prove(
     u0::KdVZeroAnsatz;
-    M = 5, # Not used
+    M = 10, # Not used
     only_estimate_D0 = false,
     D0_maxevals = 4000,
     threaded = true,

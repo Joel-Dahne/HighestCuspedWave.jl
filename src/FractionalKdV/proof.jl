@@ -29,7 +29,7 @@ more information `extra_verbose` can also be set to be true.
 """
 function prove(
     u0::FractionalKdVAnsatz{Arb};
-    M = 5,
+    M = 10,
     only_estimate_D0 = false,
     D0_maxevals = 4000,
     threaded = true,

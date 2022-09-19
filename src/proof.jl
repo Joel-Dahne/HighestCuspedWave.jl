@@ -1,20 +1,23 @@
 """
-    prove(α::Arb; only_estimate_D0, threaded, verbose, extra_verbose)
+    prove(α::Arb; M, only_estimate_D0, D0_maxevals, threaded, verbose, extra_verbose)
 
-Prove the inequality for showing existence of fixed-point.
+Prove the inequality for showing existence of fixed-point. It returns
+the result together with a lot of metadata.
 
 Depending on the value of `α` it constructs either a
 [`Fractionalkdvansatz`](@ref) or a [`KdVZeroAnsatz`](@ref) and then
 uses the [`prove`](@ref) methods corresponding to them.
 
 # Arguments
-- `M::Integer`: the number of terms to use in asymptotic expansions
+- `M::Integer = 10`: the number of terms to use in asymptotic expansions
   during the computations, only used for
   [`Fractionalkdvansatz`](@ref).
 - `only_estimate_D0::Bool = false`: if true it doesn't attempt to
   prove the bound for `D₀` but only uses an estimate. This doesn't
   give a rigorous proof but is useful if you only want to determine of
   the bound seems to hold.
+- `D0_maxevals::Integer = 4000`: The maximum number of evaluations
+  when bounding `D₀`.
 - `threaded::Bool = true`: determines if it uses multiple threads for the
   computations or only a single thread.
 - `verbose::Bool = false`: if true it prints information about the
@@ -24,7 +27,7 @@ uses the [`prove`](@ref) methods corresponding to them.
 """
 function prove(
     α::Arb;
-    M = 5,
+    M = 10,
     only_estimate_D0 = false,
     D0_maxevals = 4000,
     threaded = true,
@@ -47,6 +50,30 @@ function prove(
     return (α = α, p = p, proof_data..., u0_time = u0_time, prec = precision(α))
 end
 
+"""
+    prove(αs::Vector{Arb}; M, only_estimate_D0, D0_maxevals, executor, threaded, verbose)
+
+Apply `prove(α)` to all elements of `αs` and return result as a
+dataframe.
+
+The mapping over `αs` is done using [`Folds.map`](@ref) and can
+therefore be run on several threads or processes, see the `executor`
+argument.
+
+# Arguments
+- `M`, `only_estimate_D0`, `D0_maxevals`, `threaded`: Same as for
+  method accepting a single `α`.
+- `executor = ThreadedEx(basesize = 1)`: Executor to use for
+  [`Folds.map`](@ref). The default value parallelizes over all
+  available threads, in which case `threaded` should be false. Using
+  `DistributedEx()` parallelizes over all available processes and
+  threads, in this case `threaded` should be false. It is possible to
+  mix coarse and fine grained parallelism by using
+  `DistributedEx(basesize = 1)` and setting `threaded` to true, then
+  each process runs one `α` and uses all of its threads for that.
+  This option using a large number of processes, each with 2-8 threads
+  us often the best from a performance perspective.
+"""
 function prove(
     αs::Vector{Arb};
     M = 10,
@@ -56,6 +83,10 @@ function prove(
     threaded = false,
     verbose = false,
 )
+    executor == ThreadedEx(basesize = 1) &&
+        threaded &&
+        @warn "Using threaded executor with threading enabled"
+
     res = Folds.map(αs, executor) do α
         HighestCuspedWave.prove(
             α,
