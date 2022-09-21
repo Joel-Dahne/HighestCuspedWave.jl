@@ -1,14 +1,14 @@
 """
     T0(u0::FractionalKdVAnsatz{Arb}, ::Ball)
 
-**IMPROVE:** Tune the values for `δ0, δ1, δ2` depending on `u0.α` and
+**IMPROVE:** Tune the values for `δ1, δ2` depending on `u0.α` and
 `u0.p`.
 """
 function T0(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
-    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
-    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ0::Arf = Arf(0),
+    δ1::Arf = Arf(1e-3),
     δ2::Arf = Arf(1e-2),
     ϵ::Arb = 1 + u0.α,
     skip_div_u0 = false,

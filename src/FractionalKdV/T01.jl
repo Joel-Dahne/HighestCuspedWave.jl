@@ -145,7 +145,7 @@ The integral is split into three parts, one on `[0, δ1]`, one on `[δ1,
 function T01(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
-    δ0::Arf = Arf(1e-3),
+    δ0::Arf = Arf(0),
     δ1::Arf = Arf(1e-3),
     skip_div_u0 = false,
 )
@@ -154,7 +154,12 @@ function T01(
     h = T013(u0, evaltype, skip_div_u0 = true; δ1)
 
     return x -> begin
-        asymptotic_part = f(x) + h(x)
+        if iszero(δ0)
+            # f(x) = 0 in this case
+            asymptotic_part = h(x)
+        else
+            asymptotic_part = f(x) + h(x)
+        end
 
         # Short circuit on a non-finite result
         isfinite(asymptotic_part) || return asymptotic_part
@@ -307,18 +312,22 @@ it. Switching integration and summation gives us terms of the form
 where `s` depends on the term and `p = u0.p`. This is easily
 calculated to be
 ```
-δ0^(s + p + 1 / (s + p + 1)
+δ0^(s + p + 1) / (s + p + 1)
 ```
 The errors are handled as constant values which are just multiplied by
 the length of the interval.
 
 **Prove:** that the expression inside the absolute value of the
 integrand is of constant sign and determine the sign.
+
+**TODO:** This function is no longer used with the default value of
+`δ0 = 0`. We can remove it once we know it works well without it. In
+that case we should also rename the other functions appropriately.
 """
 function T011(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ0::Arf = Arf(1e-3),
+    δ0::Arf = Arf(0),
     N::Integer = 3,
     skip_div_u0 = false,
 )
@@ -378,71 +387,83 @@ x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α
 ```
 from `δ0` to `1 - δ1`.
 
-To speed up the integration we want to avoid the absolute value inside
-the integrand. The expression inside the absolute value is given by
-```
-f(t) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
-```
-and it has a unique root on the interval `[0, 1]` which we can isolate
-using [`_integrand_compute_root`](@ref). By isolating this root we can
-skip the absolute value for the parts of the interval where there is
-no roots. For the part enclosing the root we keep the absolute value.
+As a first step the unique root of the integrand is computed using
+[`_integrand_compute_root`](@ref). Outside the enclosure of the root
+the integrand has a constant sign and the absolute value can hence be
+moved outside of the integral there. At the root we use a naive
+enclosure given by the diameter of the interval times the enclosure of
+the integrand, in general this will be very small.
+
+It supports giving `δ0 = 0`. In this case the integrand is not
+analytic at the endpoint. For computing an enclosure the only
+problematic part of the integrand is the term `clausenc(x * t, -α) *
+t^u0.p`. To enclose it we compute an expansion of `clausenc` and
+explicitly handle the multiplication with `t^u0.p`. The enclosure is
+only finite if `u0.p - u0.α - 1 > 0` , which is true in all cases we
+consider.
 """
 function T012(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ0::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
-    δ1::Arf = ifelse(isone(u0.p), Arf(1e-4), Arf(1e-3)),
+    δ0::Arf = Arf(0),
+    δ1::Arf = Arf(1e-3),
     skip_div_u0 = false,
 )
-    cp = Acb(u0.p)
-
-    a = Acb(δ0)
-    b = 1 - Acb(δ1)
-
     return x -> begin
-        integrand(t; analytic) = begin
-            # Check that the real part of t is strictly between 0 and
-            # 1 or return an indeterminate result
-            Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
-            return indeterminate(t)
-
-            if isreal(t)
-                res = Acb(_integrand_I_hat(x, Arblib.realref(t), u0.α))
-            else
-                res = _integrand_I_hat(x, t, u0.α)
-            end
-
-            return Arblib.real_abs!(res, res, analytic) * t^cp
-        end
-
-        # The same integrand as above but without the absolute value.
-        # It is used for the parts of the interval where the integrand
-        # is known to be non-zero.
-        integrand_no_abs(t) = begin
-            # Check that the real part of t is strictly between 0 and
-            # 1 or return an indeterminate result
-            Arblib.ispositive(Arblib.realref(t)) && Arblib.realref(t) < 1 ||
-            return indeterminate(t)
-
-            if isreal(t)
-                rt = Arblib.realref(t)
-                return Acb(_integrand_I_hat(x, rt, u0.α) * rt^u0.p)
-            else
-                return _integrand_I_hat(x, t, u0.α) * t^cp
-            end
-        end
-
         root = _integrand_compute_root(typeof(u0), x, u0.α)
-        root_lower, root_upper = Acb.(getinterval(root))
+        root_lower, root_upper = getinterval(Arb, root)
+
+        # Compute expansion of clausenc, used for enclosure when t
+        # overlaps zero. We only use it for t < ϵ, in which case the
+        # argument is bounded by x * ϵ.
+        ϵ = Arb(1e-2)
+        M = 3
+        C, e, P, E = clausenc_expansion(x * ϵ, -u0.α, M)
+
+        # The integrand without the absolute value.
+        integrand_no_abs(t; analytic = false) = begin
+            rt = real(t)
+
+            if analytic && !(Arblib.ispositive(rt) && rt < 1)
+                # Only analytic for 0 < t < 1
+                return indeterminate(t)
+            elseif Arblib.contains_zero(t)
+                # In this case analytic is false and t is real.
+                @assert !analytic && isreal(t)
+
+                # Only compute an enclosure if t < ϵ, otherwise it is
+                # not good enough anyway.
+                if rt < ϵ
+                    # Part of the integrand which is well behaved around t = 0
+                    part1 =
+                        (clausenc(x * (1 - rt), -u0.α) + clausenc(x * (1 + rt), -u0.α)) * abspow(rt, u0.p)
+
+                    # Enclosure of clausenc(x * t, -α) * t^u0.p
+                    part2 =
+                        C * abspow(x, e) * abspow(rt, e + u0.p) +
+                        P(x * rt) * abspow(rt, u0.p) +
+                        E * abspow(x * rt, 2M) * abspow(rt, u0.p)
+
+                    return Acb(part1 - 2part2)
+                else
+                    return indeterminate(t)
+                end
+            else
+                if isreal(t)
+                    return _integrand_I_hat(x, rt, u0.α) * t^u0.p
+                else
+                    return _integrand_I_hat(x, t, u0.α) * t^u0.p
+                end
+            end
+        end
 
         res1 = abs(
             real(
                 Arblib.integrate(
                     integrand_no_abs,
-                    a,
+                    δ0,
                     root_lower,
-                    check_analytic = false,
+                    check_analytic = true,
                     rtol = 2e-5,
                     atol = 2e-5,
                     warn_on_no_convergence = false,
@@ -451,26 +472,17 @@ function T012(
             ),
         )
 
-        res2 = real(
-            Arblib.integrate(
-                integrand,
-                root_lower,
-                root_upper,
-                check_analytic = true,
-                rtol = 2e-5,
-                atol = 2e-5,
-                warn_on_no_convergence = false,
-                opts = Arblib.calc_integrate_opt_struct(0, 100, 0, 0, 0),
-            ),
-        )
+        # Naive enclosure
+        res2 =
+            (root_upper - root_lower) * abs(integrand_no_abs(Arb((root_lower, root_upper))))
 
         res3 = abs(
             real(
                 Arblib.integrate(
                     integrand_no_abs,
                     root_upper,
-                    b,
-                    check_analytic = false,
+                    1 - δ1,
+                    check_analytic = true,
                     rtol = 2e-5,
                     atol = 2e-5,
                     warn_on_no_convergence = false,
