@@ -35,7 +35,7 @@ function prove(
     verbose = false,
     extra_verbose = false,
 )
-    if α > -1 // 6
+    if α > -0.16
         u0_time = @elapsed u0 = KdVZeroAnsatz(α, midpoint(Arb, α))
         p = one(α)
     else
