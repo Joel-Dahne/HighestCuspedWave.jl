@@ -36,8 +36,17 @@ function D0_bounded_by(
     f = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ), return_enclosure = true; M)
 
     # Check that the bound holds on [0, ϵ]
-    asymptotic_bound =
-        ArbExtras.bounded_by(f, Arf(0), ϵ, C, degree = -1; maxevals, threaded, verbose)
+    asymptotic_bound = ArbExtras.bounded_by(
+        f,
+        Arf(0),
+        ϵ,
+        C,
+        degree = -1;
+        depth_start = ifelse(isone(u0.p), 5, 0),
+        maxevals,
+        threaded,
+        verbose,
+    )
 
     if !asymptotic_bound
         verbose && @info "Bound doesn't hold on [0, ϵ]"
@@ -77,7 +86,7 @@ function D0_bounded_by(
         ubound(Arb(π)),
         C,
         degree = -1,
-        depth_start = ifelse(isone(u0.p), 4, 8);
+        depth_start = 8;
         maxevals,
         threaded,
         verbose,
