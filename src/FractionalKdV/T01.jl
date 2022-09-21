@@ -15,6 +15,18 @@ _integrand_I_hat(x, t, α) =
     clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 
 """
+    _integrand_I_hat_dt(x, t, α)
+
+Compute the function [`_integrand_I_hat`](@ref) differentiated once
+with respect to `t`.
+"""
+_integrand_I_hat_dt(x, t, α) =
+    -x * (
+        -clausens(x * (1 - t), -α - 1) + clausens(x * (1 + t), -α - 1) -
+        2clausens(x * t, -α - 1)
+    )
+
+"""
     _integrand_compute_root(::Type{<:Fractionalkdvansatz}, x::Arb, α::Arb)
 
 Compute the unique root of
@@ -62,6 +74,7 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
         let
             # Function we are computing the root of
             f = t -> _integrand_I_hat(x, t, α)
+            df = t -> _integrand_I_hat_dt(x, t, α)
 
             # The root is lower bounded by 1 / 2
             root_lower = Arf(0.5)
@@ -83,7 +96,7 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
             roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
             if length(flags) == 1 && flags[1]
                 # Refine the unique root
-                root = ArbExtras.refine_root(f, Arb(only(roots)); atol)
+                root = ArbExtras.refine_root(f, Arb(only(roots)); df, atol)
             else
                 root = Arb((roots[1][1], roots[end][2]))
             end
