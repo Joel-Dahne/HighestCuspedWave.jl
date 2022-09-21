@@ -109,7 +109,8 @@ end
 
 """
     proof_interval_subdivisions()
-    proof_interval_subdivisions(i)
+    proof_interval_subdivisions(i::Integer)
+    proof_interval_subdivisions(α::AbstractFloat)
 
 Return the subdivision used for the interval ``[1 - δ₁, -δ₂]``.
 
@@ -132,7 +133,8 @@ indeed is the case can be checked with
 [`proof_interval_subdivisions_check`](@ref).
 
 If the argument `i` is given it returns element number `i` in the
-vector.
+vector. If the argument `α` is given return the first element whose
+upper bound is not smaller than `α`.
 
 The endpoints of the intervals are stored as `Float64`. This works
 well since the endpoints can be picked arbitrarily and in particular
@@ -170,7 +172,11 @@ function proof_interval_subdivisions()
     ]
 end
 
-proof_interval_subdivisions(i) = proof_interval_subdivisions()[i]
+proof_interval_subdivisions(i::Integer) = proof_interval_subdivisions()[i]
+
+proof_interval_subdivisions(α::AbstractFloat) = proof_interval_subdivisions(
+    findfirst(x -> !(x[1][2] < α), proof_interval_subdivisions()),
+)
 
 """
     proof_interval_subdivisions_mince(i, m = nothing; thin = false)
