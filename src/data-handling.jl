@@ -157,7 +157,7 @@ end
 
 Read data from a csv-file stored using [`save_data`](@ref).
 """
-function read_proof_data(filename)
+function read_proof_data(filename; check = true)
     data = CSV.read(filename, DataFrame)
 
     for col_name in names(data)
@@ -170,6 +170,27 @@ function read_proof_data(filename)
             select!(data, Not(col_name))
         end
     end
+
+    if check
+        check_proof_data(data)
+    end
+
+    return data
+end
+
+"""
+    read_proof_data_dir(dirname)
+
+Read data from all files in the given directory using
+[`read_proof_data_dir`](@ref) and concatenate them into one dataframe.
+The rows are sorted by `α`.
+"""
+function read_proof_data_dir(dirname; check = true)
+    filenames = readdir(dirname, join = true)
+    datas = read_proof_data.(filenames; check)
+    data = vcat(datas...)
+
+    sort!(data, :α, by = α -> midpoint(α))
 
     return data
 end
