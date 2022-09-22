@@ -9,7 +9,7 @@ If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 function T01(
     u0::BHKdVAnsatz,
     evaltype::Ball;
-    δ0::Arb = Arb(1e-5),
+    δ0::Arb = Arb(0),
     δ1::Arb = Arb(1e-5),
     skip_div_u0 = false,
 )
@@ -18,9 +18,17 @@ function T01(
     h = T013(u0, evaltype, skip_div_u0 = true; δ1)
 
     if skip_div_u0
-        return x -> f(x) + g(x) + h(x)
+        if iszero(δ0)
+            return x -> g(x) + h(x)
+        else
+            return x -> f(x) + g(x) + h(x)
+        end
     else
-        return x -> (f(x) + g(x) + h(x)) / u0(x)
+        if iszero(δ0)
+            return x -> (f(x) + g(x) + h(x)) / u0(x)
+        else
+            return x -> (g(x) + h(x)) / u0(x)
+        end
     end
 end
 
@@ -37,12 +45,16 @@ interval.
 
 - **PROVE**: That the integrand indeed is increasing on the said
   interval.
+
+**TODO:** This function is no longer used with the default value of
+`δ0 = 0`. We can remove it once we know it works well without it. In
+that case we should also rename the other functions appropriately.
 """
-function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(1e-5), skip_div_u0 = false)
+function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(0), skip_div_u0 = false)
     δ0 < 0.05 || Throw(ArgumentError("δ0 must be less than 0.05, got $δ0"))
 
-    #Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that
-    #the lower endpoint is exactly -1
+    # Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that the
+    # lower endpoint is exactly -1
     α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     return x::Arb -> begin
@@ -79,25 +91,67 @@ function T012(
     δ1::Arb = Arb(1e-5),
     skip_div_u0 = false,
 )
-    # Enclosure of -α so that the upper bound is exactly 1
-    mα = 1 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-
-    # Integration limits
-    a = δ0
-    b = 1 - δ1
+    # Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that the
+    # lower endpoint is exactly -1
+    α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     return (x::Arb; tol = Arb(1e-5)) -> begin
-        integrand(t) = begin
-            xt = x * t
+        # Compute critical point of clausenc(x * t, -α) * t^0.5
+        t0 = begin
+            a = TaylorModel(α, Arb(-1), degree = 2) do α
+                num = -2gamma(2 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 // 2)
+                den = (1 + α) * zeta_deflated(-α, Arb(1)) - 1
+                num / den
+            end
+            b = TaylorModel(α -> 1 + α, α, Arb(-1), degree = 2)
 
-            term = abs(
-                clausenc(x * (1 - t), mα) + clausenc(x * (1 + t), mα) - 2clausenc(xt, mα),
-            )
-
-            return term * t * u0.wdivx(xt)
+            compose(exp, div_removable(compose(log, a), b))(α)
         end
 
-        res = ArbExtras.integrate(integrand, a, b, atol = tol, rtol = tol)
+        integrand(t) = begin
+            if (t isa Arb && Arblib.contains_zero(t)) ||
+               (t isa ArbSeries && Arblib.contains_zero(t[0]))
+                # If t is a ArbSeries only the constant term in the
+                # result will be finite. We therefore only compute
+                # with the constant part.
+                if t isa ArbSeries
+                    tt = t[0]
+                else
+                    tt = t
+                end
+
+                # Check that clausenc(x * t, -α) * t * u0.wdivx(x * t)
+                # is increasing
+                if tt < t0
+                    tᵤ = ubound(Arb, tt)
+
+                    # TODO: Prove monotonicity of weight factor
+                    part1 =
+                        clausenc(x * (1 - tt), -α) +
+                        clausenc(x * (1 + tt), -α) * Arb((0, tᵤ * u0.wdivx(x * tᵤ)))
+
+                    part2 = Arb((0, clausenc(x * tᵤ, -α) * tᵤ * u0.wdivx(x * tᵤ)))
+
+                    if t isa Arb
+                        return abs(part1 - 2part2)
+                    elseif t isa ArbSeries
+                        res = indeterminate(t)
+                        res[0] = abs(part1 - 2part2)
+                        return res
+                    end
+                else
+                    return indeterminate(t)
+                end
+            else
+                I =
+                    clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) -
+                    2clausenc(x * t, -α)
+
+                return abs(I) * t * u0.wdivx(x * t)
+            end
+        end
+
+        res = ArbExtras.integrate(integrand, δ0, 1 - δ1, atol = tol, rtol = tol)
 
         res *= x / (π * u0.wdivx(x))
 
