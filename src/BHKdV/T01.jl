@@ -171,8 +171,10 @@ Computes the integral ``T_{0,1,3}`` from the paper.
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
 interval. We can also notice that the value inside the absolute value
-is negative so we can remove the absolute value by putting a minus
-sign, which we can bake in to the weight factor.
+is positive so we can remove the absolute value.
+
+**PROVE:** That the value inside the absolute value is positive. This
+follows from the location of the root.
 
 We are left with integrating the three Clausen terms
 1. `clausenc(x * (1 - t), -α)`
@@ -207,7 +209,7 @@ clausens(x * δ1, 1 - α) +
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     return x::Arb -> begin
         weight_factor = let t = Arb((1 - δ1, 1))
-            -t * u0.wdivx(x * t)
+            t * u0.wdivx(x * t)
         end
 
         # s = 1 - α
