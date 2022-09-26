@@ -151,7 +151,7 @@ function T01(
 )
     f = T011(u0, evaltype, skip_div_u0 = true; δ0)
     g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
-    h = T013(u0, evaltype, skip_div_u0 = true; δ1)
+    h = T013(u0, evaltype, skip_div_u0 = true, δ1 = Arb(δ1))
 
     return x -> begin
         if iszero(δ0)
@@ -502,155 +502,76 @@ function T012(
 end
 
 """
-    T013(u0::FractionalKdVAnstaz{Arb}, evaltype = Ball(); δ1)
+    T013(u0::FractionalKdVAnstaz{Arb}, ::Ball; δ1::Arb = Arb(1e-3), skip_div_u0 = false,)
 
-Returns a function such that `T013(u0; δ1)(x)` computes the integral
-``T_{0,1,3}`` from the paper.
+Return a function such that `T013(u0; δ1)(x)` computes the integral
+```
+inv(π * u0(x) * u0.w(x)) * x * ∫ _integrand_I_hat(x, t, α) * u0.w(x * t) dt
+```
+where the integration is taken from `1 - δ1` to `1`.
 
-The strategy for evaluation is the same as for [`T011`](@ref) except
-that the first term is singular and the last two are analytic and
-their Taylor expansion is computed at `t = 1`.
+Since `u0.w` is bounded on the interval of integration we can factor
+it out as
+```
+inv(π * u0(x) * u0.w(x)) * x * u0.w(x * Arb((1 - δ1, 1))) * ∫ _integrand_I_hat(x, t, α) dt
+```
+and compute the integral explicitly. It is given by
+```
+∫ _integrand_I_hat(x, t, α) dt = inv(x) * (
+    clausens(2x, 1 - α) -
+    2clausens(x, 1 - α) +
+    clausens(x * δ1, 1 - α) -
+    clausens(x * (2 - δ1), 1 - α) +
+    2clausens(x * (1 - δ1), 1 - α)
+)
+```
+Using that `u0.w(x * t) = u0.w(x) * u0.w(t)` we can simplify the
+result to
+```
+inv(π * u0(x)) * u0.w(Arb((1 - δ1, 1))) * (
+    clausens(2x, 1 - α) -
+    2clausens(x, 1 - α) +
+    clausens(x * δ1, 1 - α) -
+    clausens(x * (2 - δ1), 1 - α) +
+    2clausens(x * (1 - δ1), 1 - α)
+)
+```
 
-The integral that needs to be computed in this case is
-```
-∫_(1 - δ1)^1 (1 - t)^s * t^p dt
-```
-which is given by
-```
-Γ(1 + s) * Γ(1 + p) / Γ(2 + s + p) - B(1 + p, 1 + s; 1 - δ1)
-```
-where `B(a, b; z)` is the incomplete Beta-function.
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
 
-If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
-expansion gives a very poor approximation for `clausenc(x * (t + 1),
--α)`. In this case we make use of the fact that it's 2π periodic and
-even, so that
-```
-clausenc(x * (t + 1), -α) = clausenc(x * (t + 1) - 2π, -α) = clausenc(2π - x * (t + 1), -α)
-```
-, to be able to use the asymptotic expansion instead. That gives us the
-integral
-```
-∫_(1 - δ1)^1 (2π - x * (t + 1))^s * t^p dt
-```
-which is given by
-```
-(2π - x)^(1 + p + s) * x^(-1 - p) * (B(1 + p, 1 + s, x / (2π - x)) - B(1 + p, 1 + s, (x - δ1 * x) / (2π - x)))
-```
-The value of `x / (2π - x)` will always be less than or equal to 1 for
-`x` less than or equal to π, however due to overestimation the
-enclosing ball might contain values greater than one, we therefore
-have to use [`beta_inc_zeroone`](@ref) to be able to get finite
-results in that case.
-
-**Prove:** that the expression inside the absolute value of the
-integrand is of constant sign and determine the sign.
+**IMPROVE:** An earlier version of this method worked by expanding the
+integrand and integrating the expansion. This was more complicated and
+in general it gave worse results. However, for `x` close to zero it
+could give better results. If need be we could reintroduce this
+method, though it is most likely a better idea to do that in the
+`::Asymptotic` version instead.
 """
 function T013(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ1::Arf = Arf(1e-3),
-    ϵ::Arb = Arb(1e-2),
-    N::Integer = 3,
+    δ1::Arb = Arb(1e-3),
     skip_div_u0 = false,
 )
-    Γ = gamma
-    α = u0.α
-    δ1 = Arb(δ1)
-    π = Arb(pi)
+    return x::Arb -> begin
+        weight_factor = u0.w(Arb((1 - δ1, 1)))
 
-    M = N ÷ 2 + 1
-
-    return x -> begin
-        # Determine if the asymptotic expansion or the Taylor
-        # expansion should be used for the second term
-        use_asymptotic = π - x < ϵ
-
-        # Analytic terms
-        (P1, P1_E) = taylor_with_error(one(α), union(1 - δ1, one(α)), N) do t
-            if !use_asymptotic
-                return clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
-            else
-                return -2clausenc(x * t, -α)
-            end
-        end
-        P1_restterm = Arblib.add_error!(zero(α), P1_E * δ1^N)
-
-        # Singular term
-        (C, e, P2, P2_E) = clausenc_expansion(x * δ1, -α, M)
-        C *= x^e
-        for m = 1:M-1
-            P2[2m] *= x^(2m)
-        end
-        P2_restterm = P2_E * (x * δ1)^(2M)
-
-        # Compute the integral
-
-        # Integrate the singular term
-        # Using ∫_(1 - δ1)^1 |t - 1|^s*t^(p) dt = ∫_(1 - δ1)^1 (1 - t)^s*t^(p) dt
-        singular_term =
-            C * (
-                Γ(1 + e) * Γ(1 + u0.p) / Γ(2 + e + u0.p) -
-                beta_inc(1 + u0.p, 1 + e, 1 - δ1)
-            )
-
-        # Integrate the analytic terms
-        # Using ∫_(1-δ1)^1 (t-1)^i*t^(p) dt = (-1)^i ∫_(1-δ1)^1 (t-1)^i*t^(p) dt
-        analytic_term = zero(α)
-        full_series = P1 + P2
-        for i = 0:N-1
-            analytic_term +=
-                full_series[i] *
-                (-1)^i *
-                (
-                    Γ(Arb(1 + i)) * Γ(1 + u0.p) / Γ(2 + i + u0.p) -
-                    beta_inc(1 + u0.p, Arb(1 + i), 1 - δ1)
-                )
+        # Compute a tighter enclosure by expanding in x. If x is
+        # closer to zero it is beneficial to use a higher degree when
+        # computing the enclosure.
+        degree = ifelse(x < 0.5, 4, 1)
+        s = 1 - u0.α
+        clausen_factor = ArbExtras.enclosure_series(x; degree) do x
+            clausens(2x, s) - 2clausens(x, s) + clausens(x * δ1, s) -
+            clausens(x * (2 - δ1), s) + 2clausens(x * (1 - δ1), s)
         end
 
-        res = singular_term + analytic_term
-
-        # Add the error term
-        res += δ1 * (P1_restterm + P2_restterm)
-
-        if use_asymptotic
-            # Handle asymptotic expansion of clausenc(x*(t + 1), -α)
-            (C, e, P3, P3_E) = clausenc_expansion(2π - x * (2 - δ1), -α, M)
-            P3_restterm = P3_E * (2π - x * (2 - δ1))^(2M)
-
-            # Add the singular part to the integral
-            singular_term_2 =
-                C *
-                (2π - x)^(1 + u0.p + e) *
-                x^(-1 - u0.p) *
-                (
-                    beta_inc_zeroone(1 + u0.p, 1 + e, x / (2π - x)) -
-                    beta_inc_zeroone(1 + u0.p, 1 + e, (x - δ1 * x) / (2π - x))
-                )
-
-            for i = 0:2:N-1
-                # Only even terms
-                singular_term_2 +=
-                    P3[i] *
-                    (2π - x)^(1 + u0.p + i) *
-                    x^(-1 - u0.p) *
-                    (
-                        beta_inc_zeroone(1 + u0.p, Arb(1 + i), x / (2π - x)) -
-                        beta_inc_zeroone(1 + u0.p, Arb(1 + i), (x - δ1 * x) / (2π - x))
-                    )
-            end
-
-            # Add rest term
-            singular_term_2 += δ1 * P3_restterm
-
-            # Add to res
-            res += singular_term_2
-        end
+        res = weight_factor * clausen_factor / π
 
         if skip_div_u0
-            return res * x / π
+            return res
         else
-            return res * x / (π * u0(x))
+            return res / u0(x)
         end
     end
 end
