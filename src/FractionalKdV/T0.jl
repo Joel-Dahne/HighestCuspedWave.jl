@@ -7,17 +7,16 @@
 function T0(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
-    δ0::Arf = Arf(0),
-    δ1::Arf = Arf(1e-3),
-    δ2::Arf = Arf(1e-2),
+    δ1::Arb = Arb(1e-3),
+    δ2::Arb = Arb(1e-2),
     ϵ::Arb = 1 + u0.α,
     skip_div_u0 = false,
 )
     # Use specialised implementation in the case the weight is x
     isone(u0.p) && return T0_p_one(u0, evaltype; skip_div_u0)
 
-    f = T01(u0, evaltype, skip_div_u0 = true; δ0, δ1)
-    g = T02(u0, evaltype, skip_div_u0 = true, δ2 = Arb(δ2); ϵ)
+    f = T01(u0, evaltype, skip_div_u0 = true; δ1)
+    g = T02(u0, evaltype, skip_div_u0 = true; δ2, ϵ)
 
     return x -> begin
         ## Integral on [0, x]

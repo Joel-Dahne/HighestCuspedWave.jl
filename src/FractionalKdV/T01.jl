@@ -133,45 +133,42 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
 end
 
 """
-    T01(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1, δ2)
+    T01(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1::Arb = Arb(1e-3), skip_div_u0 = false)
 
-Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
-integral ``T_{0,1}`` from the paper.
+Return a function such that `T01(u0, Ball(); δ1)(x)` computes the
+integral
+```
+inv(π * u0(x) * u0.w(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(x * t) dt
+```
+where the integration is taken from `0` to `1`.
 
-The integral is split into three parts, one on `[0, δ1]`, one on `[δ1,
-1 - δ2]` and one on `[1 - δ2, 1]`. These are These are given by
-[`T011`](@ref), [`T012`](@ref) and [`T013`](@ref).
+The interval of integration is split into two parts, one from `0` to
+`1 - δ1` and one from `1 - δ1` to `1`. The first part is handled using
+[`T012`](@ref) and the second one using [`T013`](@ref).
+
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
 """
 function T01(
     u0::FractionalKdVAnsatz{Arb},
     evaltype::Ball;
-    δ0::Arf = Arf(0),
-    δ1::Arf = Arf(1e-3),
+    δ1::Arb = Arb(1e-3),
     skip_div_u0 = false,
 )
-    f = T011(u0, evaltype, skip_div_u0 = true; δ0)
-    g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
-    h = T013(u0, evaltype, skip_div_u0 = true, δ1 = Arb(δ1))
+    f = T012(u0, evaltype, skip_div_u0 = true; δ1)
+    g = T013(u0, evaltype, skip_div_u0 = true; δ1)
 
-    return x -> begin
-        if iszero(δ0)
-            # f(x) = 0 in this case
-            asymptotic_part = h(x)
-        else
-            asymptotic_part = f(x) + h(x)
-        end
+    return x::Arb -> begin
+        fx = f(x)
 
-        # Short circuit on a non-finite result
-        isfinite(asymptotic_part) || return asymptotic_part
+        isfinite(fx) || return indeterminate(x)
 
-        non_asymptotic_part = g(x)
-
-        isfinite(non_asymptotic_part) || return non_asymptotic_part
+        res = fx + g(x)
 
         if skip_div_u0
-            return asymptotic_part + non_asymptotic_part
+            return res
         else
-            return (asymptotic_part + non_asymptotic_part) / u0(x)
+            return res / u0(x)
         end
     end
 end
@@ -291,125 +288,51 @@ function T01(
 end
 
 """
-    T011(u0::FractionalKdVAnstaz{Arb}, evaltype = Ball(); δ0)
+    T012(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1::Arb = skip_div_u0 = false)
 
-Returns a function such that `T011(u0; δ0)(x)` computes the integral
-``T_{0,1,1}`` from the paper.
-
-The strategy for evaluation is to compute an expansion for the
-integrand which is then integrated termwise on the interval. The first
-two terms inside the absolute value are analytic and their Taylor
-expansions of degree `N - 1` are computed at `t = 0` and the error
-term is enclosed. The last term inside the absolute value is not
-analytic and instead we use the expansion for Clausians from the paper
-and also here enclose the error term.
-
-The value inside the absolute value has constant sign so we can remove
-it. Switching integration and summation gives us terms of the form
+Return a functions such that `T012(u0; δ1)(x)` computes the integral
 ```
-∫_0^δ0 t^s * t^p dt
+inv(π * u0(x) * u0.w(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(x * t) dt
 ```
-where `s` depends on the term and `p = u0.p`. This is easily
-calculated to be
+where the integration is taken from `0` to `1 - δ1`.
+
+Using that `u0.w(x * t) = u0.w(x) * u0.w(t)` this can be simplified to
 ```
-δ0^(s + p + 1) / (s + p + 1)
+inv(π * u0(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(t) dt
 ```
-The errors are handled as constant values which are just multiplied by
-the length of the interval.
-
-**Prove:** that the expression inside the absolute value of the
-integrand is of constant sign and determine the sign.
-
-**TODO:** This function is no longer used with the default value of
-`δ0 = 0`. We can remove it once we know it works well without it. In
-that case we should also rename the other functions appropriately.
-"""
-function T011(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Ball = Ball();
-    δ0::Arf = Arf(0),
-    N::Integer = 3,
-    skip_div_u0 = false,
-)
-    Γ = gamma
-    α = u0.α
-    δ0 = Arb(δ0)
-
-    M = N ÷ 2 + 1
-
-    return x -> begin
-        # Analytic terms
-        (P1, P1_E) = taylor_with_error(zero(α), union(zero(α), δ0), N) do t
-            clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α)
-        end
-        P1_restterm = Arblib.add_error!(zero(α), P1_E * δ0^N)
-
-        # Singular term
-        (C, e, P2, P2_E) = clausenc_expansion(x * δ0, -α, M)
-        C *= x^e
-        for m = 1:M-1
-            P2[2m] *= x^(2m)
-        end
-        P2_restterm = P2_E * (x * δ0)^(2M)
-
-        # Compute the integral
-
-        # Integrate the singular term
-        singular_term = -2C * δ0^(e + u0.p + 1) / (e + u0.p + 1)
-
-        # Integrate the analytic terms
-        analytic_term = zero(α)
-        full_series = P1 - 2P2
-        for i = 0:N-1
-            analytic_term += full_series[i] * δ0^(i + u0.p + 1) / (i + u0.p + 1)
-        end
-
-        res = singular_term + analytic_term
-
-        # Add the error term
-        res += δ0 * (P1_restterm - P2_restterm)
-
-        if skip_div_u0
-            return -res * x / π
-        else
-            return -res * x / (π * u0(x))
-        end
-    end
-end
-
-"""
-    T012(u0::FractionalKdVAnsatz{Arb}, evaltype = Ball(); δ0, δ1)
-
-Returns a function such that `T012(u0; δ0, δ1)(x)` computes the
-integral ``T_{0,1,2}`` from the paper. This is the integral
+Since `u0.w(t) = abs(t)^u0.p` and `t >= 0` we can write it as
 ```
-x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^p dt
+inv(π * u0(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * t^u0.p dt
 ```
-from `δ0` to `1 - δ1`.
 
-As a first step the unique root of the integrand is computed using
-[`_integrand_compute_root`](@ref). Outside the enclosure of the root
-the integrand has a constant sign and the absolute value can hence be
-moved outside of the integral there. At the root we use a naive
-enclosure given by the diameter of the interval times the enclosure of
-the integrand, in general this will be very small.
+As a first step the unique root of [`_integrand_I_hat`](@ref) is
+computed using [`_integrand_compute_root`](@ref). Outside the
+enclosure of the root the function has a constant sign and the
+absolute value can hence be moved outside of the integral there. At
+the root we use a naive enclosure given by the diameter of the
+interval times the enclosure of the integrand, in general this will be
+very small.
 
-It supports giving `δ0 = 0`. In this case the integrand is not
-analytic at the endpoint. For computing an enclosure the only
-problematic part of the integrand is the term `clausenc(x * t, -α) *
-t^u0.p`. To enclose it we compute an expansion of `clausenc` and
-explicitly handle the multiplication with `t^u0.p`. The enclosure is
-only finite if `u0.p - u0.α - 1 > 0` , which is true in all cases we
-consider.
+Outside of the enclosure of the root we use [`Arblib.integrate`](@ref)
+for the integration.
+
+The integrand is not analytic at the endpoint `t = 0`. For computing
+an enclosure the only problematic part of the integrand is the term
+`clausenc(x * t, -α) * t^u0.p`. To enclose it we compute an expansion
+of `clausenc` and explicitly handle the multiplication with `t^u0.p`.
+This enclosure is only finite if `u0.p - u0.α - 1 > 0` , which is true
+in all cases we consider.
+
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
 """
 function T012(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball = Ball();
-    δ0::Arf = Arf(0),
-    δ1::Arf = Arf(1e-3),
+    δ1::Arb = Arb(1e-3),
     skip_div_u0 = false,
 )
-    return x -> begin
+    return x::Arb -> begin
         root = _integrand_compute_root(typeof(u0), x, u0.α)
         root_lower, root_upper = getinterval(Arb, root)
 
@@ -461,7 +384,7 @@ function T012(
             real(
                 Arblib.integrate(
                     integrand_no_abs,
-                    δ0,
+                    0,
                     root_lower,
                     check_analytic = true,
                     rtol = 2e-5,
@@ -491,12 +414,12 @@ function T012(
             ),
         )
 
-        res = res1 + res2 + res3
+        res = (res1 + res2 + res3) * x / π
 
         if skip_div_u0
-            return res * x / π
+            return res
         else
-            return res * x / (π * u0(x))
+            return res / u0(x)
         end
     end
 end
