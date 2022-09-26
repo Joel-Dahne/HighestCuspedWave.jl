@@ -31,7 +31,7 @@ function delta0_bound(
     # Determine a good choice of ϵ. Take it as large as possible so
     # that the asymptotic version still satisfies the specified
     # tolerance or it is better than the non-asymptotic version.
-    ϵ = let ϵ = Arb(0.8), f = F0(u0, Asymptotic(), ϵ = 1.01ϵ, M = 10), g = F0(u0)
+    ϵ = let ϵ = Arb(0.6), f = F0(u0, Asymptotic(), ϵ = 1.01ϵ, M = 10), g = F0(u0)
         y = f(ϵ)
         z = g(ϵ)
 
