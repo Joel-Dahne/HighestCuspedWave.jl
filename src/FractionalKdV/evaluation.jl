@@ -71,6 +71,16 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
         s = 1 - u0.α + j * u0.p0
         C, _, p, E = clausenc_expansion(x, s, M)
 
+        # Below we handle the special case when s contains an odd
+        # integer. When s is close to an odd integer we have very
+        # large cancellations between two of the terms in the
+        # expansion and it turns out to be beneficial to use the same
+        # method as when s overlaps an odd integer to compute an
+        # enclosure.
+        if is_approx_integer(s) && isodd(round(Float64(s)))
+            s = union(s, Arb(round(Float64(s))))
+        end
+
         # Check for the special case when s overlaps with an odd
         # integer. Notice that we don't need to do anything special if
         # s happens to overlap with two integers, we will just get NaN
@@ -80,7 +90,6 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
             # The term corresponding to C and p[2((n - 1) ÷ 2)]
             # coincides and diverge so are handled separately. The
             # rest we treat normally.
-            @assert !isfinite(C) && !isfinite(p[2((n-1)÷2)])
             for m = 1:M-1
                 m == (n - 1) ÷ 2 && continue # Skip this term
                 res[(0, 0, 2m)] += p[2m] * u0.a[j]
@@ -94,13 +103,9 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
             # x^(-i * u0.α + 1) from this where i is as large as
             # possible but so that we still have -i * u0.α + 1 < s -
             # 1, and enclose the rest.
-            i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:10) - 1
+            i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:100) - 1
             D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
             res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) + D * u0.a[j]
-
-            @info "Encountered a term with s overlapping an integer in expansion for u0" s i (
-                -i * u0.α + 1
-            ) D
         else
             res[(1, j, 0)] = C * u0.a[j]
             for m = 1:M-1
@@ -162,6 +167,16 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
             s = 1 - 2u0.α + j * u0.p0
             C, _, p, E = clausenc_expansion(x, s, M)
 
+            # Below we handle the special case when s contains an odd
+            # integer. When s is close to an odd integer we have very
+            # large cancellations between two of the terms in the
+            # expansion and it turns out to be beneficial to use the same
+            # method as when s overlaps an odd integer to compute an
+            # enclosure.
+            if is_approx_integer(s) && isodd(round(Float64(s)))
+                s = union(s, Arb(round(Float64(s))))
+            end
+
             # Check for the special case when s overlaps with an odd
             # integer.
             contains_int, n = unique_integer(s)
@@ -169,7 +184,6 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
                 # The term corresponding to C and p[2((n - 1) ÷ 2)]
                 # coincides and diverge so are handled separately. The
                 # rest we treat normally.
-                @assert !isfinite(C) && !isfinite(p[2((n-1)÷2)])
                 for m = 1:M-1
                     m == (n - 1) ÷ 2 && continue # Skip this term
                     res[(0, 0, 2m)] -= p[2m] * u0.a[j]
@@ -183,13 +197,9 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
                 # x^(-i * u0.α + 1) from this where i is as large as
                 # possible but so that we still have -i * u0.α + 1 < s -
                 # 1, and enclose the rest.
-                i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:10) - 1
+                i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:100) - 1
                 D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
                 res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - D * u0.a[j]
-
-                @info "Encountered a term with s overlapping an integer in expansion for H(u0)" s i j (
-                    -i * u0.α + 1
-                ) D
             else
                 res[(2, j, 0)] = -C * u0.a[j]
                 for m = 1:M-1
