@@ -17,7 +17,7 @@ function T0(
     isone(u0.p) && return T0_p_one(u0, evaltype; skip_div_u0)
 
     f = T01(u0, evaltype, skip_div_u0 = true; δ0, δ1)
-    g = T02(u0, evaltype, skip_div_u0 = true; δ2, ϵ)
+    g = T02(u0, evaltype, skip_div_u0 = true, δ2 = Arb(δ2); ϵ)
 
     return x -> begin
         ## Integral on [0, x]

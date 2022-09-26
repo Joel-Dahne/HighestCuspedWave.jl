@@ -1,13 +1,27 @@
 """
-    T02(u0::FractionalKdVAnsatz{Arb}; δ2)
+    T02(u0::FractionalKdVAnsatz{Arb}; δ2::Arb = Arb(1e-2), ϵ::Arb = 1 + u0.α, skip_div_u0 = false)
 
-Returns a function such that `T02(u0; δ2, ϵ)(x)` computes the integral
-``T_{0,2}`` from the paper.
+Return a function such that `T02(u0; δ2)(x)` computes the integral
+```
+inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
+```
+where the integration is taken from `x` to `π`.
 
-If `x` is close to π (`π - x < ϵ`) then use only the asymptotic
-expansion for the full integral.
+The interval of integration is split into two parts, one from `x` to
+`x + a` and one from `x + a` to `π`. The first part is handled using
+[`T021`](@ref) and the second one using [`T022`](@ref). The
+computation is done two times with different values of `a` and the
+intersection of the results is taken.
 
-The choice of both `δ2` and `ϵ` can be tuned a lot. For `δ2` it
+The result is first computed using `a = π`, in which case only the
+first interval is used. It is then done using `a = ubound(x + δ2)`. If
+`x` is close to `π`, as determined by `π - x < ϵ`, or if `ubound(x +
+δ2)` is larger than `π` then only a = π` is used.
+
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
+
+**IMPROVE:** The choice of both `δ2` and `ϵ` can be tuned. For `δ2` it
 depends on both `x` and `α`, whereas for `ϵ` it only depends on `α`.
 For `δ2` it should be larger when both `x` and `α` are larger. In
 theory we could compute with several values and take the best result,
@@ -17,19 +31,16 @@ the asymptotic expansion will be the best anyway, larger values of `α`
 should give a lower value of `ϵ`. The choice of `ϵ` is partially based
 on [/figures/optimal-epsilon-choice.png], but can likely be tuned
 further.
-
-**IMPROVE:** Look closer at computing with the asymptotic expansion
-and using the best result. Consider rewriting `T021` and `T022` to be
-more like the other methods here.
 """
 function T02(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball;
-    δ2::Arf = Arf(1e-2),
+    δ2::Arb = Arb(1e-2),
     ϵ::Arb = 1 + u0.α,
     skip_div_u0 = false,
 )
     f = T021(u0, Ball(), skip_div_u0 = true)
+    g = T022(u0, Ball(), skip_div_u0 = true)
 
     return x -> begin
         a = ubound(Arb, x + δ2)
@@ -40,7 +51,7 @@ function T02(
         if !(π < a || π - x < ϵ)
             part1 = f(x, a)
 
-            part2 = T022(u0, Ball(), a, x, skip_div_u0 = true)
+            part2 = g(x, a)
 
             res = intersect(part1 + part2, res)
         end
@@ -302,60 +313,58 @@ function T021(u0::FractionalKdVAnsatz{Arb}, ::Ball = Ball(); skip_div_u0 = false
 end
 
 """
-    T022(u0::FractionalKdVAnsatz{Arb}, a::Arb, x::Arb)
+    T022(u0::FractionalKdVAnsatz{Arb}, ::Ball; skip_div_u0 = true)
 
-Compute the (not yet existing) integral ``T_{0,2,2}`` from the paper.
-
-This is the integral
+Returns a functions such that `T022(u0)(x, a)` computes the integral
 ```
-∫abs(clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)) * y^p dy
+inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
 ```
-from `a` to `π`. We should have `x < a < π`.
+where the integration is taken from `a` to `π`.
 
-Notice that due to lemma [`lemma_integrand_2`](@ref) the expression
-inside the absolute value is always positive, so we can remove the
-absolute value.
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
 """
-T022(u0::FractionalKdVAnsatz, a, x; kwargs...) = T022(u0, Ball(), a, x; kwargs...)
+function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball = Ball(); skip_div_u0 = false)
+    return (x::Arb, a::Arb) -> begin
+        integrand(y) = begin
+            ry = real(y)
 
-function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball, a::Arb, x::Arb; skip_div_u0 = false)
-    mα = -u0.α
-    cp = Acb(u0.p)
+            # The integrand is singular at y = x so check that the real
+            # part of y is greater than x or return an indeterminate
+            # result. This also ensures that y^u0.p is analytic on all of
+            # y.
+            x < ry || return indeterminate(y)
 
-    integrand(y) = begin
-        # The integrand is singular at y = x so check that the real
-        # part of y is greater than x or return an indeterminate
-        # result. This also ensures that y^u0.p is analytic on all of
-        # y.
-        x < Arblib.realref(y) || return indeterminate(y)
-
-        if isreal(y)
-            y = real(y)
-            return Acb(
-                (clausenc(y - x, mα) + clausenc(x + y, mα) - 2clausenc(y, mα)) * y^u0.p,
-            )
-        else
-            y = Acb(y)
-            return (clausenc(x - y, mα) + clausenc(x + y, mα) - 2clausenc(y, mα)) * y^cp
+            if isreal(y)
+                return (
+                    clausenc(ry - x, -u0.α) + clausenc(x + ry, -u0.α) -
+                    2clausenc(ry, -u0.α)
+                ) * y^u0.p
+            else
+                return (
+                    clausenc(x - y, -u0.α) + clausenc(x + y, -u0.α) -
+                    2clausenc(Acb(y), -u0.α)
+                ) * y^u0.p
+            end
         end
-    end
 
-    res = real(
-        Arblib.integrate(
-            integrand,
-            a,
-            π,
-            check_analytic = false,
-            rtol = 1e-5,
-            atol = 1e-5,
-            warn_on_no_convergence = false,
-            opts = Arblib.calc_integrate_opt_struct(0, 5_000, 0, 0, 0),
-        ),
-    )
+        res = real(
+            Arblib.integrate(
+                integrand,
+                a,
+                π,
+                check_analytic = false,
+                rtol = 1e-5,
+                atol = 1e-5,
+                warn_on_no_convergence = false,
+                opts = Arblib.calc_integrate_opt_struct(0, 5_000, 0, 0, 0),
+            ),
+        )
 
-    if skip_div_u0
-        return res / (π * u0.w(x))
-    else
-        return res / (π * u0.w(x) * u0(x))
+        if skip_div_u0
+            return res / (π * u0.w(x))
+        else
+            return res / (π * u0(x) * u0.w(x))
+        end
     end
 end
