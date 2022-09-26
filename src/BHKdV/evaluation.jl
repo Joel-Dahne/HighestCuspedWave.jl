@@ -281,8 +281,8 @@ S_M(x) = sum(b[m] * x^m for m in M)
 We want to prove that `S_L(x) + S_M(x)` is positive for all `x` in
 ``(0, ϵ]``.
 
-To begin with we compute a lower bound of `S_L`. If If `a[l]` is
-negative then a lower bound for the corresponding term is given by
+To begin with we compute a lower bound of `S_L`. If `a[l]` is negative
+then a lower bound for the corresponding term is given by
 ```
 a[l] * x^(-u0.v0.α + u0.v0.p0)
 ```
@@ -291,7 +291,7 @@ The method checks that `a[l]` is negative for all `l >= 2`. This means that
 S_L(x) >= sum(a[l] * x^(-u0.v0.α + u0.v0.p0) for l in L)
        = sum(a[l] for l in L) * x^(-u0.v0.α + u0.v0.p0)
 ```
-it then checks that `sum(a[l] for l in L)` so that `S_L(x)` is
+it then checks that `sum(a[l] for l in L) > 0` so that `S_L(x)` is
 positive for all `x` in the interval.
 
 The next step is to prove that `abs(S_M(x)) < S_L(x)`. We have
