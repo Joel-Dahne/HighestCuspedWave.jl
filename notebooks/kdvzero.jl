@@ -77,7 +77,7 @@ $\delta_\alpha \in \Delta_\delta \alpha^2 \text{ and } D_\alpha \in 1 - \Delta_D
 
 for every $\alpha \in (\epsilon, 0)$. The inequality then reduces to checking
 
-$\Delta_\delta \alpha^2 \leq \frac{\Delta_D \alpha^2}{4n_\alpha} \iff \Delta_\delta \leq \frac{\Delta_D^2}{4n_\alpha}.$
+$\Delta_\delta \alpha^2 < \frac{\Delta_D \alpha^2}{4n_\alpha} \iff \Delta_\delta < \frac{\Delta_D^2}{4n_\alpha}.$
 
 In what follows we compute enclosures of $n_\alpha$, $\Delta_\delta$ and $\Delta_D$.
 """
@@ -236,7 +236,7 @@ end
 
 # ╔═╡ 11e831ac-4e18-4822-bc53-ee99394ab64f
 md"""
-The inequality we want to check is $\Delta_\delta \leq \frac{\Delta_D^2}{4n_\alpha}$
+The inequality we want to check is $\Delta_\delta < \frac{\Delta_D^2}{4n_\alpha}$
 """
 
 # ╔═╡ e21e7ba1-7bd9-47c6-aa75-cebc4e413c4d
