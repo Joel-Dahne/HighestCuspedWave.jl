@@ -29,20 +29,20 @@ function T02(
     ϵ::Arb = 1 + u0.α,
     skip_div_u0 = false,
 )
+    f = T021(u0, Ball(), skip_div_u0 = true)
+
     return x -> begin
         a = ubound(Arb, x + δ2)
 
-        # Compute with the asymptotic expansion on the whole interval
-        res_asymptotic = T021(u0, Ball(), Arb(π), x, ϵ = Arb(π), skip_div_u0 = true)
+        # Compute with T021 on the whole interval
+        res = f(x, Arb(π))
 
         if !(π < a || π - x < ϵ)
-            part1 = T021(u0, Ball(), a, x, skip_div_u0 = true; ϵ)
+            part1 = f(x, a)
 
             part2 = T022(u0, Ball(), a, x, skip_div_u0 = true)
 
-            res = intersect(part1 + part2, res_asymptotic)
-        else
-            res = res_asymptotic
+            res = intersect(part1 + part2, res)
         end
 
         if skip_div_u0
@@ -233,183 +233,71 @@ function T02(
 end
 
 """
-    T021(u0::FractionalKdVAnstaz{Arb}, a::Arb, x::Arb)
-Computes the (not yet existing) integral T_{0,2,1} from the paper.
+    T021(u0::FractionalKdVAnstaz{Arb}, ::Ball; skip_div_u0 = false)
 
-That is the integral
+Return a function such that `T021(u0)(x, a)` computes the integral
 ```
-∫abs(clausenc(y - x, -α) + clausenc(y + x, -α) - 2clausenc(y, -α)) * y^p dy
+inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
 ```
-from `x` to `a`.
+where the integration is taken from `x` to `a`.
 
-The strategy for evaluation is the same as for [`T011`](@ref) except
-that the first term is singular and the last two are analytic and
-their Taylor expansion is computed at `t = x`.
+Since `u0.w` is bounded on the interval of integration we can factor
+it out as
+```
+inv(π * u0(x) * u0.w(x)) * u0.w(Arb((x, a))) * ∫ clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α) dy
+```
+and compute the integral explicitly.
+```
+∫ clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α) dy = (
+    -clausens(x - a, 1 - α) +
+    clausens(x + a, 1 - α) -
+    2clausens(a, 1 - α) -
+    clausens(2x, 1 - α) +
+    2clausens(x, 1 - α)
+)
+```
+Using that `Arb((x, a)) = x * Arb((1, a / x))` and `u0.w(x * y) =
+u0.w(x) * u0.w(y)` we can simplify the result to
+```
+inv(π * u0(x)) * u0.w(Arb((1, a / x))) * (
+    -clausens(x - a, 1 - α) +
+    clausens(x + a, 1 - α) -
+    2clausens(a, 1 - α) -
+    clausens(2x, 1 - α) +
+    2clausens(x, 1 - α)
+)
+```
 
-The integral that needs to be computed in this case is
-```
-∫_x^a (y - x)^s*y^p dy
-```
-which is given by
-```
-x^(s + p + 1) * (gamma(1 + s) * gamma(-1 - s - p) / gamma(-p) - B(-1 - s - p, 1 + s; x / a))
-```
-where B(a, b; z) is the incomplete Beta-function. In the end we are
-dividing by `w(x) = x^p` and hence we can simplify it by cancelling
-the `p` in the `x`-exponent directly.
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
 
-For `p = 1` we instead use the expression
-```
-(a - x)^(1+s) * ((a - x) / (2 + s) + x / (1 + s))
-```
-and we divide by the weight directly.
-
-If `x` is equal or very close to π (determined by `ϵ`) then the Taylor
-expansion gives a very poor approximation for `clausenc(x + y, -α)`.
-In this case we make use of the fact that it's 2π periodic and even,
-so that `clausenc(x + y, -α) = clausenc(x + y - 2π, -α) = clausenc(2π
-- (x + y), -α)`, to be able to use the asymptotic expansion instead.
-That gives us the integral
-```
-∫_x^a (2π - (x + y))^s*t^p dy
-```
-which is given by
-```
-(2π - x)^(1 + p + s)*(B(1 + p, 1 + s, a/(2π - x)) - B(1 + p, 1 + s, x/(2π - x)))
-```
-The value of `x/(2π - x)` will always be less than or equal to 1 for
-`x` less than or equal to π, however due to overestimation the
-enclosing ball might contain values greater than one, we therefore
-have to use `beta_inc_zeroone` to be able to get finite results in
-that case.
+**IMPROVE:** An earlier version of this method worked by expanding the
+integrand and integrating the expansion. This was more complicated and
+in general it gave worse results. However, for `x` close to zero it
+could give better results. If need be we could reintroduce this
+method, though it is most likely a better idea to do that in the
+`::Asymptotic` version instead.
 """
-T021(u0::FractionalKdVAnsatz, a, x; kwargs...) = T021(u0, Ball(), a, x; kwargs...)
+function T021(u0::FractionalKdVAnsatz{Arb}, ::Ball = Ball(); skip_div_u0 = false)
+    return (x::Arb, a::Arb) -> begin
+        weight_factor = u0.w(Arb((1, a / x)))
 
-function T021(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Ball;
-    δ2::Arf = Arf(1e-4),
-    ϵ::Arb = Arb(1e-1),
-    N::Integer = 3,
-)
-    return x -> begin
-        T021(u0, Ball(), ubound(Arb, x + δ2), x; ϵ, N)
-    end
-end
+        # Compute a tighter enclosure by expanding in x. If x is
+        # closer to zero it is beneficial to use a higher degree when
+        # computing the enclosure.
+        degree = ifelse(x < 0.5, 4, 1)
+        s = 1 - u0.α
+        clausen_factor = ArbExtras.enclosure_series(x; degree) do x
+            -clausens(x - a, s) + clausens(x + a, s) - 2clausens(a, s) - clausens(2x, s) + 2clausens(x, s)
+        end
 
-function T021(
-    u0::FractionalKdVAnsatz{Arb},
-    ::Ball,
-    a::Arb,
-    x::Arb;
-    ϵ::Arb = Arb(1e-1),
-    N::Integer = 3,
-    skip_div_u0 = false,
-)
-    Γ = gamma
-    α = u0.α
-    δ2 = a - x
+        res = weight_factor * clausen_factor / π
 
-    # Determine if the asymptotic expansion or the Taylor
-    # expansion should be used for the second term
-    use_asymptotic = π - x < ϵ
-
-    # Compute expansion
-
-    # Singular term
-    M = N ÷ 2 + 1
-    (C, e, P1, P1_E) = clausenc_expansion(δ2, -α, M)
-    P1_restterm = P1_E * δ2^(2M)
-
-    # Analytic terms
-    (P2, P2_E) = taylor_with_error(x, union(x, a), N) do y
-        if !use_asymptotic
-            return clausenc(x + y, -α) - 2clausenc(y, -α)
+        if skip_div_u0
+            return res
         else
-            return -2clausenc(y, -α)
+            return res / u0(x)
         end
-    end
-    P2_restterm = Arblib.add_error!(zero(α), P2_E * δ2^N)
-
-    # Compute the integrals
-
-    # Integrate the singular term and divide by w(x) = x^p
-    if isone(u0.p)
-        singular_term = C * abspow(δ2, 1 + e) * (δ2 / (2 + e) + x / (1 + e)) / u0.w(x)
-    else
-        singular_term =
-            C *
-            x^(1 + e) *
-            (
-                Γ(1 + e) * Γ(-1 - e - u0.p) / Γ(-u0.p) -
-                beta_inc_zeroone(-1 - e - u0.p, 1 + e, x / a)
-            )
-    end
-
-    # Integrate the analytic terms and divide them by w(x) = x^p
-    full_series = P1 + P2
-
-    analytic_term = zero(α)
-    for i = 0:N-1
-        if isone(u0.p)
-            analytic_term +=
-                full_series[i] * δ2^(1 + i) * (δ2 / (2 + i) + x / (1 + i)) / u0.w(x)
-        else
-            analytic_term +=
-                full_series[i] *
-                x^(1 + i) *
-                (
-                    Γ(Arb(1 + i)) * Γ(-1 - i - u0.p) / Γ(-u0.p) -
-                    beta_inc(-1 - i - u0.p, Arb(1 + i), x / a)[1]
-                )
-        end
-    end
-
-    res = singular_term + analytic_term
-
-    # Add rest term
-    res += δ2 * (P1_restterm + P2_restterm)
-
-    if use_asymptotic
-        # Handle asymptotic expansion of clausenc(x + y, -α)
-        # The furthest away from 2π we are is at y = x
-        (C, e, P3, P3_E) = clausenc_expansion(2Arb(π) - 2x, -α, M)
-        P3_restterm = P3_E * (2Arb(π) - 2x)^(2M)
-
-        # Add the singular part divided by u0.w(x)
-        singular_term_2 =
-            C *
-            (2Arb(π) - x)^(1 + e + u0.p) *
-            (
-                beta_inc_zeroone(1 + u0.p, 1 + e, a / (2Arb(π) - x)) -
-                beta_inc_zeroone(1 + u0.p, 1 + e, x / (2Arb(π) - x))
-            ) / u0.w(x)
-
-        for i = 0:2:N-1
-            # Only even terms
-            singular_term_2 +=
-                P3[i] *
-                (2Arb(π) - x)^(1 + i + u0.p) *
-                (
-                    beta_inc_zeroone(1 + u0.p, Arb(1 + i), a / (2Arb(π) - x)) -
-                    beta_inc_zeroone(1 + u0.p, Arb(1 + i), x / (2Arb(π) - x))
-                ) / u0.w(x)
-        end
-
-        # Add rest term
-        singular_term_2 += δ2 * P3_restterm
-
-        # Add to res
-        res += singular_term_2
-    end
-
-    # Prove: that the expression inside the absolute value of the
-    # integrand is positive
-
-    if skip_div_u0
-        return res / π
-    else
-        return res / (π * u0(x))
     end
 end
 
