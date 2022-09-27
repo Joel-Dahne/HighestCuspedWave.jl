@@ -112,6 +112,8 @@ function D0_estimate(
     if !iszero(x_error)
         @assert T == Arb
         Arblib.add_error!.(xs, x_error)
+        # The error for the last element should not go past π
+        xs[end] = min(xs[end], Arb(π))
     end
 
     f = T0(u0, Ball())
