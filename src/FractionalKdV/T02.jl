@@ -36,7 +36,7 @@ function T02(
     u0::FractionalKdVAnsatz{Arb},
     ::Ball;
     δ2::Arb = Arb(1e-2),
-    ϵ::Arb = 1 + u0.α,
+    ϵ::Arb = Arb(0.1),
     skip_div_u0 = false,
 )
     f = T021(u0, Ball(), skip_div_u0 = true)

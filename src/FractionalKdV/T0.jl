@@ -9,7 +9,7 @@ function T0(
     evaltype::Ball;
     δ1::Arb = Arb(1e-3),
     δ2::Arb = Arb(1e-2),
-    ϵ::Arb = 1 + u0.α,
+    ϵ::Arb = Arb(0.1),
     skip_div_u0 = false,
 )
     # Use specialised implementation in the case the weight is x
