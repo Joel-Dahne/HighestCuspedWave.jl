@@ -125,22 +125,45 @@ giving us
 a[0] = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
 ```
 
-It makes use of the monotinicity to get good enclosures for wide
-balls.
-- **PROVE:** That `a[0]` is monotone in `α`. Alternatively prove in
-  the code that it is monotone. This seems to work quite well unless
-  `α` is very close to `-1`. For `α` close to `-0.5` we would need to
-  update [`_sinc`](@ref) to better handle this case, by taking the
-  union with zero.
+For wide values of `α` it is important to compute tight enclosures. In
+practice `a[0]` is increasing in `α` and to get good enclosures we
+therefore first try to prove that `a[0]` indeed is increasing. This is
+done using [`ArbExtras.bounded_by`](@ref) to prove that minus the
+derivative is bounded by `0` from above, in which case the derivative
+is bounded by `0` from below. If it is proved to be increasing we
+evaluate on the endpoints. If the proof fails we evaluate it using
+[`ArbExtras.enclosure_series`](@ref) and print a warning.
 """
 function finda0(α)
+    f(α) = π * _sinc(α + 1 // 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
+
     if iswide(α)
         # In this case α must be an Arb
-        α_low, α_upp = getinterval(Arb, α)
-        return Arb((finda0(α_low), finda0(α_upp)))
+
+        # Try to prove that a0 is increasing on α
+
+        # Function for evaluating derivative of -f(α)
+        mdf(α::Arb) = -f(ArbSeries((α, 1)))[1]
+        mdf(α::ArbSeries) =
+            if iszero(Arblib.degree(α))
+                ArbSeries(df(α[0]))
+            else
+                Arblib.derivative(-f(ArbSeries(α, degree = Arblib.degree(α) + 1)))
+            end
+
+        # Try to prove that mdf is bounded by 0
+        α_low, α_upp = getinterval(α)
+        is_increasing = ArbExtras.bounded_by(mdf, α_low, α_upp, Arf(0), maxevals = 10)
+
+        if is_increasing
+            return Arb((finda0(Arb(α_low)), finda0(Arb(α_upp))))
+        else
+            @warn "a0 not proved to be increasing on α" α
+            return ArbExtras.enclosure_series(f, α, degree = 4)
+        end
     end
 
-    return π * sinc(α + 1 // 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
+    return f(α)
 end
 
 function _findas(u0::FractionalKdVAnsatz; verbose = true)
