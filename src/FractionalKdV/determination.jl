@@ -127,8 +127,11 @@ a[0] = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 
 
 It makes use of the monotinicity to get good enclosures for wide
 balls.
-- **PROVE:** That `a[0]` is monotone in `α`. Using
-  [`ArbExtras.enclosure_series`](@ref) doesn't work very well.
+- **PROVE:** That `a[0]` is monotone in `α`. Alternatively prove in
+  the code that it is monotone. This seems to work quite well unless
+  `α` is very close to `-1`. For `α` close to `-0.5` we would need to
+  update [`_sinc`](@ref) to better handle this case, by taking the
+  union with zero.
 """
 function finda0(α)
     if iswide(α)
