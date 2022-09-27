@@ -469,6 +469,10 @@ in general it gave worse results. However, for `x` close to zero it
 could give better results. If need be we could reintroduce this
 method, though it is most likely a better idea to do that in the
 `::Asymptotic` version instead.
+
+**IMPROVE:** For `x` overlapping or very close to `π` the Clausen
+functions are not differentiable and the computed enclosure is very
+wide. This could possibly be improved by expanding them at zero.
 """
 function T013(
     u0::FractionalKdVAnsatz{Arb},
@@ -480,9 +484,9 @@ function T013(
         weight_factor = u0.w(Arb((1 - δ1, 1)))
 
         # Compute a tighter enclosure by expanding in x. If x is
-        # closer to zero it is beneficial to use a higher degree when
-        # computing the enclosure.
-        degree = ifelse(x < 0.5, 4, 1)
+        # closer to zero or π it is beneficial to use a higher degree
+        # when computing the enclosure.
+        degree = ifelse(0.5 < x < 3, 1, 4)
         s = 1 - u0.α
         clausen_factor = ArbExtras.enclosure_series(x; degree) do x
             clausens(2x, s) - 2clausens(x, s) + clausens(x * δ1, s) -
