@@ -164,7 +164,7 @@ Helper function to choose parameters for construction a
 `FractionalKdVAnsatz{T}` depending on `α`. It returns `N0s, N1, p`,
 which are the parameters to use.
 
-- **TODO:** Improve heuristic parameters for `α` closer to `-1`.
+**IMPROVE:** Improve heuristic parameters for `α` closer to `-1`.
 """
 function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     # Old version of parameters:
@@ -194,7 +194,12 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     # values for. N0s is the values of N0 to consider and N1 and p
     # are the corresponding parameters for the ansatz.
     parameters = [
-        (-0.95, 0:1:75, 32, (1 - α) / 2),
+        (-1.0, 500:1:2000, 4, (1 - α) / 2), # This is never used
+        (-0.999, 500:1:2000, 4, (1 - α) / 2), # TODO: Split this up into more steps
+        (-0.997, 175:1:600, 4, (1 - α) / 2),
+        (-0.995, 100:1:200, 4, (1 - α) / 2),
+        (-0.99, 50:1:125, 4, (1 - α) / 2),
+        (-0.95, 0:1:75, 8, (1 - α) / 2),
         (-0.5, 0:1:20, 16, (1 - α) / 2),
         (-0.33, 0:1:10, 16, T(3 // 4)),
         (-0.01, 0:1:5, 8, one(α)),
