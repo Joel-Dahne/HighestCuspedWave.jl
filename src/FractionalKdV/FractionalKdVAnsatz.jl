@@ -89,7 +89,7 @@ function FractionalKdVAnsatz(
     N1,
     p = one(α);
     use_midpoint = true,
-    auto_N0_bound::Integer = 0,
+    N0s::StepRange{Int,Int} = 0:1:-1,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
     verbose = false,
@@ -121,8 +121,8 @@ function FractionalKdVAnsatz(
     u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms)
 
     # Compute values for u0.a[1:end]
-    if auto_N0_bound >= 1
-        as = find_good_as(u0, N0_bound = auto_N0_bound; verbose)
+    if !isempty(N0s)
+        as = find_good_as(u0, N0s; verbose)
         resize!(u0.a, length(as) + 1)
         u0.a[1:end] .= as
     elseif N0 == 1 && α < -0.9
@@ -158,93 +158,87 @@ function FractionalKdVAnsatz(
 end
 
 """
-    pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T; old_version = false) where {T}
+    pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T) where {T}
 
 Helper function to choose parameters for construction a
-`FractionalKdVAnsatz{T}` depending on `α`. It returns `N0, N1, p`,
+`FractionalKdVAnsatz{T}` depending on `α`. It returns `N0s, N1, p`,
 which are the parameters to use.
 
 - **TODO:** Improve heuristic parameters for `α` closer to `-1`.
 """
-function pick_parameters(
-    ::Type{FractionalKdVAnsatz{T}},
-    α::T;
-    old_version = false,
-) where {T}
+function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
+    # Old version of parameters:
     # Store heuristic parameters, they are stored as (upper, N0, N1,
     # p) where upper is an upper bound for the α to use these values
     # for and N0, N1 and p are the corresponding parameters for the
     # ansatz.
-    if old_version
-        parameters = [
-            (-0.885, 6, 32, (1 - α) / 2),
-            (-0.87, 5, 32, (1 - α) / 2),
-            (-0.848, 9, 32, (1 - α) / 2),
-            (-0.825, 8, 32, (1 - α) / 2),
-            (-0.78, 7, 32, (1 - α) / 2),
-            (-0.75, 6, 32, (1 - α) / 2),
-            (-0.61, 5, 32, (1 - α) / 2),
-            (-0.50, 4, 16, (1 - α) / 2),
-            (-0.36, 4, 16, T(3 // 4)),
-            (-1 // 3, 3, 8, T(3 // 4)),
-            (-0.2, 3, 8, one(α)),
-            (-0.1, 3, 8, one(α)),
-            (-0.01, 2, 8, one(α)),
-            (-0.0, 2, 0, one(α)),
-        ]
-    else
-        parameters = [
-            (-0.95, 75, 32, (1 - α) / 2),
-            (-0.5, 20, 16, (1 - α) / 2),
-            (-0.33, 10, 16, T(3 // 4)),
-            (-0.01, 5, 8, one(α)),
-            (0, 5, 0, one(α)),
-        ]
-    end
+    #parameters = [
+    #    (-0.885, 6, 32, (1 - α) / 2),
+    #    (-0.87, 5, 32, (1 - α) / 2),
+    #    (-0.848, 9, 32, (1 - α) / 2),
+    #    (-0.825, 8, 32, (1 - α) / 2),
+    #    (-0.78, 7, 32, (1 - α) / 2),
+    #    (-0.75, 6, 32, (1 - α) / 2),
+    #    (-0.61, 5, 32, (1 - α) / 2),
+    #    (-0.50, 4, 16, (1 - α) / 2),
+    #    (-0.36, 4, 16, T(3 // 4)),
+    #    (-1 // 3, 3, 8, T(3 // 4)),
+    #    (-0.2, 3, 8, one(α)),
+    #    (-0.1, 3, 8, one(α)),
+    #    (-0.01, 2, 8, one(α)),
+    #    (-0.0, 2, 0, one(α)),
+    #]
+
+    # Store heuristic parameters, they are stored as (upper, N0s,
+    # N1, p) where upper is an upper bound for the α to use these
+    # values for. N0s is the values of N0 to consider and N1 and p
+    # are the corresponding parameters for the ansatz.
+    parameters = [
+        (-0.95, 0:1:75, 32, (1 - α) / 2),
+        (-0.5, 0:1:20, 16, (1 - α) / 2),
+        (-0.33, 0:1:10, 16, T(3 // 4)),
+        (-0.01, 0:1:5, 8, one(α)),
+        (0, 0:1:5, 0, one(α)),
+    ]
 
     # Find the first element in parameters which α is not greater
     # than.
     i = findfirst(value -> !(α > value[1]), parameters)
 
-    _, N0, N1, p = parameters[i]
+    _, N0s, N1, p = parameters[i]
 
-    return N0, N1, p
+    return N0s, N1, p
 end
 
 """
-    FractionalKdVAnsatz(α::T)
+    FractionalKdVAnsatz(α::T; N0s = nothing, N1 = nothing, p = nothing, verbose = false)
 
 Construct a `FractionalKdVAnsatz` with the given `α` value using a
 heuristic choice of parameters.
 
-This method is meant for the bulk of the interval and not for handling
-the asymptotic cases when `α` is very close to `-1` or `0`.
+The default values for `N0s`, `N1` and `p` can be overridden by
+setting the corresponding arguments to a non-nothing value.
 """
 function FractionalKdVAnsatz(
     α::T;
-    pp = nothing,
-    old_version = false,
+    N0s = nothing,
+    N1 = nothing,
+    p = nothing,
     verbose = false,
 ) where {T}
-    N0, N1, p = pick_parameters(FractionalKdVAnsatz{T}, α; old_version)
+    N0s_default, N1_default, p_default = pick_parameters(FractionalKdVAnsatz{T}, α)
 
-    if !isnothing(pp)
-        p = pp
+    if isnothing(N0s)
+        N0s = N0s_default
+    end
+    if isnothing(N1)
+        N1 = N1_default
+    end
+    if isnothing(p)
+        p = p_default
     end
 
-    if !old_version
-        u0 = FractionalKdVAnsatz(
-            α,
-            0,
-            N1,
-            p,
-            use_midpoint = true,
-            auto_N0_bound = N0;
-            verbose,
-        )
-    else
-        u0 = FractionalKdVAnsatz(α, N0, N1, p, use_midpoint = true; verbose)
-    end
+    u0 = FractionalKdVAnsatz(α, 0, N1, p, use_midpoint = true; N0s, verbose)
 
     return u0
 end

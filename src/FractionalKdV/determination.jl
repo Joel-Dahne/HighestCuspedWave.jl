@@ -166,7 +166,9 @@ function finda0(α)
     return f(α)
 end
 
-function _findas(u0::FractionalKdVAnsatz; verbose = true)
+function _findas(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
+    iszero(u0.N0) && return T[], true
+
     f = D(u0, Symbolic())
     g(a) = f(OffsetVector([u0.a[0]; a], 0:u0.N0))
 
@@ -228,33 +230,45 @@ function findas(u0::FractionalKdVAnsatz{Arb})
 end
 
 """
-    _find_good_as!(u0::FractionalKdVAnsatz; N0_bound, return_defects, threaded, verbose)
+    _find_good_as!(u0::FractionalKdVAnsatz, N0s::StepRange{Int,Int} = 0:30; return_defects, threaded, verbose)
 
-Find `N0` and `u0.a` such that the defect is minimized.
+Find `N0` and `u0.a` such that the defect is minimized. Returns the
+vector `a`, `N0` is implicitly given by the length.
 
-It checks `N0` starting from `0` to `N0_bound` and computes `u0.a`
-with [`_findas`](@ref). It then takes the `N0` which gave the smallest
-defect.
+It checks the values of `N0` in `N0s`. For each `N0` it computes
+`u0.a` with [`_findas`](@ref). It then takes the `N0` which gave the
+smallest defect.
+
+If `return_defects` is true it returns `N0s, defects`, where `defects`
+is a vector of defects for the different values of `N0`. If the
+iteration over `N0s` stopped early it returns a truncated `N0s`.
 """
 function _find_good_as!(
-    u0::FractionalKdVAnsatz;
-    N0_bound = 30,
+    u0::FractionalKdVAnsatz{T},
+    N0s::StepRange{Int,Int} = 0:1:30;
     return_defects = false,
     threaded = false,
     verbose = false,
-)
+) where {T}
     @assert iszero(u0.N1)
     resize!(u0.a, 1) # Keep only a[0]
 
-    # Vectors for storing defects and coefficients
-    defects = [delta0_estimate(u0; threaded)]
-    ass = [copy(u0.a[1:end])]
+    resize_with_zero!(a::AbstractVector, n::Int) = begin
+        i = lastindex(a)
+        resize!(a, n)
+        if i < lastindex(a)
+            a[i+1:end] .= zero(eltype(a))
+        end
+        return a
+    end
 
-    N0 = 1
-    while N0 <= N0_bound
+    # Vectors for storing defects and coefficients
+    defects = T[]
+    ass = typeof(u0.a)[]
+
+    for N0 in N0s
         # Compute ansatz
-        resize!(u0.a, N0 + 1)
-        u0.a[N0] = zero(eltype(u0.a))
+        resize_with_zero!(u0.a, N0 + 1)
 
         as, converged = _findas(u0, verbose = false)
         u0.a[1:end] .= as
@@ -262,31 +276,44 @@ function _find_good_as!(
 
         # If the solution didn't converge we stop
         if !converged
-            #verbose && @info "No convergence" N0
+            verbose && @info "No convergence" N0
             break
         end
 
         # Compute defect
         push!(defects, delta0_estimate(u0; threaded))
 
-        # If the defect is worse than with N0 = 0 we stop
+        # If the defect is worse than the first one we stop
         if defects[end] > defects[1]
-            #verbose && @info "Defect worse than for N0 = 0" N0
+            verbose && @info "Defect worse than for at start" N0 N0s.start
             break
         end
-
-        N0 += 1
     end
 
-    best_N0 = findmin(defects)[2] - 1
+    return_defects && return N0s[1:length(defects)], defects
+
+    best_index = findmin(defects)[2]
+    best_N0 = N0s[best_index]
+    best_as = ass[best_index]
+
     verbose && @info "Determined best N0" best_N0
 
-    return ass[best_N0+1]
+    return best_as
 end
 
+"""
+    find_good_as(u0::FractionalKdVAnsatz; N0_bound, return_defects, threaded, verbose)
+
+Find `N0` and `u0.a` such that the defect is minimized. Returns the
+vector `a`, `N0` is implicitly given by the length.
+
+See [`_find_good_as`](@ref) for the implementation and the role of the
+arguments.
+"""
 function find_good_as(
-    u0::FractionalKdVAnsatz{T};
-    N0_bound = 30,
+    u0::FractionalKdVAnsatz{T},
+    N0s::StepRange{Int,Int} = 0:1:30;
+    return_defects = false,
     threaded = false,
     verbose = false,
 ) where {T}
@@ -297,7 +324,13 @@ function find_good_as(
     end
     empty!(u0_float.b)
 
-    return convert(Vector{T}, _find_good_as!(u0_float; N0_bound, threaded, verbose))
+    res = _find_good_as!(u0_float, N0s; return_defects, threaded, verbose)
+
+    if return_defects
+        res[1], convert(Vector{T}, res[2])
+    else
+        return convert(Vector{T}, res)
+    end
 end
 
 
