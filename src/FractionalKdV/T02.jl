@@ -110,7 +110,7 @@ d = 2π^(p - 1) * do m
         zeta(-α - 2m) *
         Arb(π)^2m /
         factorial(2m) *
-        sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1)
+        sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1)
     end +
     6π^(p - 1) * sum((-1)^m * zeta(-α - 2m) * (3π / 2)^2m / factorial(2m) for m = N:Inf)
 ```
@@ -185,7 +185,7 @@ function T02(
     d =
         2Arb(π)^(p - 1) * sum(1:N-1) do m
             (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
-            sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1)
+            sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1)
         end
     # Enclose remainder
     d +=
