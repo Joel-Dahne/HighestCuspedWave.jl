@@ -334,17 +334,18 @@ function _finda1a2(α)
 end
 
 """
-    findbs(u0, initial)
+    _findbs(u0::FractionalKdVAnsatz{T}; verbose = true)
 
 Find values of `u0.b[n]` to minimize the defect `D(u0)`.
 
 This is done by solving the non-linear system given by requiring that
 `D(u0)` evaluates to zero on `u0.N1` collocation points.
 
-It uses [`nlsolve`](@ref) to find the zero, however `nlsolve` doesn't
-support `Arb` so this is always done in `Float64`.
+It uses [`nlsolve`](@ref) to find the zero. It returns the zero
+together with information about the convergence. If `verbose` is true
+then it prints a warning if the convergence failed.
 """
-function findbs(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
+function _findbs(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
     if u0.N1 == 0
         return T[], true
     end
@@ -365,8 +366,20 @@ function findbs(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
     return sol.zero, sol.f_converged
 end
 
+
+"""
+    findbs(u0::FractionalKdVAnsatz; verbose = false)
+
+Find values of `u0.b[n]` to minimize the defect `D(u0)`.
+
+See [`_findbs`](@ref) for the implementation. The underscore method
+doesn't support `Arb` so it converts `u0` to use `Float64` in that
+case.
+"""
+findbs(u0::FractionalKdVAnsatz; verbose = true) = _findbs(u0; verbose)[1]
+
 function findbs(u0::FractionalKdVAnsatz{Arb}; verbose = true)
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
-    return convert(Vector{Arb}, findbs(u0_float; verbose)[1])
+    return convert(Vector{Arb}, _findbs(u0_float; verbose)[1])
 end
