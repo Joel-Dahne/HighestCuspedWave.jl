@@ -25,21 +25,33 @@ interval ``[0, π]``. Uses an asymptotic expansion on the interval `[0,
 # Arguments
 - `M::Integer`: determines the number of terms in the asymptotic
   expansions.
+- `include_asymptotic = false`: If true then take include `n` x-values
+  logarithmically spaced on the interval ``[1e-20, 1e-1]`` in addition
+  to the normal x-values. If `ϵ` is zero then set it to `1e-1`.
 - `return_values = false`: If true then also return the points and the
   computed values.
 - `threaded = false`: If true then use multiple threads when
   evaluating.
-
 """
 function delta0_estimate(
     u0::AbstractAnsatz{T};
     n::Integer = 100,
     ϵ = 0,
     M::Integer = 3,
+    include_asymptotic = false,
     return_values = false,
     threaded = true,
 ) where {T}
-    xs = range(zero(T), π, length = n + 1)[2:end]
+    xs = collect(range(zero(T), π, length = n + 1)[2:end])
+    if include_asymptotic
+        @assert T == Arb # Only supported for Arb
+        xs_asym = exp.(range(Arb(log(1e-20)), log(1e-1), length = n))
+        xs = sort([xs_asym; xs], by = midpoint)
+
+        if iszero(ϵ)
+            ϵ = 1e-1
+        end
+    end
     res = similar(xs)
 
     # Asymptotic version might not be defined
