@@ -41,7 +41,8 @@ function D0_bounded_by(
         Arf(0),
         ϵ,
         C,
-        degree = -1;
+        degree = -1,
+        depth = 100;
         depth_start = ifelse(isone(u0.p), 5, 0),
         maxevals,
         threaded,
