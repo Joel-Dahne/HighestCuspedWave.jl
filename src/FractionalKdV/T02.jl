@@ -105,7 +105,8 @@ c = gamma(1 + α) * sinpi(-α / 2) * (
 ```
 and
 ```
-d = 2π^(p - 1) * do m
+d = -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) / π^(2 + α - p) +
+    2π^(p - 1) * do m
         (-1)^m *
         zeta(-α - 2m) *
         Arb(π)^2m /
@@ -120,36 +121,19 @@ To compute an enclosure of the tail of `d` we note that it is the same
 as the sum in [`clausenc_expansion_remainder`](@ref) with `x = 3π / 2`.
 
 # Notes
-The expression for `c` was was computed using Mathematica with the
-following code
-```
-Integrate[((t - 1)^(-1 - a) + (t + 1)^(-1 - a) - 2 t^(-1 - a))*t^p, {t, 1, Infinity}, Assumptions -> -1 < a < 0]
-```
-
-**TODO:** We could get a much better enclosure by using that we
-only integrate from `1` to `π / x` and not to infinity. In particular
-for `α` close to `-1` this makes a big difference. In that case `c`
-would depend on `x` and be given by
-```
-gamma(1 + α) * sinpi(-α / 2) *
-(
-    gamma(-α) * gamma(α - p) / gamma(-p) +
-    2(1 - (π / x)^(-α + p)) / (-α + p) +
-    (-1)^(-α + p) * (beta_inc(α - p, -α, -1) - beta_inc(α - p, -α, -x / π))
-    - beta_inc(α - p, -α, x / π)
-)
-```
-computed using Mathematica with the following code
+The expression for the integral used when determining `c` and `d`
+where computed with Mathematica using the following code
 ```
 Integrate[((t - 1)^(-a - 1) + (1 + t)^(-a - 1) - 2 t^(-a - 1))*t^p, {t, 1, Pi/x}, Assumptions -> a < 0 && 0 < x < Pi]
 ```
-There are some problems with this tough
-- Evaluating the term with `(-1)^(-α + p)` requires complex
-  arithmetic.
-- We can't compute it when `x` is very small.
-- For `α` close to `-1` it only gives reasonable enclosures for very
-  thin balls for `α`. We might have to improve the computed
-  enclosures.
+and using that
+```
+beta_inc(α - p, -α, z) = z^(α - p) / (α - p) * hypgeom_2f1(1 + α, α - p, 1 + α - p, z)
+```
+
+**IMPROVE:** We could get a slightly better enclosure by keeping more
+terms from the expansions of the 2F1 function, though in practice this
+would likely not help much.
 """
 function T02(
     u0::FractionalKdVAnsatz{Arb},
@@ -158,12 +142,17 @@ function T02(
     ϵ::Arb = Arb(1),
     return_enclosure::Bool = false,
 )
-    @assert ϵ <= Arb(π) / 2 # This is required for the bound of the tail of d
+    # This is required for the bound of the tail of d
+    ϵ <= Arb(π) / 2 || throw(ArgumentError("we require that ϵ <= π / 2"))
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
     α = u0.α
     p = u0.p
+
+    # This is a requirement in the lemma giving the bound. In practice
+    # we would just get an indeterminate result if it doesn't hold.
+    Arblib.overlaps(1 + α, p) && throw(ArgumentError("we require that 1 + α != p"))
 
     c =
         gamma(1 + α) *
@@ -178,11 +167,15 @@ function T02(
     # those are covered by T0_p_one.
     isfinite(c) || @error "non-finite enclosure for c in T02" α p
 
+    d =
+        -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) /
+        (Arb(π)^(2 + α - p))
+
     # Take a lot of terms since the remainder is computed at a large
     # value
     N = 30
     # Sum first N - 1 terms
-    d =
+    d +=
         2Arb(π)^(p - 1) * sum(1:N-1) do m
             (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
             sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1)
@@ -196,44 +189,9 @@ function T02(
     return x::Arb -> begin
         @assert x <= ϵ
 
-        # TODO: This is not covered in the paper yet. It doesn't work
-        # very well for wide values of α close to -1, the enclosures
-        # are bad. This will have to be improved if we don't come up
-        # with a different solution. It is not used at the moment. It
-        # makes the computed enclosure non-monotone in x which leads
-        # to issues in the way ϵ is currently chose in D0_bounded_by.
+        U02 = c + d * abspow(x, 2 + α - p)
 
-        # Attempt to compute a better bound for c by only integrating
-        # up to π / x. Since the integral is increasing in x it is
-        # enough to evaluate at a lower bound of x to get an upper
-        # bound.
-        cx = let x = abs_lbound(Arb, x)
-            cx_complex_part =
-                Acb(-1)^(-α + p) * (
-                    beta_inc(Acb(α - p), -Acb(α), Acb(-1)) -
-                    beta_inc(Acb(α - p), -Acb(α), -Acb(x / π))
-                )
-            @assert Arblib.contains_zero(imag(cx_complex_part))
-
-            cx =
-                gamma(1 + α) *
-                sinpi(-α / 2) *
-                (
-                    gamma(-α) * gamma(α - p) / gamma(-p) +
-                    2(1 - (π / x)^(-α + p)) / (-α + p) +
-                    real(cx_complex_part) - beta_inc(α - p, -α, x / π)
-                )
-
-            cx
-        end
-
-        if false #isfinite(cx) && cx < c
-            U02 = (cx + d * abspow(x, 2 + α - p)) / π
-        else
-            U02 = (c + d * abspow(x, 2 + α - p)) / π
-        end
-
-        res = inv_u0(x) * U02
+        res = inv_u0(x) * U02 / π
 
         if return_enclosure
             return union(zero(res), res)
