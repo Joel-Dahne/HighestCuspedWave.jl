@@ -226,6 +226,10 @@ end
 function findas(u0::FractionalKdVAnsatz{Arb})
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
+    # Compute an accurate value of a[0]. The conversion from a
+    # wide ball gives large errors
+    u0_float.a[0] = Float64(finda0(Arb(u0_float.α)))
+
     return convert(Vector{Arb}, findas(u0_float))
 end
 
@@ -321,6 +325,9 @@ function find_good_as(
         u0_float = deepcopy(u0)
     else
         u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
+        # Compute an accurate value of a[0]. The conversion from a
+        # wide ball gives large errors
+        u0_float.a[0] = Float64(finda0(Arb(u0_float.α)))
     end
     empty!(u0_float.b)
 
@@ -413,6 +420,9 @@ findbs(u0::FractionalKdVAnsatz; verbose = true) = _findbs(u0; verbose)[1]
 
 function findbs(u0::FractionalKdVAnsatz{Arb}; verbose = true)
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
+    # Compute an accurate value of a[0]. The conversion from a
+    # wide ball gives large errors
+    u0_float.a[0] = Float64(finda0(Arb(u0_float.α)))
 
     return convert(Vector{Arb}, _findbs(u0_float; verbose)[1])
 end
