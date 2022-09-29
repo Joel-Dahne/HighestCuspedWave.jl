@@ -186,12 +186,10 @@ function T02(
         (3Arb(π) / 2)^(2N) *
         clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
 
-    return x::Arb -> begin
-        @assert x <= ϵ
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
-        U02 = c + d * abspow(x, 2 + α - p)
-
-        res = inv_u0(x) * U02 / π
+        res = inv_u0(x) * (c + d * abspow(x, 2 + α - p)) / π
 
         if return_enclosure
             return union(zero(res), res)
