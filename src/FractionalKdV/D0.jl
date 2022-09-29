@@ -24,7 +24,7 @@ function D0_bounded_by(
     # with the asymptotic version.
     if iszero(ϵ)
         ϵ = one(ϵ)
-        while !(T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ); M)(Arb(ϵ)) < C)
+        while !(T0(u0, Asymptotic(), ϵ = Arb(1.01ϵ); M)(Arb(ϵ)) < C)
             # We use the factor 0.8 instead of, say, 0.5 to get
             # slightly better (higher) values for ϵ.
             ϵ *= 0.8
@@ -33,7 +33,7 @@ function D0_bounded_by(
         verbose && @info "ϵ for asymptotic evaluation to satisfy bound" ϵ
     end
 
-    f = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ), return_enclosure = true; M)
+    f = T0(u0, Asymptotic(), ϵ = Arb(1.01ϵ), return_enclosure = true; M)
 
     # Check that the bound holds on [0, ϵ]
     asymptotic_bound = ArbExtras.bounded_by(
