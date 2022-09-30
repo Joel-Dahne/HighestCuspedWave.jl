@@ -43,7 +43,15 @@ end
 function (u0::FractionalKdVAnsatz)(x, ::Ball)
     res = zero(u0.α)
 
-    for j = 0:u0.N0
+    if u0.use_bhkdv
+        s = 1 - u0.α
+        res += u0.a[0] * (clausencmzeta(x, s) - clausencmzeta(x, s + u0.p0))
+    else
+        s = 1 - u0.α
+        res += u0.a[0] * clausencmzeta(x, s)
+    end
+
+    for j = 1:u0.N0
         s = 1 - u0.α + j * u0.p0
         res += u0.a[j] * clausencmzeta(x, s)
     end
@@ -65,9 +73,32 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
     for m = 1:M
         res[(0, 0, 2m)] = 0
     end
+    for j = 0:u0.N0
+        res[(1, j, 0)] = 0
+    end
+
+    if u0.use_bhkdv
+        s = 1 - u0.α
+        C1, _, p1, E1 = clausenc_expansion(x, s, M)
+        C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
+        res[(1, 0, 0)] += C1 * u0.a[0]
+        res[(1, 1, 0)] += -C2 * u0.a[0]
+        for m = 1:M-1
+            res[(0, 0, 2m)] += (p1[2m] - p2[2m]) * u0.a[0]
+        end
+        Arblib.add_error!(res[(0, 0, 2M)], (E1 - E2) * u0.a[0])
+    else
+        s = 1 - u0.α
+        C, _, p, E = clausenc_expansion(x, s, M)
+        res[(1, 0, 0)] += C * u0.a[0]
+        for m = 1:M-1
+            res[(0, 0, 2m)] += p[2m] * u0.a[0]
+        end
+        Arblib.add_error!(res[(0, 0, 2M)], E * u0.a[0])
+    end
 
     # Clausen terms
-    for j = 0:u0.N0
+    for j = 1:u0.N0
         s = 1 - u0.α + j * u0.p0
         C, _, p, E = clausenc_expansion(x, s, M)
 
@@ -107,7 +138,7 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
             D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
             res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) + D * u0.a[j]
         else
-            res[(1, j, 0)] = C * u0.a[j]
+            res[(1, j, 0)] += C * u0.a[j]
             for m = 1:M-1
                 res[(0, 0, 2m)] += p[2m] * u0.a[j]
             end
@@ -135,7 +166,15 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
     return x -> begin
         res = zero(u0.α)
 
-        for j = 0:u0.N0
+        if u0.use_bhkdv
+            s = 1 - 2u0.α
+            res -= u0.a[0] * (clausencmzeta(x, s) - clausencmzeta(x, s + u0.p0))
+        else
+            s = 1 - 2u0.α
+            res -= u0.a[0] * clausencmzeta(x, s)
+        end
+
+        for j = 1:u0.N0
             s = 1 - 2u0.α + j * u0.p0
             res -= u0.a[j] * clausencmzeta(x, s)
         end
@@ -161,9 +200,32 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
         for m = 1:M
             res[(0, 0, 2m)] = 0
         end
+        for j = 0:u0.N0
+            res[(2, j, 0)] = 0
+        end
+
+        if u0.use_bhkdv
+            s = 1 - 2u0.α
+            C1, _, p1, E1 = clausenc_expansion(x, s, M)
+            C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
+            res[(2, 0, 0)] -= C1 * u0.a[0]
+            res[(2, 1, 0)] -= -C2 * u0.a[0]
+            for m = 1:M-1
+                res[(0, 0, 2m)] -= (p1[2m] - p2[2m]) * u0.a[0]
+            end
+            Arblib.add_error!(res[(0, 0, 2M)], (E1 - E2) * u0.a[0])
+        else
+            s = 1 - 2u0.α
+            C, _, p, E = clausenc_expansion(x, s, M)
+            res[(2, 0, 0)] -= C * u0.a[0]
+            for m = 1:M-1
+                res[(0, 0, 2m)] -= p[2m] * u0.a[0]
+            end
+            Arblib.add_error!(res[(0, 0, 2M)], E * u0.a[0])
+        end
 
         # Clausen terms
-        for j = 0:u0.N0
+        for j = 1:u0.N0
             s = 1 - 2u0.α + j * u0.p0
             C, _, p, E = clausenc_expansion(x, s, M)
 
@@ -201,7 +263,7 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
                 D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
                 res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - D * u0.a[j]
             else
-                res[(2, j, 0)] = -C * u0.a[j]
+                res[(2, j, 0)] -= C * u0.a[j]
                 for m = 1:M-1
                     res[(0, 0, 2m)] -= p[2m] * u0.a[j]
                 end

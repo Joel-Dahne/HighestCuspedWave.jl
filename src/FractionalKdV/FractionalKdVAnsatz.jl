@@ -18,6 +18,12 @@ KdV equations with `α ∈ (-1, 0)`. It has the following parameters
   which guaranteed to be identically equal to zero. It is a set of
   tuples on the form `(i, j, m)`, see [`eval_expansion`](@ref) for
   more information.
+- `use_bhkdv`: In some cases we want to use a slightly different
+  approach for the evaluation when `α` is very close to `-1`. This
+  value is set to true if we want to use the different approach.
+  **TODO:** At the moment this is not used much, mostly for testing.
+  In the end we might or might not need it. If we do end up using it
+  we should document it more.
 
 There are requirements on the parameters needed to give the correct
 asymptotic values. These are
@@ -32,6 +38,7 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     b::Vector{T}
     p::T
     zeroterms::Set{NTuple{3,Int}}
+    use_bhkdv::Bool
 
     function FractionalKdVAnsatz{T}(
         α::T,
@@ -40,8 +47,9 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
         b::Vector{T},
         p::T,
         zeroterms::Set{NTuple{3,Int}},
+        use_bhkdv::Bool = false,
     ) where {T}
-        u0 = new(α, p0, a, b, p, zeroterms)
+        u0 = new(α, p0, a, b, p, zeroterms, use_bhkdv)
 
         if T == Arb
             # Check requirements that we use in the code. We only do
@@ -92,6 +100,7 @@ function FractionalKdVAnsatz(
     N0s::StepRange{Int,Int} = 0:1:-1,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
+    use_bhkdv = false,
     verbose = false,
 ) where {T}
     # Using the midpoint only makes sense for T == Arb
@@ -118,7 +127,7 @@ function FractionalKdVAnsatz(
     zeroterms = Set{NTuple{3,Int}}([(2, 0, 0)])
 
     # Create the ansatz
-    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms)
+    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms, use_bhkdv)
 
     # Compute values for u0.a[1:end]
     if !isempty(N0s)
@@ -153,6 +162,11 @@ function FractionalKdVAnsatz(
     b[1:min(N1, length(initial_b))] .= initial_a[1:min(N1, length(initial_b))]
 
     u0.b .= findbs(u0)
+
+    if use_bhkdv
+        a0 = finda0(midpoint(Arb, u0.α))
+        u0.a[1] += a0
+    end
 
     return u0
 end
@@ -229,6 +243,7 @@ function FractionalKdVAnsatz(
     N0s = nothing,
     N1 = nothing,
     p = nothing,
+    use_bhkdv = false,
     verbose = false,
 ) where {T}
     N0s_default, N1_default, p_default = pick_parameters(FractionalKdVAnsatz{T}, α)
@@ -243,7 +258,7 @@ function FractionalKdVAnsatz(
         p = p_default
     end
 
-    u0 = FractionalKdVAnsatz(α, 0, N1, p, use_midpoint = true; N0s, verbose)
+    u0 = FractionalKdVAnsatz(α, 0, N1, p, use_midpoint = true; N0s, use_bhkdv, verbose)
 
     return u0
 end
@@ -277,7 +292,7 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
         push!(zeroterms, (2, 0, 0))
     end
 
-    return FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms)
+    return FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms, u0.use_bhkdv)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{T}) where {T}
@@ -293,5 +308,6 @@ function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) w
         convert(Vector{T}, u0.b),
         convert(T, u0.p),
         copy(u0.zeroterms),
+        u0.use_bhkdv,
     )
 end
