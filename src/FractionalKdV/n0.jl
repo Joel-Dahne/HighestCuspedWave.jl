@@ -40,11 +40,15 @@ function n0_bound(
     # The maximum is in practice attained at x = π
     m1 = f(Arb(π))
 
+    verbose && @info "f(π) = $m1"
+
     # Find ϵ such that g(ϵ) < m1
     ϵ = Arb(π) / 2
     while !(g(ϵ) <= m1)
         ϵ /= 2
     end
+
+    verbose && @info "Determined ϵ" ϵ
 
     # Prove the bound on [0, ϵ]
     bounded = ArbExtras.bounded_by(
@@ -61,6 +65,8 @@ function n0_bound(
         verbose && @error "Could not prove bound on [0, ϵ]"
         return indeterminate(Arb)
     end
+
+    verbose && @info "Proved bound on [0, ϵ]"
 
     # Bound the value on [ϵ, π]
     m = ArbExtras.maximum_enclosure(
