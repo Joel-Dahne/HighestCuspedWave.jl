@@ -81,7 +81,7 @@ end
 Return `true` if `M1` and `M2` have the same degree, center and
 interval.
 
-**TODO:** At the moment the midpoints have to be exactly equal,
+**IMPROVE:** At the moment the midpoints have to be exactly equal,
 meaning that only point-intervals are allowed. This might be enough
 for what we need but possibly it has to be changed.
 """
