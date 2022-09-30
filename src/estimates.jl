@@ -85,13 +85,14 @@ function delta0_estimate(
 end
 
 """
-    D0_estimate(u0::AbstractAnsatz{T}; n::Integer = 20, ϵ = 0, <keyword arguments>)
+    D0_estimate(u0::AbstractAnsatz{T}; n::Integer = 20, ϵ = 1, <keyword arguments>)
 
 Estimate the value of `D0(u0)`.
 
 Does this by evaluating the norm on `n` linearly spaced points on the
-interval ``[0, π]``. Uses an asymptotic expansion on the interval `[0,
-ϵ]` and ball arithmetic on `[ϵ, π]`.
+interval ``[0, π]``. On the interval ``[ϵ, π]`` it uses ball
+arithmetic. On the interval ``[0, ϵ]`` it computes with both ball
+arithmetic and an asymptotic expansion and takes the best result.
 
 Notice that the default value for `n` is rather low since evaluation
 of the integral is costly. Therefore it gives a rather poor estimate
@@ -113,7 +114,7 @@ of the norm.
 function D0_estimate(
     u0::AbstractAnsatz{T};
     n::Integer = 20,
-    ϵ = 0,
+    ϵ = 1,
     M::Integer = 3,
     x_error = zero(T),
     include_zero = true,
@@ -137,7 +138,11 @@ function D0_estimate(
         Threads.@threads for i in eachindex(xs)
             x = xs[i]
             if x < ϵ
-                res[i] = f1(x)
+                res1 = f1(x)
+                res2 = f2(x)
+                # Use asymptotic result if it is better, otherwise use
+                # non-asymptotic result
+                res[i] = res1 < ubound(res2) ? res1 : res2
             else
                 res[i] = f2(x)
             end
@@ -146,7 +151,11 @@ function D0_estimate(
         for i in eachindex(xs)
             x = xs[i]
             if x < ϵ
-                res[i] = f1(x)
+                res1 = f1(x)
+                res2 = f2(x)
+                # Use asymptotic result if it is better, otherwise use
+                # non-asymptotic result
+                res[i] = res1 < ubound(res2) ? res1 : res2
             else
                 res[i] = f2(x)
             end
