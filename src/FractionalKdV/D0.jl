@@ -10,6 +10,11 @@ with `ϵ = 1` and then iteratively decreasing it until the bound
 
 It then uses the asymptotic version on the interval `[0, ϵ]` and the
 non-asymptotic version on `[ϵ, π]`.
+
+It tries to find `ϵ2` such that the bound can be proved with one
+evaluation on ``[0, ϵ2]``. It starts with `ϵ2 = ϵ` and then squares it
+until it succeeds. On the interval ``[ϵ2, ϵ]`` it then uses
+logarithmic bisection.
 """
 function D0_bounded_by(
     u0::FractionalKdVAnsatz{Arb},
@@ -35,14 +40,22 @@ function D0_bounded_by(
 
     f = T0(u0, Asymptotic(), ϵ = Arb(1.01ϵ), return_enclosure = true; M)
 
+    # Find ϵ2 such that the bound holds
+    ϵ2 = ϵ
+    while !(f(Arb((0, ϵ2))) < C)
+        ϵ2 = ϵ2^2
+    end
+    verbose && @info "Bound holds on [0, ϵ2]" ϵ2
+
     # Check that the bound holds on [0, ϵ]
     asymptotic_bound = ArbExtras.bounded_by(
         f,
-        Arf(0),
+        ϵ2,
         ϵ,
         C,
         degree = -1,
-        depth = 100;
+        depth = 100,
+        log_bisection = true;
         depth_start = ifelse(isone(u0.p), 5, 0),
         maxevals,
         threaded,
@@ -50,11 +63,11 @@ function D0_bounded_by(
     )
 
     if !asymptotic_bound
-        verbose && @info "Bound doesn't hold on [0, ϵ]"
+        verbose && @info "Bound doesn't hold on [ϵ2, ϵ]"
         return false
     end
 
-    verbose && @info "Bound holds on [0, ϵ]"
+    verbose && @info "Bound holds on [ϵ2, ϵ]"
 
     g = T0(u0, Ball(), skip_div_u0 = true)
 
