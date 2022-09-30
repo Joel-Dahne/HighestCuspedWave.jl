@@ -12,4 +12,4 @@
 #SBATCH -o PDC/logs/run_proof.o
 #SBATCH -e PDC/logs/run_proof.e
 
-/cfs/klemming/projects/snic/highest-cusped-wave/julia-1.8.1/bin/julia --project=. PDC/scripts/run_proof.jl $1 $2 $3
+/cfs/klemming/projects/snic/highest-cusped-wave/julia-1.8.2/bin/julia --project=. PDC/scripts/run_proof.jl $1 $2 $3
