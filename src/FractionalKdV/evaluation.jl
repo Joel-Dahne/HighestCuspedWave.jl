@@ -113,7 +113,7 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
             end
         end
 
-        Arblib.add_error!(res[(0, 0, 2M)], E)
+        Arblib.add_error!(res[(0, 0, 2M)], E * u0.a[j])
     end
 
     # Fourier terms
@@ -207,7 +207,7 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
                 end
             end
 
-            Arblib.add_error!(res[(0, 0, 2M)], E)
+            Arblib.add_error!(res[(0, 0, 2M)], E * u0.a[j])
         end
 
         # Fourier terms
