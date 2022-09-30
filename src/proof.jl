@@ -39,7 +39,7 @@ function prove(
         u0_time = @elapsed u0 = KdVZeroAnsatz(α, midpoint(Arb, α))
         p = one(α)
     else
-        u0_time = @elapsed u0 = FractionalKdVAnsatz(α)
+        u0_time = @elapsed u0 = FractionalKdVAnsatz(α; threaded)
         p = u0.p
     end
 

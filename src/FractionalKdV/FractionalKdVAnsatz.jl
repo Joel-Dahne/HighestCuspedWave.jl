@@ -100,6 +100,7 @@ function FractionalKdVAnsatz(
     N0s::StepRange{Int,Int} = 0:1:-1,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
+    threaded = true,
     use_bhkdv = false,
     verbose = false,
 ) where {T}
@@ -131,7 +132,7 @@ function FractionalKdVAnsatz(
 
     # Compute values for u0.a[1:end]
     if !isempty(N0s)
-        as = find_good_as(u0, N0s; verbose)
+        as = find_good_as(u0, N0s; threaded, verbose)
         resize!(u0.a, length(as) + 1)
         u0.a[1:end] .= as
     elseif N0 == 1 && α < -0.9
@@ -243,6 +244,7 @@ function FractionalKdVAnsatz(
     N0s = nothing,
     N1 = nothing,
     p = nothing,
+    threaded = true,
     use_bhkdv = false,
     verbose = false,
 ) where {T}
@@ -258,7 +260,17 @@ function FractionalKdVAnsatz(
         p = p_default
     end
 
-    u0 = FractionalKdVAnsatz(α, 0, N1, p, use_midpoint = true; N0s, use_bhkdv, verbose)
+    u0 = FractionalKdVAnsatz(
+        α,
+        0,
+        N1,
+        p,
+        use_midpoint = true;
+        N0s,
+        threaded,
+        use_bhkdv,
+        verbose,
+    )
 
     return u0
 end
