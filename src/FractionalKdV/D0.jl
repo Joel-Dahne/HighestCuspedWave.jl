@@ -43,7 +43,7 @@ function D0_bounded_by(
     # Find ϵ2 such that the bound holds
     ϵ2 = ϵ
     while !(f(Arb((0, ϵ2))) < C)
-        ϵ2 = ϵ2^2
+        ϵ2 = ϵ2 < 0.5 ? ϵ2^2 : ϵ2 / 2
     end
     verbose && @info "Bound holds on [0, ϵ2]" ϵ2
 
