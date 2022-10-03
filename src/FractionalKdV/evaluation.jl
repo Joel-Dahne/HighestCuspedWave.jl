@@ -545,6 +545,137 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
 end
 
 """
+    D2(u0::FractionalKdVAnsatz, evaltype::Symbolic; M::Integer = 5)
+
+Return a function such that `D2(u0, evaltype, N)(a)` computes the
+coefficients in the asymptotic expansion with indices `3` to `N0 + 2`
+using the values from `a`.
+
+This is an alternative implementation to [`D`](@ref).
+
+# Implementation
+The terms in the expansion have exponents of the form
+```
+-i * α + j * p0 + 2m
+```
+with `i` equal to `0`, `1` or `2`, `j` ranging from `0` to `2N0` and
+`m` from `1` to infinity. We say that the terms with a given `i` are
+of type `i`.
+
+The exponents for the first two terms are given by `-2α` and `-2α +
+p0`. We start by finding the exponents for term number `3` to `N0 +
+2`.
+
+In the computations we split the terms into singular and analytic
+terms. The singular terms are the ones coming from the Clausen
+function with argument `s` that has exponent `s - 1`. The analytic
+terms are those with an exponent of the form `2m`. Since we square
+`u0` we also need to take into account products of singular and
+analytic ones.
+"""
+function D2(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
+    # First step is to compute the exponents which we need
+
+    # Given i, j, m get the corresponding exponent
+    key_exponent = ((i, j, m),) -> -i * u0.α + j * u0.p0 + 2m
+
+    # We never have to consider m above this value
+    M_upper = ceil(Int, Float64(key_exponent((2, 2u0.N0, 0)) / 2))
+
+    # Exponents for term of type 0, 1 and 2 represented as (i, j, m)
+    exponents0 = [(0, 0, m) for m = 1:M_upper]
+    exponents1 = [(1, j, m) for m = 1:M_upper, j = 0:u0.N0]
+    exponents2 = [(2, j, 0) for j = 0:2u0.N0]
+
+    # Keys of exponents in sorted order
+    exponents = sort!([exponents0; exponents1[:]; exponents2], by = key_exponent)[3:u0.N0+2]
+
+    # This is the maximum value of j and m we need
+    J = maximum(key -> key[2], exponents)
+    M = maximum(key -> key[3], exponents)
+
+    # Next step is to precompute the coefficients in the expansions of
+    # the Clausen functions
+
+    u0_precomputed_singular = map(0:u0.N0) do j
+        s = u0.α - j * u0.p0
+        gamma(s) * cospi(s / 2)
+    end
+    u0_precomputed_analytic =
+        [(-1)^m * zeta(1 - u0.α + j * u0.p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0]
+
+    Hu0_precomputed_singular = map(0:u0.N0) do j
+        s = 2u0.α - j * u0.p0
+        if s == -1
+            # -gamma(s) * cospi(s / 2) has a removable singularity at
+            # -s = -1, where it takes the value π / 2
+            π / 2
+        else
+            -gamma(s) * cospi(s / 2)
+        end
+    end
+    Hu0_precomputed_analytic = [
+        -(-1)^m * zeta(1 - 2u0.α + j * u0.p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0
+    ]
+
+    return a -> begin
+        u0_res_singular = u0_precomputed_singular .* a.parent
+        u0_res_analytic = u0_precomputed_analytic * a.parent
+        Hu0_res_singular = Hu0_precomputed_singular .* a.parent
+        Hu0_res_analytic = Hu0_precomputed_analytic * a.parent
+
+        # Compute u0_res_singular * u0_res_singular / 2
+        u02_res_singular = zeros(eltype(u0_res_singular), J + 1)
+        @inbounds for i = 1:J+1
+            if 2i <= J
+                u02_res_singular[2i-1] += u0_res_singular[i]^2 / 2
+            end
+            for j = 1:min(i - 1, J - i + 2)
+                u02_res_singular[i+j-1] += u0_res_singular[i] * u0_res_singular[j]
+            end
+        end
+        # Compute u0_res_analytic * u0_res_analytic / 2
+        u02_res_analytic = zeros(eltype(u0_res_analytic), M)
+        @inbounds for i = 1:M
+            if 2i <= M
+                u02_res_analytic[2i] += u0_res_analytic[i]^2 / 2
+            end
+            for j = 1:min(i - 1, M - i)
+                u02_res_analytic[i+j] += u0_res_analytic[i] * u0_res_analytic[j]
+            end
+        end
+        # Compute u0_res_singular * u0_res_analytic / 2
+        u02_res_singular_analytic = u0_res_singular * transpose(u0_res_analytic)
+
+        # We don't need the above computed results to make changes
+        # inplace
+        res_singular = u02_res_singular
+        @inbounds for k = 1:min(length(Hu0_res_singular), length(res_singular))
+            res_singular[k] += Hu0_res_singular[k]
+        end
+        res_analytic = u02_res_analytic
+        @inbounds for k = 1:min(length(Hu0_res_analytic), length(res_analytic))
+            res_analytic[k] += Hu0_res_analytic[k]
+        end
+        res_singular_analytic = u02_res_singular_analytic
+
+        res = Vector{eltype(res_singular)}(undef, u0.N0)
+        @inbounds for k in eachindex(exponents, res)
+            i, j, m = exponents[k]
+            if i == 0
+                res[k] = res_analytic[m]
+            elseif i == 1
+                res[k] = res_singular_analytic[j+1, m]
+            else
+                res[k] = res_singular[j+1]
+            end
+        end
+
+        return res
+    end
+end
+
+"""
     print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
 
 Debug method for printing an asymptotic expansion in a human readable

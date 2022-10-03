@@ -90,6 +90,11 @@ coefficients. For `a` you should have `initial_a = [a1, a2, …]` and
 skip the first `a0`. For `b` you give all of them. It still respects
 the values of `N0` and `N1` so it either uses only some of the
 coefficients or fills up with zeros.
+
+The argument `use_D2` decides if [`D`](@ref) or [`D2`](@ref) is used
+when computing the values for `a`. In theory they are equivalent and
+`D2` slightly faster. In practice they have slightly different
+rounding errors and therefore give different results in some cases.
 """
 function FractionalKdVAnsatz(
     α::T,
@@ -100,6 +105,7 @@ function FractionalKdVAnsatz(
     N0s::StepRange{Int,Int} = 0:1:-1,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
+    use_D2 = true,
     threaded = true,
     use_bhkdv = false,
     verbose = false,
@@ -132,7 +138,7 @@ function FractionalKdVAnsatz(
 
     # Compute values for u0.a[1:end]
     if !isempty(N0s)
-        as = find_good_as(u0, N0s; threaded, verbose)
+        as = find_good_as(u0, N0s; use_D2, threaded, verbose)
         resize!(u0.a, length(as) + 1)
         u0.a[1:end] .= as
     elseif N0 == 1 && α < -0.9
@@ -149,7 +155,7 @@ function FractionalKdVAnsatz(
         u0.a[1:end] .= zero(T)
         u0.a[1:min(N0, length(initial_a))] .= initial_a[1:min(N0, length(initial_a))]
 
-        u0.a[1:end] .= findas(u0)
+        u0.a[1:end] .= findas(u0; use_D2)
     end
 
     if use_midpoint
@@ -244,6 +250,7 @@ function FractionalKdVAnsatz(
     N0s = nothing,
     N1 = nothing,
     p = nothing,
+    use_D2 = true,
     threaded = true,
     use_bhkdv = false,
     verbose = false,
@@ -267,6 +274,7 @@ function FractionalKdVAnsatz(
         p,
         use_midpoint = true;
         N0s,
+        use_D2,
         threaded,
         use_bhkdv,
         verbose,

@@ -166,10 +166,14 @@ function finda0(α)
     return f(α)
 end
 
-function _findas(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
+function _findas(u0::FractionalKdVAnsatz{T}; use_D2 = true, verbose = true) where {T}
     iszero(u0.N0) && return T[], true
 
-    f = D(u0, Symbolic())
+    if use_D2
+        f = D2(u0, Symbolic())
+    else
+        f = D(u0, Symbolic())
+    end
     g(a) = f(OffsetVector([u0.a[0]; a], 0:u0.N0))
 
     initial = u0.a[1:end]
@@ -199,12 +203,12 @@ support `Arb` so this is always done in `Float64`. To speed it up we
 start by computing the first `n` coefficients, then `2n` and so on
 until we reach `u0.N0`.
 """
-function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
+function findas(u0::FractionalKdVAnsatz{T}; minstart = 16, use_D2 = true) where {T}
     if iszero(u0.N0)
         return T[]
     end
     if u0.N0 <= minstart
-        return _findas(u0)[1]
+        return _findas(u0; use_D2)[1]
     end
 
     u0 = deepcopy(u0)
@@ -217,20 +221,20 @@ function findas(u0::FractionalKdVAnsatz{T}; minstart = 16) where {T}
         resize!(u0.a, N0s[i] + 1)
         u0.a[N0s[i-1]:end] .= zero(T)
 
-        u0.a[1:end] .= _findas(u0)[1]
+        u0.a[1:end] .= _findas(u0; use_D2)[1]
     end
 
     return u0.a[1:end]
 end
 
-function findas(u0::FractionalKdVAnsatz{Arb})
+function findas(u0::FractionalKdVAnsatz{Arb}; use_D2 = true)
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
     # Compute an accurate value of a[0]. The conversion from a
     # wide ball gives large errors
     u0_float.a[0] = Float64(finda0(Arb(u0_float.α)))
 
-    return convert(Vector{Arb}, findas(u0_float))
+    return convert(Vector{Arb}, findas(u0_float; use_D2))
 end
 
 """
@@ -256,6 +260,7 @@ function _find_good_as!(
     u0::FractionalKdVAnsatz{T},
     N0s::StepRange{Int,Int} = 0:1:30;
     iter_use_best_as = true,
+    use_D2 = true,
     return_defects = false,
     threaded = false,
     verbose = false,
@@ -280,7 +285,7 @@ function _find_good_as!(
         # Compute ansatz
         resize_with_zero!(u0.a, N0 + 1)
 
-        as, converged = _findas(u0, verbose = false)
+        as, converged = _findas(u0, verbose = false; use_D2)
         u0.a[1:end] .= as
         push!(ass, as)
 
@@ -333,9 +338,11 @@ function find_good_as(
     u0::FractionalKdVAnsatz{T},
     N0s::StepRange{Int,Int} = 0:1:30;
     iter_use_best_as = true,
+    use_D2 = true,
     return_defects = false,
     threaded = false,
     verbose = false,
+    new = false,
 ) where {T}
     if T == Float64
         u0_float = deepcopy(u0)
@@ -347,7 +354,15 @@ function find_good_as(
     end
     empty!(u0_float.b)
 
-    res = _find_good_as!(u0_float, N0s; iter_use_best_as, return_defects, threaded, verbose)
+    res = _find_good_as!(
+        u0_float,
+        N0s;
+        iter_use_best_as,
+        use_D2,
+        return_defects,
+        threaded,
+        verbose,
+    )
 
     if return_defects
         res[1], convert(Vector{T}, res[2])
