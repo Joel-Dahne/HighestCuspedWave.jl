@@ -423,27 +423,28 @@ function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
 
     # Enclosure of
     # (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0)) / (α + 1)
+    extra_degree = 2
     C = let
         if x isa Arb
-            fx_div_x(αp1, force = true) do t
+            fx_div_x(αp1, force = true; extra_degree) do t
                 clausencmzeta(x, 2 - t) - clausencmzeta(x, 2 + t^2 / 2)
             end
         elseif x isa ArbSeries
             x₀ = x[0]
 
             C₀ = zero(x)
-            C₀[0] = fx_div_x(αp1, force = true) do t
+            C₀[0] = fx_div_x(αp1, force = true; extra_degree) do t
                 clausencmzeta(x₀, 2 - t) - clausencmzeta(x₀, 2 + t^2 / 2)
             end
             for i = 1:Arblib.degree(x)
                 if i % 2 == 0
-                    C₀[i] = fx_div_x(αp1, force = true) do t
+                    C₀[i] = fx_div_x(αp1, force = true; extra_degree) do t
                         (-1)^(i ÷ 2) *
                         (clausenc(x₀, 2 - t - i) - clausenc(x₀, 2 + t^2 / 2 - i)) /
                         factorial(i)
                     end
                 else
-                    C₀[i] = fx_div_x(αp1, force = true) do t
+                    C₀[i] = fx_div_x(αp1, force = true; extra_degree) do t
                         -(-1)^(i ÷ 2) *
                         (clausens(x₀, 2 - t - i) - clausens(x₀, 2 + t^2 / 2 - i)) /
                         factorial(i)
@@ -714,35 +715,36 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
 
         # Enclosure of
         # (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0)) / (α + 1)
+        extra_degree = 2
+        enclosure_degree = -1
         C = let
             if x isa Arb
-                fx_div_x(αp1, force = true, enclosure_degree = -1) do t
+                fx_div_x(αp1, force = true; extra_degree, enclosure_degree) do t
                     clausencmzeta(x, 3 - 2t) - clausencmzeta(x, 3 - t + t^2 / 2)
                 end
             elseif x isa ArbSeries
                 x₀ = x[0]
 
                 C₀ = zero(x)
-                C₀[0] = fx_div_x(αp1, force = true, enclosure_degree = -1) do t
-                    clausencmzeta(x₀, 3 - 2t) - clausencmzeta(x₀, 3 - t + t^2 / 2)
-                end
+                C₀[0] =
+                    fx_div_x(αp1, force = true; extra_degree, enclosure_degree) do t
+                        clausencmzeta(x₀, 3 - 2t) - clausencmzeta(x₀, 3 - t + t^2 / 2)
+                    end
                 for i = 1:Arblib.degree(x)
                     if i % 2 == 0
-                        C₀[i] =
-                            fx_div_x(αp1, force = true, enclosure_degree = -1) do t
-                                (-1)^(i ÷ 2) * (
-                                    clausenc(x₀, 3 - 2t - i) -
-                                    clausenc(x₀, 3 - t + t^2 / 2 - i)
-                                ) / factorial(i)
-                            end
+                        C₀[i] = fx_div_x(αp1, force = true; extra_degree, enclosure_degree) do t
+                            (-1)^(i ÷ 2) * (
+                                clausenc(x₀, 3 - 2t - i) -
+                                clausenc(x₀, 3 - t + t^2 / 2 - i)
+                            ) / factorial(i)
+                        end
                     else
-                        C₀[i] =
-                            fx_div_x(αp1, force = true, enclosure_degree = -1) do t
-                                -(-1)^(i ÷ 2) * (
-                                    clausens(x₀, 3 - 2t - i) -
-                                    clausens(x₀, 3 - t + t^2 / 2 - i)
-                                ) / factorial(i)
-                            end
+                        C₀[i] = fx_div_x(αp1, force = true; extra_degree, enclosure_degree) do t
+                            -(-1)^(i ÷ 2) * (
+                                clausens(x₀, 3 - 2t - i) -
+                                clausens(x₀, 3 - t + t^2 / 2 - i)
+                            ) / factorial(i)
+                        end
                     end
                 end
 
