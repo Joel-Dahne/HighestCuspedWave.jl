@@ -78,9 +78,9 @@ rgamma(x::ArbSeries) = Arblib.rgamma_series!(zero(x), x, length(x))
 Compute the rising factorial ``(x)_n``.
 """
 rising(x::Arb, n::Arb) = Arblib.rising!(zero(x), x, n)
-rising(x::Arb, n::Integer) = Arblib.rising!(zero(x), x, unsigned(n))
+rising(x::Arb, n::Integer) = Arblib.rising!(zero(x), x, convert(UInt, n))
 rising(x::ArbSeries, n::Integer) =
-    Arblib.rising_ui_series!(zero(x), x, unsigned(n), length(x))
+    Arblib.rising_ui_series!(zero(x), x, convert(UInt, n), length(x))
 
 """
     _zeta_deflated(s::ArbSeries, a::Arb)
