@@ -270,31 +270,6 @@ function _clausens_zeta(x::Arb, s::ArbSeries)
 
             return gammasin * rest
         end
-    elseif iswide(x) &&
-           round(Float64(s[0])) > 0 &&
-           abs(round(Float64(s[0])) - s[0]) < 0.001 &&
-           iseven(round(Float64(s[0])))
-        # Non-rigorously compute nearest integer. Wrong value will
-        # just result in terrible enclosure
-        # FIXME: Check that this is indeed the case and update condition for using
-        v0_approx_integer = round(Int, Float64(v[0]))
-
-        vmv0 = v - v0_approx_integer
-        vmv0[0] = union(vmv0[0], Arb(0))
-        z =
-            zeta_div_v = fx_div_x(
-                t ->
-                    zeta(t + v0_approx_integer, xinv2pi) -
-                    zeta(t + v0_approx_integer, onemxinv2pi),
-                vmv0,
-                extra_degree = 2,
-                force = true,
-            )
-
-        return gamma(v - v0_approx_integer + 1) / rising(v, -v0_approx_integer) *
-               inv2pi^v *
-               sinpi(v / 2) *
-               z
     else
         return gamma(v) *
                inv2pi^v *
