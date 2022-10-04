@@ -516,7 +516,8 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
         return res
     end
 
-    return a -> begin
+    return a::AbstractVector -> begin
+        @assert length(a) == u0.N0 + 1
         S = promote_type(T, eltype(a))
 
         u0_res = sum_dict(u0_precomputed, a, S)
@@ -618,7 +619,9 @@ function D2(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
         -(-1)^m * zeta(1 - 2u0.α + j * u0.p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0
     ]
 
-    return a -> begin
+    return a::AbstractVector -> begin
+        @assert length(a) == length(u0_precomputed_singular)
+
         u0_res_singular = u0_precomputed_singular .* a.parent
         u0_res_analytic = u0_precomputed_analytic * a.parent
         Hu0_res_singular = Hu0_precomputed_singular .* a.parent
@@ -627,7 +630,7 @@ function D2(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
         # Compute u0_res_singular * u0_res_singular / 2
         u02_res_singular = zeros(eltype(u0_res_singular), J + 1)
         @inbounds for i = 1:J+1
-            if 2i <= J
+            if 2i - 1 <= J + 1
                 u02_res_singular[2i-1] += u0_res_singular[i]^2 / 2
             end
             for j = 1:min(i - 1, J - i + 2)
