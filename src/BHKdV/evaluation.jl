@@ -375,11 +375,15 @@ a0 * (α + 1) = 2cospi(α) * gamma(2α + 3) / gamma(α + 2)^2 * α / (2α + 1) /
              = 2 / π^2 * α * gamma(2α + 3) * cospi(α) / ((2α + 1) * (gamma(α + 2) * sinc((α + 1) / 2))^2)
 ```
 """
-finda0αp1(α) =
+finda0αp1(α::Arb) =
     (2 / Arb(π)^2) * ArbExtras.enclosure_series(α) do α
         # Use _sinc to allow for ArbSeries overlapping zero
         α * gamma(2α + 3) * cospi(α) / ((2α + 1) * (gamma(α + 2) * _sinc((α + 1) / 2))^2)
     end
+
+finda0αp1(α::ArbSeries) =
+    (2 / Arb(π)^2) * α * gamma(2α + 3) * cospi(α) /
+    ((2α + 1) * (gamma(α + 2) * _sinc((α + 1) / 2))^2)
 
 """
     (u0::BHKdVAnsatz)(x, ::Ball)
@@ -1830,26 +1834,11 @@ F1 = gamma(1 + α) / a0
 F2 = (1 - x^p0) /
     (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
 ```
-
-# `F1`
-From the definition of `a0`
+For `F1` we can write it as
 ```
-a0 = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
+F1 = gamma(1 + α) / a0 = gamma(2 + α) / (a0 * (1 + α))
 ```
-and using `gamma(1 + α) = α * gamma(α)` we get
-```
-F1 = α * gamma(α)^3 * cospi(α / 2)^2 / (2gamma(2α) * cospi(α))
-```
-This has a removable singularity at `α = -1`. By rewriting it as
-```
-F1 = α / 2 * cospi(α)
-    * inv(rgamma(α) / (1 + α))^3
-    * (cospi(α / 2) / (1 + α))^2
-    * rgamma(2α) / (1 + α)
-```
-, where `rgamma` is the reciprocal gamma function given by `rgamma(s)
-= inv(gamma(s))`, we can use [`fx_div_x`](@ref) to compute enclosures
-of the individual factors.
+and use [`finda0αp1`](@ref).
 
 # `F2`
 For `F2` we let `c(a) = gamma(a) * cospi(a / 2)` and then factor it
@@ -1857,9 +1846,11 @@ out, giving us
 ```
 inv(c(α)) * (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
 ```
-
-Similarly to `F1`, `c(α)` has a removable singularity at `α = -1`. We
-can compute an enclosure using the same tools.
+We can handle the removable singularity of `c(a)` at `a = -1` by
+rewriting it as
+```
+c(a) = π * gamma(2 + a) * sinc((1 + a) / 2) / 2a
+```
 
 For the remaining part we compute an enclosure of the derivative of
 `c(α - p0) / c(α)` with respect to `α` and check that this is
@@ -1879,33 +1870,22 @@ considering `xᵤ = ubound(x)`. At `xᵤ > 0` we can handle the removable
 singularity in `α`
 """
 function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
+    @assert ϵ < 1
+
     # Interval for α
     α = Arb((-1, -1 + u0.ϵ))
     # Interval for α + 1
     αp1 = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
     extra_degree = 2
 
-    # Enclosure of rgamma(α) / (α + 1)
-    rgamma_α_div_αp1 = fx_div_x(s -> rgamma(s - 1), αp1; extra_degree)
-    # Enclosure of rgamma(2α) / (α + 1)
-    rgamma_2α_div_αp1 = fx_div_x(s -> rgamma(2(s - 1)), αp1; extra_degree)
-    # Enclosure of cospi(α / 2) / (α + 1)
-    cos_αdiv2_div_αp1 = fx_div_x(s -> cospi((s - 1) / 2), αp1; extra_degree)
-
     # Enclosure of F1
-    F1 =
-        α / 2 * cospi(α) * inv(rgamma_α_div_αp1)^3 * cos_αdiv2_div_αp1^2 * rgamma_2α_div_αp1
+    F1 = ArbExtras.enclosure_series(α) do α
+        gamma(2 + α) / finda0αp1(α)
+    end
 
-    c(a) =
-        if (a isa Arb && Arblib.contains_zero(a + 1)) ||
-           (a isa ArbSeries && Arblib.contains_zero(a[0] + 1))
-            fx_div_x(s -> cospi((s - 1) / 2), a + 1; extra_degree) /
-            fx_div_x(s -> rgamma(s - 1), a + 1; extra_degree)
-        else
-            gamma(a) * cospi(a / 2)
-        end
+    c(a) = Arb(π) * gamma(2 + a) * _sinc((1 + a) / 2) / 2a
 
-    inv_c_α = inv(c(α))
+    inv_c_α = ArbExtras.enclosure_series(inv ∘ c, α)
 
     # Prove that c(α - p0) / c(α) is decreasing in α
     cαmp0_div_cα = let α = ArbSeries((α, 1)), p0 = (1 + α) + (1 + α)^2 / 2
@@ -1934,8 +1914,7 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
     end
 
     return x::Arb -> begin
-        x < 1 || throw(DomainError(x, "need 0 < x < 1"))
-        x <= ϵ || throw(DomainError(x, "need x <= ϵ = $ϵ"))
+        @assert x <= ϵ
 
         if Arblib.contains_zero(x)
             # Enclose F2
@@ -1966,8 +1945,7 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
 
             F = F1 * F2
 
-            Arblib.ispositive(F) ||
-                error("leading term of u0 is not positive, this should not happen")
+            @assert Arblib.ispositive(F) # Should always be the case
         else
             # Enclosure of gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
             numerator =
