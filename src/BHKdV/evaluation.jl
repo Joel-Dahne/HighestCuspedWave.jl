@@ -1392,34 +1392,34 @@ zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x) + (x^r - x^(1 + α)) / (-�
 ```
 The term `T221` can be enclosed directly. For `T222` we rewrite it as
 ```
-(x^r - x^(1 + α)) / (2(r - (1 + α)) * log(x))
+inv(2log(x)) * (x^r - x^(1 + α)) / (r - (1 + α))
 ```
-We split this into two cases, when `r >= 1 + α` and when `r < 1 + α`.
-In the first case we factor out `x^(1 + α)`, giving us
+We want to show that this is non-decreasing in `α`. Differentiating
+the quotient w.r.t. `α` gives us
 ```
-x^(1 + α) / 2 * (x^(r - (1 + α)) - 1) / ((r - (1 + α)) * log(x))
+(x^r - (1 + log(x) * (r - (1 + α))) * x^(1 + α)) / (r - (1 + α))^2
 ```
-If we let `t = (r - (1 + α)) * log(x)` we can write
+The sign depends only on the sign of the numerator, we want to prove
+that it is non-negative. Differentiating the numerator w.r.t. `α`
+gives us
 ```
-(x^(r - (1 + α)) - 1) / ((r - (1 + α)) * log(x)) = (exp(t) - t) / t
+-log(x)^2 * (r - (1 + α)) * x^(1 + α)
 ```
-Here we notice that since `r - (1 + α) >= 0` and `log(x) < 0` we have
-`t <= 0`. Furthermore the function `(exp(t) - 1) / t` is zero at `t =
--Inf`, one at `t = 0` and increasing in `t`. It is therefore enough to
-determine the endpoints of `t` and from there we can compute an
-enclosure.
-
-The second case, when `r < 1 + α`, doesn't always occur, it depends on
-the value of `j` and `u0.ϵ`. We first check if `1 + α - r` contain any
-positive numbers, if that is the case we proceed similar to for the
-first case. We factor out `x^r`, giving us
+The sign of this depend only on `r - (1 + α)` and we see that it is
+decreasing for `r > 1 + α` and increasing for `r < 1 + α`. The minimum
+of
 ```
-x^r / 2 * (1 - x^(1 + α - r)) / ((r - (1 + α)) * log(x)) =
-    x^r / 2 * (x^(1 + α - r) - 1) / ((1 + α - r) * log(x))
+x^r - (1 + log(x) * (r - (1 + α))) * x^(1 + α)
 ```
-Taking `t = 1 + α - r` we in this case have `1 + α -r > 0` and `log(x)
-< 0` so `t < 0`. This allows us to compute an enclosure similar to how
-we did it in the first case.
+is hence attained at `r = 1 + α`, where it takes the value
+```
+x^r - (1 + log(x) * (r - r)) * x^r = 0
+```
+It follows that it is non-negative for all `α` Hence
+```
+(x^r - x^(1 + α)) / (r - (1 + α))
+```
+is non-decreasing in `α` and we can evaluate it at the endpoints.
 
 ## Handling `T3`: the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
@@ -1722,40 +1722,15 @@ function F0(
                 T221 =
                     zeta_deflated_mαpr[j] * (abspow(x, r) - abspow(x, αp1)) * invlogx / 2
 
-                # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
-                # IMPROVE: Compute a tighter enclosure in α, this is
-                # the term with the largest error
-                T222 = let
-                    # Handle the case r >= 1 + α
-
-                    # Lower and upper bounds of
-                    # t = (r - (1 + α)) * log(x)
-                    tₗ = ubound(Arb, r - αp1) * log(abs_lbound(Arb, x))
-                    tᵤ = abs_lbound(Arb, r - αp1) * log(ubound(Arb, x))
-                    # Lower and upper bounds of (exp(t) - 1) / t
-                    # Using that t <= 0 to handle the singular cases
-                    lower = isfinite(tₗ) ? (exp(tₗ) - 1) / tₗ : zero(tₗ)
-                    upper = Arblib.isnegative(tᵤ) ? (exp(tᵤ) - 1) / tᵤ : one(tᵤ)
-
-                    T222 = abspow(x, αp1) / 2 * Arb((lower, upper))
-
-                    # Handle the case r < 1 + α if it occurs
-                    if Arblib.contains_positive(1 + α - r)
-                        # Lower and upper bounds of
-                        # t = (1 + α - r) * log(x)
-                        tₗ = ubound(Arb, αp1 - r) * log(abs_lbound(Arb, x))
-                        tᵤ = abs_lbound(Arb, αp1 - r) * log(ubound(Arb, x))
-                        # Lower and upper bounds of (exp(t) - 1) / t
-                        # Using that t <= 0 to handle the singular cases
-                        lower = isfinite(tₗ) ? (exp(tₗ) - 1) / tₗ : zero(tₗ)
-                        upper = Arblib.isnegative(tᵤ) ? (exp(tᵤ) - 1) / tᵤ : one(tᵤ)
-
-                        # Add enclosure from this case to T222
-                        T222 = union(T222, abspow(x, r) / 2 * Arb((lower, upper)))
-                    end
-
-                    T222
-                end
+                # Enclosure of (x^r - x^(1 + α)) / (r - (1 + α)) / 2log(x)
+                # It is non-decreasing in α so we evaluate at the endpoints
+                # TODO: Improve this enclosure for wide x, in
+                # particular overlapping zero
+                T222 =
+                    Arb((
+                        (abspow(x, r) - 1) / r,
+                        (abspow(x, r) - abspow(x, u0.ϵ)) / (r - u0.ϵ),
+                    )) * invlogx / 2
 
                 term = T21 + T221 + T222
 
