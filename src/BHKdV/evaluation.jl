@@ -1180,7 +1180,8 @@ and
 ```
 Q = -a0 * ((c(2α) - c(2α - p0) * x^p0) * x^-2α - (zeta(-2α - 1) / 2 - zeta(-2α + p0 - 1) / 2) * x^2)
 ```
-where `c(a) = gamma(a) * cospi(a / 2)`, similar to
+where `c(a) = gamma(a) * cospi(a / 2)`. We can handle the removable
+singularity at `a = -1` similar to how it is done in
 [`inv_u0_bound`](@ref).
 
 By construction `a0` is such that the terms with exponent `x^-2α`
@@ -1205,8 +1206,11 @@ a0 / gamma(1 + α) * (
     a0 * c(α - p0)^2 / 2 * x^(-α + 2p0 - 1) / (log(x) * (1 - x^p0))
 )
 ```
-The factor `a0 / gamma(1 + α)` has a removable singularity at `α = -1`
-and can be enclosed in the same way as in [`inv_u0_bound`](@ref).
+The factor `a0 / gamma(1 + α)` can be rewritten as
+```
+a0 * (1 + α) / gamma(2 + α)
+```
+and enclosed using [`finda0αp1`](@ref).
 
 First we focus on the term
 ```
@@ -1287,7 +1291,7 @@ T1232 = (1 + α) * w(α) * (1 - x^((1 + α)^2)) / ((1 + α)^2 * log(x))
 ```
 We can compute an enclosure of
 ```
-(1 + α) * w(α) = -2(1 + α) * c(2α) * c(α - p0)^2 / c(α)^2 =
+(1 + α) * w(α) = -2(1 + α) * c(2α) * c(α - p0)^2 / c(α)^2
 ```
 by handling the removable singularity.
 
@@ -1319,8 +1323,8 @@ separately like this is determined by the argument
 `skip_singular_j_until`, it then handles `j = 1:skip_singular_j_until`
 separately.
 
-
-We are thus interested in bounding
+We are thus interested in bounding the first two terms when expanding
+the Clausen function in
 ```
 -u0.v0.a[j] * clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0) /
     (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
@@ -1446,17 +1450,6 @@ function F0(
 )
     @assert ϵ < 1
 
-    # Interval for α
-    α = Arb((-1, -1 + u0.ϵ))
-    # Interval for α + 1
-    αp1 = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-
-    # This method assumes that the weight is x^(1 - u0.γ * (1 + α)) *
-    # log(u0.c * inv(x)). As an extra precaution we check this.
-    let x = Arb(0.5), α = Arb((-1, -1 + u0.ϵ))
-        @assert Arblib.overlaps(u0.w(x), x^(1 - u0.γ * (αp1)) * log(u0.c + inv(x)))
-    end
-
     # Function for bounding gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
     f1 = inv_u0_bound(u0; M, ϵ)
 
@@ -1473,9 +1466,9 @@ function F0(
         log(inv(x)) / log(u0.c + inv(x))
     end
 
-    # Compute the expansion of D(u0), skipping the Clausen term in the
-    # tail corresponding to j = 1 and also remove the two leading
-    # term, these three terms are handled separately.
+    # Compute the expansion of D(u0), skipping the two leading terms
+    # in the expansion of the Clausen term in the tail for j =
+    # 1:skip_j_until, which are handled separately
     Du0_expansion = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
     delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
     delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
@@ -1486,29 +1479,27 @@ function F0(
         Du0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
     end
 
-    c(a) = gamma(a) * cospi(a / 2)
-
     # Compute enclosures of several values depending only on α, many
     # of them with removable singularities
 
+    # Interval for α
+    α = Arb((-1, -1 + u0.ϵ))
+    # Interval for α + 1
+    αp1 = Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
     # Use this for computing tighter enclosures
     extra_degree = 2
 
-    # Enclosure of rgamma(α) / (1 + α)
-    rgamma_α_div_αp1 = fx_div_x(s -> rgamma(s - 1), αp1; extra_degree)
-    # Enclosure of rgamma(2α) / (1 + α)
-    rgamma_2α_div_αp1 = fx_div_x(s -> rgamma(2(s - 1)), αp1; extra_degree)
-    # Enclosure of rgamma(1 + α) / (1 + α)
-    rgamma_1pα_div_αp1 = fx_div_x(s -> rgamma(s), αp1; extra_degree)
-    # Enclosure of rgamma(α - p0) / (1 + α)^2
-    rgamma_αmp0_div_αp12 = fx_div_x(s -> rgamma(-1 - s^2 / 2), αp1, 2; extra_degree)
-    # Enclosure of rgamma(2α - p0) / (1 + α)
-    rgamma_2αmp0_div_αp1 = fx_div_x(s -> rgamma(s - 2 - s^2 / 2), αp1; extra_degree)
+    # c(a) = gamma(a) * cospi(a / 2) rewritten to handle the removable
+    # singularity at a = -1
+    c(a) = Arb(π) * gamma(2 + a) * _sinc((1 + a) / 2) / 2a
 
-    # Enclosure of cospi(α / 2) / (1 + α)
-    cos_αdiv2_div_αp1 = fx_div_x(s -> cospi((s - 1) / 2), αp1; extra_degree)
-    # Enclosure of cospi((α - p0) / 2) / (1 + α)^2
-    cos_αmp0div2_div_αp12 = fx_div_x(s -> cospi((-1 - s^2 / 2) / 2), αp1, 2; extra_degree)
+    # Enclosure of a0 / gamma(1 + α)
+    a0_div_gamma_1pα = ArbExtras.enclosure_series(α) do α
+        finda0αp1(Arb((-1, -1 + u0.ϵ))) / gamma(2 + α)
+    end
+
+    # Enclosure of rgamma(1 + α) / (1 + α) = rgamma(2 + α)
+    rgamma_1pα_div_αp1 = rgamma(2 + α)
 
     # Enclosure of ((1 + α) * c(2α - p0) - 2(1 + α) * c(2α) * c(α - p0) / c(α)) / (1 + α)^2
     T113 = fx_div_x(αp1, 2; extra_degree, force = true) do s
@@ -1527,14 +1518,10 @@ function F0(
                 inv(fx_div_x(t -> rgamma(2(t - 1)) / cospi(t - 1), s; extra_degree))
 
             # Enclosure of c(α - p0)
-            c_αmp0 =
-                fx_div_x(t -> cospi((-1 - t^2 / 2) / 2), s, 2; extra_degree) /
-                fx_div_x(t -> rgamma(-1 - t^2 / 2), s, 2; extra_degree)
+            c_αmp0 = c(-1 - s^2 / 2)
 
             # Enclosure of c(α)
-            c_α =
-                fx_div_x(t -> cospi((t - 1) / 2), s; extra_degree) /
-                fx_div_x(t -> rgamma(t - 1), s; extra_degree)
+            c_α = c(s - 1)
 
             c_2αmp0_mul_α - 2c_2α_mul_α * c_αmp0 / c_α
         else
@@ -1545,10 +1532,6 @@ function F0(
             end
         end
     end
-
-    # Enclosure of a0 / gamma(1 + α)
-    a0_div_gamma_1pα =
-        rgamma_α_div_αp1^3 / (α / 2 * cospi(α) * cos_αdiv2_div_αp1^2 * rgamma_2α_div_αp1)
 
     # Enclosure of T1231 * log(x) = (v(α) - w(α)) / (1 + α)
     T1231_mul_logx = fx_div_x(αp1, 2; extra_degree, force = true) do s
@@ -1567,14 +1550,10 @@ function F0(
                 inv(fx_div_x(t -> rgamma(2(t - 1)) / cospi(t - 1), s; extra_degree))
 
             # Enclosure of c(α - p0)
-            c_αmp0 =
-                fx_div_x(t -> cospi((-1 - t^2 / 2) / 2), s, 2; extra_degree) /
-                fx_div_x(t -> rgamma(-1 - t^2 / 2), s, 2; extra_degree)
+            c_αmp0 = c(-1 - s^2 / 2)
 
             # Enclosure of c(α)
-            c_α =
-                fx_div_x(t -> cospi((t - 1) / 2), s; extra_degree) /
-                fx_div_x(t -> rgamma(t - 1), s; extra_degree)
+            c_α = c(s - 1)
 
             w_mul_α = -2c_2α_mul_α * c_αmp0^2 / c_α^2
 
@@ -1591,40 +1570,55 @@ function F0(
     end
 
     # Enclosure of w(α) * (1 + α)
-    w_mul_α =
-        -2(cospi(α) / rgamma_2α_div_αp1) *
-        (cos_αmp0div2_div_αp12 / rgamma_αmp0_div_αp12)^2 /
-        (cos_αdiv2_div_αp1 / rgamma_α_div_αp1)^2
+    w_mul_α = ArbExtras.enclosure_series(α) do α
+        -finda0αp1(α) * c(-1 + (1 + α)^2 / 2)^2
+    end
 
     # α-factor of T21 for j = 1:skip_singular_j_until
-    # IMPROVE: Compute tighter enclosure when α + 1 - r is close to
-    # zero
+    # Use a very high degree to get a good enclosure.
     T21_α = map(1:skip_singular_j_until) do j
         let r = -u0.v0.α + j * u0.v0.p0 - 1
-            ArbExtras.enclosure_series(α, degree = 4) do α
-                let res = -zeta_deflated(-α + r, one(Arb)) / 2
-                    if (α isa Arb && Arblib.contains_zero(α + 1 - r)) ||
-                       (α isa ArbSeries && Arblib.contains_zero(α[0] + 1 - r))
-                        res += fx_div_x(α + 1 - r; extra_degree) do s
+            ArbExtras.enclosure_series(α, degree = 10) do α
+                term1 = let t = -α + r
+                    if t isa ArbSeries && is_approx_integer(t[0])
+                        # This gives much better enclosures
+                        t[0] = union(t[0], Arb(1))
+                    end
+                    -zeta_deflated(t, one(Arb)) / 2
+                end
+
+                term2 = let t = α + 1 - r
+                    if t isa ArbSeries && is_approx_integer(t[0])
+                        # This gives much better enclosures
+                        t[0] = union(t[0], Arb(0))
+                    end
+
+                    if (t isa Arb && Arblib.contains_zero(t)) ||
+                       (t isa ArbSeries && Arblib.contains_zero(t[0]))
+                        fx_div_x(t; extra_degree) do s
                             gamma(s + 1) / ((s - 1) * (s - 2)) * cospi((2 - s) / 2) + 1 // 2
                         end
                     else
-                        res +=
-                            (
-                                gamma(α + 2 - r) / ((α - r) * (α - 1 - r)) *
-                                cospi((1 - α + r) / 2) + 1 // 2
-                            ) / (α + 1 - r)
+                        (gamma(t + 1) / ((t - 1) * (t - 2)) * cospi((t - 2) / 2) + 1 // 2) / t
                     end
-                    res
                 end
+
+                term1 + term2
             end
         end
     end
 
     # Enclosure of zeta_deflated(-α + r) for j = 1:skip_singular_j_until
+    # Use a very high degree to get a good enclosure.
     zeta_deflated_mαpr = map(1:skip_singular_j_until) do j
         let r = -u0.v0.α + j * u0.v0.p0 - 1
-            ArbExtras.enclosure_series(α -> zeta_deflated(-α + r, one(r)), α, degree = 8)
+            ArbExtras.enclosure_series(α, degree = 10) do α
+                if α isa ArbSeries && is_approx_integer(-α[0] + r)
+                    # This gives much better enclosures
+                    α[0] = union(α[0], r - 1)
+                end
+                zeta_deflated(-α + r, one(r))
+            end
         end
     end
 
@@ -1664,30 +1658,29 @@ function F0(
 
             # Enclosure of T111 = x^(-α + p0 - 1) / log(x) using that
             # -α + p0 - 1 = (1 + α)^2 / 2
-            T111 = abspow(x, Arblib.nonnegative_part!(zero(x), (αp1)^2 / 2)) * invlogx
+            T111 = abspow(x, Arblib.nonnegative_part!(zero(x), αp1^2 / 2)) * invlogx
 
             # Enclosure of T112 = (1 + α) / (1 - x^p0)
             T112 = if iszero(x)
                 αp1
             elseif Arblib.contains_zero(x)
-                lower = 1 + α
+                lower = αp1
                 upper = let xᵤ = ubound(Arb, x)
                     # Enclosure of inv((1 - xᵤ^p0) / (1 + α))
-                    inv(fx_div_x(s -> (1 - xᵤ^(s + s^2 / 2)), αp1, extra_degree = 2))
+                    inv(fx_div_x(s -> (1 - xᵤ^(s + s^2 / 2)), αp1; extra_degree))
                 end
                 Arb((lower, upper))
             else
                 # Enclosure of inv((1 - x^p0) / (1 + α))
-                inv(fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1, extra_degree = 2))
+                inv(fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1; extra_degree))
             end
-
 
             T11 = T111 * T112 * T113
 
             # Compute an enclosure of T12
 
             # Enclosure of T121 = x^(1 + α) / 2
-            T121 = abspow(x, Arblib.nonnegative_part!(zero(x), 1 + α)) / 2
+            T121 = abspow(x, Arblib.nonnegative_part!(zero(x), αp1)) / 2
 
             # Enclosure of T122, which is the same as T112
             T122 = T112
@@ -1705,7 +1698,7 @@ function F0(
                     lower = Arblib.isnegative(tᵤ) ? (1 - exp(tᵤ)) / tᵤ : -one(tᵤ)
                     upper = isfinite(tₗ) ? (1 - exp(tₗ)) / tₗ : zero(tₗ)
 
-                    Arb((lower, upper)) * w_mul_α
+                    w_mul_α * Arb((lower, upper))
                 end
 
                 T1231 + T1232
@@ -1716,9 +1709,9 @@ function F0(
             a0_div_gamma_1pα * (T11 + T12)
         end
 
-        # Enclosure of the two singular terms in the expansion of
-        # clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0) for
-        # j = 1:skip_singular_j_until
+        # Enclosure of the two leading terms in the expansion of
+        # -u0.v0.a[j] * clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0)
+        # for j = 1:skip_singular_j_until
         T2s = map(1:skip_singular_j_until) do j
             let r = -u0.v0.α + j * u0.v0.p0 - 1
                 # Enclosure of
@@ -1730,6 +1723,8 @@ function F0(
                     zeta_deflated_mαpr[j] * (abspow(x, r) - abspow(x, αp1)) * invlogx / 2
 
                 # Enclosure of (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
+                # IMPROVE: Compute a tighter enclosure in α, this is
+                # the term with the largest error
                 T222 = let
                     # Handle the case r >= 1 + α
 
@@ -1764,13 +1759,11 @@ function F0(
 
                 term = T21 + T221 + T222
 
-                term *= invgamma1mxp0
-
                 -u0.v0.a[j] * term
             end
         end
 
-        T2 = sum(T2s, init = zero(x))
+        T2 = sum(T2s, init = zero(x)) * invgamma1mxp0
 
         # Enclosure of the remaining terms in the expansion
         T3 = eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
