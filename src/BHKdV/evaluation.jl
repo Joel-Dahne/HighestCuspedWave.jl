@@ -1513,7 +1513,7 @@ function F0(
     ::Asymptotic;
     M::Integer = 3,
     ϵ::Arb = Arb(0.5),
-    skip_singular_j_until = 100,
+    skip_singular_j_until = u0.v0.N0,
 )
     @assert ϵ < 1
 
