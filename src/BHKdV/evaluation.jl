@@ -1900,9 +1900,7 @@ and computes an enclosure of
 ```
 gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
 ```
-by handling the removable singularity at `α = -1` using
-[`fx_div_x`](@ref). For `u0(x) / x^(-α)` it computes an enclosure
-using the asymptotic expansion of `u0`.
+using the same method as for enclosing `T112` in [`F0`](@ref).
 
 We now describe how to compute an upper bound when `x` overlaps with
 zero.
@@ -2016,6 +2014,12 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
     return x::Arb -> begin
         @assert x <= ϵ
 
+        # If x is very small it is better to use the version for x
+        # containing zero
+        if x < Arb("1e-1000")
+            x = union(x, Arb(0))
+        end
+
         if Arblib.contains_zero(x)
             # Enclose F2
             F2 = if iszero(x)
@@ -2050,9 +2054,23 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
             # an enclosure
             Arblib.ispositive(F) || return indeterminate(x)
         else
+            # Compute an enclosure of inv((1 + α) / (1 - x^p0))
+            inv_αp1_div_onemxp0 = if x < exp(Arb(-1)) # Use monotonicity on α and x
+                # The lower and upper bounds refer to
+                # (1 + α) / (1 - x^p0)
+                # Since we want the inverse we invert them and switch
+                # there order
+                lower = -inv(log(x))
+                upper = let xᵤ = ubound(Arb, x), αp1ᵤ = ubound(Arb, αp1)
+                    αp1ᵤ / (1 - xᵤ^(αp1ᵤ + αp1ᵤ^2 / 2))
+                end
+                Arb((inv(upper), inv(lower)))
+            else
+                inv(fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1, extra_degree = 2))
+            end
+
             # Enclosure of gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
-            numerator =
-                gamma(2 + α) * fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1; extra_degree)
+            numerator = gamma(2 + α) * inv_αp1_div_onemxp0
 
             F = numerator / eval_expansion(u0, u0_expansion_div_x_mα, x)
         end
