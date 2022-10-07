@@ -275,6 +275,27 @@ function lerch_phi(z::Arb, s::Arb, a::Arb)
     end
 end
 
+function abspow!(res::Arb, x::Arb, y::Arb)
+    iszero(y) && return Arblib.one!(res)
+
+    if iszero(x)
+        Arblib.contains_negative(y) && return Arblib.indeterminate!(res)
+        Arblib.ispositive(y) && return Arblib.zero!(res)
+        return Arblib.unit_interval!(res)
+    end
+
+    if Arblib.contains_zero(x)
+        Arblib.contains_negative(y) && return Arblib.indeterminate!(res)
+        upper = abs_ubound(Arb, x) # One extra allocation
+        Arblib.pow!(upper, upper, y)
+        Arblib.zero!(res)
+        return Arblib.union!(res, res, upper)
+    end
+
+    Arblib.abs!(res, x)
+    return Arblib.pow!(res, res, y)
+end
+
 """
     abspow(x, y)
 

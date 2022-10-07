@@ -69,6 +69,11 @@ and that this gives an upper bound.
 
 The argument `use_approx_p_and_q` is used for computing approximate
 values and is mainly intended for testing.
+
+# Terms not depending on `p` or `q`
+The terms for which `p == q == 0` we take out and handle in a separate
+sum. We compute an expansion in `α` to get a better enclosure, in most
+cases this picks up the monotonicity.
 """
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
@@ -86,29 +91,29 @@ function eval_expansion(
     αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
     a0αp1 = finda0αp1(α)
 
-    # In-place method for computing the exponent i * α + j * p0 -
-    # k*u0.v0.α + l*u0.v0.p0 + m in a way that also accounts for
-    # the dependence between α and p0
-    exponent = zero(α)
+    # In-place methods for computing the exponent
+    # i * α + j * p0 - k*u0.v0.α + l*u0.v0.p0 + m
+    # for both α::Arb and α::ArbSeries
 
-    # Precomputed values and buffers for computing the exponent
-    lower = zero(exponent)
-    upper = zero(exponent)
-    # Upper bounds of α and p0
+    # Buffers used when computing the exponent for α::Arb
+    lower = zero(α)
+    upper = zero(α)
+    # Precomputed values used for α::Arb: upper bounds of α and p0
     α_upper = -1 + u0.ϵ
     p0_upper = u0.ϵ + u0.ϵ^2 / 2
-    # Enclosure of p0 - α
-    p0mα = 1 + Arblib.nonnegative_part!(zero(α), αp1^2) / 2
-    _exponent!(exponent, i, j, k, l, m) = begin
+    _exponent!(exponent::Arb, α::Arb, i, j, k, l, m) = begin
         # Compute the part i * α + j * p0 + m
-        # Note that i * α + j * p0 = 3j / 2 + (i + 2j) * α + α^2 / 2
+        # Note that i * α + j * p0 = 3j / 2 + (i + 2j) * α + j * α^2 / 2
         # is increasing in α if i + 2j is non-negative.
-        if i + 2j >= 0
+        if i + 2j >= 0 && iswide(α)
             # It is increasing in α, evaluated at endpoints
+            # We use the full interval of α and not just for the
+            # argument given here. In practice this will always be the
+            # same, but even if it isn't we still get an enclosure.
 
             # Lower bound at α = -1 can be done with integers
             # For α = -1 we get
-            # i * α + j * (1 + α + (1 + α)^2 // 2) + m = m - 1
+            # i * α + j * (1 + α + (1 + α)^2 // 2) = m - 1
             Arblib.set!(lower, m - i)
 
             # Upper bound i * α_upper + j * p0_upper + m
@@ -122,11 +127,19 @@ function eval_expansion(
             # negative parts
             iszero(lower) && Arblib.nonnegative_part!(exponent, exponent)
         else
-            # IMPROVE: We could rewrite the expression to only have α
-            # in one place, reducing overestimations.
-            Arblib.set!(exponent, m)
+            # Note that i * α + j * p0 + m =
+            # (i + j) * α + j * (1 + (1 + α)^2 / 2) + m
+
+            # exponent = j * (1 + (1 + α)^2 / 2)
+            Arblib.add!(exponent, α, 1)
+            Arblib.sqr!(exponent, exponent)
+            Arblib.mul_2exp!(exponent, exponent, -1)
+            Arblib.add!(exponent, exponent, 1)
+            Arblib.mul!(exponent, exponent, j)
+
+            # exponent += (i + j) * α + m
             Arblib.addmul!(exponent, α, i + j)
-            Arblib.addmul!(exponent, p0mα, j)
+            Arblib.add!(exponent, exponent, m)
         end
 
         # Add - k*u0.v0.α + l*u0.v0.p0
@@ -134,6 +147,63 @@ function eval_expansion(
         Arblib.addmul!(exponent, u0.v0.p0, l)
 
         return exponent
+    end
+
+    # IMPROVE: Consider using more buffers and precomputing more
+    # values
+    _exponent!(exponent::ArbSeries, α::ArbSeries, i, j, k, l, m) = begin
+        # Compute the part i * α + j * p0 + m
+
+        # Note that i * α + j * p0 + m = (i + j) * α + j * (1 + (1 + α)^2 / 2) + m
+
+        # exponent = j * (1 + (1 + α)^2 / 2)
+        Arblib.add!(exponent, α, 1)
+        Arblib.pow_arb_series!(exponent, exponent, Arb(2), length(exponent))
+        Arblib.mul_2exp!(exponent, exponent, -1)
+        Arblib.add!(exponent, exponent, 1)
+        Arblib.mul!(exponent, exponent, Arb(j))
+
+        # exponent += (i * j) * α
+        Arblib.add!(exponent, exponent, (i + j) * α)
+
+        exponent0 = Arblib.ref(exponent, 0)
+        Arblib.submul!(exponent0, u0.v0.α, k)
+        Arblib.addmul!(exponent0, u0.v0.p0, l)
+        Arblib.add!(exponent0, exponent0, m)
+
+        return exponent
+    end
+
+    # Function for computing sum of terms with p and q zero for a given α
+    # It is only called with α::ArbSeries if x is non-zero
+    logx = log(x)
+    f(α) = begin
+        S = zero(α)
+        exponent = zero(α)
+        term = zero(α)
+        buffer1 = zero(Arb)
+        buffer2 = zero(α)
+        for ((p, q, i, j, k, l, m), y) in expansion
+            if !iszero(y) && iszero(p) && iszero(q)
+                _exponent!(exponent, α, i, j, k, l, m)
+                if α isa Arb
+                    term = abspow!(term, x, exponent)
+                else
+                    Arblib.mul!(term, exponent, logx)
+                    Arblib.exp_series!(term, term, length(term))
+                end
+                Arblib.mul!(term, term, y)
+                Arblib.add!(S, S, term)
+            end
+        end
+        S
+    end
+
+    # Sum of terms with p and q zero
+    res1 = if Arblib.contains_zero(x)
+        f(α)
+    else
+        ArbExtras.enclosure_series(f, α)
     end
 
     # Compute enclosure of the p-coefficient
@@ -167,17 +237,14 @@ function eval_expansion(
         indeterminate(α)
     end
 
-    res = zero(x)
-
+    # Sum of terms with either p or q non-zero
+    res2 = zero(x)
+    exponent = zero(α)
     for ((p, q, i, j, k, l, m), y) in expansion
-        if !iszero(y)
-            if iszero(p)
-                _exponent!(exponent, i, j, k, l, m)
-
-                term = abspow(x, exponent)
-            elseif isone(p)
+        if !iszero(y) && !(iszero(p) && iszero(q))
+            if isone(p)
                 # Add -α to the exponent coming from the p factor
-                _exponent!(exponent, i - 1, j, k, l, m)
+                _exponent!(exponent, α, i - 1, j, k, l, m)
 
                 if iszero(x)
                     if Arblib.ispositive(exponent)
@@ -207,7 +274,7 @@ function eval_expansion(
                 use_approx_p_and_q ||
                     throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
 
-                _exponent!(exponent, i, j, k, l, m)
+                _exponent!(exponent, α, i, j, k, l, m)
 
                 term = abspow(x, exponent)
 
@@ -239,11 +306,11 @@ function eval_expansion(
             end
 
             #res += y * term
-            Arblib.addmul!(res, y, term)
+            Arblib.addmul!(res2, y, term)
         end
     end
 
-    return res
+    return res1 + res2
 end
 
 """
