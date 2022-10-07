@@ -1461,14 +1461,17 @@ The term `T221` can be enclosed directly. For `T222` we rewrite it as
 ```
 inv(2log(x)) * (x^r - x^(1 + α)) / (r - (1 + α))
 ```
-We want to show that this is non-decreasing in `α`. Differentiating
-the quotient w.r.t. `α` gives us
+We want to show that this is decreasing in `α`. Differentiating w.r.t.
+`α` gives us
 ```
-(x^r - (1 + log(x) * (r - (1 + α))) * x^(1 + α)) / (r - (1 + α))^2
+inv(2log(x)) * (x^r - (1 + log(x) * (r - (1 + α))) * x^(1 + α)) / (r - (1 + α))^2
 ```
-The sign depends only on the sign of the numerator, we want to prove
-that it is non-negative. Differentiating the numerator w.r.t. `α`
-gives us
+The sign depends only on the sign of the numerator
+```
+x^r - (1 + log(x) * (r - (1 + α))) * x^(1 + α)
+```
+we want to prove that it is non-negative. Differentiating the
+numerator w.r.t. `α` gives us
 ```
 -log(x)^2 * (r - (1 + α)) * x^(1 + α)
 ```
@@ -1482,11 +1485,20 @@ is hence attained at `r = 1 + α`, where it takes the value
 ```
 x^r - (1 + log(x) * (r - r)) * x^r = 0
 ```
-It follows that it is non-negative for all `α` Hence
+It follows that it is non-negative for all `α`. Since `log(x)` is
+negative we get that the full derivative is non-positive and hence
 ```
-(x^r - x^(1 + α)) / (r - (1 + α))
+inv(2log(x)) * (x^r - x^(1 + α)) / (r - (1 + α))
 ```
-is non-decreasing in `α` and we can evaluate it at the endpoints.
+is non-increasing in `α` and we can evaluate it at the endpoints.
+Furthermore the upper bound is increasing in `x`, the upper bound is
+given by
+```
+inv(2log(x)) * (x^r - 1) / 1
+= inv(2) * (x^r - 1) / (r * log(x))
+= inv(2) * (exp(r * log(x)) - 1) / (r * log(x))
+```
+which is increasing in `x`
 
 ## Handling `T3`: the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
@@ -1790,14 +1802,21 @@ function F0(
                     zeta_deflated_mαpr[j] * (abspow(x, r) - abspow(x, αp1)) * invlogx / 2
 
                 # Enclosure of (x^r - x^(1 + α)) / (r - (1 + α)) / 2log(x)
-                # It is non-decreasing in α so we evaluate at the endpoints
-                # TODO: Improve this enclosure for wide x, in
-                # particular overlapping zero
-                T222 =
-                    Arb((
-                        (abspow(x, r) - 1) / r,
-                        (abspow(x, r) - abspow(x, u0.ϵ)) / (r - u0.ϵ),
-                    )) * invlogx / 2
+                # It is non-increasing in α so we evaluate at the endpoints
+                T222_lower = (abspow(x, r) - abspow(x, u0.ϵ)) / 2(r - u0.ϵ) * invlogx
+                T222_upper = if iszero(x)
+                    zero(x)
+                else
+                    let xᵤ = ubound(Arb, x)
+                        (abspow(xᵤ, r) - 1) / (2r * log(xᵤ))
+                    end
+                end
+                T222 = Arb((T222_lower, T222_upper))
+                # The enclosure for the lower bound is in general
+                # worse and sometimes it gets bigger than the upper
+                # bound. It is therefore to take the minimum with the
+                # enclosure and the upper bound.
+                T222 = min(T222, T222_upper)
 
                 term = T21 + T221 + T222
 
