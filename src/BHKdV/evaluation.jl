@@ -1622,17 +1622,17 @@ x^r - (1 + log(x) * (r - r)) * x^r = 0
 It follows that it is non-negative for all `α`. Since `log(x)` is
 negative we get that the full derivative is non-positive and hence
 ```
-inv(2log(x)) * (x^r - x^(1 + α)) / (r - (1 + α))
+T222 = inv(2log(x)) * (x^r - x^(1 + α)) / (r - (1 + α))
 ```
 is non-increasing in `α` and we can evaluate it at the endpoints.
 Furthermore the upper bound is increasing in `x`, the upper bound is
 given by
 ```
-inv(2log(x)) * (x^r - 1) / 1
+inv(2log(x)) * (x^r - 1) / r
 = inv(2) * (x^r - 1) / (r * log(x))
 = inv(2) * (exp(r * log(x)) - 1) / (r * log(x))
 ```
-which is increasing in `x`
+which is increasing in `x`.
 
 ## Handling `T3`: the remaining terms
 Once the terms `P` and `Q` have been taken out from the expansion it
@@ -1927,7 +1927,13 @@ function F0(
 
                 # Enclosure of (x^r - x^(1 + α)) / (r - (1 + α)) / 2log(x)
                 # It is non-increasing in α so we evaluate at the endpoints
-                T222_lower = (abspow(x, r) - abspow(x, u0.ϵ)) / 2(r - u0.ϵ) * invlogx
+                T222_lower = if Arblib.contains_zero(x)
+                    zero(x)
+                else
+                    # IMPROVE: This can be improved for wide x
+                    (abspow(x, r) - abspow(x, u0.ϵ)) / 2(r - u0.ϵ) * invlogx
+                end
+
                 T222_upper = if iszero(x)
                     zero(x)
                 else
