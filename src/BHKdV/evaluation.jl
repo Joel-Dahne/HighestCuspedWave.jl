@@ -1835,6 +1835,8 @@ function F0(
     return x::Arb -> begin
         @assert x <= ϵ
 
+        xᵤ = ubound(Arb, x)
+
         # Enclosure of inv(log(x))
         invlogx = if iszero(x)
             zero(x)
@@ -1854,7 +1856,7 @@ function F0(
                 else
                     -invlogx
                 end
-                upper = let xᵤ = ubound(Arb, x), αp1ᵤ = ubound(Arb, αp1)
+                upper = let αp1ᵤ = ubound(Arb, αp1)
                     αp1ᵤ / (1 - xᵤ^(αp1ᵤ + αp1ᵤ^2 / 2))
                 end
                 Arb((lower, upper))
@@ -1915,15 +1917,19 @@ function F0(
         # Enclosure of the two leading terms in the expansion of
         # -u0.v0.a[j] * clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0)
         # for j = 1:skip_singular_j_until
+        x_pow_u0ϵ = abspow(x, u0.ϵ)
+        x_pow_αp1 = abspow(x, αp1)
+        invlogx_div_2 = Arblib.mul_2exp!(zero(x), invlogx, -1)
         T2s = map(1:skip_singular_j_until) do j
             let r = -u0.v0.α + j * u0.v0.p0 - 1
+                x_pow_r = abspow(x, r)
+
                 # Enclosure of
                 # (gamma(α - 1 - r) * cospi((1 - α + r) / 2) - zeta(-α + r) / 2) * x^r / log(x)
-                T21 = T21_α[j] * abspow(x, r) * invlogx
+                T21 = T21_α[j] * x_pow_r * invlogx
 
                 # Enclosure of zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x)
-                T221 =
-                    zeta_deflated_mαpr[j] * (abspow(x, r) - abspow(x, αp1)) * invlogx / 2
+                T221 = zeta_deflated_mαpr[j] * (x_pow_r - x_pow_αp1) * invlogx_div_2
 
                 # Enclosure of (x^r - x^(1 + α)) / (r - (1 + α)) / 2log(x)
                 # It is non-increasing in α so we evaluate at the endpoints
@@ -1931,26 +1937,27 @@ function F0(
                     zero(x)
                 else
                     # IMPROVE: This can be improved for wide x
-                    (abspow(x, r) - abspow(x, u0.ϵ)) / 2(r - u0.ϵ) * invlogx
+                    (x_pow_r - x_pow_u0ϵ) / (r - u0.ϵ) * invlogx_div_2
                 end
 
                 T222_upper = if iszero(x)
                     zero(x)
                 else
-                    let xᵤ = ubound(Arb, x)
-                        (abspow(xᵤ, r) - 1) / (2r * log(xᵤ))
-                    end
+                    (abspow(xᵤ, r) - 1) / (2r * log(xᵤ))
                 end
                 T222 = Arb((T222_lower, T222_upper))
                 # The enclosure for the lower bound is in general
                 # worse and sometimes it gets bigger than the upper
                 # bound. It is therefore to take the minimum with the
                 # enclosure and the upper bound.
-                T222 = min(T222, T222_upper)
+                T222 = Arblib.min!(T222, T222, T222_upper)
 
-                term = T21 + T221 + T222
-
-                -u0.v0.a[j] * term
+                # term = -u0.v0.a[j] * (T21 + T221 + T222)
+                term = T21 + T221
+                Arblib.add!(term, term, T222)
+                Arblib.mul!(term, term, u0.v0.a[j])
+                Arblib.neg!(term, term)
+                term
             end
         end
 
