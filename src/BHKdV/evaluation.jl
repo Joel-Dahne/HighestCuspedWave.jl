@@ -1325,9 +1325,36 @@ For the first one we can directly get an enclosure using that
 ```
 -α + p0 - 1 = -α + (1 + α + (1 + α)^2 / 2) - 1 = (1 + α)^2 / 2
 ```
-For the second one we note that it is increasing in `x` and takes the
-value `1 + α` at `x = 0`. For non-zero `x` we can handle the removable
-singularity in `α`.
+
+For the second one we use that it is non-decreasing in both `x` and
+`α`. For `x` is immediate. For `α` we let `t = 1 + α`, giving us
+```
+T112 = t / (1 - x^(t + t^2 / 2))
+```
+Differentiation gives
+```
+(1 - x^(t + t^2 / 2) + t * (1 + t) * log(x) * x^(t + t^2 / 2)) / (1 - x^(t + t^2 / 2))^2
+```
+The sign depends only on the numerator
+```
+1 + (t * (1 + t) * log(x) - 1) * x^(t + t^2 / 2)
+```
+Differentiating the numerator we get
+```
+t * log(x) * (1 + (t + 1)^2 * log(x)) * x^(t + t^2 / 2)
+```
+This is non-negative as long as `1 + (t + 1)^2 * log(x)` is negative,
+which holds whenever `x < exp(-1)`. So, for `x < exp(-1)` the
+numerator
+```
+1 + (t * (1 + t) * log(x) - 1) * x^(t + t^2 / 2)
+```
+is non-decreasing in `t`, a lower bound is hence given at `t = 0`
+where we get `0`. It follows that the derivative of `T112` w.r.t. `α`
+is non-negative and hence it is non-decreasing in `α`. A lower bound
+for `T112` is thus given by `(1 + α) / (1 - x^p0)` evaluated at `α =
+-1`, where it can be seen to be equal to `-inv(log(x))`. We get an
+upper bound by evaluating at an upper bound for `x` and `α`.
 
 For the third term, `T113`, we note that `a0` can be written as
 ```
@@ -1427,12 +1454,9 @@ the Clausen function in
 -u0.v0.a[j] * clausenc(x, 1 - α - u0.v0.α + j * u0.v0.p0) /
     (gamma(1 + α) * log(x) * x^(1 - α) * (1 - x^p0))
 ```
-We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` by
-noticing that it is increasing in `x` and it is hence enough to
-compute at the endpoints of `x`. For `x = 0` it is given by
-`inv(gamma(1 + α)) = rgamma(1 + α)`. Otherwise we use the same
-approach as in [`inv_u0_bound`](@ref) for enclosing it. We are then
-interested in enclosing the rest.
+We can get an enclosure of `inv(gamma(1 + α) * (1 - x^p0))` by writing
+it as `inv(gamma(2 + α)) * (1 + α) / (1 - x^p0)` and using the method
+for enclosing `T112`. We are then interested in enclosing the rest.
 
 Let `r = -u0.v0.α + j * u0.v0.p0 - 1`, then `r > 0` and for
 small values of `j` it is very close to zero. We have `1 - α -
@@ -1608,9 +1632,6 @@ function F0(
         finda0αp1(Arb((-1, -1 + u0.ϵ))) / gamma(2 + α)
     end
 
-    # Enclosure of rgamma(1 + α) / (1 + α) = rgamma(2 + α)
-    rgamma_1pα_div_αp1 = rgamma(2 + α)
-
     # Enclosure of ((1 + α) * c(2α - p0) - 2(1 + α) * c(2α) * c(α - p0) / c(α)) / (1 + α)^2
     T113 = fx_div_x(αp1, 2; extra_degree, force = true) do s
         if Arblib.contains_zero(s[0])
@@ -1744,23 +1765,28 @@ function F0(
             inv(log(x))
         end
 
-        # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
-        invgamma1mxp0 = if iszero(x)
-            rgamma(1 + α)
-        elseif Arblib.contains_zero(x)
-            lower = zero(x)
-            upper = let xᵤ = ubound(Arb, x)
-                # Enclosure of (1 - xᵤ^p0) / (1 + α)
-                onemxp0_div_αp1 =
-                    fx_div_x(s -> (1 - xᵤ^(s + s^2 / 2)), αp1, extra_degree = 2)
-                rgamma_1pα_div_αp1 / onemxp0_div_αp1
-            end
-            Arb((lower, upper))
+        # Compute an enclosure of (1 + α) / (1 - x^p0)
+        αp1_div_onemxp0 = if iszero(x)
+            αp1
         else
-            # Enclosure of (1 - x^p0) / (1 + α)
-            onemxp0_div_αp1 = fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1, extra_degree = 2)
-            rgamma_1pα_div_αp1 / onemxp0_div_αp1
+            if x < exp(Arb(-1)) # Use monotonicity on α and x
+                lower = if Arblib.contains_zero(x)
+                    αp1
+                else
+                    -invlogx
+                end
+                upper = let xᵤ = ubound(Arb, x), αp1ᵤ = ubound(Arb, αp1)
+                    αp1ᵤ / (1 - xᵤ^(αp1ᵤ + αp1ᵤ^2 / 2))
+                end
+                Arb((lower, upper))
+            else
+                inv(fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1, extra_degree = 2))
+            end
         end
+
+        # Enclosure of inv(gamma(1 + α) * (1 - x^p0))
+        # = gamma(2 + α) * (1 + α) / (1 - x^p0)
+        invgamma1mxp0 = gamma(2 + α) * αp1_div_onemxp0
 
         # Enclosure for the terms P and Q
         T1 = let
@@ -1771,19 +1797,7 @@ function F0(
             T111 = abspow(x, Arblib.nonnegative_part!(zero(x), αp1^2 / 2)) * invlogx
 
             # Enclosure of T112 = (1 + α) / (1 - x^p0)
-            T112 = if iszero(x)
-                αp1
-            elseif Arblib.contains_zero(x)
-                lower = αp1
-                upper = let xᵤ = ubound(Arb, x)
-                    # Enclosure of inv((1 - xᵤ^p0) / (1 + α))
-                    inv(fx_div_x(s -> (1 - xᵤ^(s + s^2 / 2)), αp1; extra_degree))
-                end
-                Arb((lower, upper))
-            else
-                # Enclosure of inv((1 - x^p0) / (1 + α))
-                inv(fx_div_x(s -> (1 - x^(s + s^2 / 2)), αp1; extra_degree))
-            end
+            T112 = αp1_div_onemxp0
 
             T11 = T111 * T112 * T113
 
