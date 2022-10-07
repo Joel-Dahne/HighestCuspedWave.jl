@@ -1951,8 +1951,9 @@ c(α) <= 1` we also get that
 (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
 ```
 is non-increasing in `x`. A lower bound can thus be computed by
-considering `xᵤ = ubound(x)`. At `xᵤ > 0` we can handle the removable
-singularity in `α`
+considering an upper bound of `x`, due to instabilities for very small
+`x` we either take `xᵤ = ubound(x)` or `xᵤ = 1e-1000`, whichever is
+larger. At `xᵤ > 0` we can handle the removable singularity in `α`.
 """
 function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
     @assert ϵ < 1
@@ -2009,8 +2010,9 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
             else
                 # Compute lower and upper bounds of
                 # (1 - x^p0) / (1 - c(α - p0) / c(α) * x^p0)
-                # IMPROVE: Compute tighter enclosures for very small x
                 lower = let xᵤ = ubound(Arb, x)
+                    # We don't want x to be too small due to instabilities
+                    xᵤ = max(xᵤ, Arb("1e-1000"))
                     # Enclosure of (1 - x^p0) / (α + 1)
                     numerator_div_αp1 =
                         fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1; extra_degree)
@@ -2030,7 +2032,9 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
 
             F = F1 * F2
 
-            @assert Arblib.ispositive(F) # Should always be the case
+            # If F is not positive we are not guaranteed that we have
+            # an enclosure
+            Arblib.ispositive(F) || return indeterminate(x)
         else
             # Enclosure of gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
             numerator =
