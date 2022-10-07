@@ -45,18 +45,21 @@ as
 ```
 a0 * (α + 1) * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
 ```
-and use [`finda0αp1`](@ref) to enclose `a0 * (α + 1)`. To evaluate
-`gamma(α) * cospi(α / 2)` and `gamma(α - p0) * cospi((α - p0) / 2)` we
-rewrite them as
+and use [`finda0αp1`](@ref) to compute `a0 * (α + 1)`. To evaluate
+`gamma(α) * cospi(α / 2)` and `gamma(α - p0) * cospi((α - p0) / 2)` at
+the removable singularity we rewrite them as
 ```
-gamma(α) * cospi(α / 2) = (cospi(α / 2) / (α + 1)) / (rgamma(α) / (α + 1))
-gamma(α - p0) * cospi((α - p0) / 2) = (cospi((α - p0) / 2) / (α + 1)^2) / (rgamma(α - p0) / (α + 1)^2)
+gamma(α) * cospi(α / 2) = gamma(α + 2) / (α * (α + 1)) * sinpi((α + 1) / 2)
+    = π / 2 * gamma(α + 2) * sinc((α + 1) / 2) / α
+gamma(α - p0) * cospi((α - p0) / 2) = gamma(α - p0 + 2) / ((α - p0) * (α - p0 + 1)) * sinpi((α - p0 + 1) / 2)
+    = π / 2 * gamma(α - p0 + 2) * sinc((α - p0 + 1) / 2) / (α - p0)
+    = π / 2 * gamma(-(1 + α)^2 / 2 + 1) * sinc(-(1 + α)^2 / 4) / (-1 - (1 + α)^2 / 2)
 ```
-and use [`fx_div_x`](@ref). We can then evaluate
+We can then evaluate
 ```
 (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
 ```
-using [`fx_div_x`](@ref) as well.
+using [`fx_div_x`](@ref).
 
 For `x = 0` this doesn't work. For now we use that it converges to
 ```
@@ -210,29 +213,57 @@ function eval_expansion(
     # a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
     # Note that this depends on x and is only used when x doesn't contain zero
     p_coefficient = if !Arblib.contains_zero(x)
-        # Enclosure of
-        # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
         extra_degree = 2
-        coefficient_div_α = fx_div_x(αp1, force = true; extra_degree) do r
-            if Arblib.contains_zero(r[0])
-                # Enclosure of rgamma(α) / (α + 1)
-                rgamma1_div_α = fx_div_x(s -> rgamma(s - 1), r; extra_degree)
-                # Enclosure of rgamma(α - p0) / (α + 1)^2
-                rgamma2_div_α2 = fx_div_x(s -> rgamma(-1 - s^2 / 2), r, 2; extra_degree)
-                # Enclosure of cospi(α / 2) / (α + 1)
-                cos1_div_α = fx_div_x(s -> cospi((s - 1) / 2), r; extra_degree)
-                # Enclosure of cospi((α - p0) / 2) / (α + 1)^2
-                cos2_div_α2 =
-                    fx_div_x(s -> cospi((-1 - s^2 / 2) / 2), r, 2; extra_degree)
-
-                cos1_div_α / rgamma1_div_α - cos2_div_α2 / rgamma2_div_α2 * x^(r + r^2 / 2)
-            else
-                gamma(r - 1) * cospi((r - 1) / 2) -
-                gamma(-1 - r^2 / 2) * cospi((-1 - r^2 / 2) / 2) * x^(r + r^2 / 2)
+        ArbExtras.enclosure_series(α) do α
+            # α is always in the interval [-1, -1 + u0.ϵ]. Due to
+            # rounding we sometimes get a slightly smaller value for
+            # which we have large cancellations. In that case just
+            # take the union with -1
+            if α isa Arb && α < -1
+                α = union(α, Arb(-1))
             end
-        end
 
-        a0αp1 * coefficient_div_α
+            # Enclosure of
+            # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+            if (α isa Arb && Arblib.contains_zero(α + 1)) ||
+               (α isa ArbSeries && Arblib.contains_zero(α[0] + 1))
+                coefficient_div_α =
+                    fx_div_x(α + 1, force = true; extra_degree) do r::ArbSeries
+                        # If r is very small we get bad enclosures due to
+                        # rounding. It is better to take the union with
+                        # zero in that case and use the formulation
+                        # handling the removable singularity
+                        if r isa ArbSeries && abs(r[0]) < 1e-10
+                            r[0] = union(r[0], zero(r[0]))
+                        end
+
+                        if Arblib.contains_zero(r[0])
+                            return Arb(π) / 2 * (
+                                gamma(r + 1) * _sinc(r / 2) / (r - 1) -
+                                gamma(-r^2 / 2 + 1) * _sinc((-r^2 / 2) / 2) /
+                                (-r^2 / 2 - 1) * x^(r + r^2 / 2)
+                            )
+                        else
+                            # In general α is not wide in this case and we hence
+                            # don't need to work to get a good enclosure and can
+                            # use the simplest formulation
+                            return let α = r - 1, p0 = r + r^2 / 2
+                                gamma(α) * cospi(α / 2) -
+                                gamma(α - p0) * cospi((α - p0) / 2) * x^p0
+                            end
+                        end
+                    end
+            else
+                # In general α is not wide in this case and we hence
+                # don't need to work to get a good enclosure and can
+                # use the simplest formulation
+                coefficient_div_α = let p0 = 1 + α + (1 + α)^2 / 2
+                    (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (1 + α)
+                end
+            end
+
+            return finda0αp1(α) * coefficient_div_α
+        end
     else
         indeterminate(α)
     end
