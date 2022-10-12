@@ -1,7 +1,7 @@
 """
-    delta0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(0), rtol = Arb(1e-1), verbose = false)
+    delta0_bound(u0::BHKdVAnsatz{Arb}; atol = 0, rtol = 1e-1, ubound_tol = 5e-4, verbose = false)
 
-Enclose the value of `δ₀` from the paper.
+Compute an upper bound of the value of `δ₀` from the paper.
 
 The interval `[0, π]` is split into three intervals, `[0, ϵ1]`, `[ϵ1,
 ϵ]` and `[ϵ, π]`.
@@ -13,32 +13,39 @@ The interval `[0, π]` is split into three intervals, `[0, ϵ1]`, `[ϵ1,
    [`ArbExtras.maximum_enclosure`](@ref).
 
 The value for `ϵ` is taken as large as possible but so that the
-asymptotic evaluation still satisfies the required tolerance. We
-enforce that `ϵ > 1e-2`.
+asymptotic evaluation still satisfies the required tolerance.
 
 In practice the maximum is attained around `1e-2` so it computes an
 approximation of the maximum on `[1e-10, ϵ]`. It then looks for `ϵ1`
 such that the enclosure for the interval `[0, ϵ1]` is less than this
-approximate maximum. The interval `[ϵ1, ϵ]` is then handled by
-bisection.
+approximate maximum.
+
+The tolerance is determined by `atol`, `rtol` and `ubound_tol`. For
+`ubound_tol` an enclosure is determined to satisfy the tolerance if it
+is smaller than `ubound_tol`. The default value for `ubound_tol` is
+set so that the computed bound should satisfy the required inequality
+with the expected values for `n₀` and `D₀`.
 """
 function delta0_bound(
     u0::BHKdVAnsatz{Arb};
     atol = Arb(0),
     rtol = Arb(1e-1),
+    ubound_tol = Arb(5e-4),
     verbose = false,
 )
     # Determine a good choice of ϵ. Take it as large as possible so
     # that the asymptotic version still satisfies the specified
     # tolerance or it is better than the non-asymptotic version.
-    ϵ = let ϵ = Arb(0.6), f = F0(u0, Asymptotic(), ϵ = 1.01ϵ, M = 10), g = F0(u0)
+    ϵ = let ϵ = Arb(0.6), f = F0(u0, Asymptotic(), ϵ = 1.01ϵ, M = 10), g = F0_bound(u0)
         y = f(ϵ)
         z = g(ϵ)
 
         # Reduce ϵ until the value we get either satisfies the
         # required tolerance or is better than the non-asymptotic
         # version.
-        while !ArbExtras.check_tolerance(y; atol, rtol) && radius(y) > radius(z)
+        while !ArbExtras.check_tolerance(y; atol, rtol) &&
+                  !(y < ubound_tol) &&
+                  radius(y) > radius(z)
             ϵ /= 1.2
             y = f(ϵ)
             z = g(ϵ)
@@ -57,6 +64,11 @@ function delta0_bound(
     f2 = F0(u0, Asymptotic(), ϵ = 1.01Arb(ϵ), M = 10)
     f = x -> x < δ ? f1(x) : f2(x)
 
+    verbose &&
+        isfinite(ubound_tol) &&
+        !(f(Arb(ϵ)) < ubound_tol) &&
+        @warn "ubound_tol not satisfied at ϵ" f(Arb(ϵ)) ubound_tol
+
     # Compute an approximation of the maximum on [1e-10, ϵ]
     xs_asym = exp.(range(log(Arb(1e-10)), log(Arb(ϵ)), length = 24))
     ys_asym = similar(xs_asym)
@@ -67,11 +79,16 @@ function delta0_bound(
 
     verbose && @info "Approximate maximum on [1e-10, ϵ]" m_asym_approx
 
+    verbose &&
+        isfinite(ubound_tol) &&
+        !(m_asym_approx < ubound_tol) &&
+        @warn "ubound_tol not satisfied for approximate maximum" ubound_tol
+
     # Find ϵ1 such that the interval [0, ϵ1] can be handled in one
     # evaluation
     N = -100 # Use the interval [0, 10^-N]
     m1 = f(Arb((0, Arb(10)^N)))
-    while !(m1 < m_asym_approx)
+    while !(m1 < ubound(Arb, m_asym_approx)) && !(m1 < ubound_tol)
         N -= 100
         m1 = f(Arb((0, Arb(10)^N)))
         N > -20000 || error("could not determine working N, last tried value was $N")
@@ -94,6 +111,7 @@ function delta0_bound(
         maxevals = 200000;
         atol,
         rtol,
+        ubound_tol,
         verbose,
     )
 
@@ -124,7 +142,9 @@ function delta0_bound(
         depth_start = 4,
         maxevals = 100000,
         depth = 40;
+        atol,
         rtol,
+        ubound_tol,
         verbose,
     )
 
