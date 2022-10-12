@@ -88,7 +88,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
 
     m_approx = maximum(abs.(ys))
 
-    verbose && @show m_approx
+    verbose && @info "Approximate maximum" m_approx
 
     m = ArbExtras.maximum_enclosure(
         g,
@@ -103,7 +103,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
         verbose,
     )
 
-    verbose && @show m
+    verbose && @info "Maximum on [$(Float64(ϵ)), π]" m
 
     # Show that it is bounded by m on [0, ϵ]
 
@@ -112,7 +112,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
 
     # Handle the interval [0, ϵ2] with one evalution
     if !(h(Arb((0, ϵ2))) <= m)
-        @error "bound doesn't hold on $((0, Float64(ϵ2)))"
+        @error "Bound doesn't hold on $((0, Float64(ϵ2)))"
         return indeterminate(Arb)
     end
 
@@ -131,7 +131,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
     )
 
     if !check_bound
-        @error "bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"
+        @error "Bound doesn't hold on $((Float64(ϵ2), Float64(ϵ)))"
         return indeterminate(Arb)
     end
 
