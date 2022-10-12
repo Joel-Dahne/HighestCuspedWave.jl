@@ -1175,7 +1175,7 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
         xₗ, xᵤ = getinterval(Arb, x)
 
         I_lower =
-            Arblib.integrate(2, lbound(Arb, π / x)) do t
+            Arblib.integrate(2, lbound(Arb, π / x), warn_on_no_convergence = false) do t
                 if isreal(t)
                     t = real(t)
 
@@ -1201,7 +1201,7 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
             end |> real
 
         I_upper =
-            Arblib.integrate(2, ubound(π / x)) do t
+            Arblib.integrate(2, ubound(π / x), warn_on_no_convergence = false) do t
                 if isreal(t)
                     t = real(t)
 
