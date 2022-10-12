@@ -1178,13 +1178,21 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
             Arblib.integrate(2, lbound(Arb, π / x)) do t
                 if isreal(t)
                     t = real(t)
-                    return fx_div_x(
-                               s -> (t - 1)^-s + (t + 1)^-s - 2t^-s,
-                               1 + α;
-                               extra_degree,
-                           ) *
-                           t^(1 - γ * (α + 1)) *
-                           log(c + inv(xᵤ * t))
+
+                    return ArbExtras.enclosure_series(α, degree = 4) do α
+                        if α isa ArbSeries && contains(α[0], -1)
+                            fx_div_x(α + 1; extra_degree) do αp1
+                                (t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1
+                            end * t^(1 - γ * (α + 1))
+                        else
+                            # Large cancellations so do the
+                            # computations at a higher precision
+                            let αp1 = setprecision(α + 1, 2precision(α))
+                                ((t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1) / αp1 *
+                                t^(1 - γ * αp1)
+                            end
+                        end
+                    end * log(c + inv(xᵤ * t))
                 else
                     return fx_div_x(s -> (t - 1)^-s + (t + 1)^-s - 2t^-s, Acb(1 + α)) *
                            t^(1 - γ * (α + 1)) *
@@ -1196,13 +1204,21 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
             Arblib.integrate(2, ubound(π / x)) do t
                 if isreal(t)
                     t = real(t)
-                    return fx_div_x(
-                               s -> (t - 1)^-s + (t + 1)^-s - 2t^-s,
-                               1 + α;
-                               extra_degree,
-                           ) *
-                           t^(1 - γ * (α + 1)) *
-                           log(c + inv(xₗ * t))
+
+                    return ArbExtras.enclosure_series(α, degree = 4) do α
+                        if α isa ArbSeries && contains(α[0], -1)
+                            fx_div_x(α + 1; extra_degree) do αp1
+                                (t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1
+                            end * t^(1 - γ * (α + 1))
+                        else
+                            # Large cancellations so do the
+                            # computations at a higher precision
+                            let αp1 = setprecision(α + 1, 2precision(α))
+                                ((t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1) / αp1 *
+                                t^(1 - γ * αp1)
+                            end
+                        end
+                    end * log(c + inv(xₗ * t))
                 else
                     return fx_div_x(s -> (t - 1)^-s + (t + 1)^-s - 2t^-s, Acb(1 + α)) *
                            t^(1 - γ * (α + 1)) *
