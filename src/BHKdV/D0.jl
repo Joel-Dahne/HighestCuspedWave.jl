@@ -44,7 +44,7 @@ interval `[ϵ, lbound(Arb(π))]`, which is strictly less than `π`, and
 then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
 separately.
 """
-function D0_bound(u0::BHKdVAnsatz{Arb}; atol = 2e-2, verbose = false)
+function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
     ϵ = midpoint(Arb("1e-1"))
 
     # Bound the value on [ϵ, π]
