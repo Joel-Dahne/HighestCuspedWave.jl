@@ -17,8 +17,8 @@ function T0(
 
     return x -> begin
         # We take the tolerance used for the integration to be twice
-        # the diameter of x but no less than 1e-5
-        tol = max(Arb(1e-5), 4radius(Arb, x))
+        # the diameter of x but no less than 1e-3
+        tol = max(Arb(1e-3), 4radius(Arb, x))
 
         part1 = f1(x)
 
