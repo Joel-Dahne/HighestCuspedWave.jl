@@ -112,6 +112,10 @@ _exponent!(
     Arblib.submul!(exponent0, u0.v0.α, k)
     Arblib.addmul!(exponent0, u0.v0.p0, l)
     Arblib.add!(exponent0, exponent0, m)
+    if iszero(length(exponent.poly)) && !iszero(exponent0)
+        # Manually update the degree
+        Arblib.cstruct(exponent).length = 1
+    end
 
     return exponent
 end
