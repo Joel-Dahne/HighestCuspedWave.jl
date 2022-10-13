@@ -86,7 +86,7 @@ This is the ϵ we use for the computations.
 """
 
 # ╔═╡ 8747f80d-82f6-4e2f-bfba-d87280649950
-ϵ = 1e-5 * (1 + Arb(-0.9997))
+ϵ = Arb(1e-4)
 
 # ╔═╡ 52ef575d-cb95-45f9-8eb3-d0d97b625e77
 md"""
@@ -138,7 +138,10 @@ md"""
 """
 
 # ╔═╡ b24c29d2-1933-49c1-94e4-7a765acf355e
-n0_time = @elapsed n0 = n0_bound(u0)
+n0_time, n0 = begin
+    n0_time = @elapsed n0 = n0_bound(u0)
+    n0_time, n0
+end
 
 # ╔═╡ f1dce520-a035-43e6-9e08-4696a14c5a54
 n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
@@ -214,7 +217,7 @@ end
 
 # ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
 δ0_bound, δ0_time = if use_rigorous_bounds_δ0
-    δ0_time = @time δ0_bound = delta0_bound(u0, verbose = true)
+    δ0_time = @elapsed δ0_bound = delta0_bound(u0, verbose = true)
     δ0_bound, δ0_time
 else
     missing, missing
@@ -238,14 +241,14 @@ The code uses **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates")
 """
 
 # ╔═╡ baae040c-58f6-4657-b92f-6ca96740cbc8
-D0_xs, D0_ys = let xs = range(Arb(1e-3), π, length = 100)
+D0_xs, D0_ys = let xs = range(Arb(0.1), π, length = 100)
     ys = Folds.map(T0(u0, Ball()), xs)
     xs, ys
 end
 
 # ╔═╡ 26345012-4f0c-454c-b3f4-ee9dbffb53d3
 D₀_bound, D0_time = if use_rigorous_bounds_D0
-    D0_time = @time D₀_bound = D0_bound(u0, verbose = true)
+    D0_time = @elapsed D₀_bound = D0_bound(u0, verbose = true)
     D₀_bound, D0_time
 else
     missing, missing
@@ -259,7 +262,7 @@ else
 end
 
 # ╔═╡ 89d54f92-8b3a-4913-875d-31068856fb62
-let pl = plot(legend = :bottomright)
+let pl = plot(legend = :bottomright, xlims = (0, NaN))
     plot!(
         pl,
         D0_xs,
@@ -537,7 +540,7 @@ end
 # ╟─af8899b0-eac1-442d-90ef-9d399aeb170c
 # ╟─cf99b665-f81a-4e17-8b9f-9357904cf676
 # ╟─3d72c6ae-5b44-491f-bfee-c8ea23224ea9
-# ╠═b8c5ba34-748e-4c4b-be9c-135240287351
+# ╟─b8c5ba34-748e-4c4b-be9c-135240287351
 # ╟─f88046ed-d4c4-4ce4-a424-96c87dc87711
 # ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
 # ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
@@ -547,7 +550,7 @@ end
 # ╟─15e21dde-fb44-47d8-83d8-9f5ffffab74d
 # ╟─6dfdb4b5-fbd1-4b0d-96d9-8d4985c7b0dd
 # ╟─cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
-# ╠═baae040c-58f6-4657-b92f-6ca96740cbc8
+# ╟─baae040c-58f6-4657-b92f-6ca96740cbc8
 # ╠═26345012-4f0c-454c-b3f4-ee9dbffb53d3
 # ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 # ╟─89d54f92-8b3a-4913-875d-31068856fb62
