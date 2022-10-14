@@ -214,10 +214,16 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     # N1, p) where upper is an upper bound for the α to use these
     # values for. N0s is the values of N0 to consider and N1 and p
     # are the corresponding parameters for the ansatz.
+
+    # Compute value to use for N0s close to α = -1
+    N0_approx = round(Int, Float64(inv(1 + α)))
+    N0s_start = round(Int, 0.55 * N0_approx)
+    N0s_stop = round(Int, 0.62 * N0_approx)
+    N0s_step = max((N0s_stop - N0s_start) ÷ 10, 1)
+
     parameters = [
-        (-1.0, 500:1:2000, 4, (1 - α) / 2), # This is never used
-        (-0.999, 500:1:2000, 4, (1 - α) / 2), # TODO: Split this up into more steps
-        (-0.997, 175:1:600, 4, (1 - α) / 2),
+        (-1.0, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2), # This is never used
+        (-0.997, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2),
         (-0.995, 100:1:200, 4, (1 - α) / 2),
         (-0.99, 50:1:125, 4, (1 - α) / 2),
         (-0.95, 5:1:75, 8, (1 - α) / 2),
