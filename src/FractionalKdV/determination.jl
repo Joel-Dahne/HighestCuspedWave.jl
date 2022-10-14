@@ -203,12 +203,17 @@ support `Arb` so this is always done in `Float64`. To speed it up we
 start by computing the first `n` coefficients, then `2n` and so on
 until we reach `u0.N0`.
 """
-function findas(u0::FractionalKdVAnsatz{T}; minstart = 16, use_D2 = true) where {T}
+function findas(
+    u0::FractionalKdVAnsatz{T};
+    minstart = 16,
+    use_D2 = true,
+    verbose = true,
+) where {T}
     if iszero(u0.N0)
         return T[]
     end
     if u0.N0 <= minstart
-        return _findas(u0; use_D2)[1]
+        return _findas(u0; use_D2, verbose)[1]
     end
 
     u0 = deepcopy(u0)
@@ -221,20 +226,20 @@ function findas(u0::FractionalKdVAnsatz{T}; minstart = 16, use_D2 = true) where 
         resize!(u0.a, N0s[i] + 1)
         u0.a[N0s[i-1]:end] .= zero(T)
 
-        u0.a[1:end] .= _findas(u0; use_D2)[1]
+        u0.a[1:end] .= _findas(u0; use_D2, verbose)[1]
     end
 
     return u0.a[1:end]
 end
 
-function findas(u0::FractionalKdVAnsatz{Arb}; use_D2 = true)
+function findas(u0::FractionalKdVAnsatz{Arb}; use_D2 = true, verbose = true)
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
     # Compute an accurate value of a[0]. The conversion from a
     # wide ball gives large errors
     u0_float.a[0] = Float64(finda0(Arb(u0_float.α)))
 
-    return convert(Vector{Arb}, findas(u0_float; use_D2))
+    return convert(Vector{Arb}, findas(u0_float; use_D2, verbose))
 end
 
 """
@@ -275,6 +280,14 @@ function _find_good_as!(
             a[i+1:end] .= zero(eltype(a))
         end
         return a
+    end
+
+    # If N0s.start is large compute the coefficients for it using
+    # findas which is faster than directly using _findas
+    if N0s.start >= 256
+        resize_with_zero!(u0.a, N0s.start + 1)
+        as = findas(u0, verbose = false; use_D2)
+        u0.a[1:end] .= as
     end
 
     # Vectors for storing defects and coefficients
