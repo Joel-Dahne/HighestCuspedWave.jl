@@ -166,11 +166,16 @@ function finda0(α)
     return f(α)
 end
 
-function _findas(u0::FractionalKdVAnsatz{T}; use_D2 = true, verbose = true) where {T}
+function _findas(
+    u0::FractionalKdVAnsatz{T};
+    use_D2 = true,
+    threaded = true,
+    verbose = true,
+) where {T}
     iszero(u0.N0) && return T[], true
 
     if use_D2
-        f = D2(u0, Symbolic())
+        f = D2(u0, Symbolic(); threaded)
     else
         f = D(u0, Symbolic())
     end
@@ -207,13 +212,14 @@ function findas(
     u0::FractionalKdVAnsatz{T};
     minstart = 16,
     use_D2 = true,
+    threaded = true,
     verbose = true,
 ) where {T}
     if iszero(u0.N0)
         return T[]
     end
     if u0.N0 <= minstart
-        return _findas(u0; use_D2, verbose)[1]
+        return _findas(u0; use_D2, threaded, verbose)[1]
     end
 
     u0 = deepcopy(u0)
@@ -226,7 +232,7 @@ function findas(
         resize!(u0.a, N0s[i] + 1)
         u0.a[N0s[i-1]:end] .= zero(T)
 
-        u0.a[1:end] .= _findas(u0; use_D2, verbose)[1]
+        u0.a[1:end] .= _findas(u0; use_D2, threaded, verbose)[1]
     end
 
     return u0.a[1:end]
@@ -286,7 +292,7 @@ function _find_good_as!(
     # findas which is faster than directly using _findas
     if N0s.start >= 256
         resize_with_zero!(u0.a, N0s.start + 1)
-        as = findas(u0, verbose = false; use_D2)
+        as = findas(u0, verbose = false; use_D2, threaded)
         u0.a[1:end] .= as
     end
 
@@ -298,7 +304,7 @@ function _find_good_as!(
         # Compute ansatz
         resize_with_zero!(u0.a, N0 + 1)
 
-        as, converged = _findas(u0, verbose = false; use_D2)
+        as, converged = _findas(u0, verbose = false; use_D2, threaded)
         u0.a[1:end] .= as
         push!(ass, as)
 

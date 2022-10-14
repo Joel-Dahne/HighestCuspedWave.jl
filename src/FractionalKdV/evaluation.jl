@@ -574,7 +574,12 @@ terms are those with an exponent of the form `2m`. Since we square
 `u0` we also need to take into account products of singular and
 analytic ones.
 """
-function D2(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
+function D2(
+    u0::FractionalKdVAnsatz{T},
+    ::Symbolic;
+    M::Integer = 5,
+    threaded = true,
+) where {T}
     # First step is to compute the exponents which we need
 
     # Given i, j, m get the corresponding exponent
@@ -629,14 +634,29 @@ function D2(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
 
         # Compute u0_res_singular * u0_res_singular / 2
         u02_res_singular = zeros(eltype(u0_res_singular), J + 1)
-        @inbounds for i = 1:J+1
-            if 2i - 1 <= J + 1
-                u02_res_singular[2i-1] += u0_res_singular[i]^2 / 2
+        if threaded && J >= 256
+            # IMPROVE: Optimize this more. Consider using the same
+            # formulation also for the cases below, without the
+            # threading.
+            Threads.@threads for i = 1:J+1
+                @inbounds for j = 1:i÷2
+                    u02_res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
+                end
+                if isodd(i)
+                    @inbounds u02_res_singular[i] += u0_res_singular[i÷2+1]^2 / 2
+                end
             end
-            for j = 1:min(i - 1, J - i + 2)
-                u02_res_singular[i+j-1] += u0_res_singular[i] * u0_res_singular[j]
+        else
+            @inbounds for i = 1:J+1
+                if 2i - 1 <= J + 1
+                    u02_res_singular[2i-1] += u0_res_singular[i]^2 / 2
+                end
+                for j = 1:min(i - 1, J - i + 2)
+                    u02_res_singular[i+j-1] += u0_res_singular[i] * u0_res_singular[j]
+                end
             end
         end
+
         # Compute u0_res_analytic * u0_res_analytic / 2
         u02_res_analytic = zeros(eltype(u0_res_analytic), M)
         @inbounds for i = 1:M
@@ -647,6 +667,7 @@ function D2(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
                 u02_res_analytic[i+j] += u0_res_analytic[i] * u0_res_analytic[j]
             end
         end
+
         # Compute u0_res_singular * u0_res_analytic / 2
         u02_res_singular_analytic = u0_res_singular * transpose(u0_res_analytic)
 
