@@ -134,7 +134,8 @@ function FractionalKdVAnsatz(
     zeroterms = Set{NTuple{3,Int}}([(2, 0, 0)])
 
     # Create the ansatz
-    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms, use_bhkdv)
+    # use_bhkdv is always false at this stage
+    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms, false)
 
     # Compute values for u0.a[1:end]
     if !isempty(N0s)
@@ -171,8 +172,10 @@ function FractionalKdVAnsatz(
     u0.b .= findbs(u0)
 
     if use_bhkdv
-        a0 = finda0(midpoint(Arb, u0.α))
-        u0.a[1] += a0
+        # Recreate ansatz with use_bhkdv set to true and update
+        # u0.a[1] appropriately
+        u0 = FractionalKdVAnsatz{T}(u0.α, u0.p0, u0.a, u0.b, u0.p, u0.zeroterms, true)
+        u0.a[1] += finda0(midpoint(Arb, u0.α))
     end
 
     return u0
