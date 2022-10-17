@@ -28,13 +28,9 @@ This gives us
 = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α) * cospi(α / 2))
 ```
 
-In practice `p0` is monotone in `α` but we have not proved it. However
-we never actually compute `p0` for wide values of `α` since we usually
-take the midpoint. If this change we might return to using the
-monotonicity and then we have to prove it.
-
-**TODO:** Do we need to prove that `p0` is the smallest root in the
-interval? We don't strictly use it.
+In practice the root we compute is the smallest positive root.
+However, we do not make use of the fact that it indeed is the smallest
+positive root and therefore we do not attempt to prove it in any way.
 """
 function findp0(α)
     f(p) = begin
