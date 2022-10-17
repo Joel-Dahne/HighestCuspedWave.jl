@@ -43,9 +43,9 @@ function n0_bound(
     verbose && @info "f(π) = $m1"
 
     # Find ϵ such that g(ϵ) < m1
-    ϵ = Arb(π) / 2
-    while !(g(ϵ) <= m1)
-        ϵ /= 2
+    ϵ = Arb(3)
+    while !(g(ϵ) < m1)
+        ϵ *= 0.8
     end
 
     verbose && @info "Determined ϵ" ϵ
@@ -75,7 +75,8 @@ function n0_bound(
         ubound(Arb(π)),
         abs_value = true,
         point_value_max = m1, # m1 is a lower bound of the maximum
-        atol = 4radius(m1); # We cannot expect to do better than m1
+        atol = 4radius(m1), # We cannot expect to do better than m1
+        depth_start = 2;
         rtol,
         threaded,
         verbose,
