@@ -739,12 +739,9 @@ function D2(
         Hu0_res_singular = Hu0_precomputed_singular .* a.parent
         Hu0_res_analytic = Hu0_precomputed_analytic * a.parent
 
-        # Compute u0_res_singular * u0_res_singular / 2
+        # Compute u0_res_singular^2 / 2
         u02_res_singular = zeros(eltype(u0_res_singular), J + 1)
         if threaded && J >= 256
-            # IMPROVE: Optimize this more. Consider using the same
-            # formulation also for the cases below, without the
-            # threading.
             Threads.@threads for i = 1:J+1
                 @inbounds for j = 1:i÷2
                     u02_res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
@@ -755,23 +752,23 @@ function D2(
             end
         else
             @inbounds for i = 1:J+1
-                if 2i - 1 <= J + 1
-                    u02_res_singular[2i-1] += u0_res_singular[i]^2 / 2
+                for j = 1:i÷2
+                    u02_res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
                 end
-                for j = 1:min(i - 1, J - i + 2)
-                    u02_res_singular[i+j-1] += u0_res_singular[i] * u0_res_singular[j]
+                if isodd(i)
+                    u02_res_singular[i] += u0_res_singular[i÷2+1]^2 / 2
                 end
             end
         end
 
-        # Compute u0_res_analytic * u0_res_analytic / 2
+        # Compute u0_res_analytic^2 / 2
         u02_res_analytic = zeros(eltype(u0_res_analytic), M)
         @inbounds for i = 1:M
-            if 2i <= M
-                u02_res_analytic[2i] += u0_res_analytic[i]^2 / 2
+            for j = 1:(i-1)÷2
+                u02_res_analytic[i] += u0_res_analytic[j] * u0_res_analytic[i-j]
             end
-            for j = 1:min(i - 1, M - i)
-                u02_res_analytic[i+j] += u0_res_analytic[i] * u0_res_analytic[j]
+            if iseven(i)
+                u02_res_analytic[i] += u0_res_analytic[i÷2]^2 / 2
             end
         end
 
