@@ -11,9 +11,17 @@ It uses an asymptotic expansion with `M` terms close to zero and ball
 arithmetic on the remaining.
 
 In practice the maximum is attained at `x = π` so the function is
-evaluated there first. Then starting at `ϵ = π/2` we halve `ϵ` until
-the bound on `x = ϵ` is smaller than the value at `π`. We the prove
-that the value on ``[0, ϵ]`` is bounded by the value at `x = π`.
+evaluated there first. The interval is split into three subintervals
+``[0, ϵ1]``, ``[ϵ1, ϵ2]`` and ``[ϵ2, π]``. On the first two
+subintervals we use the asymptotic expansion and only prove that the
+value is bounded by that at `x = π`, on the third subinterval we use
+ball arithmetic compute an enclosure of the maximum.
+
+The values for `ϵ1` and `ϵ2` are determined automatically. The value
+of `ϵ1` is taken such that the interval ``[0, ϵ1]`` can be handled in
+one evaluation. The value for `ϵ2` is taken such that the value at `x
+= ϵ2` is less than the value at `x = π`, the interval ``[ϵ1, ϵ2]`` is
+the handled with bisection.
 
 On the interval `[ϵ, π]` we bound it using ball arithmetic with
 [`ArbExtras.maximum_enclosure`](@ref). Notice that we do not have to
@@ -42,36 +50,49 @@ function n0_bound(
 
     verbose && @info "f(π) = $m1"
 
-    # Find ϵ such that g(ϵ) < m1
-    ϵ = Arb(3)
-    while !(g(ϵ) < m1)
-        ϵ *= 0.8
+    # Find ϵ2 such that g(ϵ2) < m1
+    ϵ2 = Arb(3)
+    while !(g(ϵ2) < m1)
+        ϵ2 *= 0.8
     end
 
-    verbose && @info "Determined ϵ" ϵ
+    verbose && @info "Determined ϵ2" ϵ2
+
+    # Find ϵ1 such that g(Arb(0, ϵ1)) < m1
+    ϵ1 = ϵ2
+    while !(g(Arb((0, ϵ1))) < m1)
+        ϵ1 *= 0.5
+        if ϵ1 < 1e-100
+            verbose && @error "Could not prove bound on [0, ϵ1]"
+            return indeterminate(Arb)
+        end
+    end
+
+    verbose && @info "Determined ϵ1" ϵ1
 
     # Prove the bound on [0, ϵ]
     bounded = ArbExtras.bounded_by(
         g,
-        Arf(0),
-        ubound(ϵ),
+        lbound(ϵ1),
+        ubound(ϵ2),
         lbound(m1),
-        abs_value = true;
+        abs_value = true,
+        log_bisection = true;
         threaded,
         verbose,
     )
 
     if !bounded
-        verbose && @error "Could not prove bound on [0, ϵ]"
+        verbose && @error "Could not prove bound on [ϵ1, ϵ2]"
         return indeterminate(Arb)
     end
 
-    verbose && @info "Proved bound on [0, ϵ]"
+    verbose && @info "Proved bound on [ϵ1, ϵ2]"
 
     # Bound the value on [ϵ, π]
     m = ArbExtras.maximum_enclosure(
         f,
-        lbound(ϵ),
+        lbound(ϵ2),
         ubound(Arb(π)),
         abs_value = true,
         point_value_max = m1, # m1 is a lower bound of the maximum
