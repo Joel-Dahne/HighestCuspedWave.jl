@@ -40,12 +40,87 @@ function eval_expansion(
     return res
 end
 
+"""
+    clausencmzeta_diff(x, s, ϵ)
+
+Compute
+```
+clausencmzeta(x, s) - clausencmzeta(x, s + ϵ)
+```
+in a way that works well when `ϵ` is small.
+
+At the moment the only optimization is that for wide values of `x` it
+uses a zero order approximation to get better enclosures.
+"""
+clausencmzeta_diff(x, s, ϵ) = clausencmzeta(x, s) - clausencmzeta(x, s + ϵ)
+
+function clausencmzeta_diff(x::Arb, s::Arb, ϵ::Arb)
+    if iswide(x)
+        # Use a zero order approximation
+        deriv = -(clausens(x, s - 1) - clausens(x, s + ϵ - 1))
+        mid = midpoint(Arb, x)
+        res =
+            add_error(clausencmzeta(mid, s) - clausencmzeta(mid, s + ϵ), (x - mid) * deriv)
+    else
+        res = clausencmzeta(x, s) - clausencmzeta(x, s + ϵ)
+    end
+
+    return res
+end
+
+function clausencmzeta_diff(x::ArbSeries, s::Arb, ϵ::Arb)
+    res = zero(x)
+    x₀ = x[0]
+
+    res[0] = clausencmzeta_diff(x₀, s, ϵ)
+    if iswide(x₀)
+        # Use a zero order approximation for each term
+        mid = midpoint(Arb, x₀)
+        for i = 1:Arblib.degree(x)
+            if i % 2 == 0
+                deriv = -(clausens(x₀, s - i - 1) - clausens(x₀, s + ϵ - i - 1))
+                term = add_error(
+                    clausenc(mid, s - i) - clausenc(mid, s + ϵ - i),
+                    (x₀ - mid) * deriv,
+                )
+                res[i] = (-1)^(i ÷ 2) * term / factorial(i)
+            else
+                deriv = clausenc(x₀, s - i - 1) - clausenc(x₀, s + ϵ - i - 1)
+                term = add_error(
+                    clausens(mid, s - i) - clausens(mid, s + ϵ - i),
+                    (x₀ - mid) * deriv,
+                )
+                res[i] = -(-1)^(i ÷ 2) * term / factorial(i)
+            end
+        end
+    else
+        for i = 1:Arblib.degree(x)
+            if i % 2 == 0
+                res[i] =
+                    (-1)^(i ÷ 2) * (clausenc(x₀, s - i) - clausenc(x₀, s + ϵ - i)) /
+                    factorial(i)
+            else
+                res[i] =
+                    -(-1)^(i ÷ 2) * (clausens(x₀, s - i) - clausens(x₀, s + ϵ - i)) /
+                    factorial(i)
+            end
+        end
+    end
+
+    # Compose the Taylor series for the result with that of the input
+    x_tmp = copy(x)
+    x_tmp[0] = 0
+
+    return res
+end
+
+
 function (u0::FractionalKdVAnsatz)(x, ::Ball)
     res = zero(u0.α)
 
     if u0.use_bhkdv
         s = 1 - u0.α
-        res += u0.a[0] * (clausencmzeta(x, s) - clausencmzeta(x, s + u0.p0))
+        res += u0.a[0] * clausencmzeta_diff(x, s, u0.p0)
     else
         s = 1 - u0.α
         res += u0.a[0] * clausencmzeta(x, s)
