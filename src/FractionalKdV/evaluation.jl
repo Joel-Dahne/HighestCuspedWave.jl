@@ -19,6 +19,17 @@ exponent, in that case the exponent will be given by
 ```
 -(i + offset_i) * u0.α + j * u0.p0 + m + offset
 ```
+
+If `u0_skipped_u0_main` is true as well as `u0.use_bhkdv` then in
+addition to the terms in `expansion` also add the term
+```
+u0.a[0] * (C1 - C2 * abs(x)^u0.p0) * abs(x)^(-(1 + offset_i) * u0.α + offset)
+```
+where `C1` and `C2` are the leading terms in the asymptotic expansions
+of `clausencmzeta(x, 1 - u0.α)` and `clausencmzeta(x, 1 - u0.α +
+u0.p0)` respectively. This is mean to be used when the expansion was
+computed with `u0(x, AsympototicExpansion(), bhkdv_skip_main = true)`
+and gives better enclosures for `α` close to `-1`.
 """
 function eval_expansion(
     u0::FractionalKdVAnsatz{T},
@@ -26,8 +37,19 @@ function eval_expansion(
     x;
     offset_i::Integer = 0,
     offset = 0,
+    bhkdv_skipped_u0_main = false,
 ) where {T}
     res = zero(u0.α)
+
+    if u0.use_bhkdv && bhkdv_skipped_u0_main
+        s = 1 - u0.α
+        # The first argument to clausenc_expansion is not used in this
+        # case, so we can take it to be zero.
+        C1 = clausenc_expansion(Arb(0), s, 3)[1]
+        C2 = clausenc_expansion(Arb(0), s + u0.p0, 3)[1]
+        exponent = -(1 + offset_i) * u0.α + offset
+        res += u0.a[0] * (C1 - C2 * abspow(x, u0.p0)) * abspow(x, exponent)
+    end
 
     for ((i, j, m), y) in expansion
         if !iszero(y)
@@ -141,7 +163,12 @@ end
 (u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 5) =
     eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 
-function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5)
+function (u0::FractionalKdVAnsatz{Arb})(
+    x,
+    ::AsymptoticExpansion;
+    M::Integer = 5,
+    bhkdv_skip_main = false,
+)
     res = OrderedDict{NTuple{3,Int},Arb}()
 
     # Initiate even powers of x
@@ -156,8 +183,11 @@ function (u0::FractionalKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 5
         s = 1 - u0.α
         C1, _, p1, E1 = clausenc_expansion(x, s, M)
         C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
-        res[(1, 0, 0)] += C1 * u0.a[0]
-        res[(1, 1, 0)] += -C2 * u0.a[0]
+        if !bhkdv_skip_main
+            # See the argument u0_skipped_u0_main to eval_expansion
+            res[(1, 0, 0)] += C1 * u0.a[0]
+            res[(1, 1, 0)] += -C2 * u0.a[0]
+        end
         for m = 1:M-1
             res[(0, 0, 2m)] += (p1[2m] - p2[2m]) * u0.a[0]
         end
@@ -459,12 +489,14 @@ It computes an expansion of `u0` at `x = 0` and explicitly handles the
 cancellation with `x^-u0.α`.
 """
 function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb = one(Arb))
-    expansion = u0(ϵ, AsymptoticExpansion(); M)
+    bhkdv_skip_main = u0.use_bhkdv
+    expansion = u0(ϵ, AsymptoticExpansion(); M, bhkdv_skip_main)
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && abs(x) <= ϵ) || (x isa ArbSeries && abs(Arblib.ref(x, 0)) <= ϵ)
 
-        return inv(eval_expansion(u0, expansion, x, offset_i = -1))
+        bhkdv_skipped_u0_main = bhkdv_skip_main
+        return inv(eval_expansion(u0, expansion, x, offset_i = -1; bhkdv_skipped_u0_main))
     end
 end
 
