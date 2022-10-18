@@ -710,26 +710,31 @@ function D2(
     # Next step is to precompute the coefficients in the expansions of
     # the Clausen functions
 
+    # In some cases the parameters are very close to singularities of
+    # the functions and it is therefore beneficial to do the
+    # calculations in Arb and then convert back to T
+    α = convert(Arb, u0.α)
+    p0 = convert(Arb, u0.p0)
+
     u0_precomputed_singular = map(0:u0.N0) do j
-        s = u0.α - j * u0.p0
-        gamma(s) * cospi(s / 2)
+        s = α - j * p0
+        convert(T, gamma(s) * cospi(s / 2))
     end
     u0_precomputed_analytic =
-        [(-1)^m * zeta(1 - u0.α + j * u0.p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0]
+        T[(-1)^m * zeta(1 - α + j * p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0]
 
     Hu0_precomputed_singular = map(0:u0.N0) do j
-        s = 2u0.α - j * u0.p0
+        s = 2α - j * p0
         if s == -1
             # -gamma(s) * cospi(s / 2) has a removable singularity at
             # -s = -1, where it takes the value π / 2
-            π / 2
+            convert(T, π) / 2
         else
-            -gamma(s) * cospi(s / 2)
+            convert(T, -gamma(s) * cospi(s / 2))
         end
     end
-    Hu0_precomputed_analytic = [
-        -(-1)^m * zeta(1 - 2u0.α + j * u0.p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0
-    ]
+    Hu0_precomputed_analytic =
+        T[-(-1)^m * zeta(1 - 2α + j * p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0]
 
     return a::AbstractVector -> begin
         @assert length(a) == length(u0_precomputed_singular)
