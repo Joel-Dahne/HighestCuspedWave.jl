@@ -223,8 +223,10 @@ and compute the integral explicitly.
     2clausens(x, 1 - α)
 )
 ```
-Using that `Arb((x, a)) = x * Arb((1, a / x))` and `u0.w(x * y) =
-u0.w(x) * u0.w(y)` we can simplify the result to
+
+If `weightfactors(u0)` is true then `u0.w(x * y) = u0.w(x) * u0.w(y)`
+and using that `Arb((x, a)) = x * Arb((1, a / x))` we can simplify the
+result to
 ```
 inv(π * u0(x)) * u0.w(Arb((1, a / x))) * (
     -clausens(x - a, 1 - α) +
@@ -251,7 +253,11 @@ wide. This could possibly be improved by expanding them at zero.
 """
 function T021(u0::FractionalKdVAnsatz{Arb}, ::Ball = Ball(); skip_div_u0 = false)
     return (x::Arb, a::Arb) -> begin
-        weight_factor = u0.w(Arb((1, a / x)))
+        if weightfactors(u0)
+            weight_factor = u0.w(Arb((1, a / x)))
+        else
+            weight_factor = u0.w(Arb((x, a))) / u0.w(x)
+        end
 
         # Compute a tighter enclosure by expanding in x. If x is
         # closer to zero or π it is beneficial to use a higher degree

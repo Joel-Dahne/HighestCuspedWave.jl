@@ -296,10 +296,13 @@ inv(π * u0(x) * u0.w(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(x * t
 ```
 where the integration is taken from `0` to `1 - δ1`.
 
-Using that `u0.w(x * t) = u0.w(x) * u0.w(t)` this can be simplified to
+If `weightfactors(u0)` is true then `u0.w(x * t) = u0.w(x) * u0.w(t)`
+and this can be simplified to
 ```
 inv(π * u0(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(t) dt
 ```
+**IMPROVE:** The split depending on if `weightfactors(u0)` is true or
+not is currently quite ugly and could possibly be improved.
 
 As a first step the unique root of [`_integrand_I_hat`](@ref) is
 computed using [`_integrand_compute_root`](@ref). Outside the
@@ -339,8 +342,9 @@ function T012(
         M = 3
         C, e, P, E = clausenc_expansion(x * ϵ, -u0.α, M)
 
-        # The integrand without the absolute value.
-        integrand_no_abs(t; analytic = false) = begin
+        # The integrand without the absolute value. Assuming that
+        # weightfactors(u0) is true.
+        integrand_no_abs_factors(t; analytic = false) = begin
             rt = real(t)
 
             if analytic && !(Arblib.ispositive(rt) && rt < 1)
@@ -375,6 +379,50 @@ function T012(
                 end
             end
         end
+
+        # The integrand without the absolute value. Assuming that
+        # weightfactors(u0) is false.
+        integrand_no_abs_doesnt_factor(t; analytic = false) = begin
+            rt = real(t)
+
+            if analytic && !(Arblib.ispositive(rt) && rt < 1)
+                # Only analytic for 0 < t < 1
+                return indeterminate(t)
+            elseif Arblib.contains_zero(t)
+                # In this case analytic is false and t is real.
+                @assert !analytic && isreal(t)
+
+                # Only compute an enclosure if t < ϵ, otherwise it is
+                # not good enough anyway.
+                if rt < ϵ
+                    # Part of the integrand which is well behaved around t = 0
+                    part1 =
+                        (clausenc(x * (1 - rt), -u0.α) + clausenc(x * (1 + rt), -u0.α)) * u0.w(x * rt)
+
+                    # Enclosure of clausenc(x * t, -α) * u0.w(t)
+                    part2 =
+                        C * u0.wmulpow(x * rt, e) +
+                        P(x * rt) * u0.w(x * rt) +
+                        E * abspow(x * rt, 2M) * u0.w(x * rt)
+
+                    return Acb(part1 - 2part2)
+                else
+                    return indeterminate(t)
+                end
+            else
+                if isreal(t)
+                    return _integrand_I_hat(x, rt, u0.α) * u0.w(x * t)
+                else
+                    return _integrand_I_hat(x, t, u0.α) * u0.w(x * t)
+                end
+            end
+        end
+
+        integrand_no_abs = ifelse(
+            weightfactors(u0),
+            integrand_no_abs_factors,
+            integrand_no_abs_doesnt_factor,
+        )
 
         res1 = abs(
             real(
@@ -412,6 +460,10 @@ function T012(
 
         res = (res1 + res2 + res3) * x / π
 
+        if !weightfactors(u0)
+            res /= u0.w(x)
+        end
+
         if skip_div_u0
             return res
         else
@@ -444,8 +496,9 @@ and compute the integral explicitly. It is given by
     2clausens(x * (1 - δ1), 1 - α)
 )
 ```
-Using that `u0.w(x * t) = u0.w(x) * u0.w(t)` we can simplify the
-result to
+
+If `weightfactors(u0)` is true then `u0.w(x * t) = u0.w(x) * u0.w(t)`
+and we can simplify the result to
 ```
 inv(π * u0(x)) * u0.w(Arb((1 - δ1, 1))) * (
     clausens(2x, 1 - α) -
@@ -477,7 +530,11 @@ function T013(
     skip_div_u0 = false,
 )
     return x::Arb -> begin
-        weight_factor = u0.w(Arb((1 - δ1, 1)))
+        if weightfactors(u0)
+            weight_factor = u0.w(Arb((1 - δ1, 1)))
+        else
+            weight_factor = u0.w(x * Arb((1 - δ1, 1))) / u0.w(x)
+        end
 
         # Compute a tighter enclosure by expanding in x. If x is
         # closer to zero or π it is beneficial to use a higher degree
