@@ -455,7 +455,7 @@ It splits `F0(u0)` as
 inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (D(u0)(x) / x^(u0.p - u0.α))
 ```
 It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref)
-and `x^u0.p / u0.w(x)` using `w.xpdivw` For the third factor it
+and `x^u0.p / u0.w(x)` using `w.xpdivw`. For the third factor it
 computes the expansion of `D(u0)(x)` and explicitly cancels the
 division by `x^(u0.p - u0.α)`.
 """
