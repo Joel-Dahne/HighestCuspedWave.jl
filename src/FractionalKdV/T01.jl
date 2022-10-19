@@ -315,9 +315,9 @@ for the integration.
 The integrand is not analytic at the endpoint `t = 0`. For computing
 an enclosure the only problematic part of the integrand is the term
 `clausenc(x * t, -α) * u0.w(t). To enclose it we compute an expansion
-of `clausenc` and explicitly handle the multiplication with `u0.w(t) =
-t^u0.p`. This enclosure is only finite if `u0.p - u0.α - 1 > 0` ,
-which is true in all cases we consider.
+of `clausenc` and explicitly handle the multiplication with `u0.w(t)`.
+This enclosure is only finite if `u0.p - u0.α - 1 > 0` , which is true
+in all cases we consider.
 
 If `skip_div_u0` is true then skip the division by `u0(x)` in the
 result.
@@ -357,11 +357,11 @@ function T012(
                     part1 =
                         (clausenc(x * (1 - rt), -u0.α) + clausenc(x * (1 + rt), -u0.α)) * u0.w(rt)
 
-                    # Enclosure of clausenc(x * t, -α) * t^u0.p
+                    # Enclosure of clausenc(x * t, -α) * u0.w(t)
                     part2 =
-                        C * abspow(x, e) * abspow(rt, e + u0.p) +
-                        P(x * rt) * abspow(rt, u0.p) +
-                        E * abspow(x * rt, 2M) * abspow(rt, u0.p)
+                        C * abspow(x, e) * u0.wmulpow(rt, e) +
+                        P(x * rt) * u0.w(rt) +
+                        E * abspow(x * rt, 2M) * u0.w(rt)
 
                     return Acb(part1 - 2part2)
                 else

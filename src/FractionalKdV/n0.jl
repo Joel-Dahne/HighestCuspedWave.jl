@@ -43,7 +43,7 @@ function n0_bound(
     f = x -> u0.w(x) / (2u0(x))
     # For asymptotic evaluation
     inv_u0 = inv_u0_normalised(u0; M, ϵ = Arb(π))
-    g = x -> abspow(x, u0.p + u0.α) * inv_u0(x) / 2
+    g = x -> u0.wmulpow(x, u0.α) * inv_u0(x) / 2
 
     # The maximum is in practice attained at x = π
     m1 = f(Arb(π))
