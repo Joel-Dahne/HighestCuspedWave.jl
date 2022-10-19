@@ -496,3 +496,17 @@ function logabspow(x::Arb, i::Integer, y::Arb)
 
     return log(abs(x))^i * abspow(x, y)
 end
+
+function logabspow(x::ArbSeries, i::Integer, y::Arb)
+    iszero(i) && return abspow(x, y)
+
+    if Arblib.contains_zero(x[0])
+        # Return an indeterminate result except for the constant term
+        res = indeterminate(x)
+        res[0] = logabspow(x[0], i, y)
+
+        return res
+    end
+
+    return log(abs(x))^i * abspow(x, y)
+end
