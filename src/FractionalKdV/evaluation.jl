@@ -807,35 +807,3 @@ function D2(
         return res
     end
 end
-
-"""
-    print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
-
-Debug method for printing an asymptotic expansion in a human readable
-way.
-"""
-function print_asymptotic_expansion_D(u0::FractionalKdVAnsatz, expansion)
-    get_exponent(i, j, m) = -i * u0.α + j * u0.p0 + m
-    expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
-    for ((i, j, m), c) in expansion
-        println("$c ⋅ x^$(get_exponent(i, j, m))   $((i, j, m))")
-    end
-
-    return expansion
-end
-
-"""
-    print_asymptotic_expansion_F0(u0::FractionalKdVAnsatz, expansion)
-
-Debug method for printing an asymptotic expansion in a human readable
-way.
-"""
-function print_asymptotic_expansion_F0(u0::FractionalKdVAnsatz, expansion)
-    get_exponent(i, j, m) = -i * u0.α + j * u0.p0 + m - u0.p
-    expansion = sort(expansion, by = x -> Float64(get_exponent(x...)))
-    for ((i, j, m), c) in expansion
-        println("$c ⋅ x^$(get_exponent(i, j, m))   $((i, j, m))")
-    end
-
-    return expansion
-end
