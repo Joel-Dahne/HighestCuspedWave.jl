@@ -183,9 +183,9 @@ It first splits the function as
 ```
 T0(x) = inv(π) * inv(u0(x) / x^-α) * (U0(x) / x^(-α + 1))
 ```
-where `α = u0.α` and
+where
 ```
-U0(x) = x^2 * ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^u0.p
+U0(x) = x^2 * ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t
 ```
 integrated from `0` to `π / x`. The factor `inv(u0(x) / x^-α)` is
 computed using [`inv_u0_normalised`](@ref) so the remaining work is in

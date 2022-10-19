@@ -289,22 +289,22 @@ function T022(u0::FractionalKdVAnsatz{Arb}, ::Ball = Ball(); skip_div_u0 = false
         integrand(y) = begin
             ry = real(y)
 
-            # The integrand is singular at y = x so check that the real
-            # part of y is greater than x or return an indeterminate
-            # result. This also ensures that y^u0.p is analytic on all of
-            # y.
+            # The integrand is singular at y = x so check that the
+            # real part of y is greater than x or return an
+            # indeterminate result. This also ensures that u0.w(y) is
+            # analytic on all of y.
             x < ry || return indeterminate(y)
 
             if isreal(y)
                 return (
                     clausenc(ry - x, -u0.α) + clausenc(x + ry, -u0.α) -
                     2clausenc(ry, -u0.α)
-                ) * y^u0.p
+                ) * u0.w(y)
             else
                 return (
                     clausenc(x - y, -u0.α) + clausenc(x + y, -u0.α) -
                     2clausenc(Acb(y), -u0.α)
-                ) * y^u0.p
+                ) * u0.w(y)
             end
         end
 

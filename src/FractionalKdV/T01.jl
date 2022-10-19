@@ -300,10 +300,6 @@ Using that `u0.w(x * t) = u0.w(x) * u0.w(t)` this can be simplified to
 ```
 inv(π * u0(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(t) dt
 ```
-Since `u0.w(t) = abs(t)^u0.p` and `t >= 0` we can write it as
-```
-inv(π * u0(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * t^u0.p dt
-```
 
 As a first step the unique root of [`_integrand_I_hat`](@ref) is
 computed using [`_integrand_compute_root`](@ref). Outside the
@@ -318,10 +314,10 @@ for the integration.
 
 The integrand is not analytic at the endpoint `t = 0`. For computing
 an enclosure the only problematic part of the integrand is the term
-`clausenc(x * t, -α) * t^u0.p`. To enclose it we compute an expansion
-of `clausenc` and explicitly handle the multiplication with `t^u0.p`.
-This enclosure is only finite if `u0.p - u0.α - 1 > 0` , which is true
-in all cases we consider.
+`clausenc(x * t, -α) * u0.w(t). To enclose it we compute an expansion
+of `clausenc` and explicitly handle the multiplication with `u0.w(t) =
+t^u0.p`. This enclosure is only finite if `u0.p - u0.α - 1 > 0` ,
+which is true in all cases we consider.
 
 If `skip_div_u0` is true then skip the division by `u0(x)` in the
 result.
@@ -359,7 +355,7 @@ function T012(
                 if rt < ϵ
                     # Part of the integrand which is well behaved around t = 0
                     part1 =
-                        (clausenc(x * (1 - rt), -u0.α) + clausenc(x * (1 + rt), -u0.α)) * abspow(rt, u0.p)
+                        (clausenc(x * (1 - rt), -u0.α) + clausenc(x * (1 + rt), -u0.α)) * u0.w(rt)
 
                     # Enclosure of clausenc(x * t, -α) * t^u0.p
                     part2 =
@@ -373,9 +369,9 @@ function T012(
                 end
             else
                 if isreal(t)
-                    return _integrand_I_hat(x, rt, u0.α) * t^u0.p
+                    return _integrand_I_hat(x, rt, u0.α) * u0.w(t)
                 else
-                    return _integrand_I_hat(x, t, u0.α) * t^u0.p
+                    return _integrand_I_hat(x, t, u0.α) * u0.w(t)
                 end
             end
         end
