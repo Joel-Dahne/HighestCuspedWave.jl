@@ -61,9 +61,9 @@ function n0_bound(
     # Find ϵ1 such that g(Arb(0, ϵ1)) < m1
     ϵ1 = ϵ2
     while !(g(Arb((0, ϵ1))) < m1)
-        ϵ1 *= 0.5
-        if ϵ1 < 1e-100
-            verbose && @error "Could not prove bound on [0, ϵ1]"
+        ϵ1 /= 100
+        if (!u0.use_bhkdv && ϵ1 < 1e-100) || (u0.use_bhkdv && ϵ1 < Arb("1e-10000"))
+            verbose && @error "Could not prove bound on [0, ϵ1]" g(Arb((0, ϵ1)))
             return indeterminate(Arb)
         end
     end
@@ -77,7 +77,8 @@ function n0_bound(
         ubound(ϵ2),
         lbound(m1),
         abs_value = true,
-        log_bisection = true;
+        log_bisection = true,
+        maxevals = ifelse(u0.use_bhkdv, 100000, 1000);
         threaded,
         verbose,
     )
