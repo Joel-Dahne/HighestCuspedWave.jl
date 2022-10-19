@@ -13,7 +13,7 @@ function T0(
     skip_div_u0 = false,
 )
     # Use specialised implementation in the case the weight is x
-    isone(u0.p) && return T0_p_one(u0, evaltype; skip_div_u0)
+    weightisx(u0) && return T0_p_one(u0, evaltype; skip_div_u0)
 
     f = T01(u0, evaltype, skip_div_u0 = true; δ1)
     g = T02(u0, evaltype, skip_div_u0 = true; δ2, ϵ)
@@ -46,7 +46,7 @@ function T0(
     return_enclosure::Bool = false,
 )
     # Use specialised implementation in the case the weight is x
-    isone(u0.p) && return T0_p_one(u0, Asymptotic(); M, ϵ)
+    weightisx(u0) && return T0_p_one(u0, Asymptotic(); M, ϵ)
 
     f = T01(u0, Asymptotic(); M, ϵ, return_enclosure)
     g = T02(u0, Asymptotic(); M, ϵ, return_enclosure)
@@ -56,7 +56,7 @@ end
 """
     T0_p_one(u0, Ball())
 
-Compute the integral ``T_0`` for `u0` with `u0.p == 1`.
+Compute the integral ``T_0`` for `u0` with the weight `x`.
 
 In this case the integral is given by
 ```
@@ -134,7 +134,7 @@ x * (I1 + I2) = primitive_mul_x(0) - 2primitive_mul_x(r) + primitive_mul_x(x / �
 ```
 """
 function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 = false)
-    @assert isone(u0.p)
+    weightisx(u0) || error("only supports u0 with weight x")
 
     return x::Arb -> begin
         r = _integrand_compute_root(typeof(u0), x, u0.α)
@@ -175,7 +175,7 @@ end
 """
     T0_p_one(u0, Asymptotic())
 
-Compute the integral ``T_0`` for `u0` with `u0.p == 1` using an
+Compute the integral ``T_0`` for `u0` with the weight `x` using an
 asymptotic approach that works for small values of `x`.
 
 # Implementation
@@ -183,7 +183,7 @@ It first splits the function as
 ```
 T0(x) = inv(π) * inv(u0(x) / x^-α) * (U0(x) / x^(-α + 1))
 ```
-where `α = u0.α`, `p = u0.p` and
+where `α = u0.α` and
 ```
 U0(x) = x^2 * ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t^u0.p
 ```
@@ -203,7 +203,7 @@ function T0_p_one(
     M::Integer = 5,
     ϵ::Arb = Arb(1),
 )
-    @assert isone(u0.p)
+    weightisx(u0) || error("only supports u0 with weight x")
 
     α = u0.α
 

@@ -292,6 +292,13 @@ function FractionalKdVAnsatz(
     return u0
 end
 
+"""
+    weightisx(u0::FractionalKdVAnsatz)
+
+Return true if the weight of `u0` is `abs(x)`.
+"""
+weightisx(u0::FractionalKdVAnsatz) = isone(u0.p)
+
 function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     if name == :N0
         return length(u0.a) - 1

@@ -56,7 +56,7 @@ function D0_bounded_by(
         degree = -1,
         depth = 100,
         log_bisection = true;
-        depth_start = ifelse(isone(u0.p), 5, 0),
+        depth_start = ifelse(weightisx(u0), 5, 0),
         maxevals,
         threaded,
         verbose,
