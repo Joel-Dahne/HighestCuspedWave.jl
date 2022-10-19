@@ -317,6 +317,9 @@ function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     elseif name == :wmulpow
         # Compute u0.w(x) * abs(x)^q in a way that works when q < 0
         return (x, q) -> abspow(x, u0.p + q)
+    elseif name == :xpdivw
+        # Compute abs(x)^u0.p / u0.w(x) = 1
+        return one
     elseif name == :parent
         return parent(u0.α)
     else

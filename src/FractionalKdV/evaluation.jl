@@ -452,11 +452,12 @@ values of `x`.
 # Implementation
 It splits `F0(u0)` as
 ```
-inv(u0(x) / x^-u0.α) * (D(u0)(x) / x^(u0.p - u0.α))
+inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (D(u0)(x) / x^(u0.p - u0.α))
 ```
-It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref).
-For the other factor it computes the expansion of `D(u0)(x)` and
-explicitly cancels the division by `x^(u0.p - u0.α)`.
+It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref)
+and `x^u0.p / u0.w(x)` using `w.xpdivw` For the third factor it
+computes the expansion of `D(u0)(x)` and explicitly cancels the
+division by `x^(u0.p - u0.α)`.
 """
 function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
     Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
@@ -468,7 +469,7 @@ function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb 
 
         res = eval_expansion(u0, Du0_expansion, x, offset = -u0.p, offset_i = -1)
 
-        return res * inv_u0(x)
+        return res * inv_u0(x) * u0.xpdivw(x)
     end
 end
 
