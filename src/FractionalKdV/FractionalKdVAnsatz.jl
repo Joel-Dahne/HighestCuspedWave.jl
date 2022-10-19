@@ -297,7 +297,7 @@ end
 
 Return true if the weight of `u0` is `abs(x)`.
 """
-weightisx(u0::FractionalKdVAnsatz) = isone(u0.p)
+weightisx(u0::FractionalKdVAnsatz) = isone(u0.p) && !u0.use_bhkdv
 
 """
     weightfactors(u0::FractionalKdVAnsatz)
@@ -305,7 +305,57 @@ weightisx(u0::FractionalKdVAnsatz) = isone(u0.p)
 Return true if the weight of `u0.w` satisfies that `u0.w(x * y) =
 u0.w(x) * u0.w(y)`.
 """
-weightfactors(u0::FractionalKdVAnsatz) = true
+weightfactors(u0::FractionalKdVAnsatz) = !u0.use_bhkdv
+
+"""
+    _modified_logabspow(x, c, y)
+
+Helper function for computing `log(c + inv(abs(x))) * abs(x)^y` in a
+way that works for `x` overlapping zero.
+
+For `x` overlapping zero it rewrites it as
+```
+log(c + inv(abs(x))) * abs(x)^y = (log(1 + c * abs(x)) - log(abs(x))) * abs(x)^y
+= log(1 + c * abs(x)) * abspow(x, y) - logabspow(x, 1, y)
+```
+"""
+_modified_logabspow(x, c, y) =
+    iszero(x) ? abspow(x, y) * log(1 + c * abs(x)) - logabspow(x, 1, y) :
+    abspow(x, y) * log(c + inv(abs(x)))
+
+_modified_logabspow(x::Arb, c, y) =
+    Arblib.contains_zero(x) ? abspow(x, y) * log(1 + c * abs(x)) - logabspow(x, 1, y) :
+    abspow(x, y) * log(c + inv(abs(x)))
+
+_modified_logabspow(x::ArbSeries, c, y) =
+    Arblib.contains_zero(x[0]) ? abspow(x, y) * log(1 + c * abs(x)) - logabspow(x, 1, y) :
+    abspow(x, y) * log(c + inv(abs(x)))
+
+"""
+    _xpwinvw_bhkdv(x)
+
+Helper function for computing `inv(log(2ℯ + inv(abs(x))))` in a way
+that works for `x` overlapping zero.
+"""
+_xpinvw_bhkdv(x) = iszero(x) ? zero(x) : inv(log(2oftype(x, ℯ) + inv(abs(x))))
+
+_xpinvw_bhkdv(x::Arb) =
+    if iszero(x)
+        return zero(x)
+    elseif Arblib.contains_zero(x)
+        return Arb((0, inv(log(2Arb(ℯ) + inv(abs_ubound(Arb, x))))))
+    else
+        return inv(log(2Arb(ℯ) + inv(abs(x))))
+    end
+
+_xpinvw_bhkdv(x::ArbSeries) =
+    if Arblib.contains_zero(x[0])
+        res = indeterminate(x)
+        x[0] = _xpinvw_bhkdv(x[0])
+        return x
+    else
+        return inv(log(2Arb(ℯ) + inv(abs(x))))
+    end
 
 function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     if name == :N0
@@ -313,13 +363,28 @@ function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     elseif name == :N1
         return length(u0.b)
     elseif name == :w
-        return x -> abspow(x, u0.p)
+        if u0.use_bhkdv
+            return x -> _modified_logabspow(x, 2oftype(u0.α, ℯ), u0.p)
+        else
+            return x -> abspow(x, u0.p)
+        end
     elseif name == :wmulpow
         # Compute u0.w(x) * abs(x)^q in a way that works when q < 0
-        return (x, q) -> abspow(x, u0.p + q)
+        # and x overlaps zero
+        if u0.use_bhkdv
+            return (x, q) -> _modified_logabspow(x, 2oftype(u0.α, ℯ), u0.p + q)
+        else
+            return (x, q) -> abspow(x, u0.p + q)
+        end
     elseif name == :xpdivw
-        # Compute abs(x)^u0.p / u0.w(x) = 1
-        return one
+        # Compute abs(x)^u0.p / u0.w(x)
+        if u0.use_bhkdv
+            # abs(x)^u0.p / u0.w(x) = = inv(log(2Arb(ℯ) + inv(abs(x))))
+            return _xpinvw_bhkdv
+        else
+            # abs(x)^u0.p / u0.w(x) = 1
+            return one
+        end
     elseif name == :parent
         return parent(u0.α)
     else

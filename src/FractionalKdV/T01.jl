@@ -242,6 +242,7 @@ function T01(
     ϵ::Arb = Arb(1),
     return_enclosure::Bool = false,
 )
+    u0.use_bhkdv && @error "Method not updated for weight of when u0.use_bhkdv = true"
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
     α = u0.α
