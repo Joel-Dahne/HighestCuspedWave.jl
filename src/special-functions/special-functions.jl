@@ -457,7 +457,7 @@ unique critical point of `log(x)^i * x^y` is given by `exp(-i / y)`.
 It is hence enough to evaluate at the endpoints of the interval as
 well as possibly this point.
 """
-logabspow(x, i, y) = iszero(i) ? abspow(x, y) : log(abs(x))^i * abspow(x, y)
+logabspow(x, i::Integer, y) = iszero(i) ? abspow(x, y) : log(abs(x))^i * abspow(x, y)
 
 function logabspow(x::Arb, i::Integer, y::Arb)
     iszero(i) && return abspow(x, y)
