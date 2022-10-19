@@ -300,6 +300,12 @@ end
     abspow(x, y)
 
 Compute `abs(x)^y `in a way that works if `x` overlaps with zero.
+
+For complex `x` is complex it doesn't use `abs(x)` but `+x` in the
+right half plane and `-x` in the left half plane. For zero we are
+conservative and return an indeterminate result. This means that for
+non-zero `x` it represents an analytic continuation of `abs(x)^y` and
+can thus be used in [`Arblib.integrate`](@ref).
 """
 function abspow(x::Arb, y::Arb)
     iszero(y) && return one(x)
@@ -418,6 +424,25 @@ function abspow(x::Arb, y::ArbSeries)
 
     return abs(x)^y
 end
+
+abspow(x::Complex, y) =
+    if real(x) > 0
+        return x^y
+    elseif real(x) < 0
+        return (-x)^y
+    else
+        # Simple way to return NaN + im * NaN of correct type
+        return x * (NaN + im * NaN)
+    end
+
+abspow(x::Acb, y) =
+    if Arblib.ispositive(real(x))
+        return x^y
+    elseif Arblib.isnegative(real(x))
+        return (-x)^y
+    else
+        return indeterminate(x)
+    end
 
 abspow(x, y) = abs(x)^y
 
