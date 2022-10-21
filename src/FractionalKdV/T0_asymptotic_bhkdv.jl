@@ -521,15 +521,33 @@ outer absolute value can be removed. This gives us the integral
 J = ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(inv(t)) dt
 ```
 
-To compute the integral we integrate from `1` to `a` from some `a`
-close to `1` using that `log(inv(t))` is bounded to factor it out and
-integrate explicitly.
+We split the integral into three parts. One from `1` to `a` for some
+`a` close to `1`, one part from `a` to `b` with `b = min(π / x, 1e10)`
+and (possibly) one part from `b` to `π / x`.
 
-For the integral from `a` to `π / x` we integrate part of it
-numerically and part of it explicitly. We integrate from `a` to `b =
-min(π / x, 1e10)` numerically. If `b < π / x` we only compute an upper
-bound of the integration from `b` to `π / x`. This is done by noticing
-that the integrand is negative and we get an upper bound by using
+# Integral from `1` to `a`
+To compute this integral we use that close to `1` the factor
+`log(inv(t))` is bounded and we can factor it out and integrate
+explicitly. The integral in this case is given by
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt
+```
+with the primitive function
+```
+-inv(α - p) * inv(t)^(α - p) * (
+    hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(t)) +
+    hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(t)) -
+    2
+)
+```
+
+# Integral from `a` to `b`
+This is done using numeric integration.
+
+# Integral from `b` to `π / x`
+If `b < π / x` we only compute an upper bound of the integration from
+`b` to `π / x`. This is done by noticing that the integrand is
+negative and we get an upper bound by using
 ```
 log(inv(t)) < log(inv(b)) = -log(b)
 ```
@@ -548,28 +566,102 @@ The integral is given by
 The `hypgeom_2f1` functions have large cancellations and need special
 care.
 
+From the series expansion of `hypgeom_2f1` we get
+```
+(hypgeom_2f1(1 + α, α - p, 1 + α - p, y) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2)
+= 2sum(
+    rising(1 + α, 2k) * rising(α - p, 2k) / rising(1 + α - p, 2k) / factorial(2k) * y^2k
+    for k in 1:Inf
+)
+```
+We can simplify the rising factorials to
+```
+rising(1 + α, 2k) * rising(α - p, 2k) / rising(1 + α - p, 2k) = rising(1 + α, 2k) * (α - p) / (2k + α - p)
+```
+Note that this is negative for `k >= 1` since `α - p` is negative and
+the other two factors are positive. To enclose the sum we sum the
+first `N-1` terms explicitly and then enclose the tail
+```
+2sum(
+    rising(1 + α, 2k) * rising(α - p, 2k) / rising(1 + α - p, 2k) / factorial(2k) * y^2k
+    for k in N:Inf
+)
+```
+Since all the terms are negative a trivial upper bound is zero. For a
+lower bound we add more terms to make it look like the tail for the
+`hypgeom_2f1` function. Namely we use that for `y > 0`
+```
+sum(
+    rising(1 + α, 2k) * rising(α - p, 2k) / rising(1 + α - p, 2k) / factorial(2k) * y^2k
+    for k in N:Inf
+)
+>= sum(
+    rising(1 + α, k) * rising(α - p, k) / rising(1 + α - p, k) / factorial(k) * y^k
+    for k in 2N:Inf
+)
+```
+We can then bound the last sum
+[`Arblib.hypgeom_pfq_bound_factor!`](@ref) which returns `D` such that
+```
+abs(sum(
+    rising(1 + α, k) * rising(α - p, k) / rising(1 + α - p, k) / factorial(k) * y^k
+    for k in 2N:Inf
+)) <= abs(D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) * y^2N)
+```
 """
 function _T0_bhkdv_I3_M2(α, p, ϵ)
     C = gamma(1 + α) * sinpi(-α / 2)
 
     integrand(t) = -((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(t)
-    integrand2(t) = ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p
 
     a = Arb(1.001)
 
-    # Integration from 1 to b
-    J1 = zero(α) # TODO
+    # Integration from 1 to a
+    J1 = begin
+        primitive(t) =
+            -inv(α - p) *
+            inv(t)^(α - p) *
+            (
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(t)) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(t)) - 2
+            )
+
+        primitive(a) - primitive(one(a))
+    end
 
     # Compute
     # hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(b)) +
     # hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(b)) -
     # 2
     # Handling cancellations
-    # FIXME: Bound tail
     hypgeom_2f1_helper(y) =
-        2sum(1:10) do k
-            rising(1 + α, 2k) * rising(α - p, 2k) / rising(1 + α - p, 2k) / factorial(2k) *
-            y^2k
+        let N = 10
+            main = 2(α - p) * sum(1:N-1) do k
+                rising(1 + α, 2k) / (2k + α - p) / factorial(2k) * y^2k
+            end
+
+            tail_lower = begin
+                @assert Arblib.ispositive(y)
+                D = Arblib.Arblib.hypgeom_pfq_bound_factor!(
+                    zero(Mag),
+                    AcbVector([1 + α, α - p]),
+                    2,
+                    AcbVector([1 + α - p, 1]),
+                    2,
+                    Acb(y),
+                    UInt(2N),
+                )
+
+                -abs(
+                    D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) /
+                    factorial(2N) * y^2N,
+                )
+            end
+
+            # Tail is negative
+            tail_upper = zero(main)
+
+            return main + Arb((tail_lower, tail_upper))
         end
 
     return x::Arb -> begin
@@ -582,10 +674,12 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             -inv(log(x))
         end
 
+        # TODO: We need to increase b to around 1e30. Currently this
+        # requires much higher precision and is very sensitive to wide
+        # values of α.
         b = min(π / x, Arb(1e10))
 
         # Integration from a to b
-        # IMPROVE: Enclosure for wide x
         J2 = real(Arblib.integrate(integrand, a, b))
 
         if b < π / x
@@ -603,7 +697,6 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
         return C * invloginvx * J
     end
 end
-
 
 """
     _T0_bhkdv_I3_R(α, p, ϵ)
