@@ -39,6 +39,7 @@ include("FractionalKdV/delta0.jl")
 include("FractionalKdV/T0.jl")
 include("FractionalKdV/T01.jl")
 include("FractionalKdV/T02.jl")
+include("FractionalKdV/T0_asymptotic_bhkdv.jl")
 include("FractionalKdV/D0.jl")
 include("FractionalKdV/proof.jl")
 

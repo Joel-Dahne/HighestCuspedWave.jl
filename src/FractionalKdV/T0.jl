@@ -45,8 +45,10 @@ function T0(
     ϵ::Arb = Arb(1),
     return_enclosure::Bool = false,
 )
-    # Use specialised implementation in the case the weight is x
+    # Use specialised implementation in the case the weight is x or if
+    # use_bhkdv is true
     weightisx(u0) && return T0_p_one(u0, Asymptotic(); M, ϵ)
+    u0.use_bhkdv && return T0_bhkdv(u0, Asymptotic(); M, ϵ)
 
     f = T01(u0, Asymptotic(); M, ϵ, return_enclosure)
     g = T02(u0, Asymptotic(); M, ϵ, return_enclosure)
