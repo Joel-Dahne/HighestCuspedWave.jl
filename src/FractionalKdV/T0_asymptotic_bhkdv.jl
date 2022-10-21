@@ -89,21 +89,81 @@ integrated from `0` to `π / x` for `x < ϵ`.
 
 # Implementation
 The factor `log(1 + 2ℯ * x * t)` is bounded on the interval of
-integration and we can factor it out. We have that `x * t` is in the
-interval ``[0, π]``, giving us
-```
-log(1 + 2ℯ * Arb((0, π))) / log(inv(x)) * x^(1 + α) * ∫ abs(_integrand_I_hat(x, t, α)) * t^p dt
-```
-Here we have moved the terms around so that we see that the last two
-factors give us [`_T0_bhkdv_I2`](@ref).
+integration and the idea is to factor it out and compute the remaining
+integral.
 
-**TODO:** This gives a very poor enclosure. We will need to improve it
-when `x` is not super small.
+Focusing on the part
+```
+x^(1 + α) * ∫ abs(_integrand_I_hat(x, t, α)) * t^p * log(1 + 2ℯ * x * t) dt
+```
+We first split it as
+```
+x^(1 + α) * ∫_0^1 abs(_integrand_I_hat(x, t, α)) * t^p * log(1 + 2ℯ * x * t) dt
++ x^(1 + α) * ∫_1^(π / x)( abs(_integrand_I_hat(x, t, α)) * t^p * log(1 + 2ℯ * x * t) dt
+```
+Factoring out the logarithm we get
+```
+log(1 + 2ℯ * x * Arb((0, 1))) * x^(1 + α) * ∫_0^1 abs(_integrand_I_hat(x, t, α)) * t^p dt
++ log(1 + 2ℯ * Arb((x, π)) * x^(1 + α) * ∫_1^(π / x) abs(_integrand_I_hat(x, t, α)) * t^p dt
+```
+We can compute
+```
+x^(1 + α) * ∫_0^1 abs(_integrand_I_hat(x, t, α)) * t^p dt
+```
+and
+```
+x^(1 + α) * ∫_1^(π / x) abs(_integrand_I_hat(x, t, α)) * t^p dt
+```
+using [`_T0_bhkdv_I2`](@ref) with `return_parts` set to true.
+
+For the integral from `0` to `1` this gives a good enough enclosure.
+For the integration from `1` to `π / x` this only give a good enough
+enclosure for small values of `x`, around `x < 1e-5`. For larger
+values of `x` we have to work a bit harder to get a good enough
+enclosure.
+
+# Handling `x > 1e-5`
+In this case we integrate numerically. From `1` to `a` for some `a`
+close to `1` we factor out the log-factor and integrate explicitly.
+From `a` to `π / x` we integrate numerically.
+
+In this case `_integrand_I_hat` is positive and we can remove the
+absolute value. For the numerical integration we thus want to compute
+```
+∫ _integrand_I_hat(x, t, α) * t^p * log(1 + 2ℯ * x * t) dt
+```
+
+For the integration from `1` to `a` we factor out the log-factor,
+leaving us with
+```
+∫ _integrand_I_hat(x, t, α) * t^p dt
+```
+If we factor out `t^(1 - p)`, which is bounded, we get
+```
+Arb((1, a))^(1 - p) * ∫ _integrand_I_hat(x, t, α) * t dt
+```
+The integral can be computed explicitly using that the primitive
+function is
+```
+(clausenc(x * (1 - t), 2 - α) / x^2 - t * clausens(x * (1 - t), 1 - α) / x) +
+    (clausenc(x * (1 + t), 2 - α) / x^2 + t * clausens(x * (1 + t), 1 - α) / x) -
+    2(clausenc(x * t, 2 - α) / x^2 + t * clausens(x * t, 1 - α) / x)
+```
+With our integration limits this gives us
+```
+(
+    (clausenc(x * (1 - a), 2 - α) / x^2 - a * clausens(x * (1 - a), 1 - α) / x) +
+    (clausenc(x * (1 + a), 2 - α) / x^2 + a * clausens(x * (1 + a), 1 - α) / x) -
+    2(clausenc(x * a, 2 - α) / x^2 + a * clausens(x * a, 1 - α) / x)
+) - (
+    (clausenc(0, 2 - α) / x^2 - clausens(0, 1 - α) / x) +
+    (clausenc(2x, 2 - α) / x^2 + clausens(2x, 1 - α) / x) -
+    2(clausenc(x, 2 - α) / x^2 + clausens(x, 1 - α) / x)
+)
+```
 """
 function _T0_bhkdv_I1(α, p, ϵ)
-    I2 = _T0_bhkdv_I2(α, p, ϵ)
-
-    C = log(1 + 2Arb(ℯ) * Arb((0, π)))
+    I2 = _T0_bhkdv_I2(α, p, ϵ, return_parts = true)
 
     return x -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -115,12 +175,48 @@ function _T0_bhkdv_I1(α, p, ϵ)
             -inv(log(x))
         end
 
-        return C * invloginvx * I2(x)
+        I21, I22 = I2(x)
+
+        # Enclosure of x^(1 + α) * ∫_0^1 abs(_integrand_I_hat(x, t, α)) * t^p * log(1 + 2ℯ * x * t) dt
+        part1 = log(1 + 2Arb(ℯ) * x * Arb((0, 1))) * I21
+
+        # Enclosure of x^(1 + α) * ∫_1^(π / x) _integrand_I_hat(x, t, α) * t^p * log(1 + 2ℯ * x * t) dt
+        if x < 1e-5
+            part2 = log(1 + 2Arb(ℯ) * Arb((x, π))) * I22
+        else
+            a = Arb(1.1)
+
+            # Integral from 1 to a
+            part21 =
+                log(1 + 2Arb(ℯ) * x * Arb((1, a))) * (
+                    (
+                        (
+                            clausenc(x * (1 - a), 2 - α) / x^2 -
+                            a * clausens(x * (1 - a), 1 - α) / x
+                        ) + (
+                            clausenc(x * (1 + a), 2 - α) / x^2 +
+                            a * clausens(x * (1 + a), 1 - α) / x
+                        ) -
+                        2(clausenc(x * a, 2 - α) / x^2 + a * clausens(x * a, 1 - α) / x)
+                    ) - (
+                        (clausenc(zero(x), 2 - α) / x^2 - clausens(zero(x), 1 - α) / x) + (clausenc(2x, 2 - α) / x^2 + clausens(2x, 1 - α) / x) -
+                        2(clausenc(x, 2 - α) / x^2 + clausens(x, 1 - α) / x)
+                    )
+                )
+
+            # Integral from a to π / x
+            integrand(t) = _integrand_I_hat(x, t, α) * t^p * log(1 + 2Arb(ℯ) * x * t)
+            part22 = real(Arblib.integrate(integrand, a, π / x, rtol = 1e-5))
+
+            part2 = x^(1 + α) * (part21 + part22)
+        end
+
+        return invloginvx * (part1 + part2)
     end
 end
 
 """
-    _T0_bhkdv_I2(α, p, ϵ)
+    _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
 
 Return a function for computing a bound of
 ```
@@ -128,12 +224,16 @@ x^(1 + α) * ∫ abs(_integrand_I_hat(x, t, α)) * t^p dt
 ```
 integrated from `0` to `π / x` for `x < ϵ`.
 
+If `return_parts` is true then return the integration from `0` to `1`
+and the integration from `1` to `π / x` separately. This is used in
+[`_T0_bhkdv_I1`](@ref).
+
 # Implementation
 This is the same integral as when the weight is `x^p` and we can
 therefore use same method to compute it. This is a combination of the
 asymptotic version of `T01` and `T02` for that weight.
 """
-function _T0_bhkdv_I2(α, p, ϵ)
+function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
     # This is required for the bound of the tail of d2
     ϵ <= Arb(π) / 2 || throw(ArgumentError("we require that ϵ <= π / 2"))
 
@@ -209,7 +309,11 @@ function _T0_bhkdv_I2(α, p, ϵ)
 
     return x::Arb -> begin
         @assert x <= ϵ
-        return c1 + c2 + d1 * abspow(x, 3 + α) + d2 * abspow(x, 2 + α - p)
+        if return_parts
+            return (c1 + d1 * abspow(x, 3 + α)), (c2 + d2 * abspow(x, 2 + α - p))
+        else
+            return c1 + c2 + d1 * abspow(x, 3 + α) + d2 * abspow(x, 2 + α - p)
+        end
     end
 end
 
