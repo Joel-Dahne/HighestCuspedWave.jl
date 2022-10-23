@@ -521,6 +521,10 @@ outer absolute value can be removed. This gives us the integral
 J = ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(inv(t)) dt
 ```
 
+Since `log(inv(t))` is negative for `t > 1` this is decreasing in `x`.
+To get an upper bound it is thus enough to work with an upper bound of
+`x`.
+
 We split the integral into four parts. One from `1` to `a`, one from
 `b` to `c` and one from `c` to `π / x`. Here `a = 1.001`, `b = min(π /
 x, 1e10)` and `c = min(π / x, 1e50)`. We denote the four subintegrals
@@ -644,22 +648,24 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
     integrand(t) = -((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(t)
 
     # Compute
-    # hypgeom_2f1(1 + α, α - p, 1 + α - p, y) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2
+    # y^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, y) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2)
     # Handling cancellations for small values of y
     hypgeom_2f1_helper(y) =
         if y > 0.1
             # No need to do anything fancy
-            hypgeom_2f1(1 + α, α - p, 1 + α - p, y) +
-            hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2
+            y^(α - p) * (
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, y) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2
+            )
         else
             let N = 10
                 main =
                     2(α - p) * sum(1:N-1) do k
-                        rising(1 + α, 2k) / (2k + α - p) / factorial(2k) * y^2k
+                        rising(1 + α, 2k) / (2k + α - p) / factorial(2k) * y^(2k + α - p)
                     end
 
                 tail_lower = begin
-                    @assert Arblib.ispositive(y)
+                    @assert Arblib.isnonnegative(y)
                     D = Arblib.Arblib.hypgeom_pfq_bound_factor!(
                         zero(Mag),
                         AcbVector([1 + α, α - p]),
@@ -671,7 +677,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
                     )
 
                     -abs(
-                        D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) * y^2N,
+                        D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) * y^(2N + α - p),
                     )
                 end
 
@@ -682,8 +688,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             end
         end
 
-    primitive(t) = -inv(α - p) * inv(t)^(α - p) * hypgeom_2f1_helper(inv(t))
-    primitive_inv(t) = -inv(α - p) * t^(α - p) * hypgeom_2f1_helper(t)
+    primitive_inv(t) = -inv(α - p) * hypgeom_2f1_helper(t)
 
     return x::Arb -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -695,9 +700,18 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             -inv(log(x))
         end
 
+        # J is decreasing in x so enough to compute with an upper
+        # bound of `x
+        xᵤ = ubound(Arb, x)
+
         a = Arb(1.001)
-        b = min(π / x, Arb(1e10))
-        c = min(π / x, Arb(1e50))
+        if iszero(xᵤ)
+            b = Arb(1e10)
+            c = Arb(1e50)
+        else
+            b = ifelse(π / xᵤ < 1e10, π / xᵤ, Arb(1e10))
+            c = ifelse(π / xᵤ < 1e50, π / xᵤ, Arb(1e50))
+        end
 
         # Integration from 1 to a
         J1 = log(inv(Arb((1, a)))) * (primitive_inv(inv(a)) - primitive_inv(one(a)))
@@ -706,7 +720,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
         J2 = real(Arblib.integrate(integrand, a, b))
 
         # Integration from b to c
-        J3 = if b < π / x
+        J3 = if iszero(xᵤ) || b < π / xᵤ
             subintervals = ArbExtras.bisect_interval_recursive(b, c, 4, log_midpoint = true)
 
             sum(subintervals) do subinterval
@@ -718,9 +732,9 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             zero(J1)
         end
 
-        # Integration from c to π / x
-        J4 = if c < π / x
-            -log(c) * (primitive_inv(x / π) - primitive_inv(inv(c)))
+        # Integration from c to π / xᵤ
+        J4 = if iszero(xᵤ) || c < π / xᵤ
+            -log(c) * (primitive_inv(xᵤ / π) - primitive_inv(inv(c)))
         else
             zero(J1)
         end
