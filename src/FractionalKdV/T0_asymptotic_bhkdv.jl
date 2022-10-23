@@ -521,18 +521,19 @@ outer absolute value can be removed. This gives us the integral
 J = ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(inv(t)) dt
 ```
 
-We split the integral into three parts. One from `1` to `a` for some
-`a` close to `1`, one part from `a` to `b` with `b = min(π / x, 1e10)`
-and (possibly) one part from `b` to `π / x`.
+We split the integral into four parts. One from `1` to `a`, one from
+`b` to `c` and one from `c` to `π / x`. Here `a = 1.001`, `b = min(π /
+x, 1e10)` and `c = min(π / x, 1e50)`. We denote the four subintegrals
+by `J1`, `J2`, `J3` and `J4`. On the different parts we use different
+methods for computing the integral. Depending on the value of `x` it
+might be that some of the intervals are empty.
 
-# Integral from `1` to `a`
-To compute this integral we use that close to `1` the factor
-`log(inv(t))` is bounded and we can factor it out and integrate
-explicitly. The integral in this case is given by
+# Primitive function
+In several of the cases we factor out the logarithm and integrate
 ```
 ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt
 ```
-with the primitive function
+explicitly. For this we use that the primitive function is given by
 ```
 -inv(α - p) * inv(t)^(α - p) * (
     hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(t)) +
@@ -540,31 +541,19 @@ with the primitive function
     2
 )
 ```
+We define
+```
+primitive_inv(t) = -inv(α - p) * t^(α - p) * (
+    hypgeom_2f1(1 + α, α - p, 1 + α - p, t) +
+    hypgeom_2f1(1 + α, α - p, 1 + α - p, -t) -
+    2
+)
+```
 
-# Integral from `a` to `b`
-This is done using numeric integration.
-
-# Integral from `b` to `π / x`
-If `b < π / x` we only compute an upper bound of the integration from
-`b` to `π / x`. This is done by noticing that the integrand is
-negative and we get an upper bound by using
-```
-log(inv(t)) < log(inv(b)) = -log(b)
-```
-and factoring out `-log(b)`. This gives us the integral
-```
-∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt
-```
-from `b` to `π / x`, which we integrate explicitly.
-
-The integral is given by
-```
-∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt =
-= inv(α - p) * inv(b)^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(b)) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(b)) - 2)
-  -inv(α - p) * (x / π)^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, x / π) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -x / π) - 2)
-```
-The `hypgeom_2f1` functions have large cancellations and need special
-care.
+## Handling small `t`
+For small values of `t` the function `primitive_inv(t)` has large
+cancellations that needs to be accounted for. To handle this we
+rewrite it using the series expansion.
 
 From the series expansion of `hypgeom_2f1` we get
 ```
@@ -608,61 +597,93 @@ abs(sum(
     for k in 2N:Inf
 )) <= abs(D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) * y^2N)
 ```
+
+# Integral from `1` to `a`
+To compute this integral we use that close to `1` the factor
+`log(inv(t))` is bounded and we can factor it out and integrate
+explicitly. The integral in this case is given by
+```
+J1 = log(inv(Arb((1, a)))) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt
+```
+and we integrate explicitly using the primitive function given above.
+
+# Integral from `a` to `b`
+Done by numerically integrating
+```
+∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(inv(t)) dt
+```
+
+# Integral from `b` to `c`
+This integral we split into several parts and factor out the
+log-factor from each part separately. More precisely we split the
+interval into 16 subintervals `subinterval[i] = [b[i], b[i+1]] and compute
+```
+sum(1:16) do i
+    log(inv(Arb((b[i], b[i+1])))) * ∫_(b[i])^(b[i+1]) ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt
+end
+```
+The subintervals are computed using
+[`ArbExtras.bisect_interval_recursive`] by recursively bisecting at
+the geometric midpoint.
+
+# Integral from `c` to `π / x`
+In this case we only compute an upper bound by noticing that the
+integrand is negative and
+```
+log(inv(t)) < log(inv(c)) = -log(c)
+```
+Factoring out `-log(b)`. This gives us the integral
+```
+J4 <= -log(c) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p dt
+```
+integrated from `c` to `π / x`, which we integrate explicitly.
 """
 function _T0_bhkdv_I3_M2(α, p, ϵ)
     C = gamma(1 + α) * sinpi(-α / 2)
 
     integrand(t) = -((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(t)
 
-    a = Arb(1.001)
-
-    # Integration from 1 to a
-    J1 = begin
-        primitive(t) =
-            -inv(α - p) *
-            inv(t)^(α - p) *
-            (
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(t)) +
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(t)) - 2
-            )
-
-        primitive(a) - primitive(one(a))
-    end
-
     # Compute
-    # hypgeom_2f1(1 + α, α - p, 1 + α - p, inv(b)) +
-    # hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(b)) -
-    # 2
-    # Handling cancellations
+    # hypgeom_2f1(1 + α, α - p, 1 + α - p, y) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2
+    # Handling cancellations for small values of y
     hypgeom_2f1_helper(y) =
-        let N = 10
-            main = 2(α - p) * sum(1:N-1) do k
-                rising(1 + α, 2k) / (2k + α - p) / factorial(2k) * y^2k
+        if y > 0.1
+            # No need to do anything fancy
+            hypgeom_2f1(1 + α, α - p, 1 + α - p, y) +
+            hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2
+        else
+            let N = 10
+                main =
+                    2(α - p) * sum(1:N-1) do k
+                        rising(1 + α, 2k) / (2k + α - p) / factorial(2k) * y^2k
+                    end
+
+                tail_lower = begin
+                    @assert Arblib.ispositive(y)
+                    D = Arblib.Arblib.hypgeom_pfq_bound_factor!(
+                        zero(Mag),
+                        AcbVector([1 + α, α - p]),
+                        2,
+                        AcbVector([1 + α - p, 1]),
+                        2,
+                        Acb(y),
+                        UInt(2N),
+                    )
+
+                    -abs(
+                        D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) * y^2N,
+                    )
+                end
+
+                # Tail is negative
+                tail_upper = zero(main)
+
+                return main + Arb((tail_lower, tail_upper))
             end
-
-            tail_lower = begin
-                @assert Arblib.ispositive(y)
-                D = Arblib.Arblib.hypgeom_pfq_bound_factor!(
-                    zero(Mag),
-                    AcbVector([1 + α, α - p]),
-                    2,
-                    AcbVector([1 + α - p, 1]),
-                    2,
-                    Acb(y),
-                    UInt(2N),
-                )
-
-                -abs(
-                    D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) /
-                    factorial(2N) * y^2N,
-                )
-            end
-
-            # Tail is negative
-            tail_upper = zero(main)
-
-            return main + Arb((tail_lower, tail_upper))
         end
+
+    primitive(t) = -inv(α - p) * inv(t)^(α - p) * hypgeom_2f1_helper(inv(t))
+    primitive_inv(t) = -inv(α - p) * t^(α - p) * hypgeom_2f1_helper(t)
 
     return x::Arb -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -674,25 +695,37 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             -inv(log(x))
         end
 
-        # TODO: We need to increase b to around 1e30. Currently this
-        # requires much higher precision and is very sensitive to wide
-        # values of α.
+        a = Arb(1.001)
         b = min(π / x, Arb(1e10))
+        c = min(π / x, Arb(1e50))
+
+        # Integration from 1 to a
+        J1 = log(inv(Arb((1, a)))) * (primitive_inv(inv(a)) - primitive_inv(one(a)))
 
         # Integration from a to b
         J2 = real(Arblib.integrate(integrand, a, b))
 
-        if b < π / x
-            J3 =
-                -log(b) / (α - p) * (
-                    inv(b)^(α - p) * hypgeom_2f1_helper(inv(b)) -
-                    (x / π)^(α - p) * hypgeom_2f1_helper(x / π)
+        # Integration from b to c
+        J3 = if b < π / x
+            subintervals = ArbExtras.bisect_interval_recursive(b, c, 4, log_midpoint = true)
+
+            sum(subintervals) do subinterval
+                -Arb((log(subinterval[1]), log(subinterval[2]))) * (
+                    primitive_inv(inv(subinterval[2])) - primitive_inv(inv(subinterval[1]))
                 )
+            end
         else
-            J3 = zero(J1)
+            zero(J1)
         end
 
-        J = J1 + J2 + J3
+        # Integration from c to π / x
+        J4 = if c < π / x
+            -log(c) * (primitive_inv(x / π) - primitive_inv(inv(c)))
+        else
+            zero(J1)
+        end
+
+        J = J1 + J2 + J3 + J4
 
         return C * invloginvx * J
     end
