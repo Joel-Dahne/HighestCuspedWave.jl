@@ -133,14 +133,10 @@ absolute value. For the numerical integration we thus want to compute
 ∫ _integrand_I_hat(x, t, α) * t^p * log(1 + 2ℯ * x * t) dt
 ```
 
-For the integration from `1` to `a` we factor out the log-factor,
-leaving us with
+For the integration from `1` to `a` we factor out the log-factor as
+well as the factor `t^(1 - p)`, leaving us with
 ```
-∫ _integrand_I_hat(x, t, α) * t^p dt
-```
-If we factor out `t^(1 - p)`, which is bounded, we get
-```
-Arb((1, a))^(1 - p) * ∫ _integrand_I_hat(x, t, α) * t dt
+Arb((1, a))^(1 - p) * log(1 + 2ℯ * x * Arb((1, a))) * ∫ _integrand_I_hat(x, t, α) * t^p dt
 ```
 The integral can be computed explicitly using that the primitive
 function is
@@ -149,17 +145,17 @@ function is
     (clausenc(x * (1 + t), 2 - α) / x^2 + t * clausens(x * (1 + t), 1 - α) / x) -
     2(clausenc(x * t, 2 - α) / x^2 + t * clausens(x * t, 1 - α) / x)
 ```
-With our integration limits this gives us
+Which can be simplified to
 ```
 (
-    (clausenc(x * (1 - a), 2 - α) / x^2 - a * clausens(x * (1 - a), 1 - α) / x) +
-    (clausenc(x * (1 + a), 2 - α) / x^2 + a * clausens(x * (1 + a), 1 - α) / x) -
-    2(clausenc(x * a, 2 - α) / x^2 + a * clausens(x * a, 1 - α) / x)
-) - (
-    (clausenc(0, 2 - α) / x^2 - clausens(0, 1 - α) / x) +
-    (clausenc(2x, 2 - α) / x^2 + clausens(2x, 1 - α) / x) -
-    2(clausenc(x, 2 - α) / x^2 + clausens(x, 1 - α) / x)
-)
+    (
+        clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
+        2clausenc(x * t, 2 - α)
+    ) / x + t * (
+        -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
+        2clausens(x * t, 1 - α)
+    )
+) / x
 ```
 """
 function _T0_bhkdv_I1(α, p, ϵ)
@@ -181,34 +177,70 @@ function _T0_bhkdv_I1(α, p, ϵ)
         part1 = log(1 + 2Arb(ℯ) * x * Arb((0, 1))) * I21
 
         # Enclosure of x^(1 + α) * ∫_1^(π / x) _integrand_I_hat(x, t, α) * t^p * log(1 + 2ℯ * x * t) dt
-        if x < 1e-5
-            part2 = log(1 + 2Arb(ℯ) * Arb((x, π))) * I22
-        else
+        if x > 1e-5
             a = Arb(1.1)
+
+            primitive(x, t) =
+                (
+                    (
+                        clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
+                        2clausenc(x * t, 2 - α)
+                    ) / x +
+                    t * (
+                        -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
+                        2clausens(x * t, 1 - α)
+                    )
+                ) / x
+
 
             # Integral from 1 to a
             part21 =
-                log(1 + 2Arb(ℯ) * x * Arb((1, a))) * (
-                    (
-                        (
-                            clausenc(x * (1 - a), 2 - α) / x^2 -
-                            a * clausens(x * (1 - a), 1 - α) / x
-                        ) + (
-                            clausenc(x * (1 + a), 2 - α) / x^2 +
-                            a * clausens(x * (1 + a), 1 - α) / x
-                        ) -
-                        2(clausenc(x * a, 2 - α) / x^2 + a * clausens(x * a, 1 - α) / x)
-                    ) - (
-                        (clausenc(zero(x), 2 - α) / x^2 - clausens(zero(x), 1 - α) / x) + (clausenc(2x, 2 - α) / x^2 + clausens(2x, 1 - α) / x) -
-                        2(clausenc(x, 2 - α) / x^2 + clausens(x, 1 - α) / x)
-                    )
-                )
+                Arb((1, a))^(1 - p) *
+                log(1 + 2Arb(ℯ) * x * Arb((1, a))) *
+                ArbExtras.enclosure_series(x, degree = 4) do x
+                    primitive(x, a) - primitive(x, one(a))
+                end
 
             # Integral from a to π / x
-            integrand(t) = _integrand_I_hat(x, t, α) * t^p * log(1 + 2Arb(ℯ) * x * t)
-            part22 = real(Arblib.integrate(integrand, a, π / x, rtol = 1e-5))
+
+            # IMPROVE: It is very slow to use enclosure_series in the
+            # integrand. Consider optimizing _integrand_I_hat for wide
+            # values of x.
+            integrand(t) =
+                if isreal(t) && !iswide(real(t))
+                    ArbExtras.enclosure_series(x, degree = 8) do x
+                        _integrand_I_hat(x, real(t), α) *
+                        real(t)^p *
+                        log(1 + 2Arb(ℯ) * x * real(t))
+                    end
+                else
+                    _integrand_I_hat(x, t, α) * t^p * log(1 + 2Arb(ℯ) * x * t)
+                end
+            part22_lower = real(
+                Arblib.integrate(
+                    integrand,
+                    a,
+                    lbound(Arb, π / x),
+                    rtol = 1e-5,
+                    warn_on_no_convergence = false,
+                    opts = Arblib.calc_integrate_opt_struct(0, 500, 0, 0, 0),
+                ),
+            )
+            part22_upper = real(
+                Arblib.integrate(
+                    integrand,
+                    a,
+                    ubound(Arb, π / x),
+                    rtol = 1e-5,
+                    warn_on_no_convergence = false,
+                    opts = Arblib.calc_integrate_opt_struct(0, 500, 0, 0, 0),
+                ),
+            )
+            part22 = Arb((part22_lower, part22_upper))
 
             part2 = x^(1 + α) * (part21 + part22)
+        else
+            part2 = log(1 + 2Arb(ℯ) * Arb((x, π))) * I22
         end
 
         return invloginvx * (part1 + part2)
