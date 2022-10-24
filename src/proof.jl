@@ -150,7 +150,15 @@ subinterval and splitting it into balls directly.
 """
 function proof_interval_subdivisions()
     return [
-        ((-0.99, -0.935), 10000), # Not checked
+        ((-0.9999, -0.9998), 2000), # Preliminary
+        ((-0.9998, -0.9996), 1000), # Preliminary
+        ((-0.9996, -0.9993), 2000), # Preliminary
+        ((-0.9993, -0.999), 2000), # Preliminary
+        ((-0.999, -0.998), 10000), # Preliminary
+        ((-0.998, -0.996), 10000), # Preliminary
+        ((-0.996, -0.993), 10000), # Preliminary
+        ((-0.993, -0.99), 10000), # Preliminary
+        ((-0.99, -0.935), 10000), # Preliminary
         ((-0.935, -0.9), 8000),
         ((-0.9, -0.85), 8000),
         ((-0.85, -0.8), 4000),
