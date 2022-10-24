@@ -499,7 +499,8 @@ function _T0_bhkdv_I3_M1(α, p, ϵ)
         a = Arb(0.999)
 
         # Integral from 0 to a
-        part1 = real(Arblib.integrate(integrand, 0, a, check_analytic = true))
+        part1 =
+            real(Arblib.integrate(integrand, 0, a, rtol = 1e-5, check_analytic = true))
 
         # Check that the integrand is positive after removing the
         # absolute value
@@ -677,7 +678,16 @@ integrated from `c` to `π / x`, which we integrate explicitly.
 function _T0_bhkdv_I3_M2(α, p, ϵ)
     C = gamma(1 + α) * sinpi(-α / 2)
 
-    integrand(t) = -((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(t)
+    integrand(t) =
+        if isreal(t) && !iswide(t)
+            t^p *
+            log(t) *
+            ArbExtras.enclosure_series(α, degree = 4) do α
+                -((real(t) - 1)^(-α - 1) + (1 + real(t))^(-α - 1) - 2real(t)^(-α - 1))
+            end
+        else
+            -((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(t)
+        end
 
     # Compute
     # y^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, y) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2)
@@ -749,7 +759,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
         J1 = log(inv(Arb((1, a)))) * (primitive_inv(inv(a)) - primitive_inv(one(a)))
 
         # Integration from a to b
-        J2 = real(Arblib.integrate(integrand, a, b))
+        J2 = real(Arblib.integrate(integrand, a, b, rtol = 1e-5))
 
         # Integration from b to c
         J3 = if iszero(xᵤ) || b < π / xᵤ
