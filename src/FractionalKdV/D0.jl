@@ -22,7 +22,7 @@ function D0_bounded_by(
     M::Integer = 3,
     ϵ::Arf = zero(Arf),
     maxevals = 1000,
-    threaded = false,
+    threaded = true,
     verbose = false,
 )
     # Determine ϵ such that the bound holds when evaluated at x = ϵ
