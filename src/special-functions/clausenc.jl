@@ -762,14 +762,13 @@ indeterminate result. Note that it is not clear how to handle this
 case if we want to allow `s` overlapping odd integers.
 """
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
-    unique, s_integer = unique_integer(s)
-
     # When s is wide and close to a positive integer, but doesn't
     # contain a positive integer, it is beneficial to change the
     # degree for the approximation. Around even integers we want to
     # use a higher degree. Around odd integers the default is fine.
     if s > 1 && is_approx_integer(s)
         if iseven(round(Float64(s)))
+            s = union(s, Arb(round(Float64(s))))
             degree = 10
         else
             degree = 2
@@ -777,6 +776,8 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     else
         degree = 2
     end
+
+    unique, s_integer = unique_integer(s)
 
     # Non-analytic term
     if unique && s_integer > 0
