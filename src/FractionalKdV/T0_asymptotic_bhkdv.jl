@@ -580,15 +580,25 @@ explicitly. For this we use that the primitive function is given by
 ```
 We define
 ```
-primitive_inv(t) = -inv(α - p) * t^(α - p) * (
-    hypgeom_2f1(1 + α, α - p, 1 + α - p, t) +
-    hypgeom_2f1(1 + α, α - p, 1 + α - p, -t) -
-    2
+primitive_inv(a, b) = -inv(α - p) * (
+    b^(α - p) * (
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, b) +
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, -b) -
+        2
+    )
+) * (
+    a^(α - p) * (
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, a) +
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, -a) -
+        2
+    )
 )
 ```
+such that `primitive_inv(inv(a), inv(b))` gives the integral from `a`
+to `b`.
 
 ## Handling small `t`
-For small values of `t` the function `primitive_inv(t)` has large
+For small values of `t` the function `primitive_inv(a, b)` has large
 cancellations that needs to be accounted for. To handle this we
 rewrite it using the series expansion.
 
@@ -690,36 +700,43 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
         end
 
     # Compute
-    # y^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, y) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2)
-    # Handling cancellations for small values of y
-    hypgeom_2f1_helper(y) =
-        if y > 0.1
+    # b^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, b) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -b) - 2) -
+    # a^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, a) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -a) - 2)
+    # Handling cancellations for small values of a and b
+    hypgeom_2f1_helper(a, b) =
+        if min(a, b) > 0.1
             # No need to do anything fancy
-            y^(α - p) * (
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, y) +
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, -y) - 2
+            b^(α - p) * (
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, b) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -b) - 2
+            ) -
+            a^(α - p) * (
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, a) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -a) - 2
             )
         else
             let N = 10
                 main =
                     2(α - p) * sum(1:N-1) do k
-                        rising(1 + α, 2k) / (2k + α - p) / factorial(2k) * y^(2k + α - p)
+                        rising(1 + α, 2k) / (2k + α - p) / factorial(2k) *
+                        (b^(2k + α - p) - a^(2k + α - p))
                     end
 
                 tail_lower = begin
-                    @assert Arblib.isnonnegative(y)
+                    @assert Arblib.isnonnegative(a) && Arblib.isnonnegative(b)
                     D = Arblib.Arblib.hypgeom_pfq_bound_factor!(
                         zero(Mag),
                         AcbVector([1 + α, α - p]),
                         2,
                         AcbVector([1 + α - p, 1]),
                         2,
-                        Acb(y),
+                        Acb(max(a, b)),
                         UInt(2N),
                     )
 
                     -abs(
-                        D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) * y^(2N + α - p),
+                        D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) *
+                        (b^(2N + α - p) - a^(2N + α - p)),
                     )
                 end
 
@@ -730,7 +747,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             end
         end
 
-    primitive_inv(t) = -inv(α - p) * hypgeom_2f1_helper(t)
+    primitive_inv(a, b) = -inv(α - p) * hypgeom_2f1_helper(a, b)
 
     return x::Arb -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -756,7 +773,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
         end
 
         # Integration from 1 to a
-        J1 = log(inv(Arb((1, a)))) * (primitive_inv(inv(a)) - primitive_inv(one(a)))
+        J1 = log(inv(Arb((1, a)))) * primitive_inv(one(a), inv(a))
 
         # Integration from a to b
         J2 = real(Arblib.integrate(integrand, a, b, rtol = 1e-5))
@@ -766,9 +783,8 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             subintervals = ArbExtras.bisect_interval_recursive(b, c, 4, log_midpoint = true)
 
             sum(subintervals) do subinterval
-                -Arb((log(subinterval[1]), log(subinterval[2]))) * (
-                    primitive_inv(inv(subinterval[2])) - primitive_inv(inv(subinterval[1]))
-                )
+                -Arb((log(subinterval[1]), log(subinterval[2]))) *
+                primitive_inv(inv(subinterval[1]), inv(subinterval[2]))
             end
         else
             zero(J1)
@@ -776,7 +792,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
 
         # Integration from c to π / xᵤ
         J4 = if iszero(xᵤ) || c < π / xᵤ
-            -log(c) * (primitive_inv(xᵤ / π) - primitive_inv(inv(c)))
+            -log(c) * primitive_inv(inv(c), xᵤ / π)
         else
             zero(J1)
         end
