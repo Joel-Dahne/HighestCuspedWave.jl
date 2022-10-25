@@ -264,6 +264,33 @@ and the integration from `1` to `π / x` separately. This is used in
 This is the same integral as when the weight is `x^p` and we can
 therefore use same method to compute it. This is a combination of the
 asymptotic version of `T01` and `T02` for that weight.
+
+# Improvements
+To get better enclosures we do some changes to better handle `α` close
+to `-1`. The main problem is the sum
+```
+c2 + d2 * abspow(x, 2 + α - p)
+```
+which has large cancellations. To handle this we split `d2` into two
+parts
+```
+d2_part1 = -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) / (Arb(π)^(2 + α - p))
+```
+and `d2_part2` is the rest. We then factor out `gamma(1 + α) *
+sinpi(-α / 2)` from both `c2` and `d2_part1`, giving us
+```
+c2_modified = (
+    gamma(-α) * gamma(α - p + 1) / gamma(-p) +
+    hypgeom_2f1(1 + α, α - p, 1 + α - p, -one(α)) -
+    2
+) / (α - p)
+d2_part1_modified = -(1 + α) * (2 + α) / (2 + α - p) / (Arb(π)^(2 + α - p))
+```
+and
+```
+c2 + d2_part1 * abspow(x, 2 + α - p) =
+    gamma(1 + α) * sinpi(-α / 2) * (c2_modified + d2_part1_modified * abspow(x, 2 + α - p))
+```
 """
 function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
     # This is required for the bound of the tail of d2
@@ -294,22 +321,19 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
             )
         )
 
-    c2 =
+    c2_modified =
         ArbExtras.extrema_enclosure(getinterval(α)..., degree = -1) do α
-            gamma(1 + α) *
-            sinpi(-α / 2) *
             (
-                (
-                    gamma(-α) * gamma(α - p + 1) / gamma(-p) +
-                    (hypgeom_2f1(1 + α, α - p, 1 + α - p, -one(α)) - 2)
-                ) / (α - p)
-            )
+                gamma(-α) * gamma(α - p + 1) / gamma(-p) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -one(α)) - 2
+            ) / (α - p)
         end |> Arb
 
     # c2 has a removable singularity for p = 1 and for some values of
     # α for p < 1. In practice we don't encounter these values because
     # those are covered by T0_p_one.
-    isfinite(c2) || @error "non-finite enclosure for c in _T0_bhkdv_12" α p
+    isfinite(c2_modified) ||
+        @error "non-finite enclosure for c2_modified in _T0_bhkdv_12" α p
 
     d1 = let N = 10, d1 = zero(α)
         # Sum first N - 1 terms
@@ -349,12 +373,42 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
         d2
     end
 
+    d2_part1_modified = ArbExtras.enclosure_series(α) do α
+        -(1 + α) * (2 + α) / (2 + α - p) / (Arb(π)^(2 + α - p))
+    end
+
+    d2_part2 = let N = 30, d2 = zero(α)
+        # Sum first N - 1 terms
+        d2 +=
+            2Arb(π)^(p - 1) * sum(1:N-1) do m
+                (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) * sum(
+                    binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1
+                )
+            end
+
+        # Enclose remainder
+        d2 +=
+            6Arb(π)^(p - 1) *
+            (3Arb(π) / 2)^(2N) *
+            clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
+
+        d2
+    end
+
     return x::Arb -> begin
         @assert x <= ϵ
+
+        part1 = c1 + d1 * abspow(x, 3 + α)
+        part2 =
+            gamma(1 + α) *
+            sinpi(-α / 2) *
+            (c2_modified + d2_part1_modified * abspow(x, 2 + α - p)) +
+            d2_part2 * abspow(x, 2 + α - p)
+
         if return_parts
-            return (c1 + d1 * abspow(x, 3 + α)), (c2 + d2 * abspow(x, 2 + α - p))
+            return part1, part2
         else
-            return c1 + c2 + d1 * abspow(x, 3 + α) + d2 * abspow(x, 2 + α - p)
+            return part1 + part2
         end
     end
 end
