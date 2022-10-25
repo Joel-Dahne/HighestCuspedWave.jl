@@ -15,6 +15,60 @@ _integrand_I_hat(x, t, α) =
     clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 
 """
+    _integrand_I_hat_series(x::Arb, t::Arb, α::Arb; M = 5)
+    _integrand_I_hat_series(x::Arb, t::Arb, α::Arb, C::Arb, P::ArbSeries, E::Arb)
+
+Compute
+```
+clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+which is part of the integrand of `T01`, by expanding the Clausen
+functions at zero.
+
+It only supports `t > 0`.
+
+In general this gives better enclosures than
+[`_integrand_I_hat`](@ref) when `x` is small.
+
+The version with `M` automatically computes the expansion, using `M`
+terms. The version with `C, P, E` can be used with a precomputed
+expansion. In that case they should be computed as
+```
+C, _, P, E = clausenc_expansion(x * (1 + t), -α, M, skip_constant = true)
+```
+Alternatively you can precompute `C` and `P`, which don't depend on
+`x` and `t` as above and then compute
+```
+E = clausenc_expansion_remainder(x * (1 + t), -α, M)
+```
+
+**IMPROVE:** Look at using this as the default version for small
+values of `x`.
+**IMPROVE:** Reduce number of allocations.
+"""
+function _integrand_I_hat_series(x::Arb, t::Arb, α::Arb; M = 5)
+    C, _, P, E = clausenc_expansion(x * (1 + t), -α, M, skip_constant = true)
+
+    return _integrand_I_hat_series(x, t, α, C, P, E)
+end
+
+function _integrand_I_hat_series(x::Arb, t::Arb, α::Arb, C::Arb, P::ArbSeries, E::Arb)
+    M = Arblib.degree(P) ÷ 2 + 1
+
+    res = C * ArbExtras.enclosure_series(-α - 1, degree = 2) do e
+        x^e * (abs(1 - t)^e + (1 + t)^e - 2t^e)
+    end
+
+    for m = 1:M-1
+        res += P[2m] * x^2m * ((1 - t)^2m + (1 + t)^2m - 2t^2m)
+    end
+
+    res += E * x^2M * ((1 - t)^2M + (1 + t)^2M - 2t^2M)
+
+    return res
+end
+
+"""
     _integrand_I_hat_dt(x, t, α)
 
 Compute the function [`_integrand_I_hat`](@ref) differentiated once

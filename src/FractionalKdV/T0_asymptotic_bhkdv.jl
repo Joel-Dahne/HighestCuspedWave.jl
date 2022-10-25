@@ -203,19 +203,32 @@ function _T0_bhkdv_I1(α, p, ϵ)
 
             # Integral from a to π / x
 
-            # IMPROVE: It is very slow to use enclosure_series in the
-            # integrand. Consider optimizing _integrand_I_hat for wide
-            # values of x.
+            # Precompute expansion to use when computing integrand
+            M = 10
+            C, _, P, _ = clausenc_expansion(Arb(0), -α, M, skip_constant = true)
+
             integrand(t) =
-                if isreal(t) && !iswide(real(t))
-                    ArbExtras.enclosure_series(x, degree = 8) do x
-                        _integrand_I_hat(x, real(t), α) *
+                if isreal(t)
+                    if x * (1 + real(t)) < 2Arb(π)
+                        E = clausenc_expansion_remainder(x * (1 + real(t)), -α, M)
+                        _integrand_I_hat_series(x, real(t), α, C, P, E) *
                         real(t)^p *
                         log(1 + 2Arb(ℯ) * x * real(t))
+                    else
+                        # In some cases when x and t is wide we get
+                        # that x * (1 + real(t)) < 2Arb(π) and the
+                        # remainder term is unbounded. In this cases
+                        # fall back to direct evaluation.
+                        ArbExtras.enclosure_series(x, degree = 8) do x
+                            _integrand_I_hat(x, real(t), α) *
+                            real(t)^p *
+                            log(1 + 2Arb(ℯ) * x * real(t))
+                        end
                     end
                 else
                     _integrand_I_hat(x, t, α) * t^p * log(1 + 2Arb(ℯ) * x * t)
                 end
+
             part22_lower = real(
                 Arblib.integrate(
                     integrand,
