@@ -273,7 +273,7 @@ function H(u0::FractionalKdVAnsatz, ::Ball)
 
         if u0.use_bhkdv
             s = 1 - 2u0.α
-            res -= u0.a[0] * (clausencmzeta(x, s) - clausencmzeta(x, s + u0.p0))
+            res -= u0.a[0] * clausencmzeta_diff(x, s, u0.p0)
         else
             s = 1 - 2u0.α
             res -= u0.a[0] * clausencmzeta(x, s)
