@@ -275,6 +275,9 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
 
     r = _integrand_compute_root(FractionalKdVAnsatz, zero(α), α)
 
+    # It is important to get good enclosures of both c1 and c2 for
+    # wide values of α. For c1 this is done by rewriting it to work
+    # better for α close to -1 and for c2 by bisection.
     c1 =
         gamma(1 + α) *
         sinpi(-α / 2) *
@@ -282,20 +285,26 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
             2 / (α - p) +
             gamma(-α) * gamma(1 + p) / gamma(1 - α + p) +
             hypgeom_2f1(1 + α, 1 + p, 2 + p, -one(α)) / (1 + p) -
-            2r^p * (
-                2r^-α / (α - p) +
-                r * hypgeom_2f1(1 + α, 1 + p, 2 + p, -r) / (1 + p) +
-                r * hypgeom_2f1(1 + α, 1 + p, 2 + p, r) / (1 + p)
+            2r^(1 + p) * (
+                2r^(-α - 1) / (α - p) +
+                (
+                    hypgeom_2f1(1 + α, 1 + p, 2 + p, -r) +
+                    hypgeom_2f1(1 + α, 1 + p, 2 + p, r)
+                ) / (1 + p)
             )
         )
 
     c2 =
-        gamma(1 + α) *
-        sinpi(-α / 2) *
-        (
-            gamma(-α) * gamma(α - p) / gamma(-p) +
-            (hypgeom_2f1(1 + α, α - p, 1 + α - p, -one(α)) - 2) / (α - p)
-        )
+        ArbExtras.extrema_enclosure(getinterval(α)..., degree = -1) do α
+            gamma(1 + α) *
+            sinpi(-α / 2) *
+            (
+                (
+                    gamma(-α) * gamma(α - p + 1) / gamma(-p) +
+                    (hypgeom_2f1(1 + α, α - p, 1 + α - p, -one(α)) - 2)
+                ) / (α - p)
+            )
+        end |> Arb
 
     # c2 has a removable singularity for p = 1 and for some values of
     # α for p < 1. In practice we don't encounter these values because
@@ -318,9 +327,10 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
     end
 
     d2 = let N = 30, d2 = zero(α)
-        d2 +=
+        d2 += ArbExtras.enclosure_series(α) do α
             -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) /
             (Arb(π)^(2 + α - p))
+        end
 
         # Sum first N - 1 terms
         d2 +=
