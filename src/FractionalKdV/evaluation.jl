@@ -71,18 +71,22 @@ clausencmzeta(x, s) - clausencmzeta(x, s + ϵ)
 ```
 in a way that works well when `ϵ` is small.
 
-At the moment the only optimization is that for wide values of `x` it
-uses a zero order approximation to get better enclosures.
+It first uses a zero order approximation in `x` and for computing that
+it uses a zero order approximation in `s`.
 """
 clausencmzeta_diff(x, s, ϵ) = clausencmzeta(x, s) - clausencmzeta(x, s + ϵ)
 
 function clausencmzeta_diff(x::Arb, s::Arb, ϵ::Arb)
     if iswide(x)
-        # Use a zero order approximation
-        deriv = -(clausens(x, s - 1) - clausens(x, s + ϵ - 1))
-        mid = midpoint(Arb, x)
-        res =
-            add_error(clausencmzeta(mid, s) - clausencmzeta(mid, s + ϵ), (x - mid) * deriv)
+        # Use a zero order approximation in x
+        deriv_x = -(clausens(x, s - 1) - clausens(x, s + ϵ - 1))
+        mid_x = midpoint(Arb, x)
+        res = add_error(clausencmzeta_diff(mid_x, s, ϵ), (x - mid_x) * deriv_x)
+    elseif iswide(s)
+        # Use a zero order approximation in s
+        deriv_s = clausencmzeta(x, s, 1) - clausencmzeta(x, s + ϵ, 1)
+        mid_s = midpoint(Arb, s)
+        res = add_error(clausencmzeta_diff(x, mid_s, ϵ), (s - mid_s) * deriv_s)
     else
         res = clausencmzeta(x, s) - clausencmzeta(x, s + ϵ)
     end
