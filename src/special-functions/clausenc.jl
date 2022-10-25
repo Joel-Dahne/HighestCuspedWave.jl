@@ -338,6 +338,11 @@ function _clausenc_zeta(x::Arb, s::ArbSeries)
     Arblib.ispositive(onemxinv2pi) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
+    if s[0] > 0 && is_approx_integer(s[0])
+        s = copy(s)
+        s[0] = union(s[0], Arb(round(Float64(s[0]))))
+    end
+
     v = 1 - s
 
     s0 = s[0]
