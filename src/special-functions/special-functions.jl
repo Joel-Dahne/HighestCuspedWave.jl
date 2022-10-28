@@ -417,7 +417,7 @@ function abspow(x::Arb, y::ArbSeries)
                 res[2] = term / 2
             end
         end
-        deg >= 3 && error("supports degree at most 3")
+        deg >= 3 && error("supports degree at most 2")
 
         return res
     end
