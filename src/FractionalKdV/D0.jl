@@ -100,7 +100,7 @@ function D0_bounded_by(
         ubound(Arb(π)),
         C,
         degree = -1,
-        depth_start = 8;
+        depth_start = ifelse(iswide(u0.α), 8, 7);
         maxevals,
         threaded,
         verbose,
