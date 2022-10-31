@@ -182,7 +182,7 @@ end
     read_proof_data_dir(dirname)
     read_proof_data_dir(dirnames::AbstractVector)
 
-Read data from all files in the given directory using
+Read data from all csv-files in the given directory using
 [`read_proof_data_dir`](@ref) and concatenate them into one dataframe.
 The rows are sorted by `α`.
 
@@ -190,7 +190,7 @@ If a vector of directory names are given then read from all files in
 all of those directories.
 """
 function read_proof_data_dir(dirname; check = true)
-    filenames = readdir(dirname, join = true)
+    filenames = filter(endswith(".csv"), readdir(dirname, join = true))
     datas = read_proof_data.(filenames; check)
     data = vcat(datas...)
 
