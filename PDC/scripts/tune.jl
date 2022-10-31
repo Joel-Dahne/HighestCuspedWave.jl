@@ -42,7 +42,7 @@ function run(
     return t1, t2
 end
 
-pool = create_workers()
+pool = create_workers(verbose = true)
 @everywhere begin
     using Pkg
     Pkg.activate(".")

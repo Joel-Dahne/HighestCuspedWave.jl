@@ -1,7 +1,8 @@
 function create_workers(
     nw = nw = parse(Int, get(ENV, "SLURM_NTASKS", "1")),
     nt = parse(Int, get(ENV, "SLURM_CPUS_PER_TASK", "1"));
-    verbose = true,
+    use_slurm = haskey(ENV, "SLURM_JOB_ID"),
+    verbose = false,
 )
 
     if verbose
@@ -13,7 +14,12 @@ function create_workers(
     # Launch worker processes
     ENV["JULIA_NUM_THREADS"] = nt
     ENV["JULIA_WORKER_TIMEOUT"] = 300
-    addprocs(SlurmManager(nw))
+
+    if use_slurm
+        addprocs(SlurmManager(nw))
+    else
+        addprocs(nw)
+    end
 
     if verbose
         println("Number of processes: ", nprocs())

@@ -50,7 +50,7 @@ function benchmark_map(
     return data
 end
 
-pool = create_workers()
+pool = create_workers(verbose = true)
 @everywhere begin
     using Pkg
     Pkg.activate(".")
