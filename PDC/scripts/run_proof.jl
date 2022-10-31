@@ -31,10 +31,6 @@ end
 
 pool = create_workers(verbose = true)
 @everywhere begin
-    using Pkg
-    Pkg.activate(".")
-end
-@everywhere begin
     using Arblib, HighestCuspedWave
     setprecision(Arb, 100)
 end

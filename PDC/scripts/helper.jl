@@ -12,6 +12,7 @@ function create_workers(
     end
 
     # Launch worker processes
+    ENV["JULIA_PROJECT"] = Base.active_project()
     ENV["JULIA_NUM_THREADS"] = nt
     ENV["JULIA_WORKER_TIMEOUT"] = 300
 
