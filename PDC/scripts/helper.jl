@@ -16,7 +16,10 @@ function create_workers(
     ENV["JULIA_WORKER_TIMEOUT"] = 300
 
     if use_slurm
-        addprocs(SlurmManager(nw))
+        # Give the current sysimage explicitly. The SlurmManager
+        # doesn't handle it by itself.
+        sysimage = unsafe_string(Base.JLOptions().image_file)
+        addprocs(SlurmManager(nw), exeflags = "--sysimage=$sysimage")
     else
         addprocs(nw)
     end
