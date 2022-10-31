@@ -60,30 +60,9 @@ end
 dirname = "PDC/data/tune/tune-$(round(Dates.now(), Second))"
 
 @show start stop m dirname
-flush(stdout)
-
-println("Compiling")
-flush(stdout)
-
-# Limits must be changed if subdivisions are changed!
-if start == stop
-    # Only running for one value, so compile that one
-    # IMPROVE: Maybe this one is very slow, in that case we would
-    # prefer to compile another one possibly.
-    @time run(start, nworkers(), save = false)
-elseif start >= 11
-    # Only uses u0.p = 1 so only compile that version, which is very
-    # fast
-    @time run(12, nworkers(), save = false)
-else
-    # This is one of the faster ones with u0.p != 0
-    @time run(6, nworkers(), save = false)
-end
-
 println("Starting computations")
 flush(stdout)
 
-# Make the path after compilation so it doesn't get created if it fails
 mkpath(dirname)
 
 t1s = OrderedDict{Int,Float64}()

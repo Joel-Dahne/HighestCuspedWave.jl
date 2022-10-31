@@ -44,18 +44,9 @@ start, stop, m = read_args()
 dirname = "PDC/data/proof/proof-$(round(Dates.now(), Second))"
 
 @show start stop m dirname
-flush(stdout)
-
-println("Compiling")
-flush(stdout)
-
-# Run
-@time run_proof(start, nworkers(), save = false)
-
 println("Starting computations")
 flush(stdout)
 
-# Make the path after compilation so it doesn't get created if it fails
 mkpath(dirname)
 
 for subdivision = start:stop
