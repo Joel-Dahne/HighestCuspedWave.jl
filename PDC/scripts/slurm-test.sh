@@ -12,4 +12,4 @@
 #SBATCH -e PDC/logs/slurm_test.e
 #SBATCH -o PDC/logs/slurm_test.o
 
-/cfs/klemming/projects/snic/highest-cusped-wave/julia-1.8.2/bin/julia --project=. PDC/scripts/slurm-test.jl
+julia --project=. PDC/scripts/slurm-test.jl
