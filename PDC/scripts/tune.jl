@@ -57,7 +57,7 @@ if isnothing(m)
     m = nworkers() # We want a different default value for m
 end
 
-dirname = "PDC/data/tune-$(round(Dates.now(), Second))"
+dirname = "PDC/data/tune/tune-$(round(Dates.now(), Second))"
 
 @show start stop m dirname
 flush(stdout)

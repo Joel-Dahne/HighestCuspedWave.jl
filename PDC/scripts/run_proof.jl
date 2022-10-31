@@ -41,7 +41,7 @@ end
 
 start, stop, m = read_args()
 
-dirname = "PDC/data/proof-$(round(Dates.now(), Second))"
+dirname = "PDC/data/proof/proof-$(round(Dates.now(), Second))"
 
 @show start stop m dirname
 flush(stdout)
