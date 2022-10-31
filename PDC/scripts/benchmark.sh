@@ -12,4 +12,4 @@
 #SBATCH -o PDC/logs/benchmark.o
 #SBATCH -e PDC/logs/benchmark.e
 
-julia --project=. PDC/scripts/benchmark.jl $1 $2
+julia --project=. PDC/scripts/benchmark.jl "$@"

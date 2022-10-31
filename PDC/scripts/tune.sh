@@ -12,4 +12,4 @@
 #SBATCH -o PDC/logs/tune.o
 #SBATCH -e PDC/logs/tune.e
 
-julia --project=. PDC/scripts/tune.jl $1 $2 $3
+julia --project=. PDC/scripts/tune.jl "$@"

@@ -12,4 +12,4 @@
 #SBATCH -o PDC/logs/run_proof.o
 #SBATCH -e PDC/logs/run_proof.e
 
-julia --project=. PDC/scripts/run_proof.jl $1 $2 $3
+julia --project=. PDC/scripts/run_proof.jl "$@"
