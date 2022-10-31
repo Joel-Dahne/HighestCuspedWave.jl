@@ -12,4 +12,9 @@
 #SBATCH -o PDC/logs/run_proof.o
 #SBATCH -e PDC/logs/run_proof.e
 
-julia --project=. PDC/scripts/run_proof.jl "$@"
+# Use precompiled sysimage if it exists
+if test -f $HOME/.julia/sysimages/HighestCuspedWave.so ; then
+    time julia --sysimage=$HOME/.julia/sysimages/HighestCuspedWave.so --project=. PDC/scripts/run_proof.jl "$@"
+else
+    time julia --project=. PDC/scripts/run_proof.jl "$@"
+fi

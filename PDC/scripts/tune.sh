@@ -12,4 +12,9 @@
 #SBATCH -o PDC/logs/tune.o
 #SBATCH -e PDC/logs/tune.e
 
-julia --project=. PDC/scripts/tune.jl "$@"
+# Use precompiled sysimage if it exists
+if test -f $HOME/.julia/sysimages/HighestCuspedWave.so ; then
+    time julia --sysimage=$HOME/.julia/sysimages/HighestCuspedWave.so --project=. PDC/scripts/tune.jl "$@"
+else
+    time julia --project=. PDC/scripts/tune.jl "$@"
+fi
