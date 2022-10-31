@@ -206,7 +206,11 @@ function proof_interval_subdivisions_mince(i, m = nothing; thin = false)
         m = min(m, n)
     end
 
-    indices = round.(Int, range(1, n, m))
+    if m == 1
+        indices = [1]
+    else
+        indices = round.(Int, range(1, n, m))
+    end
 
     αs = mince(Arb((a, b)), n)[indices]
 
