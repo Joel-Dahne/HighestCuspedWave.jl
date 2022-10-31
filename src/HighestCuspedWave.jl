@@ -10,6 +10,7 @@ using Folds
 using DataFrames
 using Tables
 using CSV
+using Transducers
 
 include("fmpz.jl")
 include("arb.jl")

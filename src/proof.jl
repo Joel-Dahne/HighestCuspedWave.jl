@@ -65,6 +65,10 @@ The mapping over `αs` is done using [`Folds.map`](@ref) and can
 therefore be run on several threads or processes, see the `executor`
 argument.
 
+It reports on progress using [`Transducers.withprogress`](@ref). This
+is unfortunately not supported using the [`Folds`](@ref) interface and
+we therefore manually call the underlying transducers.
+
 # Arguments
 - `M`, `only_estimate_D0`, `D0_maxevals`, `threaded`: Same as for
   method accepting a single `α`.
@@ -92,7 +96,7 @@ function prove(
         threaded &&
         @warn "Using threaded executor with threading enabled"
 
-    res = Folds.map(αs, executor) do α
+    xf = Map() do α
         HighestCuspedWave.prove(
             α,
             verbose = false,
@@ -102,6 +106,17 @@ function prove(
             D0_maxevals,
             threaded,
         )
+    end
+
+    itr = withprogress(αs, interval = 1)
+
+    # Manually pick the collect to use depending on the executor
+    if executor isa DistributedEx
+        res = dcollect(xf, itr, basesize = executor.kwargs[:basesize])
+    elseif executor isa ThreadedEx
+        res = tcollect(xf, itr, basesize = executor.kwargs[:basesize])
+    else
+        res = collect(xf, itr)
     end
 
     return DataFrame(res)
