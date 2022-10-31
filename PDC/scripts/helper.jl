@@ -1,3 +1,9 @@
+# Setup TerminalLogger which works with the progress logging
+using Logging: global_logger
+using TerminalLoggers: TerminalLogger
+# Set always_flush to true to get a smooth progress bar
+global_logger(TerminalLogger(always_flush = true))
+
 function create_workers(
     nw = nw = parse(Int, get(ENV, "SLURM_NTASKS", "1")),
     nt = parse(Int, get(ENV, "SLURM_CPUS_PER_TASK", "1"));
