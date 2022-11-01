@@ -188,7 +188,8 @@ function (u0::FractionalKdVAnsatz{Arb})(
         C1, _, p1, E1 = clausenc_expansion(x, s, M)
         C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
         if !bhkdv_skip_main
-            # See the argument u0_skipped_u0_main to eval_expansion
+            # See the argument u0_skipped_u0_main to eval_expansion as
+            # well as _F0_bhkdv
             res[(1, 0, 0)] += C1 * u0.a[0]
             res[(1, 1, 0)] += -C2 * u0.a[0]
         end
@@ -301,7 +302,13 @@ function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) where {T}
+function H(
+    u0::FractionalKdVAnsatz{Arb},
+    ::AsymptoticExpansion;
+    M::Integer = 5,
+    bhkdv_skip_main = false, # See _F0_bhkdv for use
+    bhkdv_skip_singular_j_until = 0, # See _F0_bhkdv for use
+)
     return x -> begin
         res = OrderedDict{NTuple{3,Int},Arb}()
 
@@ -317,9 +324,11 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
             s = 1 - 2u0.α
             C1, _, p1, E1 = clausenc_expansion(x, s, M)
             C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
-            res[(2, 0, 0)] -= C1 * u0.a[0]
-            res[(2, 1, 0)] -= -C2 * u0.a[0]
-            for m = 1:M-1
+            if !bhkdv_skip_main
+                res[(2, 0, 0)] -= C1 * u0.a[0]
+                res[(2, 1, 0)] -= -C2 * u0.a[0]
+            end
+            for m = ifelse(bhkdv_skip_main, 2, 1):M-1
                 res[(0, 0, 2m)] -= (p1[2m] - p2[2m]) * u0.a[0]
             end
             Arblib.add_error!(res[(0, 0, 2M)], (E1 - E2) * u0.a[0])
@@ -351,7 +360,9 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
             # Check for the special case when s overlaps with an odd
             # integer.
             contains_int, n = unique_integer(s)
-            if contains_int && isodd(n)
+            if contains_int &&
+               isodd(n) &&
+               !(u0.use_bhkdv && j <= bhkdv_skip_singular_j_until)
                 # The term corresponding to C and p[2((n - 1) ÷ 2)]
                 # coincides and diverge so are handled separately. The
                 # rest we treat normally.
@@ -372,8 +383,11 @@ function H(u0::FractionalKdVAnsatz{T}, ::AsymptoticExpansion; M::Integer = 5) wh
                 D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
                 res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - D * u0.a[j]
             else
-                res[(2, j, 0)] -= C * u0.a[j]
-                for m = 1:M-1
+                if !(u0.use_bhkdv && j <= bhkdv_skip_singular_j_until)
+                    res[(2, j, 0)] -= C * u0.a[j]
+                    res[(0, 0, 2)] -= p[2] * u0.a[j]
+                end
+                for m = 2:M-1
                     res[(0, 0, 2m)] -= p[2m] * u0.a[j]
                 end
             end
@@ -464,6 +478,8 @@ computes the expansion of `D(u0)(x)` and explicitly cancels the
 division by `x^(u0.p - u0.α)`.
 """
 function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
+    u0.use_bhkdv && return _F0_bhkdv(u0, Asymptotic(); M, ϵ)
+
     Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
@@ -472,6 +488,207 @@ function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb 
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
         res = eval_expansion(u0, Du0_expansion, x, offset = -u0.p, offset_i = -1)
+
+        return res * inv_u0(x) * u0.xpdivw(x)
+    end
+end
+
+"""
+    _F0_bhkdv(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 5, ϵ = one(Arb), bhkdv_skip_singular_j_until::Integer = 100,)
+
+Implementation of [`F0`](@ref) when `u0.use_bhkdv` is true.
+
+# Arguments
+- `M::Integer` determines the number of terms in the asymptotic
+  expansions.
+- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+  is valid.
+- `bhkdv_skip_singular_j_until::Integer = 100` is used to determine
+  the number of terms in the expansion of `H(u0)` to threat
+  separately. See the implementation below for details on how it is
+  used.
+
+# Implementation
+Similarly to the default version it splits `F0(u0)` as
+```
+inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (D(u0)(x) / x^(u0.p - u0.α))
+```
+It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref)
+and `x^u0.p / u0.w(x)` using `w.xpdivw`. The difference is in how the
+third factor is handled.
+
+We have that
+```
+D(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
+```
+To compute it we split `u0` into two parts and `H(u0)` into three
+parts.
+
+## Parts of `u0`
+For `u0` the first part is the two singular terms in the expansion of
+```
+a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
+```
+Given by
+```
+u0_part1 = a0 * (C1 - C2 * x^p0) * x^-α
+```
+with `C1 = gamma(α) * sinpi((1 - α) / 2)` and `C2 = gamma(α - p0) *
+sinpi((1 - α + p0) / 2)`. The second part is the remaining terms in
+the expansion, computed using `bhkdv_skip_main = true`.
+
+## Parts of `H(u0)`
+For `H(u0)` the first part is the two singular terms and the `x^2`
+term in the expansion of
+```
+-a0 * (clausencmzeta(x, 1 - 2α) - clausencmzeta(x, 1 - 2α + p0))
+```
+Given by
+```
+Hu0_part1 = -a0 * (C3 - C4 * x^p0 + K * x^(2 + 2α)) * x^(-2α)
+```
+with `C3 = gamma(2α) * sinpi((1 - 2α) / 2)`, `C4 = gamma(2α - p0) *
+sinpi((1 - 2α + p0) / 2)` and `K = -(zeta(-1 - 2α) - zeta(-1 - 2α +
+p0)) / 2`. The second part is the singular term and the `x^2` term in
+the expansion of
+```
+-u0.a[j] * clausencmzeta(x, 1 - 2α + j * p0)
+```
+for `j` from `1` to `bhkdv_skip_singular_j_until`. Given by
+```
+Hu0_part2 = -sum(1:bhkdv_skip_singular_j_until) do j
+    s = 1 - 2α + j * p0
+
+    (
+        gamma(1 - s) * sinpi(s / 2) * abspow(x, s - 1) -
+        zeta(s - 2) / 2 * abspow(x, 2)
+    ) * u0.a[j]
+end
+```
+The third part is given by all the remaining terms in the expansion,
+computed using `bhkdv_skip_main = true` and
+`bhkdv_skip_singular_j_until`.
+
+## Putting the parts together
+With the above split of `u0` and `H(u0)` we can write `D(u0)` as
+```
+D(u0)(x) = u0_part1(x)^2 / 2 + u0_part1(x) * u0_part2(x) + u0_part2(x)^2 / 2 +
+    Hu0_part1(x) + Hu0_part2(x) + Hu0_part3(x)
+```
+We group the terms into two parts
+```
+part1 = u0_part1(x)^2 / 2 + Hu0_part1(x)
+part2 = u0_part1(x) * u0_part2(x) + u0_part2(x)^2 / 2 + Hu0_part2(x) + Hu0_part3(x)
+```
+
+## Computing `part1 / x^(p - α)`
+We have that
+```
+part1 = u0_part1(x)^2 / 2 + Hu0_part1(x)
+    = a0^2 * (C1 - C2 * x^p0)^2 * x^(-2α) / 2 - a0 * (C3 - C4 * x^p0 + K * x^(2 + 2α)) * x^(-2α)
+    = a0 * (
+    a0 * C1^2 / 2 - C3
+    - (a0 * C1 * C2 - C4) * x^p0
+    + a0 * C2^2 / 2 * x^2p0
+    - K * x^(2 + 2α)
+) * x^(-2α)
+```
+By construction `a0` is taken such that `a0 * C1^2 / 2 - C3 = 0`. This
+leaves us with
+```
+part1 = a0 * (
+    - (a0 * C1 * C2 - C4)
+    + a0 * C2^2 / 2 * x^p0
+    - K * x^(2 + 2α - p0)
+) * x^(-2α + p0)
+```
+**TODO:** Improve the computed enclosure by expanding everything in
+`α`, including `a0`.
+
+## Computing `part2 / x^(p - α)`
+We compute it by splitting it in the following way
+```
+(u0_part1(x) / x^-α) * (u0_part2(x) / x^p) +
+(u0_part2(x) / x^p) * (u0_part2(x) / x^-α) / 2 +
+Hu0_part2(x) / x^(p - α) +
+Hu0_part3(x) / x^(p - α)
+```
+Both `u0_part2` and `Hu0_part3` give decent enclosures directly. For
+`u0_part1` and `Hu0_part2` we need to extra care to get good
+enclosures.
+**TODO:** Take care of `u0_part1` and `Hu0_part2` so that they give
+good enough enclosures.
+"""
+function _F0_bhkdv(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 5,
+    ϵ::Arb = Arb(1),
+    bhkdv_skip_singular_j_until::Integer = 100,
+)
+    @assert u0.use_bhkdv
+
+    u0_expansion = u0(ϵ, AsymptoticExpansion(), bhkdv_skip_main = true; M)
+    Hu0_expansion =
+        H(u0, AsymptoticExpansion(), bhkdv_skip_main = true; M, bhkdv_skip_singular_j_until)(
+            ϵ,
+        )
+
+    inv_u0 = inv_u0_normalised(u0; M, ϵ)
+
+    C1 = clausenc_expansion(Arb(0), 1 - u0.α, 3)[1]
+    C2 = clausenc_expansion(Arb(0), 1 - u0.α + u0.p0, 3)[1]
+
+    C3 = clausenc_expansion(Arb(0), 1 - 2u0.α, 3)[1]
+    C4 = clausenc_expansion(Arb(0), 1 - 2u0.α + u0.p0, 3)[1]
+
+    K = ArbExtras.enclosure_series(1 - 2u0.α) do s
+        -(zeta(s - 2) - zeta(s + u0.p0 - 2)) / 2
+    end
+
+    @assert Arblib.overlaps(u0.a[0] * C1^2 / 2, C3)
+
+    return x::Union{Arb,ArbSeries} -> begin
+        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
+
+        # u0_part1 / x^-α
+        u0_part1_divα = u0.a[0] * (C1 - C2 * abspow(x, u0.p0))
+        # u0_part2 / x^p
+        u0_part2_divp = eval_expansion(u0, u0_expansion, x, offset = -u0.p)
+        # u0_part2 / x^-α
+        u0_part2_divα = eval_expansion(u0, u0_expansion, x, offset_i = -1)
+
+        # Hu0_part2 / x^(p - α)
+        Hu0_part2_divpα =
+            -sum(1:min(bhkdv_skip_singular_j_until, u0.N0), init = zero(x)) do j
+                s = 1 - 2u0.α + j * u0.p0
+
+                (
+                    gamma(1 - s) * sinpi(s / 2) * abspow(x, -u0.α + j * u0.p0 - u0.p) -
+                    zeta(s - 2) / 2 * abspow(x, 2 + u0.α - u0.p)
+                ) * u0.a[j]
+            end
+        # Hu0_part3 / x^(p - α)
+        Hu0_part3_divpα =
+            eval_expansion(u0, Hu0_expansion, x, offset = -u0.p, offset_i = -1)
+
+        # part1 / x^(u0.p - u0.α)
+        part1_divpα =
+            u0.a[0] *
+            (
+                -(u0.a[0] * C1 * C2 - C4) + u0.a[0] * C2^2 / 2 * abspow(x, u0.p0) -
+                K * abspow(x, 2 + 2u0.α - u0.p0)
+            ) *
+            abspow(x, -u0.α + u0.p0 - u0.p)
+
+        # part2 / x^(u0.p - u0.α)
+        part2_divpα =
+            u0_part1_divα * u0_part2_divp +
+            u0_part2_divp * u0_part2_divα / 2 +
+            Hu0_part2_divpα +
+            Hu0_part3_divpα
+
+        res = part1_divpα + part2_divpα
 
         return res * inv_u0(x) * u0.xpdivw(x)
     end
