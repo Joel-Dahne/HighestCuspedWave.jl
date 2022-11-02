@@ -524,6 +524,16 @@ D(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
 To compute it we split `u0` into two parts and `H(u0)` into three
 parts.
 
+For this we let
+```
+c(s) = gamma(s) * cospi(s / 2)
+```
+Note that this has a removable singularity at `s = -1` and to compute
+better enclosures it is beneficial to rewrite it as
+```
+c(s) = π * gamma(s + 2) * sinc((1 + s) / 2) / 2s
+```
+
 ## Parts of `u0`
 For `u0` the first part is the two singular terms in the expansion of
 ```
@@ -531,11 +541,10 @@ a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
 ```
 Given by
 ```
-u0_part1 = a0 * (C1 - C2 * x^p0) * x^-α
+u0_part1 = a0 * (c(α) - c(α - p0) * x^p0) * x^-α
 ```
-with `C1 = gamma(α) * sinpi((1 - α) / 2)` and `C2 = gamma(α - p0) *
-sinpi((1 - α + p0) / 2)`. The second part is the remaining terms in
-the expansion, computed using `bhkdv_skip_main = true`.
+The second part is the remaining terms in the expansion, computed
+using `bhkdv_skip_main = true`.
 
 ## Parts of `H(u0)`
 For `H(u0)` the first part is the two singular terms and the `x^2`
@@ -545,12 +554,10 @@ term in the expansion of
 ```
 Given by
 ```
-Hu0_part1 = -a0 * (C3 - C4 * x^p0 + K * x^(2 + 2α)) * x^(-2α)
+Hu0_part1 = -a0 * (c(2α) - c(2α - p0) * x^p0 + K * x^(2 + 2α)) * x^(-2α)
 ```
-with `C3 = gamma(2α) * sinpi((1 - 2α) / 2)`, `C4 = gamma(2α - p0) *
-sinpi((1 - 2α + p0) / 2)` and `K = -(zeta(-1 - 2α) - zeta(-1 - 2α +
-p0)) / 2`. The second part is the singular term and the `x^2` term in
-the expansion of
+with `K = -(zeta(-1 - 2α) - zeta(-1 - 2α + p0)) / 2`. The second part
+is the singular term and the `x^2` term in the expansion of
 ```
 -u0.a[j] * clausencmzeta(x, 1 - 2α + j * p0)
 ```
@@ -585,25 +592,25 @@ part2 = u0_part1(x) * u0_part2(x) + u0_part2(x)^2 / 2 + Hu0_part2(x) + Hu0_part3
 We have that
 ```
 part1 = u0_part1(x)^2 / 2 + Hu0_part1(x)
-    = a0^2 * (C1 - C2 * x^p0)^2 * x^(-2α) / 2 - a0 * (C3 - C4 * x^p0 + K * x^(2 + 2α)) * x^(-2α)
+    = a0^2 * (c(α) - c(α - p0) * x^p0)^2 * x^(-2α) / 2
+      - a0 * (c(2α) - c(2α - p0) * x^p0 + K * x^(2 + 2α)) * x^(-2α)
     = a0 * (
-    a0 * C1^2 / 2 - C3
-    - (a0 * C1 * C2 - C4) * x^p0
-    + a0 * C2^2 / 2 * x^2p0
-    - K * x^(2 + 2α)
-) * x^(-2α)
+        a0 * c(α)^2 / 2 - c(2α)
+        - (a0 * c(α) * c(α - p0) - c(2α - p0)) * x^p0
+        + a0 * c(α - p0)^2 / 2 * x^2p0
+        - K * x^(2 + 2α)
+      ) * x^(-2α)
 ```
-By construction `a0` is taken such that `a0 * C1^2 / 2 - C3 = 0`. This
-leaves us with
+By construction `a0 = 2c(2α) / c(α)^2`, giving us `a0 * c(α)^2 / 2 -
+c(2α) = 0` and allows us to simplify it as
 ```
 part1 = a0 * (
-    - (a0 * C1 * C2 - C4)
-    + a0 * C2^2 / 2 * x^p0
-    - K * x^(2 + 2α - p0)
+    c(2α - p0) - c(2α) * c(α - p0) / c(α)
+    + c(2α) * (c(α - p0) / c(α))^2 / 2 * x^p0
+    + (zeta(-1 - 2α) - zeta(-1 - 2α + p0)) / 2 * x^(2 + 2α - p0)
 ) * x^(-2α + p0)
 ```
-**TODO:** Improve the computed enclosure by expanding everything in
-`α`, including `a0`.
+where we have inserted the value for `K`.
 
 ## Computing `part2 / x^(p - α)`
 We compute it by splitting it in the following way
@@ -636,23 +643,24 @@ function _F0_bhkdv(
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
-    C1 = clausenc_expansion(Arb(0), 1 - u0.α, 3)[1]
-    C2 = clausenc_expansion(Arb(0), 1 - u0.α + u0.p0, 3)[1]
-
-    C3 = clausenc_expansion(Arb(0), 1 - 2u0.α, 3)[1]
-    C4 = clausenc_expansion(Arb(0), 1 - 2u0.α + u0.p0, 3)[1]
-
-    K = ArbExtras.enclosure_series(1 - 2u0.α) do s
-        -(zeta(s - 2) - zeta(s + u0.p0 - 2)) / 2
-    end
-
-    @assert Arblib.overlaps(u0.a[0] * C1^2 / 2, C3)
+    # c(s) = gamma(s) * cospi(s / 2)
+    c(s) =
+        if (s isa ArbSeries && is_approx_integer(s[0]) && round(Float64(s[0])) == -1)
+            # _sinc performs poorly for wide arguments close to zero, it
+            # is better to slightly widen the argument to include zero
+            t = (1 + s) / 2
+            t[0] = union(t[0], Arb(0))
+            π * gamma(s + 2) * _sinc(t) / 2s
+        else
+            π * gamma(s + 2) * _sinc((1 + s) / 2) / 2s
+        end
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
         # u0_part1 / x^-α
-        u0_part1_divα = u0.a[0] * (C1 - C2 * abspow(x, u0.p0))
+        u0_part1_divα = u0.a[0] * (c(u0.α) - c(u0.α - u0.p0) * abspow(x, u0.p0))
+
         # u0_part2 / x^p
         u0_part2_divp = eval_expansion(u0, u0_expansion, x, offset = -u0.p)
         # u0_part2 / x^-α
@@ -675,11 +683,12 @@ function _F0_bhkdv(
         # part1 / x^(u0.p - u0.α)
         part1_divpα =
             u0.a[0] *
-            (
-                -(u0.a[0] * C1 * C2 - C4) + u0.a[0] * C2^2 / 2 * abspow(x, u0.p0) -
-                K * abspow(x, 2 + 2u0.α - u0.p0)
-            ) *
-            abspow(x, -u0.α + u0.p0 - u0.p)
+            abspow(x, -u0.α + u0.p0 - u0.p) *
+            ArbExtras.enclosure_series(u0.α, degree = 1) do α
+                c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) +
+                2c(2α) * (c(α - u0.p0) / c(α))^2 / 2 * abspow(x, u0.p0) +
+                (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 * abspow(x, 2 + 2α - u0.p0)
+            end
 
         # part2 / x^(u0.p - u0.α)
         part2_divpα =
