@@ -606,12 +606,23 @@ c(2α) = 0` and allows us to simplify it as
 ```
 part1 = 2c(2α) / c(α)^2 * (
     c(2α - p0) - c(2α) * c(α - p0) / c(α)
-    + c(2α) * (c(α - p0) / c(α))^2 / 2 * x^p0
+    + c(2α) * (c(α - p0) / c(α))^2 * x^p0
     + (zeta(-1 - 2α) - zeta(-1 - 2α + p0)) / 2 * x^(2 + 2α - p0)
 ) * x^(-2α + p0)
 ```
-where we have inserted the value for `K`. We compute a tight enclosure
-of this using a high degree expansion.
+where we have inserted the value for `K`. To get better enclosures for
+wide `x` it is beneficial to write it as
+```
+part1 = 2c(2α) / c(α)^2 * (
+    c(2α - p0) - c(2α) * c(α - p0) / c(α)
+    + (
+        (zeta(-1 - 2α) - zeta(-1 - 2α + p0)) / 2 +
+        c(2α) * (c(α - p0) / c(α))^2 * x^(-2 - 2α + 2p0)
+    ) * x^(2 + 2α - p0)
+) * x^(-2α + p0)
+```
+We compute a tight enclosure in `α` of this using a high degree
+expansion in `α`.
 
 ## Computing `part2 / x^(p - α)`
 We compute it by splitting it in the following way
@@ -787,8 +798,10 @@ function _F0_bhkdv(
             abspow(x, -α + u0.p0 - u0.p) *
             (
                 c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) +
-                2c(2α) * (c(α - u0.p0) / c(α))^2 / 2 * abspow(x, u0.p0) +
-                (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 * abspow(x, 2 + 2α - u0.p0)
+                (
+                    (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 +
+                    c(2α) * (c(α - u0.p0) / c(α))^2 * abspow(x, -2 - 2α + 2u0.p0)
+                ) * abspow(x, 2 + 2α - u0.p0)
             )
         end
 
