@@ -795,7 +795,7 @@ function _F0_bhkdv(
     ::Asymptotic;
     M::Integer = 5,
     ϵ::Arb = Arb(1),
-    bhkdv_skip_singular_j_until::Integer = 100,
+    bhkdv_skip_singular_j_until::Integer = 50,
 )
     @assert u0.use_bhkdv
 
