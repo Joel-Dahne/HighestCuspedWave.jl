@@ -649,8 +649,12 @@ part1 = 2c(2α) / c(α)^2 * (
     ) * x^(2 + 2α - p0)
 ) * x^(-2α + p0)
 ```
-We compute a tight enclosure in `α` of this using a high degree
-expansion in `α`.
+This does however not always work when `x` overlaps zero since in some
+cases `-2 - 2α + 2p0` overlaps zero. For `x` overlapping zero we
+therefore use the previous formulation.
+
+Finally we compute a tight enclosure in `α` of this using a high
+degree expansion in `α`.
 
 ## Computing `part2 / x^(p - α)`
 We compute it by splitting it in the following way
@@ -710,6 +714,17 @@ f(α, j, x) =  inv(2 + 2α - j * p0) * (
         + 1 / 2 * x^(2 + α - p)
     ) - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
 ```
+How to best evaluate this depends on which of the exponents `-α + j *
+p0 - p` and `2 + α - p` are largest. In practice we have that for `j =
+1` the last one is largest and for `j >= 2` the first one is largest.
+For wide values of `α` it sometimes happen that they overlap.
+For non-zero `x` the precise way of evaluation is not important, it is
+only for `x` overlapping zero for which we need to take care so that
+all factors are finite. We handle the cases `j = 1` and `j >= 2`
+separately, we then also have a third case for when `x` overlaps zero
+and the exponents overlap.
+
+#### `j >= 2`
 Factoring out `x^(2 + α - p)` we get
 ```
 f(α, j, x) =  (
@@ -719,12 +734,7 @@ f(α, j, x) =  (
     ) - zeta_deflated(-1 - 2α + j * p0) / 2
 ) * x^(2 + α - p)
 ```
-This form for `f` works well as long as `j >= 2` or `x` doesn't
-overlap zero. For `j = 1` we have `-2 - 2α + j * p0 < 0` and `x^(-2 -
-2α + j * p0)` is unbounded near `x = 0`. For this reason we handle `j
-= 1` separately
 
-#### `j >= 2`
 The term
 ```
 zeta_deflated(-1 - 2α + j * p0) / 2
@@ -767,6 +777,18 @@ f(α, j, x) =  inv(2 + 2α - j * p0) * (
 ```
 and then use the same approach as for `j >= 2` to compute a good
 enclosure.
+
+#### Overlapping exponents and `x` containing zero
+In this case we have that `-α + j * p0 - p` overlaps with `2 + α - p`,
+which means that `2 + 2α - j * p0` overlaps with zero. We keep the
+original formulation
+```
+f(α, j, x) =  inv(2 + 2α - j * p0) * (
+        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
+        + 1 / 2 * x^(2 + α - p)
+    ) - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
+```
+and handle the removable singularity.
 """
 function _F0_bhkdv(
     u0::FractionalKdVAnsatz{Arb},
@@ -816,8 +838,19 @@ function _F0_bhkdv(
 
         f2 = zeta_deflated(t2, Arb(1)) / 2
 
-        if j >= 2
-            if t1 isa ArbSeries && Arblib.contains_zero(t1[0])
+        t1_contains_zero = Arblib.contains_zero(t1 isa ArbSeries ? t1[0] : t1)
+
+        if t1_contains_zero && Arblib.contains_zero(x)
+            # The exponents overlap so don't factor out any power of x
+            f1 = fx_div_x(t1, enclosure_degree = -1, force = true) do t1
+                gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
+                abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
+                1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
+            end
+
+            return f1 - f2 * abspow(x, 2 + α - u0.p)
+        elseif j >= 2
+            if t1_contains_zero
                 # Handle the removable singularity
                 f1 = fx_div_x(t1, enclosure_degree = -1) do t1
                     gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) * abspow(x, -t1) + 1 // 2
@@ -832,7 +865,7 @@ function _F0_bhkdv(
 
             return (f1 - f2) * abspow(x, 2 + α - u0.p)
         else
-            if t1 isa ArbSeries && Arblib.contains_zero(t1[0])
+            if t1_contains_zero
                 # Handle the removable singularity
                 f1 = fx_div_x(t1, enclosure_degree = -1) do t1
                     gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) +
@@ -867,15 +900,27 @@ function _F0_bhkdv(
             u0.α,
             degree = ifelse(Arblib.contains_zero(x), 1, 10),
         ) do α
-            2c(2α) / c(α)^2 *
-            abspow(x, -α + u0.p0 - u0.p) *
-            (
-                c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) +
+            if Arblib.contains_zero(x)
+                2c(2α) / c(α)^2 *
+                abspow(x, -α + u0.p0 - u0.p) *
                 (
-                    (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 +
-                    c(2α) * (c(α - u0.p0) / c(α))^2 * abspow(x, -2 - 2α + 2u0.p0)
-                ) * abspow(x, 2 + 2α - u0.p0)
-            )
+                    c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) + (
+                        (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 *
+                        abspow(x, 2 + 2α - u0.p0) +
+                        c(2α) * (c(α - u0.p0) / c(α))^2 * abspow(x, u0.p0)
+                    )
+                )
+            else
+                2c(2α) / c(α)^2 *
+                abspow(x, -α + u0.p0 - u0.p) *
+                (
+                    c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) +
+                    (
+                        (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 +
+                        c(2α) * (c(α - u0.p0) / c(α))^2 * abspow(x, -2 - 2α + 2u0.p0)
+                    ) * abspow(x, 2 + 2α - u0.p0)
+                )
+            end
         end
 
         # u0_part1 / x^-α
