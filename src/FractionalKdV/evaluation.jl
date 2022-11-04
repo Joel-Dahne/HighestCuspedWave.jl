@@ -855,8 +855,8 @@ function _F0_bhkdv(
     df(α::ArbSeries, j, x) =
         Arblib.derivative(f(ArbSeries(α, degree = Arblib.degree(α) + 1), j, x))
 
-    return x::Union{Arb,ArbSeries} -> begin
-        @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
+    return x::Arb -> begin
+        @assert x <= ϵ
 
         # abspow(x, y::ArbSeries) only supports y of degree at most 2
         # when x overlaps with zero. We therefore lower the degree
