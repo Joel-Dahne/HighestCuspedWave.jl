@@ -710,10 +710,24 @@ f(α, j, x) =  inv(2 + 2α - j * p0) * (
         + 1 / 2 * x^(2 + α - p)
     ) - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
 ```
+Factoring out `x^(2 + α - p)` we get
+```
+f(α, j, x) =  (
+    inv(2 + 2α - j * p0) * (
+        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-2 - 2α + j * p0)
+        + 1 / 2
+    ) - zeta_deflated(-1 - 2α + j * p0) / 2
+) * x^(2 + α - p)
+```
+This form for `f` works well as long as `j >= 2` or `x` doesn't
+overlap zero. For `j = 1` we have `-2 - 2α + j * p0 < 0` and `x^(-2 -
+2α + j * p0)` is unbounded near `x = 0`. For this reason we handle `j
+= 1` separately
 
+#### `j >= 2`
 The term
 ```
-zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
+zeta_deflated(-1 - 2α + j * p0) / 2
 ```
 we can in general evaluate directly. However, if the argument is close
 to, but does not contain, the removable singularity at `1` the
@@ -724,8 +738,8 @@ in which case a different, better, algorithm is used.
 The term
 ```
 inv(2 + 2α - j * p0) * (
-    gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
-    + 1 / 2 * x^(2 + α - p)
+    gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-2 - 2α + j * p0)
+    + 1 / 2
 )
 ```
 can also be evaluated directly as long as `2 + 2α - j * p0` is not too
@@ -733,14 +747,26 @@ close to zero, where there is a removable singularity. To better
 handle this case we let `t1 = 2 + 2α - j * p0` and write it as
 ```
 inv(t1) * (
-    gamma(t1 + 1) / rising(t1 - 2, 2) * cospi((t1 - 2) / 2) * x^((j * p0 - t1) / 2 + 1 - p)
-    + 1 / 2 * x^((j * p0 + t1) / 2 + 1 - p)
+    gamma(t1 + 1) / rising(t1 - 2, 2) * cospi((t1 - 2) / 2) * x^(-t1)
+    + 1 / 2
 )
 ```
 Inserting `t1 = 0` it is straight forward to see that we indeed have a
 removable singularity. When `t1` is not too close to zero we evaluate
 this directly. Otherwise we widen `t1` to include zero and use
 [`fx_div_x`](@ref).
+
+#### `j = 1`
+In this case we instead write `f` as
+```
+f(α, j, x) =  inv(2 + 2α - j * p0) * (
+        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2)
+        + 1 / 2 * x^(2 + 2α - j * p0)
+    ) * x^(-α + j * p0 - p)
+    - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
+```
+and then use the same approach as for `j >= 2` to compute a good
+enclosure.
 """
 function _F0_bhkdv(
     u0::FractionalKdVAnsatz{Arb},
@@ -772,37 +798,56 @@ function _F0_bhkdv(
         end
 
     f(α, j, x) = begin
+        # Main argument for f1
         t1 = 2 + 2α - j * u0.p0
         if t1 isa ArbSeries && is_approx_integer(t1[0])
-            # Wide argument to contain 0 so that it uses the algorithm
+            # Widen argument to contain 0 so that it uses the algorithm
             # that explicitly handles the removable singularity.
             t1[0] = union(t1[0], Arb(0))
         end
-        if t1 isa ArbSeries && Arblib.contains_zero(t1[0])
-            # Handle the removable singularity
-            f1 = fx_div_x(t1, force = true, enclosure_degree = -1) do t1
-                gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
-                abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
-                1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
-            end
-        else
-            f1 =
-                (
-                    gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
-                    abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
-                    1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
-                ) / t1
-        end
 
+        # Main argument for f2
         t2 = -1 - 2α + j * u0.p0
         if t2 isa ArbSeries && is_approx_integer(t2[0])
-            # Wide argument to contain 1 so that it uses the algorithm
+            # Widen argument to contain 1 so that it uses the algorithm
             # that explicitly handles the removable singularity.
             t2[0] = union(t2[0], Arb(1))
         end
-        f2 = zeta_deflated(t2, Arb(1)) / 2 * abspow(x, 2 + α - u0.p)
 
-        f1 - f2
+        f2 = zeta_deflated(t2, Arb(1)) / 2
+
+        if j >= 2
+            if t1 isa ArbSeries && Arblib.contains_zero(t1[0])
+                # Handle the removable singularity
+                f1 = fx_div_x(t1, enclosure_degree = -1) do t1
+                    gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) * abspow(x, -t1) + 1 // 2
+                end
+            else
+                f1 =
+                    (
+                        gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
+                        abspow(x, -t1) + 1 // 2
+                    ) / t1
+            end
+
+            return (f1 - f2) * abspow(x, 2 + α - u0.p)
+        else
+            if t1 isa ArbSeries && Arblib.contains_zero(t1[0])
+                # Handle the removable singularity
+                f1 = fx_div_x(t1, enclosure_degree = -1) do t1
+                    gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) +
+                    1 // 2 * abspow(x, t1)
+                end
+            else
+                f1 =
+                    (
+                        gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) +
+                        1 // 2 * abspow(x, t1)
+                    ) / t1
+            end
+
+            return f1 * abspow(x, -α + j * u0.p0 - u0.p) - f2 * abspow(x, 2 + α - u0.p)
+        end
     end
 
     # Derivative of f w.r.t. α
