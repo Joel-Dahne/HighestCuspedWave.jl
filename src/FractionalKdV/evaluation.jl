@@ -820,8 +820,10 @@ function _F0_bhkdv(
         end
 
     f(α, j, x) = begin
+        jp0 = j * u0.p0
+
         # Main argument for f1
-        t1 = 2 + 2α - j * u0.p0
+        t1 = 2 + 2α - jp0
         if t1 isa ArbSeries && is_approx_integer(t1[0])
             # Widen argument to contain 0 so that it uses the algorithm
             # that explicitly handles the removable singularity.
@@ -829,7 +831,7 @@ function _F0_bhkdv(
         end
 
         # Main argument for f2
-        t2 = -1 - 2α + j * u0.p0
+        t2 = -1 - 2α + jp0
         if t2 isa ArbSeries && is_approx_integer(t2[0])
             # Widen argument to contain 1 so that it uses the algorithm
             # that explicitly handles the removable singularity.
@@ -844,8 +846,8 @@ function _F0_bhkdv(
             # The exponents overlap so don't factor out any power of x
             f1 = fx_div_x(t1, enclosure_degree = -1, force = true) do t1
                 gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
-                abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
-                1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
+                abspow(x, (jp0 - t1) / 2 + 1 - u0.p) +
+                1 // 2 * abspow(x, (jp0 + t1) / 2 + 1 - u0.p)
             end
 
             return f1 - f2 * abspow(x, 2 + α - u0.p)
@@ -879,7 +881,7 @@ function _F0_bhkdv(
                     ) / t1
             end
 
-            return f1 * abspow(x, -α + j * u0.p0 - u0.p) - f2 * abspow(x, 2 + α - u0.p)
+            return f1 * abspow(x, -α + jp0 - u0.p) - f2 * abspow(x, 2 + α - u0.p)
         end
     end
 
