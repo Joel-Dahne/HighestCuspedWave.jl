@@ -62,12 +62,12 @@ This is useful when you want to take extra care with calculations when
 the arguments are close to integers, for example in the presence of
 removable singularities.
 """
-function is_approx_integer(x::Arb; tol = 0.01)
+function is_approx_integer(x::Arblib.ArbOrRef; tol = 0.01)
     Arblib.contains_int(x) && return false
     # Do the computations in Float64 since we don't have to be
     # rigorous anyway
     xf64 = Float64(x)
-    return Float64(radius(x)) / abs(xf64 - round(xf64)) > tol
+    return Float64(Arblib.radref(x)) / abs(xf64 - round(xf64)) > tol
 end
 
 """
