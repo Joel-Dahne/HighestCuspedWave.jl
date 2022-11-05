@@ -359,9 +359,9 @@ _xpinvw_bhkdv(x::ArbSeries) =
 
 function Base.getproperty(u0::FractionalKdVAnsatz, name::Symbol)
     if name == :N0
-        return length(u0.a) - 1
+        return (length(u0.a) - 1)::Int
     elseif name == :N1
-        return length(u0.b)
+        return length(u0.b)::Int
     elseif name == :w
         if u0.use_bhkdv
             return x -> _modified_logabspow(x, 2oftype(u0.α, ℯ), u0.p)
