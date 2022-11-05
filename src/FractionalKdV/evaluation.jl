@@ -821,26 +821,30 @@ function _F0_bhkdv(
 
     f(α, j, x) = begin
         jp0 = j * u0.p0
+        twoα = Arblib.mul_2exp!(zero(α), α, 1)
 
         # Main argument for f1
-        t1 = 2 + 2α - jp0
-        if t1 isa ArbSeries && is_approx_integer(t1[0])
+        t1 = (2 - jp0) + twoα
+        if t1 isa ArbSeries && is_approx_integer(Arblib.ref(t1, 0))
             # Widen argument to contain 0 so that it uses the algorithm
             # that explicitly handles the removable singularity.
-            t1[0] = union(t1[0], Arb(0))
+            t1[0] = union(Arblib.ref(t1, 0), Arb(0))
         end
 
         # Main argument for f2
-        t2 = -1 - 2α + jp0
-        if t2 isa ArbSeries && is_approx_integer(t2[0])
+        t2 = (-1 + jp0) - twoα
+        if t2 isa ArbSeries && is_approx_integer(Arblib.ref(t2, 0))
             # Widen argument to contain 1 so that it uses the algorithm
             # that explicitly handles the removable singularity.
-            t2[0] = union(t2[0], Arb(1))
+            t2[0] = union(Arblib.ref(t2, 0), Arb(1))
         end
 
-        f2 = zeta_deflated(t2, Arb(1)) / 2
+        # f2 = zeta_deflated(t2, Arb(1)) / 2
+        f2 = zeta_deflated(t2, Arb(1))
+        Arblib.mul_2exp!(f2, f2, -1)
 
-        t1_contains_zero = Arblib.contains_zero(t1 isa ArbSeries ? t1[0] : t1)
+        t1_contains_zero =
+            Arblib.contains_zero(t1 isa ArbSeries ? Arblib.ref(t1, 0) : t1)
 
         if t1_contains_zero && Arblib.contains_zero(x)
             # The exponents overlap so don't factor out any power of x
@@ -886,9 +890,12 @@ function _F0_bhkdv(
     end
 
     # Derivative of f w.r.t. α
-    df(α::Arb, j, x) = f(ArbSeries((α, 1)), j, x)[1]
-    df(α::ArbSeries, j, x) =
-        Arblib.derivative(f(ArbSeries(α, degree = Arblib.degree(α) + 1), j, x))
+    df(α, j, x) =
+        if α isa Arb
+            f(ArbSeries((α, 1)), j, x)[1]
+        else
+            Arblib.derivative(f(ArbSeries(α, degree = Arblib.degree(α) + 1), j, x))
+        end
 
     return x::Arb -> begin
         @assert x <= ϵ
@@ -948,17 +955,16 @@ function _F0_bhkdv(
                 if Arblib.contains_zero(deriv_α)
                     # Use a zero order approximation
                     mid_α = midpoint(Arb, u0.α)
-                    term = u0.a[j] * add_error(f(mid_α, j, x), (u0.α - mid_α) * deriv_α)
+                    term = add_error(f(mid_α, j, x), (u0.α - mid_α) * deriv_α)
                 else
                     # Evaluate at the endpoints
-                    term =
-                        u0.a[j] * union(
-                            f(ArbExtras.enclosure_lbound(u0.α), j, x),
-                            f(ArbExtras.enclosure_ubound(u0.α), j, x),
-                        )
+                    term = union(
+                        f(ArbExtras.enclosure_lbound(u0.α), j, x),
+                        f(ArbExtras.enclosure_ubound(u0.α), j, x),
+                    )
                 end
 
-                term
+                u0.a[j] * term
             end
 
         # Hu0_part3 / x^(p - α)
