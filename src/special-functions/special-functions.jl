@@ -292,6 +292,10 @@ function abspow!(res::Arb, x::Arb, y::Arb)
         return Arblib.union!(res, res, upper)
     end
 
+    if res === y
+        # In this case we need an extra allocation to not overwrite y
+        y = copy(y)
+    end
     Arblib.abs!(res, x)
     return Arblib.pow!(res, res, y)
 end
