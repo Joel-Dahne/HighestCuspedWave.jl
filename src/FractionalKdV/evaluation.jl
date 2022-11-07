@@ -799,6 +799,11 @@ function _F0_bhkdv(
 )
     @assert u0.use_bhkdv
 
+    # Enclosures of lower and upper endpoints as well as midpoint
+    α_lower = ArbExtras.enclosure_lbound(u0.α)
+    α_upper = ArbExtras.enclosure_ubound(u0.α)
+    α_mid = midpoint(Arb, u0.α)
+
     u0_expansion = u0(ϵ, AsymptoticExpansion(), bhkdv_skip_main = true; M)
     Hu0_expansion =
         H(u0, AsymptoticExpansion(), bhkdv_skip_main = true; M, bhkdv_skip_singular_j_until)(
@@ -819,12 +824,12 @@ function _F0_bhkdv(
             π * gamma(s + 2) * _sinc((1 + s) / 2) / 2s
         end
 
-    f(α, j, x) = begin
-        jp0 = j * u0.p0
-        twoα = Arblib.mul_2exp!(zero(α), α, 1)
+    # Compute gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
+    f1_part(t1) = gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
 
+    f(α, j, x) = begin
         # Main argument for f1
-        t1 = (2 - jp0) + twoα
+        t1 = 2 + 2α - j * u0.p0
         if t1 isa ArbSeries && is_approx_integer(Arblib.ref(t1, 0))
             # Widen argument to contain 0 so that it uses the algorithm
             # that explicitly handles the removable singularity.
@@ -832,16 +837,14 @@ function _F0_bhkdv(
         end
 
         # Main argument for f2
-        t2 = (-1 + jp0) - twoα
+        t2 = -1 - 2α + j * u0.p0
         if t2 isa ArbSeries && is_approx_integer(Arblib.ref(t2, 0))
             # Widen argument to contain 1 so that it uses the algorithm
             # that explicitly handles the removable singularity.
             t2[0] = union(Arblib.ref(t2, 0), Arb(1))
         end
 
-        # f2 = zeta_deflated(t2, Arb(1)) / 2
-        f2 = zeta_deflated(t2, Arb(1))
-        Arblib.mul_2exp!(f2, f2, -1)
+        f2 = zeta_deflated(t2, Arb(1)) / 2
 
         t1_contains_zero =
             Arblib.contains_zero(t1 isa ArbSeries ? Arblib.ref(t1, 0) : t1)
@@ -849,9 +852,8 @@ function _F0_bhkdv(
         if t1_contains_zero && Arblib.contains_zero(x)
             # The exponents overlap so don't factor out any power of x
             f1 = fx_div_x(t1, enclosure_degree = -1, force = true) do t1
-                gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
-                abspow(x, (jp0 - t1) / 2 + 1 - u0.p) +
-                1 // 2 * abspow(x, (jp0 + t1) / 2 + 1 - u0.p)
+                f1_part(t1) * abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
+                1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
             end
 
             return f1 - f2 * abspow(x, 2 + α - u0.p)
@@ -859,14 +861,10 @@ function _F0_bhkdv(
             if t1_contains_zero
                 # Handle the removable singularity
                 f1 = fx_div_x(t1, enclosure_degree = -1) do t1
-                    gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) * abspow(x, -t1) + 1 // 2
+                    f1_part(t1) * abspow(x, -t1) + 1 // 2
                 end
             else
-                f1 =
-                    (
-                        gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) *
-                        abspow(x, -t1) + 1 // 2
-                    ) / t1
+                f1 = (f1_part(t1) * abspow(x, -t1) + 1 // 2) / t1
             end
 
             return (f1 - f2) * abspow(x, 2 + α - u0.p)
@@ -874,18 +872,13 @@ function _F0_bhkdv(
             if t1_contains_zero
                 # Handle the removable singularity
                 f1 = fx_div_x(t1, enclosure_degree = -1) do t1
-                    gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) +
-                    1 // 2 * abspow(x, t1)
+                    f1_part(t1) + 1 // 2 * abspow(x, t1)
                 end
             else
-                f1 =
-                    (
-                        gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2) +
-                        1 // 2 * abspow(x, t1)
-                    ) / t1
+                f1 = (f1_part(t1) + 1 // 2 * abspow(x, t1)) / t1
             end
 
-            return f1 * abspow(x, -α + jp0 - u0.p) - f2 * abspow(x, 2 + α - u0.p)
+            return f1 * abspow(x, -α + j * u0.p0 - u0.p) - f2 * abspow(x, 2 + α - u0.p)
         end
     end
 
@@ -953,15 +946,12 @@ function _F0_bhkdv(
                 end
 
                 if Arblib.contains_zero(deriv_α)
-                    # Use a zero order approximation
-                    mid_α = midpoint(Arb, u0.α)
-                    term = add_error(f(mid_α, j, x), (u0.α - mid_α) * deriv_α)
+                    # Use a zero order approximation. Only gets used
+                    # in very few cases.
+                    term = add_error(f(α_mid, j, x), (u0.α - α_mid) * deriv_α)
                 else
                     # Evaluate at the endpoints
-                    term = union(
-                        f(ArbExtras.enclosure_lbound(u0.α), j, x),
-                        f(ArbExtras.enclosure_ubound(u0.α), j, x),
-                    )
+                    term = union(f(α_lower, j, x), f(α_upper, j, x))
                 end
 
                 u0.a[j] * term
