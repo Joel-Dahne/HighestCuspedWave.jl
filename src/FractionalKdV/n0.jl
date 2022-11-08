@@ -35,6 +35,7 @@ information about the process.
 function n0_bound(
     u0::FractionalKdVAnsatz{Arb};
     M::Integer = 3,
+    degree::Integer = 0,
     rtol = 1e-5,
     threaded = true,
     verbose = false,
@@ -79,6 +80,7 @@ function n0_bound(
         abs_value = true,
         log_bisection = true,
         maxevals = ifelse(u0.use_bhkdv, 100000, 1000);
+        degree,
         threaded,
         verbose,
     )
@@ -99,6 +101,7 @@ function n0_bound(
         point_value_max = m1, # m1 is a lower bound of the maximum
         atol = 4radius(m1), # We cannot expect to do better than m1
         depth_start = 2;
+        degree,
         rtol,
         threaded,
         verbose,
