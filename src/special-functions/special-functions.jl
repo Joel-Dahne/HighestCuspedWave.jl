@@ -275,7 +275,7 @@ function lerch_phi(z::Arb, s::Arb, a::Arb)
     end
 end
 
-function abspow!(res::Arb, x::Arb, y::Arb)
+function abspow!(res::Arb, x::Arblib.ArbOrRef, y::Arb)
     iszero(y) && return Arblib.one!(res)
 
     if iszero(x)
@@ -299,6 +299,34 @@ function abspow!(res::Arb, x::Arb, y::Arb)
     Arblib.abs!(res, x)
     return Arblib.pow!(res, res, y)
 end
+
+function abspow!(res::ArbSeries, x::ArbSeries, y::Arb)
+    Arblib.degree(res) == Arblib.degree(x) ||
+        throw(ArgumentError("res and x should have the same degree"))
+
+    sgn = Arblib.sgn_nonzero(Arblib.ref(x, 0))
+
+    if sgn == 0
+        # All non-constant terms are indeterminate, the constant term
+        # is given by abs(x[0])^y
+        for i = 1:Arblib.degree(res)
+            Arblib.indeterminate!(Arblib.ref(res, i))
+        end
+
+        # We don't have to be that careful with allocations here. This
+        # means we don't have to care about if res[0] is set or not.
+        res[0] = abspow(x[0], y)
+        return res
+    elseif sgn < 0
+        Arblib.neg!(res, x)
+        Arblib.pow_arb_series!(res, res, y, length(res))
+    else
+        Arblib.pow_arb_series!(res, x, y, length(res))
+    end
+
+    return res
+end
+
 
 """
     abspow(x, y)
