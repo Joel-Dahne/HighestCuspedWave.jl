@@ -20,17 +20,6 @@ exponent, in that case the exponent will be given by
 -(i + offset_i) * u0.α + j * u0.p0 + m + offset
 ```
 
-If `u0_skipped_u0_main` is true as well as `u0.use_bhkdv` then in
-addition to the terms in `expansion` also add the term
-```
-u0.a[0] * (C1 - C2 * abs(x)^u0.p0) * abs(x)^(-(1 + offset_i) * u0.α + offset)
-```
-where `C1` and `C2` are the leading terms in the asymptotic expansions
-of `clausencmzeta(x, 1 - u0.α)` and `clausencmzeta(x, 1 - u0.α +
-u0.p0)` respectively. This is mean to be used when the expansion was
-computed with `u0(x, AsympototicExpansion(), bhkdv_skip_main = true)`
-and gives better enclosures for `α` close to `-1`.
-
 For `α` close to `-1` there's a lot of terms in the expansion and for
 performance reasons we therefore make use of inplace calculations to
 reduce the number of allocations.
@@ -41,40 +30,14 @@ function eval_expansion(
     x::Union{Arb,ArbSeries};
     offset_i::Integer = 0,
     offset::Arb = Arb(0),
-    bhkdv_skipped_u0_main = false,
 )
     res = zero(x)
     exponent = zero(u0.α)
     term = zero(x)
 
-    if u0.use_bhkdv && bhkdv_skipped_u0_main
-        # We don't have to be very careful with allocations here
-
-        s = 1 - u0.α
-        # The first argument to clausenc_expansion is not used in this
-        # case, so we can take it to be zero.
-        C1 = clausenc_expansion(Arb(0), s, 3)[1]
-        C2 = clausenc_expansion(Arb(0), s + u0.p0, 3)[1]
-
-        # exponent = -(1 + offset_i) * u0.α + offset
-        Arblib.mul!(exponent, u0.α, -(1 + offset_i))
-        Arblib.add!(exponent, exponent, offset)
-
-        # term = u0.a[0] * (C1 - C2 * abspow(x, u0.p0)) * abspow(x, exponent)
-        Arblib.mul!(term, (C1 - C2 * abspow(x, u0.p0)), u0.a[0])
-        if x isa Arb
-            Arblib.mul!(term, term, abspow(x, exponent))
-        elseif x isa ArbSeries
-            Arblib.mullow!(term, term, abspow(x, exponent), length(x))
-        end
-
-        # res += term
-        Arblib.add!(res, res, term)
-    end
-
     for ((i, j, m), y) in expansion
         if !iszero(y)
-            #exponent = -(i + offset_i) * u0.α + j * u0.p0 + m + offset
+            # exponent = -(i + offset_i) * u0.α + j * u0.p0 + m + offset
             Arblib.add!(exponent, offset, m)
             Arblib.addmul!(exponent, u0.p0, j)
             Arblib.submul!(exponent, u0.α, i + offset_i)
@@ -219,8 +182,8 @@ function (u0::FractionalKdVAnsatz{Arb})(
         C1, _, p1, E1 = clausenc_expansion(x, s, M)
         C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
         if !bhkdv_skip_main
-            # See the argument u0_skipped_u0_main to eval_expansion as
-            # well as _F0_bhkdv
+            # See the argument u0_skipped_u0_main to inv_u0_normalised
+            # as well as _F0_bhkdv
             res[(1, 0, 0)] += C1 * u0.a[0]
             res[(1, 1, 0)] += -C2 * u0.a[0]
         end
@@ -992,16 +955,42 @@ zero.
 # Implementation
 It computes an expansion of `u0` at `x = 0` and explicitly handles the
 cancellation with `x^-u0.α`.
+
+If `u0.use_bhkdv` is true then it gives the argument `bhkdv_skip_main`
+when computing the expansion. This means that it doesn't include the
+term
+```
+u0.a[0] * (C1 - C2 * abs(x)^u0.p0) * abs(x)^-α
+```
+, where `C1` and `C2` are the leading terms in the asymptotic
+expansions of `clausencmzeta(x, 1 - u0.α)` and `clausencmzeta(x, 1 -
+u0.α + u0.p0)` respectively, in the expansion. This term is instead
+added separately. This gives better enclosures for `α` close to `-1`.
 """
 function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb = one(Arb))
-    bhkdv_skip_main = u0.use_bhkdv
-    expansion = u0(ϵ, AsymptoticExpansion(); M, bhkdv_skip_main)
+    expansion = u0(ϵ, AsymptoticExpansion(), bhkdv_skip_main = u0.use_bhkdv; M)
+
+    C1, C2 = if u0.use_bhkdv
+        let s = 1 - u0.α
+            C1 = clausenc_expansion(Arb(0), s, 3)[1]
+            C2 = clausenc_expansion(Arb(0), s + u0.p0, 3)[1]
+
+            C1, C2
+        end
+    else
+        indeterminate(Arb), indeterminate(Arb)
+    end
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && abs(x) <= ϵ) || (x isa ArbSeries && abs(Arblib.ref(x, 0)) <= ϵ)
 
-        bhkdv_skipped_u0_main = bhkdv_skip_main
-        return inv(eval_expansion(u0, expansion, x, offset_i = -1; bhkdv_skipped_u0_main))
+        if u0.use_bhkdv
+            term = u0.a[0] * (C1 - C2 * abspow(x, u0.p0))
+        else
+            term = zero(x)
+        end
+
+        return inv(term + eval_expansion(u0, expansion, x, offset_i = -1))
     end
 end
 
