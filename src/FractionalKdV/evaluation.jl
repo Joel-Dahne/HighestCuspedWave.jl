@@ -80,12 +80,11 @@ function eval_expansion(
             Arblib.submul!(exponent, u0.α, i + offset_i)
 
             # res += y * abspow(x, exponent)
+            abspow!(term, x, exponent)
             if x isa Arb
-                abspow!(term, x, exponent)
                 Arblib.addmul!(res, y, term)
             elseif x isa ArbSeries
-                # No abspow! for ArbSeries
-                Arblib.mul!(term, abspow(x, exponent), y)
+                Arblib.mul!(term, term, y)
                 Arblib.add!(res, res, term)
             end
         end
