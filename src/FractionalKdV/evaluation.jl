@@ -61,8 +61,12 @@ function eval_expansion(
         Arblib.add!(exponent, exponent, offset)
 
         # term = u0.a[0] * (C1 - C2 * abspow(x, u0.p0)) * abspow(x, exponent)
-        Arblib.mul!(term, u0.a[0], (C1 - C2 * abspow(x, u0.p0)))
-        Arblib.mul!(term, term, abspow(x, exponent))
+        Arblib.mul!(term, (C1 - C2 * abspow(x, u0.p0)), u0.a[0])
+        if x isa Arb
+            Arblib.mul!(term, term, abspow(x, exponent))
+        elseif x isa ArbSeries
+            Arblib.mullow!(term, term, abspow(x, exponent), length(x))
+        end
 
         # res += term
         Arblib.add!(res, res, term)
