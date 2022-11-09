@@ -103,11 +103,11 @@ function FractionalKdVAnsatz(
     p = one(α);
     use_midpoint = true,
     N0s::StepRange{Int,Int} = 0:1:-1,
+    use_bhkdv = false,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
     use_D2 = true,
     threaded = true,
-    use_bhkdv = false,
     verbose = false,
 ) where {T}
     # Using the midpoint only makes sense for T == Arb
@@ -185,8 +185,8 @@ end
     pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T) where {T}
 
 Helper function to choose parameters for construction a
-`FractionalKdVAnsatz{T}` depending on `α`. It returns `N0s, N1, p`,
-which are the parameters to use.
+`FractionalKdVAnsatz{T}` depending on `α`. It returns `N0s, N1, p,
+use_bhkdv`, which are the parameters to use.
 """
 function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     # Old version of parameters:
@@ -223,26 +223,26 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     N0s_step = max((N0s_stop - N0s_start) ÷ 10, 1)
 
     parameters = [
-        (-1.0, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2), # This is never used
-        (-0.999, N0_approx:1:N0_approx, 4, (1 - α) / 2),
-        (-0.997, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2),
-        (-0.995, 100:1:200, 4, (1 - α) / 2),
-        (-0.99, 50:1:125, 4, (1 - α) / 2),
-        (-0.95, 5:1:75, 8, (1 - α) / 2),
-        (-0.85, 0:1:50, 8, (1 - α) / 2),
-        (-0.5, 0:1:20, 16, (1 - α) / 2),
-        (-0.33, 0:1:10, 16, T(3 // 4)),
-        (-0.01, 0:1:5, 8, one(α)),
-        (0, 0:1:5, 0, one(α)),
+        (-1.0, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2, true), # This is never used
+        (-0.999, N0_approx:1:N0_approx, 4, (1 - α) / 2, true),
+        (-0.997, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2, false),
+        (-0.995, 100:1:200, 4, (1 - α) / 2, false),
+        (-0.99, 50:1:125, 4, (1 - α) / 2, false),
+        (-0.95, 5:1:75, 8, (1 - α) / 2, false),
+        (-0.85, 0:1:50, 8, (1 - α) / 2, false),
+        (-0.5, 0:1:20, 16, (1 - α) / 2, false),
+        (-0.33, 0:1:10, 16, T(3 // 4), false),
+        (-0.01, 0:1:5, 8, one(α), false),
+        (0, 0:1:5, 0, one(α), false),
     ]
 
     # Find the first element in parameters which α is not greater
     # than.
     i = findfirst(value -> !(α > value[1]), parameters)
 
-    _, N0s, N1, p = parameters[i]
+    _, N0s, N1, p, use_bhkdv = parameters[i]
 
-    return N0s, N1, p
+    return N0s, N1, p, use_bhkdv
 end
 
 """
@@ -259,12 +259,13 @@ function FractionalKdVAnsatz(
     N0s = nothing,
     N1 = nothing,
     p = nothing,
+    use_bhkdv = nothing,
     use_D2 = true,
     threaded = true,
-    use_bhkdv = false,
     verbose = false,
 ) where {T}
-    N0s_default, N1_default, p_default = pick_parameters(FractionalKdVAnsatz{T}, α)
+    N0s_default, N1_default, p_default, use_bhkdv_default =
+        pick_parameters(FractionalKdVAnsatz{T}, α)
 
     if isnothing(N0s)
         N0s = N0s_default
@@ -275,6 +276,9 @@ function FractionalKdVAnsatz(
     if isnothing(p)
         p = p_default
     end
+    if isnothing(use_bhkdv)
+        use_bhkdv = use_bhkdv_default
+    end
 
     u0 = FractionalKdVAnsatz(
         α,
@@ -283,9 +287,9 @@ function FractionalKdVAnsatz(
         p,
         use_midpoint = true;
         N0s,
+        use_bhkdv,
         use_D2,
         threaded,
-        use_bhkdv,
         verbose,
     )
 
