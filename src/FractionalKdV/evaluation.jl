@@ -702,12 +702,6 @@ For `Hu0_part2_2` we can compute a good enclosure using
 have to work slightly harder.
 
 #### Computing `Hu0_part2_1 / x^(p - α)`
-To get a better enclosure in `α` of `f1(α, j, x)` we first compute an
-enclosure of the derivative in `α`. If it is non-zero we evaluate at
-the endpoints of `α`, otherwise we use a zero order approximation.
-This is however not enough to get good enclosures, we also need to
-better handle the removable singularity..
-
 How to best evaluate `f1` depends on which of the exponents `-α + j *
 p0 - p` and `2 + α - p` are largest. In practice we have that for `j =
 1` the last one is largest and for `j >= 2` the first one is largest.
@@ -802,7 +796,7 @@ function _F0_bhkdv(
     # Compute gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
     f1_part(t1) = gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
 
-    f1(α, j, x) = begin
+    f1(α, j, x::Arb) = begin
         t1 = 2 + 2α - j * u0.p0
         if t1 isa ArbSeries && is_approx_integer(Arblib.ref(t1, 0))
             # Widen argument to contain 0 so that it uses the algorithm
@@ -822,7 +816,7 @@ function _F0_bhkdv(
         elseif j >= 2
             if t1_contains_zero
                 # Handle the removable singularity
-                return abspow(x, 2 + α - u0.p) * fx_div_x(t1, enclosure_degree = -1) do t1
+                return abspow(x, 2 + α - u0.p) * fx_div_x(t1) do t1
                     f1_part(t1) * abspow(x, -t1) + 1 // 2
                 end
             else
@@ -831,8 +825,7 @@ function _F0_bhkdv(
         else
             if t1_contains_zero
                 # Handle the removable singularity
-                return abspow(x, -α + j * u0.p0 - u0.p) *
-                       fx_div_x(t1, enclosure_degree = -1) do t1
+                return abspow(x, -α + j * u0.p0 - u0.p) * fx_div_x(t1) do t1
                     f1_part(t1) + 1 // 2 * abspow(x, t1)
                 end
             else
@@ -842,13 +835,14 @@ function _F0_bhkdv(
         end
     end
 
-    # Derivative of f1 w.r.t. α
-    df1(α, j, x) =
-        if α isa Arb
-            f1(ArbSeries((α, 1)), j, x)[1]
-        else
-            Arblib.derivative(f1(ArbSeries(α, degree = Arblib.degree(α) + 1), j, x))
-        end
+    # Compute f1(α, j, x) / x^(2 + α - p) in a way that only works for
+    # thin α and non-zero x. Otherwise it will give an indeterminate
+    # result.
+    f1_div2αp(α::Arb, j, x) = begin
+        t1 = 2 + 2α - j * u0.p0
+
+        return (f1_part(t1) * abspow(x, -t1) + 1 // 2) / t1
+    end
 
     f2(α, j) = begin
         t2 = -1 - 2α + j * u0.p0
@@ -914,25 +908,34 @@ function _F0_bhkdv(
         u0_part2_divα = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
         Hu0_part2_1_divpα =
-            -sum(1:min(bhkdv_skip_singular_j_until, u0.N0), init = zero(x)) do j
-                # Compute derivative in α
-                if Arblib.contains_zero(x)
-                    deriv_α = df1(u0.α, j, x)
-                else
-                    deriv_α =
-                        ArbExtras.enclosure_series(α -> df1(α, j, x), u0.α, degree = 4)
-                end
+            -ArbExtras.enclosure_series(u0.α) do α
+                if (
+                    (α isa Arb && !iswide(α)) ||
+                    (α isa ArbSeries && Arblib.degree(α) == 0 && !iswide(α))
+                ) && !Arblib.contains_zero(x)
 
-                if Arblib.contains_zero(deriv_α)
-                    # Use a zero order approximation. Only gets used
-                    # in very few cases.
-                    term = add_error(f1(α_mid, j, x), (u0.α - α_mid) * deriv_α)
-                else
-                    # Evaluate at the endpoints
-                    term = union(f1(α_lower, j, x), f1(α_upper, j, x))
-                end
+                    α0 = α isa Arb ? α : α[0]
+                    # In this case we don't need to compute an
+                    # expansion in α and can instead expand in x to
+                    # get a better enclosure for that. This relies on
+                    # the fact that for thin values of α we don't hit
+                    # the removable singularity of f1 and hence don't
+                    # need to expand in α for that reason either.
+                    y = ArbExtras.enclosure_series(x) do x
+                        abspow(x, 2 + α0 - u0.p) * sum(
+                            1:min(bhkdv_skip_singular_j_until, u0.N0),
+                            init = zero(x),
+                        ) do j
+                            u0.a[j] * f1_div2αp(α0, j, x)
+                        end
+                    end
 
-                u0.a[j] * term
+                    α isa Arb ? y : ArbSeries(y)
+                else
+                    sum(1:min(bhkdv_skip_singular_j_until, u0.N0), init = zero(x)) do j
+                        u0.a[j] * f1(α, j, x)
+                    end
+                end
             end
 
         Hu0_part2_2_divpα = abspow(x, 2 + u0.α - u0.p) * Hu0_part2_2_divpα_constant
