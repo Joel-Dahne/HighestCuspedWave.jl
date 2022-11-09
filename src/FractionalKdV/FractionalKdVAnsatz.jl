@@ -225,10 +225,10 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     parameters = [
         (-1.0, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2, true), # This is never used
         (-0.999, N0_approx:1:N0_approx, 4, (1 - α) / 2, true),
-        (-0.997, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2, false),
-        (-0.995, 100:1:200, 4, (1 - α) / 2, false),
-        (-0.99, 50:1:125, 4, (1 - α) / 2, false),
-        (-0.95, 5:1:75, 8, (1 - α) / 2, false),
+        (-0.997, N0s_start:N0s_step:N0s_stop, 4, (1 - α) / 2, true),
+        (-0.995, 100:1:200, 4, (1 - α) / 2, true),
+        (-0.99, 50:1:125, 4, (1 - α) / 2, true),
+        (-0.95, 5:1:75, 8, (1 - α) / 2, true),
         (-0.85, 0:1:50, 8, (1 - α) / 2, false),
         (-0.5, 0:1:20, 16, (1 - α) / 2, false),
         (-0.33, 0:1:10, 16, T(3 // 4), false),
