@@ -652,19 +652,13 @@ If we let
 f(α, j, x) =  gamma(2α - j * p0) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p) -
     zeta(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
 ```
-We can write this as
+We can rewrite this as
 ```
 Hu0_part2 / x^(p - α) = -sum(1:bhkdv_skip_singular_j_until) do j
     u0.a[j] * f(α, j, x)
 end
 ```
-To get a better enclosure in `α` of `f(α, j, x)` we first compute an
-enclosure of the derivative in `α`. If it is non-zero we evaluate at
-the endpoints of `α`, otherwise we just a zero order approximation.
-This is however not enough to get good enclosures, we also need to
-better handle the removable singularity for `f`.
-
-As a first step we use that
+To better handle the removable singularity of `f` use that
 ```
 zeta(-1 - 2α + j * p0) = zeta_deflated(-1 - 2α + j * p0) - inv(2 + 2α - j * p0)
 ```
@@ -673,54 +667,70 @@ and
 gamma(2α - j * p0) = gamma(3 + 2α - j * p0) / rising(2α - j * p0, 3)
     = inv(2 + 2α - j * p0) * gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2)
 ```
-This allows us to write `f` as
+If we let
 ```
-f(α, j, x) =  inv(2 + 2α - j * p0) * (
-        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
-        + 1 / 2 * x^(2 + α - p)
-    ) - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
+f1(α, j, x) = inv(2 + 2α - j * p0) * (
+    gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
+    + 1 / 2 * x^(2 + α - p)
+)
 ```
-How to best evaluate this depends on which of the exponents `-α + j *
+and
+```
+f2(α, j) = -zeta_deflated(-1 - 2α + j * p0) / 2
+```
+Then we can write `f(α, j, x)` as
+```
+f(α, j, x) =  f1(α, j, x) + f2(α, j) * x^(2 + α - p)
+```
+
+We can then split the sum into two parts as
+```
+Hu0_part2_1 / x^(p - α) = -sum(1:bhkdv_skip_singular_j_until) do j
+    u0.a[j] * f1(α, j, x)
+end
+Hu0_part2_2 / x^(p - α) = -x^(2 + α - p) * sum(1:bhkdv_skip_singular_j_until) do j
+    u0.a[j] * f2(α, j)
+end
+```
+with
+```
+Hu0_part2 / x^(p - α) = Hu0_part2_1 / x^(p - α) + Hu0_part2_2 / x^(p - α)
+```
+
+For `Hu0_part2_2` we can compute a good enclosure using
+[`ArbExtras.enclosure_series`](@ref) directly. For `Hu0_part2_2` we
+have to work slightly harder.
+
+#### Computing `Hu0_part2_1 / x^(p - α)`
+To get a better enclosure in `α` of `f1(α, j, x)` we first compute an
+enclosure of the derivative in `α`. If it is non-zero we evaluate at
+the endpoints of `α`, otherwise we use a zero order approximation.
+This is however not enough to get good enclosures, we also need to
+better handle the removable singularity..
+
+How to best evaluate `f1` depends on which of the exponents `-α + j *
 p0 - p` and `2 + α - p` are largest. In practice we have that for `j =
 1` the last one is largest and for `j >= 2` the first one is largest.
-For wide values of `α` it sometimes happen that they overlap.
-For non-zero `x` the precise way of evaluation is not important, it is
+For wide values of `α` it sometimes happen that they overlap. For
+non-zero `x` the precise way of evaluation is not important, it is
 only for `x` overlapping zero for which we need to take care so that
 all factors are finite. We handle the cases `j = 1` and `j >= 2`
 separately, we then also have a third case for when `x` overlaps zero
 and the exponents overlap.
 
-#### `j >= 2`
+##### `j >= 2`
 Factoring out `x^(2 + α - p)` we get
 ```
-f(α, j, x) =  (
+f1(α, j, x) =
     inv(2 + 2α - j * p0) * (
         gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-2 - 2α + j * p0)
         + 1 / 2
-    ) - zeta_deflated(-1 - 2α + j * p0) / 2
-) * x^(2 + α - p)
+    ) * x^(2 + α - p)
 ```
-
-The term
-```
-zeta_deflated(-1 - 2α + j * p0) / 2
-```
-we can in general evaluate directly. However, if the argument is close
-to, but does not contain, the removable singularity at `1` the
-implementation gives very bad enclosures. In that case it is better to
-slightly widen the argument to also contain the removable singularity,
-in which case a different, better, algorithm is used.
-
-The term
-```
-inv(2 + 2α - j * p0) * (
-    gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-2 - 2α + j * p0)
-    + 1 / 2
-)
-```
-can also be evaluated directly as long as `2 + 2α - j * p0` is not too
+We can evaluate this directly as long as `2 + 2α - j * p0` is not too
 close to zero, where there is a removable singularity. To better
-handle this case we let `t1 = 2 + 2α - j * p0` and write it as
+handle the case when it is close to zero we let `t1 = 2 + 2α - j * p0`
+and write it as
 ```
 inv(t1) * (
     gamma(t1 + 1) / rising(t1 - 2, 2) * cospi((t1 - 2) / 2) * x^(-t1)
@@ -732,19 +742,18 @@ removable singularity. When `t1` is not too close to zero we evaluate
 this directly. Otherwise we widen `t1` to include zero and use
 [`fx_div_x`](@ref).
 
-#### `j = 1`
+##### `j = 1`
 In this case we instead write `f` as
 ```
 f(α, j, x) =  inv(2 + 2α - j * p0) * (
         gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2)
         + 1 / 2 * x^(2 + 2α - j * p0)
     ) * x^(-α + j * p0 - p)
-    - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
 ```
 and then use the same approach as for `j >= 2` to compute a good
 enclosure.
 
-#### Overlapping exponents and `x` containing zero
+##### Overlapping exponents and `x` containing zero
 In this case we have that `-α + j * p0 - p` overlaps with `2 + α - p`,
 which means that `2 + 2α - j * p0` overlaps with zero. We keep the
 original formulation
@@ -752,7 +761,7 @@ original formulation
 f(α, j, x) =  inv(2 + 2α - j * p0) * (
         gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
         + 1 / 2 * x^(2 + α - p)
-    ) - zeta_deflated(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
+    )
 ```
 and handle the removable singularity.
 """
@@ -793,8 +802,7 @@ function _F0_bhkdv(
     # Compute gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
     f1_part(t1) = gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
 
-    f(α, j, x) = begin
-        # Main argument for f1
+    f1(α, j, x) = begin
         t1 = 2 + 2α - j * u0.p0
         if t1 isa ArbSeries && is_approx_integer(Arblib.ref(t1, 0))
             # Widen argument to contain 0 so that it uses the algorithm
@@ -802,61 +810,65 @@ function _F0_bhkdv(
             t1[0] = union(Arblib.ref(t1, 0), Arb(0))
         end
 
-        # Main argument for f2
-        t2 = -1 - 2α + j * u0.p0
-        if t2 isa ArbSeries && is_approx_integer(Arblib.ref(t2, 0))
-            # Widen argument to contain 1 so that it uses the algorithm
-            # that explicitly handles the removable singularity.
-            t2[0] = union(Arblib.ref(t2, 0), Arb(1))
-        end
-
-        f2 = zeta_deflated(t2, Arb(1)) / 2
-
         t1_contains_zero =
             Arblib.contains_zero(t1 isa ArbSeries ? Arblib.ref(t1, 0) : t1)
 
         if t1_contains_zero && Arblib.contains_zero(x)
             # The exponents overlap so don't factor out any power of x
-            f1 = fx_div_x(t1, enclosure_degree = -1, force = true) do t1
+            return fx_div_x(t1, enclosure_degree = -1, force = true) do t1
                 f1_part(t1) * abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
                 1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
             end
-
-            return f1 - f2 * abspow(x, 2 + α - u0.p)
         elseif j >= 2
             if t1_contains_zero
                 # Handle the removable singularity
-                f1 = fx_div_x(t1, enclosure_degree = -1) do t1
+                return abspow(x, 2 + α - u0.p) * fx_div_x(t1, enclosure_degree = -1) do t1
                     f1_part(t1) * abspow(x, -t1) + 1 // 2
                 end
             else
-                f1 = (f1_part(t1) * abspow(x, -t1) + 1 // 2) / t1
+                return (f1_part(t1) * abspow(x, -t1) + 1 // 2) / t1 * abspow(x, 2 + α - u0.p)
             end
-
-            return (f1 - f2) * abspow(x, 2 + α - u0.p)
         else
             if t1_contains_zero
                 # Handle the removable singularity
-                f1 = fx_div_x(t1, enclosure_degree = -1) do t1
+                return abspow(x, -α + j * u0.p0 - u0.p) *
+                       fx_div_x(t1, enclosure_degree = -1) do t1
                     f1_part(t1) + 1 // 2 * abspow(x, t1)
                 end
             else
-                f1 = (f1_part(t1) + 1 // 2 * abspow(x, t1)) / t1
+                return (f1_part(t1) + 1 // 2 * abspow(x, t1)) / t1 *
+                       abspow(x, -α + j * u0.p0 - u0.p)
             end
-
-            return f1 * abspow(x, -α + j * u0.p0 - u0.p) - f2 * abspow(x, 2 + α - u0.p)
         end
     end
 
-    # Derivative of f w.r.t. α
-    df(α, j, x) =
+    # Derivative of f1 w.r.t. α
+    df1(α, j, x) =
         if α isa Arb
-            f(ArbSeries((α, 1)), j, x)[1]
+            f1(ArbSeries((α, 1)), j, x)[1]
         else
-            Arblib.derivative(f(ArbSeries(α, degree = Arblib.degree(α) + 1), j, x))
+            Arblib.derivative(f1(ArbSeries(α, degree = Arblib.degree(α) + 1), j, x))
         end
 
-    return x::Arb -> begin
+    f2(α, j) = begin
+        t2 = -1 - 2α + j * u0.p0
+        if t2 isa ArbSeries && is_approx_integer(Arblib.ref(t2, 0), tol = 0.0001)
+            # Widen argument to contain 1 so that it uses the algorithm
+            # that explicitly handles the removable singularity.
+            t2[0] = union(Arblib.ref(t2, 0), Arb(1))
+        end
+
+        -zeta_deflated(t2, Arb(1)) / 2
+    end
+
+    # The part of Hu0_part2_2_divpα not depending on x
+    Hu0_part2_2_divpα_constant = -ArbExtras.enclosure_series(u0.α) do α
+        sum(1:min(bhkdv_skip_singular_j_until, u0.N0)) do j
+            u0.a[j] * f2(α, j)
+        end
+    end
+
+    return (x::Arb) -> begin
         @assert x <= ϵ
 
         # abspow(x, y::ArbSeries) only supports y of degree at most 2
@@ -891,7 +903,7 @@ function _F0_bhkdv(
             end
         end
 
-        # u0_part1 / x^-α
+        # u0_part1 / x^-u0.α
         u0_part1_divα = ArbExtras.enclosure_series(u0.α, degree = 1) do α
             2c(2α) / c(α)^2 * (c(α) - c(α - u0.p0) * abspow(x, u0.p0))
         end
@@ -901,27 +913,32 @@ function _F0_bhkdv(
         # u0_part2 / x^-α
         u0_part2_divα = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
-        # Hu0_part2 / x^(p - α)
-        Hu0_part2_divpα =
+        Hu0_part2_1_divpα =
             -sum(1:min(bhkdv_skip_singular_j_until, u0.N0), init = zero(x)) do j
                 # Compute derivative in α
                 if Arblib.contains_zero(x)
-                    deriv_α = df(u0.α, j, x)
+                    deriv_α = df1(u0.α, j, x)
                 else
-                    deriv_α = ArbExtras.enclosure_series(α -> df(α, j, x), u0.α, degree = 4)
+                    deriv_α =
+                        ArbExtras.enclosure_series(α -> df1(α, j, x), u0.α, degree = 4)
                 end
 
                 if Arblib.contains_zero(deriv_α)
                     # Use a zero order approximation. Only gets used
                     # in very few cases.
-                    term = add_error(f(α_mid, j, x), (u0.α - α_mid) * deriv_α)
+                    term = add_error(f1(α_mid, j, x), (u0.α - α_mid) * deriv_α)
                 else
                     # Evaluate at the endpoints
-                    term = union(f(α_lower, j, x), f(α_upper, j, x))
+                    term = union(f1(α_lower, j, x), f1(α_upper, j, x))
                 end
 
                 u0.a[j] * term
             end
+
+        Hu0_part2_2_divpα = abspow(x, 2 + u0.α - u0.p) * Hu0_part2_2_divpα_constant
+
+        # Hu0_part2 / x^(p - α)
+        Hu0_part2_divpα = Hu0_part2_1_divpα + Hu0_part2_2_divpα
 
         # Hu0_part3 / x^(p - α)
         Hu0_part3_divpα =
