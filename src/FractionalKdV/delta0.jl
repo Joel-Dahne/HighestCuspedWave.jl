@@ -23,9 +23,11 @@ the interval ``[0, ϵ1]`` can be handled in one evaluation.
 - `degree::Integer = ifelse(u0.N0 > 100, 4, 6)`: Degree used for
   [`ArbExtras.maximum_enclosure`](@ref).
 - `rtol = Arb(1e-3)`: Relative tolerance used when computing maximum.
-- `ubound_tol = Arb(-Inf)`: Any number less than this is determined to
-  satisfy the tolerance. Useful if you only need to determine if the
-  maximum is less than some given number.
+- `ubound_tol = ifelse(u0.use_bhkdv && u0.α < -0.95, Arb(0.0002),
+  Arb(-Inf))`: Any number less than this is determined to satisfy the
+  tolerance. Useful if you only need to determine if the maximum is
+  less than some given number. The condition for setting this to
+  `0.0002` is testing what works well in practice.
 - `threaded = true`: If true it enables threading when calling
   [`ArbExtras.maximum_enclosure`](@ref).
 - `verbose = false`: Print information about the process.
@@ -35,7 +37,7 @@ function delta0_bound(
     M::Integer = 5,
     degree::Integer = ifelse(u0.N0 > 100, 4, 6),
     rtol = Arb(1e-3),
-    ubound_tol = Arb(-Inf),
+    ubound_tol = ifelse(u0.use_bhkdv && u0.α < -0.95, Arb(0.0002), Arb(-Inf)),
     threaded = true,
     verbose = false,
 )
