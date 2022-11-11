@@ -23,11 +23,11 @@ the interval ``[0, ϵ1]`` can be handled in one evaluation.
 - `degree::Integer = ifelse(u0.N0 > 100, 4, 6)`: Degree used for
   [`ArbExtras.maximum_enclosure`](@ref).
 - `rtol = Arb(1e-3)`: Relative tolerance used when computing maximum.
-- `ubound_tol = ifelse(u0.use_bhkdv && u0.α < -0.95, Arb(0.0002),
-  Arb(-Inf))`: Any number less than this is determined to satisfy the
-  tolerance. Useful if you only need to determine if the maximum is
-  less than some given number. The condition for setting this to
-  `0.0002` is testing what works well in practice.
+- `ubound_tol = Arb(u0.use_bhkdv && u0.α < -0.95 ? ( u0.α < -0.99 ? 0.0002 : 0.0004) : -Inf)`:
+  Any number less than this is determined to satisfy the tolerance.
+  Useful if you only need to determine if the maximum is less than
+  some given number. The condition for setting this to `0.0002` or
+  `0.0004` is base on testing what works well in practice.
 - `threaded = true`: If true it enables threading when calling
   [`ArbExtras.maximum_enclosure`](@ref).
 - `verbose = false`: Print information about the process.
@@ -37,7 +37,9 @@ function delta0_bound(
     M::Integer = 5,
     degree::Integer = ifelse(u0.N0 > 100, 4, 6),
     rtol = Arb(1e-3),
-    ubound_tol = ifelse(u0.use_bhkdv && u0.α < -0.95, Arb(0.0002), Arb(-Inf)),
+    ubound_tol = Arb(
+        u0.use_bhkdv && u0.α < -0.95 ? (u0.α < -0.99 ? 0.0002 : 0.0004) : -Inf,
+    ),
     threaded = true,
     verbose = false,
 )
@@ -109,10 +111,10 @@ function delta0_bound(
 
     verbose && @info "Bound on [0, ϵ2]" max_asymptotic
 
-    # Ball evaluation is rather expensive and we are worried about
-    # extra evaluations, the tolerances are therefore set rather high.
+    # Ball evaluation is expensive and we are worried about extra
+    # evaluations, the tolerances are therefore set rather high.
     estimate = max(abs(g(ϵ2)), abs(g(Arb(π))))
-    atol = max(max_asymptotic / 2, 2radius(fϵ2))
+    atol = max(max_asymptotic / 2, 1.5radius(gϵ2))
     ubound_tol = max(ubound_tol, ubound(Arb, max_asymptotic), ubound(Arb, estimate))
 
     # Bound the value on [ϵ, π] by Ball evaluation
