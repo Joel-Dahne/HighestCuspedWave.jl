@@ -21,7 +21,7 @@ function D0_bounded_by(
     C::Arf;
     M::Integer = 3,
     ϵ::Arf = zero(Arf),
-    maxevals = 1000,
+    maxevals = 4000,
     threaded = true,
     verbose = false,
 )
