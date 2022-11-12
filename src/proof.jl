@@ -56,7 +56,7 @@ function prove(
 end
 
 """
-    prove(αs::Vector{Arb}; M, only_estimate_D0, D0_maxevals, executor, threaded, verbose)
+    prove(αs::Vector{Arb}; M, only_estimate_D0, D0_maxevals, executor, threaded, verbose, extra_verbose)
 
 Apply `prove(α)` to all elements of `αs` and return result as a
 dataframe.
@@ -70,8 +70,8 @@ is unfortunately not supported using the [`Folds`](@ref) interface and
 we therefore manually call the underlying transducers.
 
 # Arguments
-- `M`, `only_estimate_D0`, `D0_maxevals`, `threaded`: Same as for
-  method accepting a single `α`.
+- `M`, `only_estimate_D0`, `D0_maxevals`, `threaded`, `verbose`,
+  `extra_verbos`: Same as for method accepting a single `α`.
 - `executor = ThreadedEx(basesize = 1)`: Executor to use for
   [`Folds.map`](@ref). The default value parallelizes over all
   available threads, in which case `threaded` should be false. Using
@@ -91,6 +91,7 @@ function prove(
     executor = ThreadedEx(basesize = 1),
     threaded = false,
     verbose = false,
+    extra_verbose = false,
 )
     executor == ThreadedEx(basesize = 1) &&
         threaded &&
@@ -98,13 +99,13 @@ function prove(
 
     xf = Map() do α
         HighestCuspedWave.prove(
-            α,
-            verbose = false,
-            extra_verbose = false;
+            α;
             M,
             only_estimate_D0,
             D0_maxevals,
             threaded,
+            verbose,
+            extra_verbose,
         )
     end
 
