@@ -161,6 +161,10 @@ Which can be simplified to
 function _T0_bhkdv_I1(α, p, ϵ)
     I2 = _T0_bhkdv_I2(α, p, ϵ, return_parts = true)
 
+    # Precompute expansion to use when computing integrand from a to π
+    M = 10
+    C, _, P, _ = clausenc_expansion(Arb(0), -α, M, skip_constant = true)
+
     return x -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
         invloginvx = if iszero(x)
@@ -202,32 +206,34 @@ function _T0_bhkdv_I1(α, p, ϵ)
                 end
 
             # Integral from a to π / x
+            integrand(t) = begin
+                rt = real(t)
 
-            # Precompute expansion to use when computing integrand
-            M = 10
-            C, _, P, _ = clausenc_expansion(Arb(0), -α, M, skip_constant = true)
+                # The integrand is singular at t = 1 so check that the
+                # real part of t is greater than 1 or return an
+                # indeterminate result. This also ensures that the
+                # integrand is analytic everywhere
+                rt > 1 || return indeterminate(t)
 
-            integrand(t) =
                 if isreal(t)
-                    if x * (1 + real(t)) < 2Arb(π)
-                        E = clausenc_expansion_remainder(x * (1 + real(t)), -α, M)
-                        _integrand_I_hat_series(x, real(t), α, C, P, E) *
-                        real(t)^p *
-                        log(1 + 2Arb(ℯ) * x * real(t))
+                    if x * (1 + rt) < 2Arb(π)
+                        E = clausenc_expansion_remainder(x * (1 + rt), -α, M)
+                        _integrand_I_hat_series(x, rt, α, C, P, E) *
+                        rt^p *
+                        log(1 + 2Arb(ℯ) * x * rt)
                     else
                         # In some cases when x and t is wide we get
                         # that x * (1 + real(t)) < 2Arb(π) and the
                         # remainder term is unbounded. In this cases
                         # fall back to direct evaluation.
                         ArbExtras.enclosure_series(x, degree = 8) do x
-                            _integrand_I_hat(x, real(t), α) *
-                            real(t)^p *
-                            log(1 + 2Arb(ℯ) * x * real(t))
+                            _integrand_I_hat(x, rt, α) * rt^p * log(1 + 2Arb(ℯ) * x * rt)
                         end
                     end
                 else
                     _integrand_I_hat(x, t, α) * t^p * log(1 + 2Arb(ℯ) * x * t)
                 end
+            end
 
             part22_lower = real(
                 Arblib.integrate(
@@ -765,15 +771,17 @@ integrated from `c` to `π / x`, which we integrate explicitly.
 function _T0_bhkdv_I3_M2(α, p, ϵ)
     C = gamma(1 + α) * sinpi(-α / 2)
 
+    s = -α - 1
+
     integrand(t) =
         if isreal(t) && !iswide(t)
-            t^p *
-            log(t) *
-            ArbExtras.enclosure_series(α, degree = 4) do α
-                -((real(t) - 1)^(-α - 1) + (1 + real(t))^(-α - 1) - 2real(t)^(-α - 1))
+            rt = real(t)
+
+            -t^p * log(t) * ArbExtras.enclosure_series(s, degree = 4) do s
+                (rt - 1)^s + (1 + rt)^s - 2rt^s
             end
         else
-            -((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p * log(t)
+            -((t - 1)^s + (1 + t)^s - 2t^s) * t^p * log(t)
         end
 
     # Compute
