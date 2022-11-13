@@ -44,7 +44,6 @@ E = clausenc_expansion_remainder(x * (1 + t), -α, M)
 
 **IMPROVE:** Look at using this as the default version for small
 values of `x`.
-**IMPROVE:** Reduce number of allocations.
 """
 function _integrand_I_hat_series(x::Arb, t::Arb, α::Arb; M = 5)
     C, _, P, E = clausenc_expansion(x * (1 + t), -α, M, skip_constant = true)
@@ -55,15 +54,55 @@ end
 function _integrand_I_hat_series(x::Arb, t::Arb, α::Arb, C::Arb, P::ArbSeries, E::Arb)
     M = Arblib.degree(P) ÷ 2 + 1
 
+    # t1 = abs(1 - t)
+    t1 = 1 - t
+    Arblib.abs!(t1, t1)
+    # t2 = 1 + t
+    t2 = 1 + t
+
     res = C * ArbExtras.enclosure_series(-α - 1, degree = 2) do e
-        x^e * (abs(1 - t)^e + (1 + t)^e - 2t^e)
+        x^e * (t1^e + t2^e - 2t^e)
     end
+
+    term = zero(x)
+    tmp = zero(x)
+
+    x2 = x^2
+
+    # t1 = abs(1 - t)^2
+    Arblib.pow!(t1, t1, UInt(2))
+    # t2 = (1 + t)^2
+    Arblib.pow!(t2, t2, UInt(2))
+    # t3 = t^2
+    t3 = t^2
 
     for m = 1:M-1
-        res += P[2m] * x^2m * ((1 - t)^2m + (1 + t)^2m - 2t^2m)
+        # term = (1 - t)^2m + (1 + t)^2m - 2t^2m
+        Arblib.pow!(term, t1, UInt(m))
+        Arblib.pow!(tmp, t2, UInt(m))
+        Arblib.add!(term, term, tmp)
+        Arblib.pow!(tmp, t3, UInt(m))
+        Arblib.submul!(term, tmp, 2)
+
+        # term *= x^2m
+        Arblib.pow!(tmp, x2, UInt(m))
+        Arblib.mul!(term, term, tmp)
+
+        Arblib.addmul!(res, Arblib.ref(P, 2m), term)
     end
 
-    res += E * x^2M * ((1 - t)^2M + (1 + t)^2M - 2t^2M)
+    # term = (1 - t)^2M + (1 + t)^2M - 2t^2M
+    Arblib.pow!(term, t1, UInt(M))
+    Arblib.pow!(tmp, t2, UInt(M))
+    Arblib.add!(term, term, tmp)
+    Arblib.pow!(tmp, t3, UInt(M))
+    Arblib.submul!(term, tmp, 2)
+
+    # term *= x^2M
+    Arblib.pow!(tmp, x2, UInt(M))
+    Arblib.mul!(term, term, tmp)
+
+    Arblib.addmul!(res, E, term)
 
     return res
 end
