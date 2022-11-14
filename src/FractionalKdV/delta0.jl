@@ -23,11 +23,10 @@ the interval ``[0, ϵ1]`` can be handled in one evaluation.
 - `degree::Integer = ifelse(u0.N0 > 100, 4, 6)`: Degree used for
   [`ArbExtras.maximum_enclosure`](@ref).
 - `rtol = Arb(1e-3)`: Relative tolerance used when computing maximum.
-- `ubound_tol = Arb(u0.use_bhkdv && u0.α < -0.95 ? ( u0.α < -0.99 ? 0.0002 : 0.0004) : -Inf)`:
-  Any number less than this is determined to satisfy the tolerance.
-  Useful if you only need to determine if the maximum is less than
-  some given number. The condition for setting this to `0.0002` or
-  `0.0004` is base on testing what works well in practice.
+- `ubound_tol = nothing: Any number less than this is determined to
+  satisfy the tolerance. Useful if you only need to determine if the
+  maximum is less than some given number. If set to `nothing` a
+  default value is used depending on `u0`.
 - `threaded = true`: If true it enables threading when calling
   [`ArbExtras.maximum_enclosure`](@ref).
 - `verbose = false`: Print information about the process.
@@ -37,12 +36,28 @@ function delta0_bound(
     M::Integer = 5,
     degree::Integer = ifelse(u0.N0 > 100, 4, 6),
     rtol = Arb(1e-3),
-    ubound_tol = Arb(
-        u0.use_bhkdv && u0.α < -0.95 ? (u0.α < -0.99 ? 0.0002 : 0.0004) : -Inf,
-    ),
+    ubound_tol = nothing,
     threaded = true,
     verbose = false,
 )
+    if isnothing(ubound_tol)
+        # These values have been determined by testing what seems to
+        # work well in practice.
+        if u0.use_bhkdv
+            if u0.α < -0.99985
+                ubound_tol = Arb(0.0003)
+            elseif u0.α < -0.99
+                ubound_tol = Arb(0.0002)
+            elseif u0.α < -0.95
+                ubound_tol = Arb(0.0004)
+            else
+                ubound_tol = Arb(-Inf)
+            end
+        else
+            ubound_tol = Arb(-Inf)
+        end
+    end
+
     # For asymptotic evaluation
     f = F0(u0, Asymptotic(); M, ϵ = Arb(1.1))
     # For non-asymptotic evaluation
