@@ -59,13 +59,13 @@ function delta0_bound(
     end
 
     # For asymptotic evaluation
-    f = F0(u0, Asymptotic(); M, ϵ = Arb(1.1))
+    f = F0(u0, Asymptotic(); M, ϵ = Arb(2.1))
     # For non-asymptotic evaluation
     g = F0(u0)
 
     # Find ϵ2 such that f(ϵ2) satisfies the required tolerance or has
     # a smaller radius than g(ϵ2)
-    ϵ2 = Arb(1)
+    ϵ2 = Arb(2)
     fϵ2 = abs(f(ϵ2))
     gϵ2 = abs(g(ϵ2))
     while !ArbExtras.check_tolerance(fϵ2; rtol) &&
