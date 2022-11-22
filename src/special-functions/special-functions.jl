@@ -307,15 +307,15 @@ function abspow!(res::ArbSeries, x::ArbSeries, y::Arb)
     sgn = Arblib.sgn_nonzero(Arblib.ref(x, 0))
 
     if sgn == 0
+        # We don't have to be that careful with allocations here.
+
         # All non-constant terms are indeterminate, the constant term
         # is given by abs(x[0])^y
+        res[0] = abspow(x[0], y)
         for i = 1:Arblib.degree(res)
-            Arblib.indeterminate!(Arblib.ref(res, i))
+            res[i] = indeterminate(Arb)
         end
 
-        # We don't have to be that careful with allocations here. This
-        # means we don't have to care about if res[0] is set or not.
-        res[0] = abspow(x[0], y)
         return res
     elseif sgn < 0
         Arblib.neg!(res, x)
