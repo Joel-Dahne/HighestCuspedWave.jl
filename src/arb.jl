@@ -43,9 +43,12 @@ end
 Return true if `x` is wide in the meaning that the effective relative
 accuracy of `x` measured in bits is more than `cutoff` lower than it's
 precision. For `x` not of type `Arb` or `Acb` this always return
-`false`.
+`false`. For `x` of type `ArbSeries` or `AcbSeries` it checks the
+first coefficient.
 """
-iswide(x::Union{Arb,Acb}; cutoff = 10) = Arblib.rel_accuracy_bits(x) < precision(x) - cutoff
+iswide(x::Union{Arblib.ArbOrRef,Arblib.AcbOrRef}; cutoff = 10) =
+    Arblib.rel_accuracy_bits(x) < precision(x) - cutoff
+iswide(x::Union{ArbSeries,AcbSeries}; cutoff = 10) = iswide(Arblib.ref(x, 0))
 iswide(::Number; cutoff = 10) = false
 
 """
