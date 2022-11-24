@@ -52,4 +52,48 @@
         )
 
     end
+
+    @testset "x_pow_s_x_pow_t_m1_div_t" begin
+        for x in
+            (Arb(-0.2), Arb(0.3), ArbSeries((-0.2, 0.5, 0.7)), ArbSeries((0.1, 0.5, 0.7)))
+
+            # Generic t
+            let s = Arb(0.2), t = Arb(0.1)
+                @test Arblib.overlaps(
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, s, t),
+                    abs(x)^s * (abs(x)^t - 1) / t,
+                )
+            end
+
+            # t = 0
+            let s = Arb(0.2), t = Arb(0)
+                @test Arblib.overlaps(
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, s, t),
+                    abs(x)^s * log(abs(x)),
+                )
+            end
+
+            # Wide t
+            let s = Arb(0.2), t = Arb((0.1, 0.2))
+                tₗ, tᵤ = getinterval(Arb, t)
+                @test Arblib.overlaps(
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, s, t),
+                    abs(x)^s * (abs(x)^t - 1) / t,
+                )
+            end
+
+            # Wide t around zero
+            let s = Arb(0.2), t = Arb((-0.1, 0.02))
+                tₗ, tᵤ = getinterval(Arb, t)
+                @test Arblib.overlaps(
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, s, t),
+                    abs(x)^s * (abs(x)^tₗ - 1) / tₗ,
+                )
+                @test Arblib.overlaps(
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, s, t),
+                    abs(x)^s * (abs(x)^tᵤ - 1) / tᵤ,
+                )
+            end
+        end
+    end
 end

@@ -542,3 +542,105 @@ function logabspow(x::ArbSeries, i::Integer, y::Arb)
 
     return log(abs(x))^i * abspow(x, y)
 end
+
+"""
+    x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
+
+Compute an enclosure of
+```
+abs(x)^s * (abs(x)^t - 1) / t
+```
+in a way that works well for `t` overlapping zero.
+
+For `t = 0` it reduces to `abs(x)^s * log(abs(x))`
+
+For `x` overlapping zero we computes it as
+```
+(abspow(x, s + t) - abspow(x, s)) / t
+```
+Directly if `t` doesn't overlap zero, otherwise using
+[`fx_div_x`](@ref) to handle the removable singularity.
+
+For non-zero `x` it uses monotonicity in `t`. The derivative in `t`
+can be written as
+```
+x^s * (1 + (log(x) * t - 1) * exp(log(x) * t)) / t^2
+```
+The sign depends only on `1 + (log(x) * t - 1) * exp(log(x) * t)´. If
+we let `v = log(x) * t` we have to study `1 + (v - 1) * exp(v)` which
+has the unique root `v = 0` and is positive for all other values of
+`v`. At `v = 0` the derivative is still positive due to the removable
+singularity. It is hence increasing in `t` and we can evaluate on the
+endpoints.
+"""
+function x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
+    iszero(t) && return logabspow(x, 1, s)
+
+    if Arblib.contains_zero(x)
+        # We don't work as hard to get a good enclosure in this case
+        if Arblib.contains_zero(t)
+            # Handle removable singularity
+            return fx_div_x(t, force = true) do t
+                abspow(x, s + t) - abspow(x, s)
+            end
+        else
+            # Evaluate directly
+            return (abspow(x, s + t) - abspow(x, s)) / t
+        end
+    end
+
+    if Arblib.contains_zero(t) || iswide(t)
+        # Use that it is increasing in t
+        tₗ, tᵤ = getinterval(Arb, t)
+        return Arb((x_pow_s_x_pow_t_m1_div_t(x, s, tₗ), x_pow_s_x_pow_t_m1_div_t(x, s, tᵤ)))
+    end
+
+    return abspow(x, s) * expm1(log(abs(x)) * t) / t
+end
+
+"""
+    x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
+
+Compute an enclosure of
+```
+abs(x)^s * (abs(x)^t - 1) / t
+```
+in a way that works well for `t` overlapping zero.
+
+In case `x` overlaps the constant term is computed using
+`x_pow_t_div_t(x[0], s, t)` and all higher order terms are set to an
+indeterminate value, even if they in some cases could be finite.
+
+To compute the series for non-zero `x` we first compute the series for
+`(abs(x)^t - 1) / t` and then multiply with the one for `abs(x)^s`. To
+get the series for `(abs(x)^t - 1) / t` we first compute the
+derivative, then integrate and set the constant according to
+`x_pow_t_div_t(x[0], 0, t)`. The derivative is given by
+```
+x' * x^(t - 1)
+```
+where `x'` denotes the derivative of `x`.
+"""
+function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
+    if Arblib.contains_zero(Arblib.ref(x, 0))
+        res = indeterminate(x)
+        res[0] = x_pow_s_x_pow_t_m1_div_t(x[0], s, t)
+        return res
+    end
+
+    # Only constant term
+    iszero(Arblib.degree(x)) && return ArbSeries(x_pow_s_x_pow_t_m1_div_t(x[0], s, t))
+
+    # Compute x' * x^(t - 1) with one degree lower and then integrate
+    res = Arblib.integral(
+        Arblib.derivative(abs(x)) *
+        abspow(x, ArbSeries(t, degree = Arblib.degree(x) - 1) - 1),
+    )
+    # Set the constant of integration correctly
+    res[0] = x_pow_s_x_pow_t_m1_div_t(x[0], zero(s), t)
+
+    # Multiply with series for abs(x)^s
+    res *= abspow(x, s)
+
+    return res
+end
