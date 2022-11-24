@@ -161,11 +161,27 @@ end
 (u0::FractionalKdVAnsatz)(x, ::Asymptotic; M::Integer = 5) =
     eval_expansion(u0, u0(x, AsymptoticExpansion(); M), x)
 
+"""
+    (u0::FractionalKdVAnsatz{Arb})(x::Arb, ::AsymptoticExpansion; M, skip_main)
+
+Compute an expansion of `u0` around zero with remainder terms valid
+on the interval ``[0, x]``.
+
+# Arguments
+- `M::Integer = 5`: Determines the order of the expansion. The
+  remainder term is of order `x^2M`.
+- `skip_main = false`: If true then don't add the `x^-α` term from the
+  expansion of the leading Clausen to the expansion. If `u0.use_bhkdv`
+  is true then skip the `x^-α` and `x^(-α + p0)` terms from the
+  expansion of the two Clausen functions that are multiplied with
+  `u0.a[0]`. These would then have to be added separately to the
+  result.
+"""
 function (u0::FractionalKdVAnsatz{Arb})(
     x,
     ::AsymptoticExpansion;
     M::Integer = 5,
-    bhkdv_skip_main = false,
+    skip_main = false,
 )
     res = OrderedDict{NTuple{3,Int},Arb}()
 
@@ -181,9 +197,7 @@ function (u0::FractionalKdVAnsatz{Arb})(
         s = 1 - u0.α
         C1, _, p1, E1 = clausenc_expansion(x, s, M)
         C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
-        if !bhkdv_skip_main
-            # See the argument u0_skipped_u0_main to inv_u0_normalised
-            # as well as _F0_bhkdv
+        if !skip_main
             res[(1, 0, 0)] += C1 * u0.a[0]
             res[(1, 1, 0)] += -C2 * u0.a[0]
         end
@@ -194,7 +208,9 @@ function (u0::FractionalKdVAnsatz{Arb})(
     else
         s = 1 - u0.α
         C, _, p, E = clausenc_expansion(x, s, M)
-        res[(1, 0, 0)] += C * u0.a[0]
+        if !skip_main
+            res[(1, 0, 0)] += C * u0.a[0]
+        end
         for m = 1:M-1
             res[(0, 0, 2m)] += p[2m] * u0.a[0]
         end
@@ -296,12 +312,46 @@ function H(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
     return x -> eval_expansion(u0, f(x), x)
 end
 
+"""
+    H(u0::FractionalKdVAnsatz{Arb}, ::AsymptoticExpansion; M, skip_main, skip_singular_j_until)
+
+Return a function such that `H(u0)(x)` computes an expansion of
+`H(u0)` around zero with remainder terms valid on the interval ``[0,
+x]``.
+
+# Arguments
+- `M::Integer = 5`: Determines the order of the expansion. The
+  remainder term is of order `x^2M`.
+- `skip_main = false`: If true then don't add the `x^-2α` and `x^2`
+  term from the expansion of the leading Clausen to the expansion. If
+  `u0.use_bhkdv` is true then skip the `x^-2α`, `x^(-2α + p0)` and
+  `x^2` terms from the expansion of the two Clausen functions that are
+  multiplied with `u0.a[0]`. These would then have to be added
+  separately to the result.
+- `skip_singular_j_until::Integer = 0`: If positive then the terms
+  `x^(-2α + j * p0)` and `x^2` are treated differently in the
+  expansion for the Clausen terms with `j` from `1` to
+  ``skip_singular_j_until`. The terms are split in correspondence with
+  [`clausenc_expansion_odd_s_singular_K1_K2`](@ref) and
+  [`clausenc_expansion_odd_s_singular_K3`](@ref). The `K1` and `K2`
+  terms are added to the expansion, but the `K3` term is not. You
+  would then have to add
+  ```
+  -K3 * sum(1:skip_singular_j_until) do j
+    u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, 2, s - (2m + 1))
+  end
+  ```
+  to the result to account for the `K3` term. This option is used to
+  avoid large cancellations when the arguments for the Clausen
+  functions are very close to the removable singularity at `s = 3`,
+  which happens for `α` close to `-1`.
+"""
 function H(
     u0::FractionalKdVAnsatz{Arb},
     ::AsymptoticExpansion;
     M::Integer = 5,
-    bhkdv_skip_main = false, # See _F0_bhkdv for use
-    bhkdv_skip_singular_j_until = 0, # See _F0_bhkdv for use
+    skip_main = false,
+    skip_singular_j_until = 0,
 )
     return x -> begin
         res = OrderedDict{NTuple{3,Int},Arb}()
@@ -318,19 +368,21 @@ function H(
             s = 1 - 2u0.α
             C1, _, p1, E1 = clausenc_expansion(x, s, M)
             C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
-            if !bhkdv_skip_main
+            if !skip_main
                 res[(2, 0, 0)] -= C1 * u0.a[0]
                 res[(2, 1, 0)] -= -C2 * u0.a[0]
             end
-            for m = ifelse(bhkdv_skip_main, 2, 1):M-1
+            for m = ifelse(skip_main, 2, 1):M-1
                 res[(0, 0, 2m)] -= (p1[2m] - p2[2m]) * u0.a[0]
             end
             Arblib.add_error!(res[(0, 0, 2M)], (E1 - E2) * u0.a[0])
         else
             s = 1 - 2u0.α
             C, _, p, E = clausenc_expansion(x, s, M)
-            res[(2, 0, 0)] -= C * u0.a[0]
-            for m = 1:M-1
+            if !skip_main
+                res[(2, 0, 0)] -= C * u0.a[0]
+            end
+            for m = ifelse(skip_main, 2, 1):M-1
                 res[(0, 0, 2m)] -= p[2m] * u0.a[0]
             end
             Arblib.add_error!(res[(0, 0, 2M)], E * u0.a[0])
@@ -354,9 +406,7 @@ function H(
             # Check for the special case when s overlaps with an odd
             # integer.
             contains_int, n = unique_integer(s)
-            if contains_int &&
-               isodd(n) &&
-               !(u0.use_bhkdv && j <= bhkdv_skip_singular_j_until)
+            if contains_int && isodd(n) && j > skip_singular_j_until
                 # The term corresponding to C and p[2((n - 1) ÷ 2)]
                 # coincides and diverge so are handled separately. The
                 # rest we treat normally.
@@ -377,7 +427,11 @@ function H(
                 D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
                 res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - D * u0.a[j]
             else
-                if !(u0.use_bhkdv && j <= bhkdv_skip_singular_j_until)
+                if j <= skip_singular_j_until
+                    K1, K2 = clausenc_expansion_odd_s_singular_K1_K2(s, 1)
+                    res[(2, j, 0)] -= K1 * u0.a[j]
+                    res[(0, 0, 2)] -= K2 * u0.a[j]
+                else
                     res[(2, j, 0)] -= C * u0.a[j]
                     res[(0, 0, 2)] -= p[2] * u0.a[j]
                 end
@@ -488,19 +542,18 @@ function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb 
 end
 
 """
-    _F0_bhkdv(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 5, ϵ = one(Arb), bhkdv_skip_singular_j_until::Integer = 100,)
+    _F0_bhkdv(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M = 5, ϵ, skip_singular_j_until)
 
 Implementation of [`F0`](@ref) when `u0.use_bhkdv` is true.
 
 # Arguments
-- `M::Integer` determines the number of terms in the asymptotic
+- `M::Integer`: Determines the number of terms in the asymptotic
   expansions.
-- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
-  is valid.
-- `bhkdv_skip_singular_j_until::Integer = 100` is used to determine
-  the number of terms in the expansion of `H(u0)` to threat
-  separately. See the implementation below for details on how it is
-  used.
+- `ϵ::Arb = 1`: Determines the interval ``[-ϵ, ϵ]`` on which the
+  expansion is valid.
+- `skip_singular_j_until::Integer = u0.N0 > 100 ? 50 : 10`: Given as
+  argument when computing the expansion of `H(u0)`. See the
+  implementation below for details on how it is used.
 
 # Implementation
 Similarly to the default version it splits `F0(u0)` as
@@ -538,7 +591,7 @@ Given by
 u0_part1 = a0 * (c(α) - c(α - p0) * x^p0) * x^-α
 ```
 The second part is the remaining terms in the expansion, computed
-using `bhkdv_skip_main = true`.
+using `skip_main = true`.
 
 ## Parts of `H(u0)`
 For `H(u0)` the first part is the two singular terms and the `x^2`
@@ -551,24 +604,15 @@ Given by
 Hu0_part1 = -a0 * (c(2α) - c(2α - p0) * x^p0 + K * x^(2 + 2α)) * x^(-2α)
 ```
 with `K = -(zeta(-1 - 2α) - zeta(-1 - 2α + p0)) / 2`. The second part
-is the singular term and the `x^2` term in the expansion of
+is the remaining terms in the expansion, save for a few specific
+terms. The expansion is computed using `skip_main = true` and
+`skip_singular_j_until`. The `skip_singular_j_until` argument means we
+have to also add the third part
 ```
--u0.a[j] * clausencmzeta(x, 1 - 2α + j * p0)
-```
-for `j` from `1` to `bhkdv_skip_singular_j_until`. Given by
-```
-Hu0_part2 = -sum(1:bhkdv_skip_singular_j_until) do j
-    s = 1 - 2α + j * p0
-
-    (
-        gamma(1 - s) * sinpi(s / 2) * abspow(x, s - 1) -
-        zeta(s - 2) / 2 * abspow(x, 2)
-    ) * u0.a[j]
+-K3 * sum(1:skip_singular_j_until) do j
+  u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, 2, s - (2m + 1))
 end
 ```
-The third part is given by all the remaining terms in the expansion,
-computed using `bhkdv_skip_main = true` and
-`bhkdv_skip_singular_j_until`.
 
 ## Putting the parts together
 With the above split of `u0` and `H(u0)` we can write `D(u0)` as
@@ -630,141 +674,16 @@ We compute it by splitting it in the following way
 Hu0_part2(x) / x^(p - α) +
 Hu0_part3(x) / x^(p - α)
 ```
-Both `u0_part2` and `Hu0_part3` give decent enclosures directly. For
-`u0_part1` it is enough to use that `a0 = 2c(2α) / c(α)^` and use
-[`ArbExtras.enclosure_series`](@ref). For `Hu0_part2` we need to do
-slightly more work.
-
-### Computing `Hu0_part2 / x^(p - α)`
-Recall that it is given by
-```
-Hu0_part2 / x^(p - α) = -sum(1:bhkdv_skip_singular_j_until) do j
-    s = 1 - 2α + j * p0
-
-    (
-        gamma(1 - s) * sinpi(s / 2) * abspow(x, s + α - 1 - p) -
-        zeta(s - 2) / 2 * abspow(x, 2 + α - p)
-    ) * u0.a[j]
-end
-```
-If we let
-```
-f(α, j, x) =  gamma(2α - j * p0) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p) -
-    zeta(-1 - 2α + j * p0) / 2 * x^(2 + α - p)
-```
-We can rewrite this as
-```
-Hu0_part2 / x^(p - α) = -sum(1:bhkdv_skip_singular_j_until) do j
-    u0.a[j] * f(α, j, x)
-end
-```
-To better handle the removable singularity of `f` use that
-```
-zeta(-1 - 2α + j * p0) = zeta_deflated(-1 - 2α + j * p0) - inv(2 + 2α - j * p0)
-```
-and
-```
-gamma(2α - j * p0) = gamma(3 + 2α - j * p0) / rising(2α - j * p0, 3)
-    = inv(2 + 2α - j * p0) * gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2)
-```
-If we let
-```
-f1(α, j, x) = inv(2 + 2α - j * p0) * (
-    gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
-    + 1 / 2 * x^(2 + α - p)
-)
-```
-and
-```
-f2(α, j) = -zeta_deflated(-1 - 2α + j * p0) / 2
-```
-Then we can write `f(α, j, x)` as
-```
-f(α, j, x) =  f1(α, j, x) + f2(α, j) * x^(2 + α - p)
-```
-
-We can then split the sum into two parts as
-```
-Hu0_part2_1 / x^(p - α) = -sum(1:bhkdv_skip_singular_j_until) do j
-    u0.a[j] * f1(α, j, x)
-end
-Hu0_part2_2 / x^(p - α) = -x^(2 + α - p) * sum(1:bhkdv_skip_singular_j_until) do j
-    u0.a[j] * f2(α, j)
-end
-```
-with
-```
-Hu0_part2 / x^(p - α) = Hu0_part2_1 / x^(p - α) + Hu0_part2_2 / x^(p - α)
-```
-
-For `Hu0_part2_2` we can compute a good enclosure using
-[`ArbExtras.enclosure_series`](@ref) directly. For `Hu0_part2_2` we
-have to work slightly harder.
-
-#### Computing `Hu0_part2_1 / x^(p - α)`
-How to best evaluate `f1` depends on which of the exponents `-α + j *
-p0 - p` and `2 + α - p` are largest. In practice we have that for `j =
-1` the last one is largest and for `j >= 2` the first one is largest.
-For wide values of `α` it sometimes happen that they overlap. For
-non-zero `x` the precise way of evaluation is not important, it is
-only for `x` overlapping zero for which we need to take care so that
-all factors are finite. We handle the cases `j = 1` and `j >= 2`
-separately, we then also have a third case for when `x` overlaps zero
-and the exponents overlap.
-
-##### `j >= 2`
-Factoring out `x^(2 + α - p)` we get
-```
-f1(α, j, x) =
-    inv(2 + 2α - j * p0) * (
-        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-2 - 2α + j * p0)
-        + 1 / 2
-    ) * x^(2 + α - p)
-```
-We can evaluate this directly as long as `2 + 2α - j * p0` is not too
-close to zero, where there is a removable singularity. To better
-handle the case when it is close to zero we let `t1 = 2 + 2α - j * p0`
-and write it as
-```
-inv(t1) * (
-    gamma(t1 + 1) / rising(t1 - 2, 2) * cospi((t1 - 2) / 2) * x^(-t1)
-    + 1 / 2
-)
-```
-Inserting `t1 = 0` it is straight forward to see that we indeed have a
-removable singularity. When `t1` is not too close to zero we evaluate
-this directly. Otherwise we widen `t1` to include zero and use
-[`fx_div_x`](@ref).
-
-##### `j = 1`
-In this case we instead write `f` as
-```
-f(α, j, x) =  inv(2 + 2α - j * p0) * (
-        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2)
-        + 1 / 2 * x^(2 + 2α - j * p0)
-    ) * x^(-α + j * p0 - p)
-```
-and then use the same approach as for `j >= 2` to compute a good
-enclosure.
-
-##### Overlapping exponents and `x` containing zero
-In this case we have that `-α + j * p0 - p` overlaps with `2 + α - p`,
-which means that `2 + 2α - j * p0` overlaps with zero. We keep the
-original formulation
-```
-f(α, j, x) =  inv(2 + 2α - j * p0) * (
-        gamma(3 + 2α - j * p0) / rising(2α - j * p0, 2) * cospi((2α - j * p0) / 2) * x^(-α + j * p0 - p)
-        + 1 / 2 * x^(2 + α - p)
-    )
-```
-and handle the removable singularity.
+They all give decent enclosures in `α` directly. For `Hu0_part3` we
+compute a better enclosure in `x` using
+[`ArbExtras.enclosure_series`](@ref).
 """
 function _F0_bhkdv(
     u0::FractionalKdVAnsatz{Arb},
     ::Asymptotic;
     M::Integer = 5,
     ϵ::Arb = Arb(1),
-    bhkdv_skip_singular_j_until::Integer = u0.N0 > 100 ? 50 : 10,
+    skip_singular_j_until::Integer = u0.N0 > 100 ? 50 : 10,
 )
     @assert u0.use_bhkdv
 
@@ -773,11 +692,9 @@ function _F0_bhkdv(
     α_upper = ArbExtras.enclosure_ubound(u0.α)
     α_mid = midpoint(Arb, u0.α)
 
-    u0_expansion = u0(ϵ, AsymptoticExpansion(), bhkdv_skip_main = true; M)
+    u0_expansion = u0(ϵ, AsymptoticExpansion(), skip_main = true; M)
     Hu0_expansion =
-        H(u0, AsymptoticExpansion(), bhkdv_skip_main = true; M, bhkdv_skip_singular_j_until)(
-            ϵ,
-        )
+        H(u0, AsymptoticExpansion(), skip_main = true; M, skip_singular_j_until)(ϵ)
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
@@ -793,83 +710,13 @@ function _F0_bhkdv(
             π * gamma(s + 2) * _sinc((1 + s) / 2) / 2s
         end
 
-    # Compute gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
-    f1_part(t1) = gamma(t1 + 1) * cospi((t1 - 2) / 2) / rising(t1 - 2, 2)
-
-    f1(α, j, x::Arb) = begin
-        t1 = 2 + 2α - j * u0.p0
-        if t1 isa ArbSeries && is_approx_integer(Arblib.ref(t1, 0))
-            # Widen argument to contain 0 so that it uses the algorithm
-            # that explicitly handles the removable singularity.
-            t1[0] = union(Arblib.ref(t1, 0), Arb(0))
-        end
-
-        t1_contains_zero =
-            Arblib.contains_zero(t1 isa ArbSeries ? Arblib.ref(t1, 0) : t1)
-
-        if t1_contains_zero && Arblib.contains_zero(x)
-            # The exponents overlap so don't factor out any power of x
-            return fx_div_x(t1, enclosure_degree = -1, force = true) do t1
-                f1_part(t1) * abspow(x, (j * u0.p0 - t1) / 2 + 1 - u0.p) +
-                1 // 2 * abspow(x, (j * u0.p0 + t1) / 2 + 1 - u0.p)
-            end
-        elseif j >= 2
-            if t1_contains_zero
-                # Handle the removable singularity
-                return abspow(x, 2 + α - u0.p) * fx_div_x(t1) do t1
-                    f1_part(t1) * abspow(x, -t1) + 1 // 2
-                end
-            else
-                return (f1_part(t1) * abspow(x, -t1) + 1 // 2) / t1 * abspow(x, 2 + α - u0.p)
-            end
-        else
-            if t1_contains_zero
-                # Handle the removable singularity
-                return abspow(x, -α + j * u0.p0 - u0.p) * fx_div_x(t1) do t1
-                    f1_part(t1) + 1 // 2 * abspow(x, t1)
-                end
-            else
-                return (f1_part(t1) + 1 // 2 * abspow(x, t1)) / t1 *
-                       abspow(x, -α + j * u0.p0 - u0.p)
-            end
-        end
-    end
-
-    # Compute f1(α, j, x) / x^(2 + α - p) in a way that only works for
-    # thin α and non-zero x. Otherwise it will give an indeterminate
-    # result.
-    f1_div2αp(α::Arb, j, x) = begin
-        t1 = 2 + 2α - j * u0.p0
-
-        return (f1_part(t1) * abspow(x, -t1) + 1 // 2) / t1
-    end
-
-    f2(α, j) = begin
-        t2 = -1 - 2α + j * u0.p0
-        if t2 isa ArbSeries && is_approx_integer(Arblib.ref(t2, 0), tol = 0.0001)
-            # Widen argument to contain 1 so that it uses the algorithm
-            # that explicitly handles the removable singularity.
-            t2[0] = union(Arblib.ref(t2, 0), Arb(1))
-        end
-
-        -zeta_deflated(t2, Arb(1)) / 2
-    end
-
-    # The part of Hu0_part2_2_divpα not depending on x
-    Hu0_part2_2_divpα_constant = -ArbExtras.enclosure_series(u0.α) do α
-        sum(1:min(bhkdv_skip_singular_j_until, u0.N0)) do j
-            u0.a[j] * f2(α, j)
-        end
-    end
-
     return (x::Arb) -> begin
         @assert x <= ϵ
 
+        # part1 / x^(u0.p - u0.α)
         # abspow(x, y::ArbSeries) only supports y of degree at most 2
         # when x overlaps with zero. We therefore lower the degree
         # used in this case.
-
-        # part1 / x^(u0.p - u0.α)
         part1_divpα = ArbExtras.enclosure_series(
             u0.α,
             degree = ifelse(Arblib.contains_zero(x), 1, 10),
@@ -904,48 +751,23 @@ function _F0_bhkdv(
 
         # u0_part2 / x^p
         u0_part2_divp = eval_expansion(u0, u0_expansion, x, offset = -u0.p)
+
         # u0_part2 / x^-α
         u0_part2_divα = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
-        Hu0_part2_1_divpα =
-            -ArbExtras.enclosure_series(u0.α) do α
-                if (
-                    (α isa Arb && !iswide(α)) ||
-                    (α isa ArbSeries && Arblib.degree(α) == 0 && !iswide(α))
-                ) && !Arblib.contains_zero(x)
-
-                    α0 = α isa Arb ? α : α[0]
-                    # In this case we don't need to compute an
-                    # expansion in α and can instead expand in x to
-                    # get a better enclosure for that. This relies on
-                    # the fact that for thin values of α we don't hit
-                    # the removable singularity of f1 and hence don't
-                    # need to expand in α for that reason either.
-                    y = ArbExtras.enclosure_series(x) do x
-                        abspow(x, 2 + α0 - u0.p) * sum(
-                            1:min(bhkdv_skip_singular_j_until, u0.N0),
-                            init = zero(x),
-                        ) do j
-                            u0.a[j] * f1_div2αp(α0, j, x)
-                        end
-                    end
-
-                    α isa Arb ? y : ArbSeries(y)
-                else
-                    sum(1:min(bhkdv_skip_singular_j_until, u0.N0), init = zero(x)) do j
-                        u0.a[j] * f1(α, j, x)
-                    end
-                end
-            end
-
-        Hu0_part2_2_divpα = abspow(x, 2 + u0.α - u0.p) * Hu0_part2_2_divpα_constant
-
         # Hu0_part2 / x^(p - α)
-        Hu0_part2_divpα = Hu0_part2_1_divpα + Hu0_part2_2_divpα
+        Hu0_part2_divpα =
+            eval_expansion(u0, Hu0_expansion, x, offset = -u0.p, offset_i = -1)
 
         # Hu0_part3 / x^(p - α)
-        Hu0_part3_divpα =
-            eval_expansion(u0, Hu0_expansion, x, offset = -u0.p, offset_i = -1)
+        Hu0_part3_divpα = let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α
+            -clausenc_expansion_odd_s_singular_K3(1) *
+            ArbExtras.enclosure_series(x) do x
+                sum(1:skip_singular_j_until) do j
+                    u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * u0.p0)
+                end
+            end
+        end
 
         # part2 / x^(u0.p - u0.α)
         part2_divpα =
@@ -976,19 +798,18 @@ zero.
 It computes an expansion of `u0` at `x = 0` and explicitly handles the
 cancellation with `x^-u0.α`.
 
-If `u0.use_bhkdv` is true then it gives the argument `bhkdv_skip_main`
-when computing the expansion. This means that it doesn't include the
-term
+If `u0.use_bhkdv` is true then it gives the argument `skip_main` when
+computing the expansion. This means that it doesn't include the term
 ```
 u0.a[0] * (C1 - C2 * abs(x)^u0.p0) * abs(x)^-α
 ```
-, where `C1` and `C2` are the leading terms in the asymptotic
-expansions of `clausencmzeta(x, 1 - u0.α)` and `clausencmzeta(x, 1 -
-u0.α + u0.p0)` respectively, in the expansion. This term is instead
-added separately. This gives better enclosures for `α` close to `-1`.
+where `C1` and `C2` are the leading terms in the asymptotic expansions
+of `clausencmzeta(x, 1 - u0.α)` and `clausencmzeta(x, 1 - u0.α +
+u0.p0)` respectively, in the expansion. This term is instead added
+separately. This gives better enclosures for `α` close to `-1`.
 """
 function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb = one(Arb))
-    expansion = u0(ϵ, AsymptoticExpansion(), bhkdv_skip_main = u0.use_bhkdv; M)
+    expansion = u0(ϵ, AsymptoticExpansion(), skip_main = u0.use_bhkdv; M)
 
     C1, C2 = if u0.use_bhkdv
         let s = 1 - u0.α
