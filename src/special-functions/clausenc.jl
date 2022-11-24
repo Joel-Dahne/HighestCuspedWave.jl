@@ -1196,6 +1196,109 @@ function clausenc_expansion_odd_s_singular(ϵ::Arb, s::Arb, r::Arb)
 end
 
 """
+    clausenc_expansion_odd_s_singular_K1_K2(s::Arb, m::Integer)
+
+Compute `K1, K2`, which together with `K3` from
+[`clausenc_expansion_odd_s_singular_K1_K2`](@ref) satisfy that
+```
+K1 * abs(x)^(s - 1) + K2 * x^2m + K3 * x^2m * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1))
+```
+gives an enclosure of
+```
+gamma(1 - s) * sinpi(s / 2) * abs(x)^(s - 1) + (-1)^m * zeta(s - 2m) * x^2m / factorial(2m)
+```
+for any `x`. It is done in a way that works well for `s` overlapping
+the removable singularity at `2m + 1` and wide `s` close to `2m + 1`.
+
+The factor
+```
+x^2m * (x^(s - (2m + 1)) - 1) / (2m + 1 - s)
+```
+can be computed using [`x_pow_s_x_pow_t_m1_div_t`](@ref) with
+```
+x_pow_s_x_pow_t_m1_div_t(x, 2m, s - (2m + 1))
+```
+
+# Derivation
+Using the deflated zeta function and adding and subtracting `(-1)^m *
+x^(s - 1) / ((2m + 1 - s) * factorial(2m))` we can split the function
+into three terms
+```
+(gamma(1 - s) * sinpi(s / 2) - (-1)^m / ((2m + 1 - s) * factorial(2m))) * x^(s - 1)
+```
+```
+-(-1)^m * zeta_deflated(s - 2m) / factorial(2m) * x^2m
+```
+and
+```
+-(-1)^m / factorial(2m) * x^2m * (x^(s - (2m + 1)) - 1) / (2m + 1 - s)
+```
+Where the factors in front of them are `K1`, `K2` and `K3`
+respectively.
+
+# Computing `K1`
+For `K1` we use that
+```
+gamma(1 - s) = gamma(2m + 2 - s) / rising(1 - s, 2m + 1)
+             = gamma(2m + 2 - s) / ((2m + 1 - s) * rising(1 - s, 2m))
+```
+to rewrite it as
+```
+K1 = (
+    gamma(2m + 2 - s) / rising(1 - s, 2m) * sinpi(s / 2)
+    - (-1)^m / factorial(2m)
+) / (2m + 1 - s) * x^(s - 1)
+```
+where the coefficient has a removable singularity at `s = 2m + 1`.
+"""
+function clausenc_expansion_odd_s_singular_K1_K2(s::Arb, m::Integer)
+    m >= 1 || throw(ArgumentError("m should be positive"))
+
+    K1_f(s) =
+        if (s isa Arb && contains(s, 2m + 1)) || (s isa ArbSeries && contains(s[0], 2m + 1))
+            # Handle the removable singularity
+            fx_div_x(2m + 1 - s) do t
+                gamma(1 + t) / rising(t - 2m, 2m) * sinpi((2m + 1 - t) / 2) -
+                (-1)^m // factorial(2m)
+            end
+        else
+            (
+                gamma(2m + 2 - s) / rising(1 - s, 2m) * sinpi(s / 2) -
+                (-1)^m // factorial(2m)
+            ) / (2m + 1 - s)
+        end
+
+    K1 = ArbExtras.enclosure_series(s, degree = 2) do s
+        if iswide(s)
+            # Include the removable singularity to get better enclosures
+            @assert s isa ArbSeries
+            s = copy(s)
+            s[0] = union(s[0], Arb(2m + 1))
+        end
+        K1_f(s)
+    end
+    K2 = ArbExtras.enclosure_series(s, degree = 2) do s
+        if iswide(s)
+            # Include the removable singularity to get better enclosures
+            @assert s isa ArbSeries
+            s = copy(s)
+            s[0] = union(s[0], Arb(2m + 1))
+        end
+        (-1)^m * zeta_deflated(s - 2m, Arb(1)) / factorial(2m)
+    end
+
+    return K1, K2
+end
+
+"""
+    clausenc_expansion_odd_s_singular_K3(m::Integer)
+
+Compute `K3 = -(-1)^m / factorial(2m)` converted to `Arb`, as
+described in [`clausenc_expansion_odd_s_singular_K1_K2`](@ref).
+"""
+clausenc_expansion_odd_s_singular_K3(m::Integer) = convert(Arb, -(-1)^m // factorial(2m))
+
+"""
     clausencmzeta(x, s)
 
 Compute `clausenc(x, s) - zeta(s)` for `s > 1`.

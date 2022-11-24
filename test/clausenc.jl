@@ -205,6 +205,26 @@ end
     end
 end
 
+@testset "clausenc_expansion_odd_s_singular_K1_K2" begin
+    for s in Arb[1.5, 2.9, 3.1]
+        for m in [1, 2, 3]
+            K1, K2 = HighestCuspedWave.clausenc_expansion_odd_s_singular_K1_K2(s, m)
+            K3 = HighestCuspedWave.clausenc_expansion_odd_s_singular_K3(m)
+            for x in (Arb(-0.5), Arb(0.1), ArbSeries((-0.5, 2, 3)), ArbSeries((0.1, 3, 2)))
+                r1 =
+                    K1 * abs(x)^(s - 1) +
+                    K2 * x^2m +
+                    K3 *
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, Arb(2m), s - (2m + 1))
+                r2 =
+                    gamma(1 - s) * sinpi(s / 2) * abs(x)^(s - 1) +
+                    (-1)^m * zeta(s - 2m) * x^2m / factorial(2m)
+                @test Arblib.overlaps(r1, r2)
+            end
+        end
+    end
+end
+
 @testset "clausencmzeta" begin
     # In this case we only really care about s > 1
 
