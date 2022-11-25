@@ -48,7 +48,7 @@ function delta0_bound(
                 ubound_tol = Arb(0.0003)
             elseif u0.α < -0.99
                 ubound_tol = Arb(0.0002)
-            elseif u0.α < -0.95
+            elseif u0.α < -0.9
                 ubound_tol = Arb(0.0004)
             else
                 ubound_tol = Arb(-Inf)
