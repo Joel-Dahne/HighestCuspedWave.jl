@@ -8,12 +8,21 @@ function run_proof(
     executor = DistributedEx(basesize = 1),
     only_estimate_D0 = false,
     threaded = true,
+    verbose = false,
+    extra_verbose = false,
     save = true,
     dirname = "PDC/data/proof",
 )
     αs = HighestCuspedWave.proof_interval_subdivisions_mince(i, m)
 
-    data = HighestCuspedWave.prove(αs; executor, only_estimate_D0, threaded)
+    data = HighestCuspedWave.prove(
+        αs;
+        executor,
+        only_estimate_D0,
+        threaded,
+        verbose,
+        extra_verbose,
+    )
 
     if save
         (αₗ, αᵤ), n = HighestCuspedWave.proof_interval_subdivisions(i)
@@ -33,6 +42,11 @@ pool = create_workers(verbose = true)
 @everywhere begin
     using Arblib, HighestCuspedWave
     setprecision(Arb, 100)
+
+    # Set logging to always flush
+    using Logging: global_logger
+    using TerminalLoggers: TerminalLogger
+    global_logger(TerminalLogger(always_flush = true))
 end
 
 start, stop, m = read_args()
