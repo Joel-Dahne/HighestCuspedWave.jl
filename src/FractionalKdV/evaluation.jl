@@ -799,7 +799,7 @@ function _F0_bhkdv(
         Hu0_part3_divpα = let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α
             -clausenc_expansion_odd_s_singular_K3(1) *
             ArbExtras.enclosure_series(x) do x
-                sum(1:skip_singular_j_until) do j
+                sum(1:min(skip_singular_j_until, u0.N0)) do j
                     u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * u0.p0)
                 end
             end
