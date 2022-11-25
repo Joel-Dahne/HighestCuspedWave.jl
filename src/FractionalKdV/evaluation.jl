@@ -757,24 +757,27 @@ function _F0_bhkdv(
             u0.α,
             degree = ifelse(Arblib.contains_zero(x), 1, 10),
         ) do α
+            cα = c(α)
+            c2α = c(2α)
+            cαmp0 = c(α - u0.p0)
             if Arblib.contains_zero(x)
-                2c(2α) / c(α)^2 *
+                2c2α / cα^2 *
                 abspow(x, -α + u0.p0 - u0.p) *
                 (
-                    c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) + (
+                    c(2α - u0.p0) - 2c2α * cαmp0 / cα + (
                         (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 *
                         abspow(x, 2 + 2α - u0.p0) +
-                        c(2α) * (c(α - u0.p0) / c(α))^2 * abspow(x, u0.p0)
+                        c2α * (cαmp0 / cα)^2 * abspow(x, u0.p0)
                     )
                 )
             else
-                2c(2α) / c(α)^2 *
+                2c2α / cα^2 *
                 abspow(x, -α + u0.p0 - u0.p) *
                 (
-                    c(2α - u0.p0) - 2c(2α) * c(α - u0.p0) / c(α) +
+                    c(2α - u0.p0) - 2c2α * cαmp0 / cα +
                     (
                         (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 +
-                        c(2α) * (c(α - u0.p0) / c(α))^2 * abspow(x, -2 - 2α + 2u0.p0)
+                        c2α * (cαmp0 / cα)^2 * abspow(x, -2 - 2α + 2u0.p0)
                     ) * abspow(x, 2 + 2α - u0.p0)
                 )
             end
@@ -782,7 +785,8 @@ function _F0_bhkdv(
 
         # u0_part1 / x^-u0.α
         u0_part1_divα = ArbExtras.enclosure_series(u0.α, degree = 1) do α
-            2c(2α) / c(α)^2 * (c(α) - c(α - u0.p0) * abspow(x, u0.p0))
+            cα = c(α)
+            2c(2α) / cα^2 * (cα - c(α - u0.p0) * abspow(x, u0.p0))
         end
 
         # u0_part2 / x^p
