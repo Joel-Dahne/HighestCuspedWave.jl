@@ -170,11 +170,14 @@ Computes the integral ``T_{0,1,3}`` from the paper.
 
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
-interval. We can also notice that the value inside the absolute value
-is positive so we can remove the absolute value.
+interval.
 
-**PROVE:** That the value inside the absolute value is positive. This
-follows from the location of the root.
+As long as `1 - δ1` lies to the right of the unique root of the
+integrand the value inside the absolute value is positive so we can
+remove the absolute value. Since the root is increasing in `x` and
+decreasing in `α` it is enough to check that `1 - δ1` is to the right
+of the root for `x = 0` and `α = 1`, for which the root is
+`inv(sqrt(2))`.
 
 We are left with integrating the three Clausen terms
 1. `clausenc(x * (1 - t), -α)`
@@ -207,6 +210,9 @@ clausens(x * δ1, 1 - α) +
   this might not be needed.
 """
 function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
+    # Check that 1 - δ1 is to the right of the root of the integrand
+    inv(sqrt(Arb(2))) < 1 - δ1 || error("interval of integration contains root")
+
     return x::Arb -> begin
         weight_factor = let t = Arb((1 - δ1, 1))
             t * u0.wdivx(x * t)
