@@ -1257,7 +1257,7 @@ function clausenc_expansion_odd_s_singular_K1_K2(s::Arb, m::Integer)
     K1_f(s) =
         if (s isa Arb && contains(s, 2m + 1)) || (s isa ArbSeries && contains(s[0], 2m + 1))
             # Handle the removable singularity
-            fx_div_x(2m + 1 - s) do t
+            fx_div_x(2m + 1 - s, force = true) do t
                 gamma(1 + t) / rising(t - 2m, 2m) * sinpi((2m + 1 - t) / 2) -
                 (-1)^m // factorial(2m)
             end

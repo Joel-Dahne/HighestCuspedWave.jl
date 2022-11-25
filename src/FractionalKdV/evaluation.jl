@@ -246,17 +246,28 @@ function (u0::FractionalKdVAnsatz{Arb})(
                 res[(0, 0, 2m)] += p[2m] * u0.a[j]
             end
 
-            # IMPROVE: The approach below gives good bounds for x
-            # close to 0 but much worse than required if x is not that
-            # small.
+            m = n ÷ 2
+            # We split the term into three, with coefficients K1,
+            # K2 and K3 respectively.
+            K1, K2 = clausenc_expansion_odd_s_singular_K1_K2(s, m)
+            K3 = clausenc_expansion_odd_s_singular_K3(m)
 
-            # The term has an x-factor like x^(s - 1), we factor out
-            # x^(-i * u0.α + 1) from this where i is as large as
-            # possible but so that we still have -i * u0.α + 1 < s -
-            # 1, and enclose the rest.
+            # The terms corresponding to K1 and K2 are multiplied
+            # by a pure power and we can add them directly to the
+            # expansion.
+            res[(1, j, 0)] += K1 * u0.a[j]
+            res[(0, 0, 2m)] += K2 * u0.a[j]
+
+            # The term corresponding to K3 is multiplied by
+            # x^2m * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
+            # We factor out x^(-i * u0.α + 1) from this where i is
+            # as large as possible but so that we still have -i *
+            # u0.α + 1 < s - 1, and enclose the rest.
             i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:100) - 1
-            D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
-            res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) + D * u0.a[j]
+            # Enclosure of x^(2m + i * u0.α - 1) * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
+            # on the interval [0, x].
+            D = x_pow_s_x_pow_t_m1_div_t(Arb((0, x)), 2m + i * u0.α - 1, s - (2m + 1))
+            res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - K3 * D * u0.a[j]
         else
             res[(1, j, 0)] += C * u0.a[j]
             for m = 1:M-1
@@ -415,17 +426,28 @@ function H(
                     res[(0, 0, 2m)] -= p[2m] * u0.a[j]
                 end
 
-                # IMPROVE: The approach below gives good bounds for x
-                # close to 0 but much worse than required if x is not that
-                # small.
+                m = n ÷ 2
+                # We split the term into three, with coefficients K1,
+                # K2 and K3 respectively.
+                K1, K2 = clausenc_expansion_odd_s_singular_K1_K2(s, m)
+                K3 = clausenc_expansion_odd_s_singular_K3(m)
 
-                # The term has an x-factor like x^(s - 1), we factor out
-                # x^(-i * u0.α + 1) from this where i is as large as
-                # possible but so that we still have -i * u0.α + 1 < s -
-                # 1, and enclose the rest.
+                # The terms corresponding to K1 and K2 are multiplied
+                # by a pure power and we can add them directly to the
+                # expansion.
+                res[(2, j, 0)] -= K1 * u0.a[j]
+                res[(0, 0, 2m)] -= K2 * u0.a[j]
+
+                # The term corresponding to K3 is multiplied by
+                # x^2m * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
+                # We factor out x^(-i * u0.α + 1) from this where i is
+                # as large as possible but so that we still have -i *
+                # u0.α + 1 < s - 1, and enclose the rest.
                 i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:100) - 1
-                D = clausenc_expansion_odd_s_singular(x, s, -i * u0.α + 1)
-                res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - D * u0.a[j]
+                # Enclosure of x^(2m + i * u0.α - 1) * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
+                # on the interval [0, x].
+                D = x_pow_s_x_pow_t_m1_div_t(Arb((0, x)), 2m + i * u0.α - 1, s - (2m + 1))
+                res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - K3 * D * u0.a[j]
             else
                 if j <= skip_singular_j_until
                     K1, K2 = clausenc_expansion_odd_s_singular_K1_K2(s, 1)
