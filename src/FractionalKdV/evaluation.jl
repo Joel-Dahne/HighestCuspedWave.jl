@@ -735,16 +735,24 @@ function _F0_bhkdv(
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
     # c(s) = gamma(s) * cospi(s / 2)
-    c(s) =
-        if (s isa ArbSeries && is_approx_integer(s[0]) && round(Float64(s[0])) == -1)
-            # _sinc performs poorly for wide arguments close to zero, it
-            # is better to slightly widen the argument to include zero
+    c(s) = begin
+        sinc_sp2 = _sinc((1 + s) / 2)
+
+        if s isa ArbSeries && round(Float64(s[0])) == -1
+            # _sinc performs poorly for arguments close to zero, it is
+            # often better to slightly widen the argument to include
+            # zero
             t = (1 + s) / 2
             t[0] = union(t[0], Arb(0))
-            π * gamma(s + 2) * _sinc(t) / 2s
-        else
-            π * gamma(s + 2) * _sinc((1 + s) / 2) / 2s
+            sinc_sp2_wide = _sinc(t)
+
+            for i = 0:Arblib.degree(s)
+                sinc_sp2[i] = intersect(sinc_sp2[i], sinc_sp2_wide[i])
+            end
         end
+
+        return π * gamma(s + 2) * sinc_sp2 / 2rising(s, 1)
+    end
 
     return (x::Arb) -> begin
         @assert x <= ϵ
@@ -755,7 +763,7 @@ function _F0_bhkdv(
         # used in this case.
         part1_divpα = ArbExtras.enclosure_series(
             u0.α,
-            degree = ifelse(Arblib.contains_zero(x), 1, 10),
+            degree = ifelse(Arblib.contains_zero(x), 1, 3),
         ) do α
             cα = c(α)
             c2α = c(2α)
