@@ -1,96 +1,30 @@
 """
-    T01(u0::BHKdVAnsatz, ::Ball; δ1, δ2, skip_div_u0)
+    T01(u0::BHKdVAnsatz, ::Ball; δ, skip_div_u0)
 
-Returns a function such that `T01(u0, Ball(); δ1, δ2)(x)` computes the
+Returns a function such that `T01(u0, Ball(); δ)(x)` computes the
 integral ``T_{0,1}`` from the paper.
 
 If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
-function T01(
-    u0::BHKdVAnsatz,
-    evaltype::Ball;
-    δ0::Arb = Arb(0),
-    δ1::Arb = Arb(1e-5),
-    skip_div_u0 = false,
-)
-    f = T011(u0, evaltype, skip_div_u0 = true; δ0)
-    g = T012(u0, evaltype, skip_div_u0 = true; δ0, δ1)
-    h = T013(u0, evaltype, skip_div_u0 = true; δ1)
+function T01(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-5), skip_div_u0 = false)
+    f = T012(u0, evaltype, skip_div_u0 = true; δ)
+    g = T013(u0, evaltype, skip_div_u0 = true; δ)
 
     if skip_div_u0
-        if iszero(δ0)
-            return x -> g(x) + h(x)
-        else
-            return x -> f(x) + g(x) + h(x)
-        end
+        return x -> f(x) + g(x)
     else
-        if iszero(δ0)
-            return x -> (f(x) + g(x) + h(x)) / u0(x)
-        else
-            return x -> (g(x) + h(x)) / u0(x)
-        end
+        return x -> (f(x) + g(x)) / u0(x)
     end
 end
 
 """
-    T011(u0::BHKdVAnsatz; δ0)
+    T012(u0::BHKdVAnsatz; δ)
 
-Computes the integral ``T_{0,1,1}`` from the paper.
-
-It uses the fact that the integrand is strictly increasing on the
-interval `[0, 0.05]` for every value of `x` and 0 at `x = 0`. This
-allows us to enclose the integrand on the interval which then easily
-gives an enclosure of the integral by multiplying with the size of the
-interval.
-
-- **PROVE**: That the integrand indeed is increasing on the said
-  interval.
-
-**TODO:** This function is no longer used with the default value of
-`δ0 = 0`. We can remove it once we know it works well without it. In
-that case we should also rename the other functions appropriately.
-"""
-function T011(u0::BHKdVAnsatz, ::Ball = Ball(); δ0::Arb = Arb(0), skip_div_u0 = false)
-    δ0 < 0.05 || Throw(ArgumentError("δ0 must be less than 0.05, got $δ0"))
-
-    # Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that the
-    # lower endpoint is exactly -1
-    α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-
-    return x::Arb -> begin
-        integrand(t) =
-            abs(
-                clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) -
-                2clausenc(x * t, -α),
-            ) *
-            t *
-            u0.wdivx(x * t)
-
-        integral = δ0 * Arb((0, integrand(δ0)))
-
-        res = integral * x / (π * u0.wdivx(x))
-        if skip_div_u0
-            return res
-        else
-            return res / u0(x)
-        end
-    end
-end
-
-"""
-    T012(u0::BHKdVAnsatz; δ0, δ1)
-
-Returns a function such that `T012(u0; δ0, δ1)(x; tol)` computes the
+Returns a function such that `T012(u0; δ)(x; tol)` computes the
 integral ``T_{0,1,2}`` from the paper using the prescribed tolerance
 in the integration.
 """
-function T012(
-    u0::BHKdVAnsatz,
-    ::Ball = Ball();
-    δ0::Arb = Arb(1e-5),
-    δ1::Arb = Arb(1e-5),
-    skip_div_u0 = false,
-)
+function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
     # Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that the
     # lower endpoint is exactly -1
     α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
@@ -151,7 +85,7 @@ function T012(
             end
         end
 
-        res = ArbExtras.integrate(integrand, δ0, 1 - δ1, atol = tol, rtol = tol)
+        res = ArbExtras.integrate(integrand, Arb(0), 1 - δ, atol = tol, rtol = tol)
 
         res *= x / (π * u0.wdivx(x))
 
@@ -164,7 +98,7 @@ function T012(
 end
 
 """
-    T013(u0::BHKdVAnsatz; δ1)
+    T013(u0::BHKdVAnsatz; δ)
 
 Computes the integral ``T_{0,1,3}`` from the paper.
 
@@ -172,10 +106,10 @@ To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
 interval.
 
-As long as `1 - δ1` lies to the right of the unique root of the
+As long as `1 - δ` lies to the right of the unique root of the
 integrand the value inside the absolute value is positive so we can
 remove the absolute value. Since the root is increasing in `x` and
-decreasing in `α` it is enough to check that `1 - δ1` is to the right
+decreasing in `α` it is enough to check that `1 - δ` is to the right
 of the root for `x = 0` and `α = 1`, for which the root is
 `inv(sqrt(2))`.
 
@@ -187,11 +121,11 @@ We have that the primitive functions for the three terms are given by
 1. `-clausens(x * (1 - t), 1 - α) / x`
 2. `clausens(x * (1 + t), 1 - α) / x`
 3. `2clausens(x * t, 1 - α) / x`
-Hence the integral from `1 - δ1` to `1` is
+Hence the integral from `1 - δ` to `1` is
 ```
 inv(x) * (
     (-clausens(0, 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)) -
-    (-clausens(x * δ1, 1 - α) + clausens(x * (2 - δ1), 1 - α) - 2clausens(x * (1 - δ1), 1 - α))
+    (-clausens(x * δ, 1 - α) + clausens(x * (2 - δ), 1 - α) - 2clausens(x * (1 - δ), 1 - α))
 )
 ```
 The multiplication by `inv(x)` can be cancelled by the multiplication
@@ -199,22 +133,22 @@ by `x` that is outside of the integral. Since `1 - α > 1` we have
 `clausens(0, 1 - α) = 0`. If we also reorder the terms to more clearly
 see which ones gives cancellations we get
 ```
-clausens(x * δ1, 1 - α) +
-(clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 - α)) -
-2(clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α))
+clausens(x * δ, 1 - α) +
+(clausens(2x, 1 - α) - clausens(x * (2 - δ), 1 - α)) -
+2(clausens(x, 1 - α) - clausens(x * (1 - δ), 1 - α))
 ```
 
 - **IMPROVE:** Could improve enclosures by better handling
-  cancellations for `clausens(2x, 1 - α) - clausens(x * (2 - δ1), 1 -
-  α)` and `clausens(x, 1 - α) - clausens(x * (1 - δ1), 1 - α)`. Though
+  cancellations for `clausens(2x, 1 - α) - clausens(x * (2 - δ), 1 -
+  α)` and `clausens(x, 1 - α) - clausens(x * (1 - δ), 1 - α)`. Though
   this might not be needed.
 """
-function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
-    # Check that 1 - δ1 is to the right of the root of the integrand
-    inv(sqrt(Arb(2))) < 1 - δ1 || error("interval of integration contains root")
+function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
+    # Check that 1 - δ is to the right of the root of the integrand
+    inv(sqrt(Arb(2))) < 1 - δ || error("interval of integration contains root")
 
     return x::Arb -> begin
-        weight_factor = let t = Arb((1 - δ1, 1))
+        weight_factor = let t = Arb((1 - δ, 1))
             t * u0.wdivx(x * t)
         end
 
@@ -222,8 +156,8 @@ function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u
         s = Arb((2 - u0.ϵ, 2))
 
         integral =
-            clausens(x * δ1, s) + (clausens(2x, s) - clausens(x * (2 - δ1), s)) -
-            2(clausens(x, s) - clausens(x * (1 - δ1), s))
+            clausens(x * δ, s) + (clausens(2x, s) - clausens(x * (2 - δ), s)) -
+            2(clausens(x, s) - clausens(x * (1 - δ), s))
 
         integral *= weight_factor
 

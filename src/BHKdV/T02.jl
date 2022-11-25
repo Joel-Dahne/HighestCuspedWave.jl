@@ -1,17 +1,17 @@
 """
-    T02(u0::BHKdVAnsatz; δ2, skip_div_u0)
+    T02(u0::BHKdVAnsatz; δ, skip_div_u0)
 
-Returns a function such that T02(u0; δ2, ϵ)(x) computes the
+Returns a function such that T02(u0; δ, ϵ)(x) computes the
 integral ``T_{0,2}`` from the paper.
 
 The interval of integration is `[x, π]`. Since the integrand is
 singular at `y = x` we split the interval into two parts, `[x, a]` and
-`[a, π]`. In principle we want to take `a = x + δ2`, however this
+`[a, π]`. In principle we want to take `a = x + δ`, however this
 gives issues if `x` is a wide ball. Instead we take `a` to always be a
 thin ball between `x` and `π`.
 
-In general we take `a = ubound(x + δ2)`. However if `x` is wide then
-it's beneficial to take a larger value than `δ2`, depending on the
+In general we take `a = ubound(x + δ)`. However if `x` is wide then
+it's beneficial to take a larger value than `δ`, depending on the
 radius of `x`. In practice we take `8radius(x)` in that case.
 
 If `x` is very close to `π`, so that `a` would be larger than `π`,
@@ -19,14 +19,14 @@ then we use the asymptotic version for the whole interval `[x, π]`.
 
 If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
 """
-function T02(u0::BHKdVAnsatz, evaltype::Ball; δ2::Arb = Arb(1e-5), skip_div_u0 = false)
-    f = T021(u0, evaltype, skip_div_u0 = true; δ2)
-    g = T022(u0, evaltype, skip_div_u0 = true; δ2)
+function T02(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-5), skip_div_u0 = false)
+    f = T021(u0, evaltype, skip_div_u0 = true; δ)
+    g = T022(u0, evaltype, skip_div_u0 = true; δ)
 
     return x -> begin
         x = convert(Arb, x)
-        δ2 = max(δ2, 8radius(Arb, x))
-        a = ubound(Arb, x + δ2)
+        δ = max(δ, 8radius(Arb, x))
+        a = ubound(Arb, x + δ)
 
         if !(a < π)
             return f(x, π)
@@ -82,11 +82,11 @@ see which ones gives cancellations we get
   `clausens(a, 1 - α) - clausens(x, 1 - α)`. Though this might not be
   needed.
 """
-function T021(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
+function T021(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
     # s = 1 - α computed such that the upper bound is exactly 2
     s = 2 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
-    return (x::Arb, a::Arb = x + δ2) -> begin
+    return (x::Arb, a::Arb = x + δ) -> begin
         integral =
             -clausens(x - a, s) + (clausens(x + a, s) - clausens(2x, s)) -
             2(clausens(a, s) - clausens(x, s))
@@ -121,7 +121,7 @@ Notice that due to lemma [`lemma_integrand_2`](@ref) the expression
 inside the absolute value is always positive, so we can remove the
 absolute value.
 """
-function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u0 = false)
+function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
     # Lower and upper bounds of s = -α
     s_l = 1 - u0.ϵ
     s_u = one(Arb)
@@ -132,7 +132,7 @@ function T022(u0::BHKdVAnsatz, ::Ball = Ball(); δ2::Arb = Arb(1e-5), skip_div_u
     # Upper integration limit
     b = Arb(π)
 
-    return (x::Arb, a::Arb = x + δ2; tol = Arb(1e-5)) -> begin
+    return (x::Arb, a::Arb = x + δ; tol = Arb(1e-5)) -> begin
         integrand(y) =
             (clausenc(y - x, mα) + clausenc(y + x, mα) - 2clausenc(y, mα)) * u0.w(y)
 

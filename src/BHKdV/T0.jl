@@ -1,18 +1,10 @@
-function T0(
-    u0::BHKdVAnsatz,
-    evaltype::Ball;
-    δ0::Arb = Arb(1e-3),
-    δ::Arb = Arb(1e-1),
-    skip_div_u0 = false,
-)
-    # Integration on [0, δ0]
-    f1 = T011(u0, evaltype, skip_div_u0 = true; δ0)
-    # Integration on [δ0, 1 - δ]
-    f2 = T012(u0, evaltype, skip_div_u0 = true, δ1 = δ; δ0)
+function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = false)
+    # Integration on [0, 1 - δ]
+    f1 = T012(u0, evaltype, skip_div_u0 = true; δ)
     # Integration on [1 - δ, b / x] with b picked later
-    f3 = T0_primitive(u0, evaltype, skip_div_u0 = true)
+    f2 = T0_primitive(u0, evaltype, skip_div_u0 = true)
     # Integration on [b, π] with b picked later
-    f4 = T022(u0, evaltype, skip_div_u0 = true)
+    f3 = T022(u0, evaltype, skip_div_u0 = true)
     # Construction depends on x
 
     return x -> begin
@@ -20,13 +12,9 @@ function T0(
         # the diameter of x but no less than 1e-3
         tol = max(Arb(1e-3), 4radius(Arb, x))
 
-        part1 = f1(x)
+        part1 = f1(x; tol)
 
         isfinite(part1) || return part1
-
-        part2 = f2(x; tol)
-
-        isfinite(part2) || return part2
 
         # We want to take the upper integration independent of x in
         # the variables used by T022. We take it to be
@@ -37,19 +25,19 @@ function T0(
         if (b_y / x) * x < π
             # Compute upper bound in the variable t = y / x
             b_t = b_y / x
-            part3 = f3(x, 1 - δ, b_t)
+            part2 = f2(x, 1 - δ, b_t)
 
-            isfinite(part3) || return part3
+            isfinite(part2) || return part2
 
-            part4 = f4(x, b_y; tol)
+            part3 = f3(x, b_y; tol)
         else
             # The value 1 + δ is not important
-            part3 = f3(x, 1 - δ, 1 + δ, to_endpoint = true)
+            part2 = f2(x, 1 - δ, 1 + δ, to_endpoint = true)
 
-            part4 = zero(x)
+            part3 = zero(x)
         end
 
-        res = part1 + part2 + part3 + part4
+        res = part1 + part2 + part3
 
         if skip_div_u0
             return res
