@@ -595,7 +595,12 @@ function x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
         return Arb((x_pow_s_x_pow_t_m1_div_t(x, s, tₗ), x_pow_s_x_pow_t_m1_div_t(x, s, tᵤ)))
     end
 
-    return abspow(x, s) * expm1(log(abs(x)) * t) / t
+    res = abs(x)
+    Arblib.log!(res, res)
+    Arblib.mul!(res, res, t)
+    Arblib.expm1!(res, res)
+    Arblib.div!(res, res, t)
+    return Arblib.mul!(res, res, abspow(x, s))
 end
 
 """
@@ -640,7 +645,5 @@ function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
     res[0] = x_pow_s_x_pow_t_m1_div_t(x[0], zero(s), t)
 
     # Multiply with series for abs(x)^s
-    res *= abspow(x, s)
-
-    return res
+    return abspow(x, s) * res
 end
