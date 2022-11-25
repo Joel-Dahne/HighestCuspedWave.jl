@@ -7,7 +7,8 @@ N(x) = u0.w(x) / 2u0(x)
 ```
 for `0 < x < π`.
 
-It splits the interval `[0, π]` into two parts, `[0, ϵ]` and `[ϵ, π]`.
+It splits the interval `[0, π]` into two parts, `[0, ϵ]` and `[ϵ, π]`
+with `ϵ < 1`.
 
 # The interval `[0, ϵ]`
 As a first step we split this into three factors by multiplying and
@@ -42,10 +43,8 @@ G1(x) = log(u0.c + inv(x)) / 2log(inv(x)) = -log(u0.c + inv(x)) / 2log(x)
 G2(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (gamma(1 + α) * (1 - x^p0))
 ```
 
-We can enclose `G1(x)` using that it is increasing in `x` and the
-limit as `x -> 0` is `1 / 2`.
-- **PROVE:** That `-log(u0.c + inv(x)) / 2log(x)` is increasing in `x`
-  and goes to `1 / 2`.
+We can enclose `G1(x)` using that it is increasing in `x` for `0 < x <
+1` and that the limit as `x -> 0` is `1 / 2`.
 
 The function `G2(x)` occurs in
 [`lemma_bhkdv_weight_div_asymptotic_bound`](@ref) and we can get an

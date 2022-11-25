@@ -158,11 +158,6 @@ we can choose them to be exact `Float64` numbers.
 
 See also [`proof_interval_subdivisions_mince`](@ref) for getting a
 subinterval and splitting it into balls directly.
-
-- **TODO:** Finish the subdivision close to `-1`.
-- **TODO:** Figure out a good way to handle computational time for the
-  intervals. At the moment most of them are tuned to take around one
-  hour, this is currently not the case closer to `-1`.
 """
 function proof_interval_subdivisions()
     return [
