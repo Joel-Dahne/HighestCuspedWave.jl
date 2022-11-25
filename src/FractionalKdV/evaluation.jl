@@ -469,8 +469,9 @@ function D(
     u0::FractionalKdVAnsatz{T},
     evaltype::AsymptoticExpansion;
     M::Integer = 5,
+    skip_singular_j_until = 0,
 ) where {T}
-    f = H(u0, evaltype; M)
+    f = H(u0, evaltype; M, skip_singular_j_until)
     return x -> begin
         expansion1 = u0(x, evaltype; M)
         expansion2 = f(x)
@@ -510,10 +511,17 @@ Return a function for evaluating `F0(u0)(x)` accurately for small
 values of `x`.
 
 # Arguments
-- `M::Integer` determines the number of terms in the asymptotic
+- `M::Integer = 5`: Determines the number of terms in the asymptotic
   expansions.
-- `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
+- `ϵ::Arb = 1`: Determines the interval ``[-ϵ, ϵ]`` on which the expansion
   is valid.
+- `skip_singular_j_until = nothing`: Argument given to `D(u0)` when
+  computing the expansion to skip some of the terms, they are then
+  added back separately. If set to `nothing` a default value is used.
+  The default value is to non-zero if `1 - 2α + p0 > 2.8` and is then
+  set to the largest `j` such that `1 - 2α + j * p0 < 3.2`. The
+  motivation for this is that we mainly want to avoid the singularity
+  at `s = 3` for the expansions of the Clausen functions.
 
 # Implementation
 It splits `F0(u0)` as
@@ -525,10 +533,24 @@ and `x^u0.p / u0.w(x)` using `w.xpdivw`. For the third factor it
 computes the expansion of `D(u0)(x)` and explicitly cancels the
 division by `x^(u0.p - u0.α)`.
 """
-function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb = Arb(1))
-    u0.use_bhkdv && return _F0_bhkdv(u0, Asymptotic(); M, ϵ)
+function F0(
+    u0::FractionalKdVAnsatz{Arb},
+    ::Asymptotic;
+    M::Integer = 5,
+    ϵ::Arb = Arb(1),
+    skip_singular_j_until = nothing,
+)
+    u0.use_bhkdv && return _F0_bhkdv(u0, Asymptotic(); M, ϵ, skip_singular_j_until)
 
-    Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    if isnothing(skip_singular_j_until)
+        if 1 - 2u0.α + 1 * u0.p0 > 2.8
+            skip_singular_j_until = findlast(j -> 1 - 2u0.α + j * u0.p0 < 3.2, 1:u0.N0)::Int
+        else
+            skip_singular_j_until = 0
+        end
+    end
+
+    Du0_expansion = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
@@ -536,6 +558,16 @@ function F0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic; M::Integer = 5, ϵ::Arb 
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
         res = eval_expansion(u0, Du0_expansion, x, offset = -u0.p, offset_i = -1)
+
+        if skip_singular_j_until > 0
+            # Add skipped terms
+            res += let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α
+                -clausenc_expansion_odd_s_singular_K3(1) *
+                sum(1:min(skip_singular_j_until, u0.N0), init = zero(x)) do j
+                    u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * u0.p0)
+                end
+            end
+        end
 
         return res * inv_u0(x) * u0.xpdivw(x)
     end
@@ -683,9 +715,13 @@ function _F0_bhkdv(
     ::Asymptotic;
     M::Integer = 5,
     ϵ::Arb = Arb(1),
-    skip_singular_j_until::Integer = u0.N0 > 100 ? 50 : 10,
+    skip_singular_j_until = nothing,
 )
     @assert u0.use_bhkdv
+
+    if isnothing(skip_singular_j_until)
+        skip_singular_j_until = u0.N0 > 100 ? 50 : 10
+    end
 
     # Enclosures of lower and upper endpoints as well as midpoint
     α_lower = ArbExtras.enclosure_lbound(u0.α)
