@@ -728,11 +728,6 @@ function _F0_bhkdv(
             min(findlast(j -> 1 - 2u0.α + j * u0.p0 < 3.2, 1:u0.N0)::Int, 100)
     end
 
-    # Enclosures of lower and upper endpoints as well as midpoint
-    α_lower = ArbExtras.enclosure_lbound(u0.α)
-    α_upper = ArbExtras.enclosure_ubound(u0.α)
-    α_mid = midpoint(Arb, u0.α)
-
     u0_expansion = u0(ϵ, AsymptoticExpansion(), skip_main = true; M)
     Hu0_expansion =
         H(u0, AsymptoticExpansion(), skip_main = true; M, skip_singular_j_until)(ϵ)
