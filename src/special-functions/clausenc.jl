@@ -731,6 +731,72 @@ function clausenc(x::ArbSeries, s, β::Integer)
 end
 
 """
+    clausenc_expansion_main(s::Arb)
+
+Compute
+```
+gamma(1 - s) * sinpi(s / 2)
+```
+Which is the coefficient for the non-analytic term in the expansion of
+`clausenc(x, s)` at zero.
+
+In general the value is computed directly using the formula above. The
+exception is when `s` is close to a positive even integer, in which
+case it has a removable singularity that has to be dealt with.
+
+We consider `s` to be close to a positive even integer if
+```
+s > 1 && iseven(s0) && !(abs(s - s0) > 0.1)
+```
+where `s0 = round(Int, Float64(s))`. In that case we rewrite the
+expression as
+```
+gamma(1 - s) * sinpi(s / 2) = gamma(1 - s) / rising(1 - s, s0) * sinpi(s / 2)
+    = gamma(1 - s) / rising(1 - s, s0 - 1) * sinpi(s / 2) / (s0 - s)
+    = -(-1)^(s0 ÷ 2) * π / 2 * gamma(1 - s) / rising(1 - s, s0 - 1) * sinc((s0 - s) / 2)
+```
+"""
+function clausenc_expansion_main(s::Arb)
+    s0 = round(Int, Float64(s))
+
+    if s > 1 && iseven(s0) && !(abs(s - s0) > 0.1)
+        # Treat the removable singularity
+        C =
+            -(-1)^(s0 ÷ 2) * Arb(π) / 2 * ArbExtras.enclosure_series(s, degree = 2) do s
+                sinc_s0ms = _sinc((s0 - s) / 2)
+
+                if s isa ArbSeries
+                    # _sinc performs poorly for arguments close to zero, it is
+                    # often better to slightly widen the argument to include
+                    # zero
+                    t = (s0 - s) / 2
+                    t[0] = union(t[0], Arb(0))
+                    sinc_s0ms_wide = _sinc(t)
+                    for i = 0:Arblib.degree(s)
+                        sinc_s0ms[i] = intersect(sinc_s0ms[i], sinc_s0ms_wide[i])
+                    end
+                end
+
+                gamma(1 + s0 - s) / rising(1 - s, s0 - 1) * sinc_s0ms
+            end
+    elseif iswide(s)
+        # When s is close to a positive odd integer the series
+        # enclosure is not very good, a direct evaluation gives a
+        # better enclosure. We can therefore improve the situation by
+        # taking the intersection of the two enclosures. Since it is a
+        # cheap computation we always do this.
+        C = intersect(
+            ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s, degree = 2),
+            gamma(1 - s) * sinpi(s / 2),
+        )
+    else
+        C = gamma(1 - s) * sinpi(s / 2)
+    end
+
+    return C
+end
+
+"""
     clausenc_expansion(x, s, M::Integer)
 
 Compute the asymptotic expansion of `clausenc(x, s)` at zero up to
@@ -767,74 +833,26 @@ indeterminate result. Note that it is not clear how to handle this
 case if we want to allow `s` overlapping odd integers.
 """
 function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
-    # When s is wide and close to a positive integer, but doesn't
-    # contain a positive integer, it is beneficial to change the
-    # degree for the approximation. Around even integers we want to
-    # use a higher degree. Around odd integers the default is fine.
-    if s > 1 && is_approx_integer(s)
-        if iseven(round(Float64(s)))
-            s = union(s, Arb(round(Float64(s))))
-            degree = 10
-        else
-            degree = 2
-        end
-    else
-        degree = 2
-    end
-
-    unique, s_integer = unique_integer(s)
-
-    # Non-analytic term
-    if unique && s_integer > 0
-        if iseven(s_integer)
-            # Enclosure of sinpi(s / 2) / (s - s_integer)
-            sin_div_s = fx_div_x(
-                t -> sinpi((t + s_integer) / 2),
-                s - s_integer,
-                extra_degree = degree,
-            )
-
-            # Enclosure of rgamma(1 - s) / (s - s_integer)
-            rgamma_div_s = fx_div_x(
-                t -> rgamma(1 - (t + s_integer)),
-                s - s_integer,
-                extra_degree = degree,
-            )
-
-            # Enclosure of gamma(1 - s) * sinpi(s / 2) with remainder term
-            C = sin_div_s / rgamma_div_s
-        else
-            C = indeterminate(s)
-        end
-    else
-        if iswide(s)
-            # When s is close to an odd integer the series enclosure
-            # is not very good, a direct evaluation gives a better
-            # enclosure. We can therefore improve the situation by
-            # taking the intersection of the two enclosures, since it
-            # is a cheap computation we always do this.
-            C = intersect(
-                ArbExtras.enclosure_series(s -> gamma(1 - s) * sinpi(s / 2), s; degree),
-                gamma(1 - s) * sinpi(s / 2),
-            )
-        else
-            C = gamma(1 - s) * sinpi(s / 2)
-        end
-    end
+    # Coefficient and exponent for non-analytic term
+    C = clausenc_expansion_main(s)
     e = s - 1
 
     # Analytic terms
     P = ArbSeries(degree = 2M - 2, prec = precision(x))
-    start = skip_constant ? 1 : 0
-    for m = start:M-1
+    for m = (skip_constant ? 1 : 0):M-1
         if iswide(s)
-            z = ArbExtras.enclosure_series(s -> zeta(s - 2m), s; degree)
-
-            if !isfinite(z)
-                # In some cases, when s overlaps zero (but not
-                # always), the above returns NaN but the evaluation
-                # below works.
+            z = ArbExtras.enclosure_series(s, degree = 2) do s
                 z = zeta(s - 2m)
+                if !isfinite(z) && s isa ArbSeries
+                    # zeta doesn't handle wide arguments that are
+                    # close to zero but not centered around zero very
+                    # well. In this case it can be better to force the
+                    # argument to be centered at zero instead.
+                    t = s - 2m
+                    t[0] = union(t[0], -t[0])
+                    z = zeta(t)
+                end
+                z
             end
         else
             z = zeta(s - 2m)
