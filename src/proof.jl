@@ -11,7 +11,7 @@ uses the [`prove`](@ref) methods corresponding to them.
 # Arguments
 - `M::Integer = 10`: the number of terms to use in asymptotic expansions
   during the computations, only used for
-  [`Fractionalkdvansatz`](@ref).
+  [`FractionalKdVAnsatz`](@ref).
 - `only_estimate_D0::Bool = false`: if true it doesn't attempt to
   prove the bound for `D₀` but only uses an estimate. This doesn't
   give a rigorous proof but is useful if you only want to determine of
@@ -35,12 +35,12 @@ function prove(
     verbose = false,
     extra_verbose = false,
 )
-    if α > -0.16
-        u0_time = @elapsed u0 = KdVZeroAnsatz(α, midpoint(Arb, α))
-        p = one(α)
-    else
+    if α < -0.16
         u0_time = @elapsed u0 = FractionalKdVAnsatz(α; threaded)
         p = u0.p
+    else
+        u0_time = @elapsed u0 = KdVZeroAnsatz(α, midpoint(Arb, α))
+        p = one(α)
     end
 
     verbose && @info "Constructed u0" u0 u0_time
