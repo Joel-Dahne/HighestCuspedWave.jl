@@ -40,7 +40,7 @@ function BHAnsatz{T}(
         a = v0.a[1:end]
     else
         α = convert(T, NaN)
-        p0 = convert(T, Nan)
+        p0 = convert(T, NaN)
         a = T[]
     end
 
