@@ -51,24 +51,23 @@ end
     T0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; ϵ::Arb = 0.5, non_asymptotic_u0 = false)
 
 Returns a function `f` such that `f(x)` computes an **upper bound** of
-the integral ``T_0`` from the paper using an evaluation strategy
-that works asymptotically as `x` goes to `0`.
+```
+1 / (π * u0.w(x) * u0(x)) *
+    ∫ abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
+```
+with the integration going from `0` to `π`. It uses an evaluation
+strategy that works asymptotically as `x` goes to `0`.
 
 If `non_asymptotic_u0 = true` it uses a non-asymptotic approach for
 evaluating `gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x))` which
 occurs in the calculations.
 
-The integral in question is given by
-```
-1 / (π * u0.w(x) * u0(x)) *
-    ∫ abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
-```
-from `0` to `π`. Then change of variables `t = y / x` gives us
+Then change of variables `t = y / x` gives us
 ```
 x / (π * u0.w(x) * u0(x)) *
     ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * u0.w(x * t) dt
 ```
-from `0` to `π / x`. Using that
+integrated from `0` to `π / x`. Using that
 ```
 u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
 ```
@@ -103,9 +102,9 @@ I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clause
         t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 
-# Expand the integrand
-We have the following expansions for the Clausen functions in the
-integrand
+# Computing `W(x) * I(x)`
+As a first step we expand the integrand. We have the following
+expansions for the Clausen functions in the integrand
 ```
 clausenc(x * (1 - t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + R(x * abs(1 - t))
 clausenc(x * (1 + t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
@@ -149,7 +148,7 @@ W(x) * I(x) <= sinpi(-α / 2) * (G1(x) + G2(x)) +
     x^(1 + α) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0)) * R(x)
 ```
 Bounds of the functions `G1(x), G2(x), R(x)` are implemented in
-[`_T0_asymptotic_main_2`](@ref), [`_T0_asymptotic_main_1`](@ref) and
+[`_T0_asymptotic_main_1`](@ref), [`_T0_asymptotic_main_2`](@ref) and
 [`_T0_asymptotic_remainder`](@ref) respectively. The only non-trivial
 part remaining is bounding
 ```
@@ -238,7 +237,13 @@ function T0(
     R = _T0_asymptotic_remainder(α, u0.γ, u0.c)
 
     return x::Arb -> begin
-        f1(x) * f2(x) / π * (G_factor * (G1(x) + G2(x)) + R_factor(x) * R(x))
+        I_M = G_factor * (G1(x) + G2(x))
+
+        I_R = R_factor(x) * R(x)
+
+        I = I_M + I_R
+
+        f1(x) * f2(x) / π * I
     end
 end
 

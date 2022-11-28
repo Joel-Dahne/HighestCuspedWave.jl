@@ -7,9 +7,11 @@ G1(x) = inv((1 - x^p0) * log(inv(x))) *
             ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
                 t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
-defined in [`T0_asymptotic`](@ref), where the integration is taken
-from `0` to `1`. Using that `1 - t >= 0` the problem reduces to
-computing an upper bound of
+where the integration is taken from `0` to `1`, defined in
+[`T0_asymptotic`](@ref).
+
+Using that `1 - t >= 0` the problem reduces to computing an upper
+bound of
 ```
 G1(x) = inv((1 - x^p0) * log(inv(x))) *
             ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
