@@ -52,17 +52,34 @@ end
 start, stop, m = read_args()
 
 dirname = "PDC/data/proof/proof-$(round(Dates.now(), Second))"
+logfile = joinpath(dirname, "log_$(start)_$(stop)_$(m)")
 
-@show start stop m dirname
-println("Starting computations")
-flush(stdout)
+@info "Determined arguments" start stop m dirname logfile
+@info "Starting computations"
 
 mkpath(dirname)
-
-for subdivision = start:stop
-    @time "subdivision = $subdivision" run_proof(subdivision, m; dirname)
-    flush(stdout)
+open(logfile, truncate = true) do io
+    println(io, "$(round(Dates.now(), Second)): Starting computations")
 end
 
-println("Finished computations")
-flush(stdout)
+for subdivision = start:stop
+    time = @elapsed run_proof(subdivision, m; dirname, verbose = true, extra_verbose = true)
+
+    @info "Subdivision $subdivision took $time seconds"
+
+    estimate_total_time =
+        time * HighestCuspedWave.proof_interval_subdivisions(subdivision)[2] / m
+
+    open(logfile, append = true) do io
+        println(
+            io,
+            "$(round(Dates.now(), Second)): Finished $subdivision in $(time)s" *
+            " - estimate total time $(estimate_total_time)s",
+        )
+    end
+end
+
+@info "Finished computations"
+open(logfile, append = true) do io
+    println(io, "$(round(Dates.now(), Second)): Finished computations")
+end
