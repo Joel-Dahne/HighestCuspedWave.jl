@@ -103,10 +103,10 @@ function FractionalKdVAnsatz(
     p = one(α);
     use_midpoint = true,
     N0s::StepRange{Int,Int} = 0:1:-1,
+    try_all_combinations = false,
     use_bhkdv = false,
     initial_a::Vector{T} = T[],
     initial_b::Vector{T} = T[],
-    use_D2 = true,
     threaded = true,
     verbose = false,
 ) where {T}
@@ -139,7 +139,7 @@ function FractionalKdVAnsatz(
 
     # Compute values for u0.a[1:end]
     if !isempty(N0s)
-        as = find_good_as(u0, N0s; use_D2, threaded, verbose)
+        as = find_good_as(u0, N0s; try_all_combinations, threaded, verbose)
         resize!(u0.a, length(as) + 1)
         u0.a[1:end] .= as
     elseif N0 == 1 && α < -0.9
@@ -156,7 +156,7 @@ function FractionalKdVAnsatz(
         u0.a[1:end] .= zero(T)
         u0.a[1:min(N0, length(initial_a))] .= initial_a[1:min(N0, length(initial_a))]
 
-        u0.a[1:end] .= findas(u0; use_D2)
+        u0.a[1:end] .= findas(u0)
     end
 
     if use_midpoint
@@ -186,7 +186,7 @@ end
 
 Helper function to choose parameters for construction a
 `FractionalKdVAnsatz{T}` depending on `α`. It returns `N0s, N1, p,
-use_bhkdv`, which are the parameters to use.
+try_all_combinations use_bhkdv`, which are the parameters to use.
 """
 function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
     # Old version of parameters:
@@ -242,29 +242,32 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
 
     _, N0s, N1, p, use_bhkdv = parameters[i]
 
-    return N0s, N1, p, use_bhkdv
+    try_all_combinations = α > -0.95
+
+    return N0s, N1, p, try_all_combinations, use_bhkdv
 end
 
 """
-    FractionalKdVAnsatz(α::T; N0s = nothing, N1 = nothing, p = nothing, verbose = false)
+    FractionalKdVAnsatz(α::T; N0s = nothing, N1 = nothing, p = nothing, try_all_combinations = nothing, use_bhkdv = nothing, verbose = false)
 
 Construct a `FractionalKdVAnsatz` with the given `α` value using a
 heuristic choice of parameters.
 
-The default values for `N0s`, `N1` and `p` can be overridden by
-setting the corresponding arguments to a non-nothing value.
+The default values for `N0s, N1, p, try_all_combinations, use_bhkdv`
+can be overridden by setting the corresponding arguments to a
+non-nothing value.
 """
 function FractionalKdVAnsatz(
     α::T;
     N0s = nothing,
     N1 = nothing,
     p = nothing,
+    try_all_combinations = nothing,
     use_bhkdv = nothing,
-    use_D2 = true,
     threaded = true,
     verbose = false,
 ) where {T}
-    N0s_default, N1_default, p_default, use_bhkdv_default =
+    N0s_default, N1_default, p_default, try_all_combinations_default, use_bhkdv_default =
         pick_parameters(FractionalKdVAnsatz{T}, α)
 
     if isnothing(N0s)
@@ -275,6 +278,9 @@ function FractionalKdVAnsatz(
     end
     if isnothing(p)
         p = p_default
+    end
+    if isnothing(try_all_combinations)
+        try_all_combinations = try_all_combinations_default
     end
     if isnothing(use_bhkdv)
         use_bhkdv = use_bhkdv_default
@@ -287,8 +293,8 @@ function FractionalKdVAnsatz(
         p,
         use_midpoint = true;
         N0s,
+        try_all_combinations,
         use_bhkdv,
-        use_D2,
         threaded,
         verbose,
     )

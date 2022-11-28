@@ -248,7 +248,8 @@ end
     _find_good_as!(u0::FractionalKdVAnsatz, N0s::StepRange{Int,Int} = 0:30; iter_use_best_as, return_defects, threaded, verbose)
 
 Find `N0` and `u0.a` such that the defect is minimized. Returns the
-vector `a`, `N0` is implicitly given by the length.
+vector `a` and the estimated defect, `N0` is implicitly given by the
+length.
 
 It checks the values of `N0` in `N0s`. For each `N0` it computes
 `u0.a` with [`_findas`](@ref). It then takes the `N0` which gave the
@@ -315,7 +316,8 @@ function _find_good_as!(
 
         # If the defect is worse than the first one we stop
         if defects[end] > defects[1]
-            verbose && @info "Defect worse than for at start" N0 N0s.start
+            verbose &&
+                @info "Defect worse than for at start" N0 N0s.start defects[begin] defects[end]
             break
         end
 
@@ -331,33 +333,48 @@ function _find_good_as!(
 
     return_defects && return N0s[1:length(defects)], defects
 
-    best_index = findmin(defects)[2]
+    best_defect, best_index = findmin(defects)
     best_N0 = N0s[best_index]
     best_as = ass[best_index]
 
-    verbose && @info "Determined best N0" best_N0
+    verbose && @info "Determined best N0" best_N0 best_defect
 
-    return best_as
+    return best_as, best_defect
 end
 
 """
-    find_good_as(u0::FractionalKdVAnsatz; N0_bound, return_defects, threaded, verbose)
+    find_good_as(u0::FractionalKdVAnsatz, N0s = StepRange{Int,Int} = 0:1:30; kwargs)
 
 Find `N0` and `u0.a` such that the defect is minimized. Returns the
 vector `a`, `N0` is implicitly given by the length.
 
-See [`_find_good_as`](@ref) for the implementation and the role of the
+# Arguments
+See [`_find_good_as`](@ref) for the implementation and the possible
 arguments.
+
+In addition to the arguments supported by [`_find_good_as`](@ref) it
+accepts the argument `try_all_combinations`. If this argument is set
+to true then it runs [`_find_good_as`](@ref) several times with
+different combinations of arguments and then take the best result.
+More precisely it tries the four combinations of setting
+`iter_use_best_as` and `use_D2` to either true or false. If
+`try_all_combinations` is set then the values of the arguments
+`iter_use_best_as` and `use_D2` are ignored and `return_defects` is
+assumed to be false. This argument is useful in particular near `α =
+-0.9` where the zero finding problem has turned out to be very
+unstable and it is hard to find one combination of arguments that work
+in all cases. It should be avoided near `α = -1` since it would take a
+long time to compute the result.
 """
 function find_good_as(
     u0::FractionalKdVAnsatz{T},
     N0s::StepRange{Int,Int} = 0:1:30;
     iter_use_best_as = true,
     use_D2 = true,
+    try_all_combinations = false,
     return_defects = false,
     threaded = false,
     verbose = false,
-    new = false,
 ) where {T}
     if T == Float64
         u0_float = deepcopy(u0)
@@ -369,20 +386,47 @@ function find_good_as(
     end
     empty!(u0_float.b)
 
-    res = _find_good_as!(
-        u0_float,
-        N0s;
-        iter_use_best_as,
-        use_D2,
-        return_defects,
-        threaded,
-        verbose,
-    )
+    if try_all_combinations
+        @assert !return_defects
+
+        res_as = Matrix{Vector{T}}(undef, 2, 2)
+        res_defect = Matrix{T}(undef, 2, 2)
+        for (i, iter_use_best_as) in enumerate((false, true))
+            for (j, use_D2) in enumerate((false, true))
+                verbose && @info "iter_use_best_as = $iter_use_best_as, use_D2 = $use_D2"
+                res_as[i, j], res_defect[i, j] = _find_good_as!(
+                    u0_float,
+                    N0s;
+                    iter_use_best_as,
+                    use_D2,
+                    threaded,
+                    verbose,
+                )
+
+                empty!(u0_float.b)
+            end
+        end
+        best_defect, best_index = findmin(res_defect)
+
+        verbose && @info "Determined best result" best_index best_defect
+
+        res = (res_as[best_index], best_defect)
+    else
+        res = _find_good_as!(
+            u0_float,
+            N0s;
+            iter_use_best_as,
+            use_D2,
+            return_defects,
+            threaded,
+            verbose,
+        )
+    end
 
     if return_defects
         res[1], convert(Vector{T}, res[2])
     else
-        return convert(Vector{T}, res)
+        return convert(Vector{T}, res[1])
     end
 end
 
