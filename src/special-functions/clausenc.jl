@@ -291,21 +291,33 @@ This method is only used in the integration for bounding the error
 term. It is therefore not as optimized as many of the other methods.
 """
 function _clausenc_zeta(x::Acb, s::Arb)
-    twopi = 2Arb(π)
+    twopi = 2Arb(π, prec = Arblib._precision(x, s))
 
-    0 < real(x) < twopi || throw(
+    Arblib.ispositive(Arblib.realref(x)) || throw(
+        DomainError(x, "method only supports x with real part on the interval (0, 2π)"),
+    )
+    Arblib.realref(x) < twopi || throw(
         DomainError(x, "method only supports x with real part on the interval (0, 2π)"),
     )
 
     inv2pi = inv(twopi)
-    xdiv2pi = x / twopi
-    v = 1 - s
+    xinv2pi = x * inv2pi
+
+    v = let v = zero(s) # We do it like this to preserve the precision
+        Arblib.neg!(v, s)
+        Arblib.add!(v, v, 1)
+    end
+
+    onemxinv2pi = let onemxinv2pi = zero(x) # We do it like this to preserve the precision
+        Arblib.neg!(onemxinv2pi, xinv2pi)
+        Arblib.add!(onemxinv2pi, onemxinv2pi, 1)
+    end
 
     return ArbExtras.enclosure_series(
         v -> gamma(v) * inv2pi^v * cospi(v / 2),
         v,
         degree = 2,
-    ) * (zeta(Acb(v), xdiv2pi) + zeta(Acb(v), 1 - xdiv2pi))
+    ) * (zeta(Acb(v), xinv2pi) + zeta(Acb(v), onemxinv2pi))
 end
 
 """
@@ -527,21 +539,33 @@ function clausenc(x::Acb, s::Arb)
     x_real, haszero, _, _ = _reduce_argument_clausen(real(x))
     x = Acb(x_real, imag(x))
 
-    # If x overlaps zero or s s is a non-negative use polylog formulation
+    # If x overlaps zero or s is a non-negative integer use polylog formulation
     if haszero || (isinteger(s) && Arblib.isnonnegative(s))
         s = Acb(s)
         return (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
     else
-        return _clausenc_zeta(x, s)
-    end
-end
+        prec = if Arblib.isexact(x) && Arblib.isexact(s)
+            # In this case
+            # min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) + min_prec
+            # overflows
+            Arblib._precision(x, s)
+        else
+            min_prec = 32
 
-function clausenc(x::Acb, s::Union{Acb,Integer})
-    @warn "Apparently this method is used!" x s maxlog = 1
-    if s isa Acb && isreal(s)
-        clausenc(x, real(s))
-    else
-        (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+            min(
+                max(
+                    min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) +
+                    min_prec,
+                    min_prec,
+                ),
+                Arblib._precision(x, s),
+            )
+        end
+
+        return setprecision(
+            _clausenc_zeta(setprecision(x, prec), setprecision(s, prec)),
+            Arblib._precision(x, s),
+        )
     end
 end
 
