@@ -577,9 +577,11 @@ function clausenc(x::Arb, s::Arb)
         prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
 
         xₗ, xᵤ = ArbExtras.enclosure_getinterval(setprecision(x, prec))
-        res = union(clausenc(xₗ, s), clausenc(xᵤ, s))
+
+        res = _clausenc_zeta(xₗ, s)
+        Arblib.union!(res, res, _clausenc_zeta(xᵤ, s))
         if haspi
-            res = union(res, clausenc(Arb(π; prec), s))
+            Arblib.union!(res, res, clausenc(Arb(π; prec), s))
         end
         return setprecision(res, precision(x))
     end
@@ -589,7 +591,7 @@ end
 
 function clausenc(x::Acb, s::Arb)
     x_real, haszero, _, _ = _reduce_argument_clausen(real(x))
-    x = Acb(x_real, imag(x))
+    x = Acb(x_real, Arblib.imagref(x))
 
     # If x overlaps zero or s is a non-negative integer use polylog formulation
     if haszero || (isinteger(s) && Arblib.isnonnegative(s))

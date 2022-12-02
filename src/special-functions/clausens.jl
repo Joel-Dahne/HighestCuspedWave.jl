@@ -386,23 +386,18 @@ function clausens(x::Arb, s::Arb)
         dclausens = clausenc(x, s - 1)
         if Arblib.contains_zero(dclausens)
             # Use a zero order approximation
-            mid = Arblib.midpoint(Arb, x)
-            res = Arblib.add_error!(clausens(mid, s), (x - mid) * dclausens)
+            mid = midpoint(Arb, x)
+            res = Arblib.add_error!(_clausens_zeta(mid, s), (x - mid) * dclausens)
         else
             # Use that it's monotone
             xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
-            res = union(clausens(xₗ, s), clausens(xᵤ, s))
+            res = _clausens_zeta(xₗ, s)
+            Arblib.union!(res, res, _clausens_zeta(xᵤ, s))
         end
         return setprecision(res, orig_prec)
     end
 
     return _clausens_zeta(x, s)
-end
-
-# Rarely used - only naive implementation
-function clausens(x::Acb, s::Union{Acb,Integer})
-    @warn "Apparently this method is used!" x s maxlog = 1
-    (polylog(s, exp(im * x)) - polylog(s, exp(-im * x))) / 2
 end
 
 clausens(x::S, s::T) where {S<:Real,T<:Real} =
