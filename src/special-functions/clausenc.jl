@@ -110,6 +110,57 @@ function _clausenc_polylog(x::Arb, s::Arb, β::Integer)
 end
 
 """
+    _clausenc_zeta_f(v::Arb, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+    _clausenc_zeta_f(v::ArbSeries, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+
+Compute
+```
+gamma(v) * inv(2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+```
+It assumes that the arguments after `v` are set to `2π`, `x / 2π` and
+`1 - x / 2π` respectively.
+
+This function is used internally by [`_clausenc_zeta`](@ref).
+"""
+function _clausenc_zeta_f(v::Arb, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+    res = zeta(v, xinv2pi)
+    tmp = zeta(v, onemxinv2pi)
+    Arblib.add!(res, res, tmp)
+
+    Arblib.gamma!(tmp, v)
+    Arblib.mul!(res, res, tmp)
+
+    Arblib.pow!(tmp, inv2pi, v)
+    Arblib.mul!(res, res, tmp)
+
+    Arblib.mul_2exp!(tmp, v, -1)
+    Arblib.cos_pi!(tmp, tmp)
+    Arblib.mul!(res, res, tmp)
+
+    return res
+end
+
+function _clausenc_zeta_f(v::ArbSeries, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+    res = zeta(v, xinv2pi)
+    tmp = zeta(v, onemxinv2pi)
+    Arblib.add!(res, res, tmp)
+
+    Arblib.gamma_series!(tmp, v, length(tmp))
+    Arblib.mullow!(res, res, tmp, length(res))
+
+    Arblib.zero!(tmp)
+    tmp[0] = inv2pi
+    Arblib.pow_series!(tmp, tmp, v, length(tmp))
+    Arblib.mullow!(res, res, tmp, length(res))
+
+    Arblib.mul_2exp!(tmp, v, -1)
+    Arblib.cos_pi_series!(tmp, tmp, length(tmp))
+    Arblib.mullow!(res, res, tmp, length(res))
+
+    return res
+end
+
+"""
     _clausenc_zeta(x::Arb, s::Arb)
 
 Evaluation of the `clausenc` function through the zeta function.
@@ -267,8 +318,9 @@ function _clausenc_zeta(x::Arb, s::Arb)
             return gammazeta * rest
         end
     else
-        f(v) =
-            gamma(v) * inv2pi^v * cospi(v / 2) * (zeta(v, xinv2pi) + zeta(v, onemxinv2pi))
+        # Function for computing
+        # gamma(v) * inv(2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
+        f(v) = _clausenc_zeta_f(v, inv2pi, xinv2pi, onemxinv2pi)
 
         if iswide(s)
             return ArbExtras.enclosure_series(f, v, degree = 2)
