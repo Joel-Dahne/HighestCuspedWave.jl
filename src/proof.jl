@@ -86,7 +86,7 @@ we therefore manually call the underlying transducers.
 function prove(
     αs::Vector{Arb};
     M = 10,
-    only_estimate_D0 = true,
+    only_estimate_D0 = false,
     D0_maxevals = 4000,
     executor = ThreadedEx(basesize = 1),
     threaded = false,
