@@ -5,8 +5,8 @@ using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger(always_flush = true))
 
 function create_workers(
-    nw = nw = parse(Int, get(ENV, "SLURM_NTASKS", "1")),
-    nt = parse(Int, get(ENV, "SLURM_CPUS_PER_TASK", "1"));
+    nw = parse(Int, get(ENV, "HCW_WORKERS", get(ENV, "SLURM_NTASKS", "1"))),
+    nt = parse(Int, get(ENV, "HCW_THREADS", get(ENV, "SLURM_CPUS_PER_TASK", "1")));
     use_slurm = haskey(ENV, "SLURM_JOB_ID"),
     verbose = false,
 )
