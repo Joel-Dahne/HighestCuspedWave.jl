@@ -236,9 +236,15 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
         (0, 0:1:5, 0, one(α), false),
     ]
 
-    # Find the first element in parameters which α is not greater
-    # than.
-    i = findfirst(value -> !(α > value[1]), parameters)
+    # For Arb we pick the parameter depending on the midpoint of α.
+    # This gives more consistent behaviour near the break points.
+    if α isa Arb
+        α = midpoint(Arb, α)
+    end
+
+    # Find the first element in parameters which is less than or equal
+    # to α
+    i = findfirst(value -> α <= value[1], parameters)
 
     _, N0s, N1, p, use_bhkdv = parameters[i]
 

@@ -35,7 +35,7 @@ function prove(
     verbose = false,
     extra_verbose = false,
 )
-    if α < -0.16
+    if midpoint(α) < -0.16
         u0_time = @elapsed u0 = FractionalKdVAnsatz(α; threaded)
         p = u0.p
     else
