@@ -63,7 +63,8 @@ open(logfile, truncate = true) do io
 end
 
 for subdivision = start:stop
-    time = @elapsed run_proof(subdivision, m; dirname, verbose = true, extra_verbose = true)
+    time =
+        @elapsed run_proof(subdivision, m; dirname, verbose = false, extra_verbose = false)
 
     @info "Subdivision $subdivision took $time seconds"
 
