@@ -6,11 +6,11 @@ using NLsolve
 using OffsetArrays
 using OrderedCollections
 using SpecialFunctions
-using Folds
 using DataFrames
 using Tables
 using CSV
-using Transducers
+import Distributed
+import ProgressLogging
 
 include("fmpz.jl")
 include("arb.jl")

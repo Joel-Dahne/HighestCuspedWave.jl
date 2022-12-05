@@ -56,50 +56,156 @@ function prove(
 end
 
 """
-    prove(αs::Vector{Arb}; M, only_estimate_D0, D0_maxevals, executor, threaded, verbose, extra_verbose)
+    prove(αs::Vector{Arb}; parallelization, M, only_estimate_D0, D0_maxevals, threaded, verbose, extra_verbose)
 
 Apply `prove(α)` to all elements of `αs` and return result as a
 dataframe.
 
-The mapping over `αs` is done using [`Folds.map`](@ref) and can
-therefore be run on several threads or processes, see the `executor`
-argument.
+The mapping of `αs` can be parallelized in three different ways by
+setting `parallelization` accordingly. It can be either `:sequential`,
+`:threaded` or `:distributed`. If set to `:sequential` then one value
+is processed at a time, possibly using threading for internally. If
+set to `:threaded` then threading is used to map over the values of
+`αs`, in this case internal threading is always disabled. Finally
+`:distributed` can be used to parallelize it over several processes,
+see [`_prove_distributed`](@ref).
 
-It reports on progress using [`Transducers.withprogress`](@ref). This
-is unfortunately not supported using the [`Folds`](@ref) interface and
-we therefore manually call the underlying transducers.
+It reports progress using [`ProgressLogging`](@ref). For this to work
+properly you need to enable some form of progress meter. For example
+using
+```
+using Logging: global_logger
+using TerminalLoggers: TerminalLogger
+global_logger(TerminalLogger())
+```
 
 # Arguments
 - `M`, `only_estimate_D0`, `D0_maxevals`, `threaded`, `verbose`,
   `extra_verbos`: Same as for method accepting a single `α`.
-- `executor = ThreadedEx(basesize = 1)`: Executor to use for
-  [`Folds.map`](@ref). The default value parallelizes over all
-  available threads, in which case `threaded` should be false. Using
-  `DistributedEx()` parallelizes over all available processes and
-  threads, in this case `threaded` should be false. It is possible to
-  mix coarse and fine grained parallelism by using
-  `DistributedEx(basesize = 1)` and setting `threaded` to true, then
-  each process runs one `α` and uses all of its threads for that.
-  This option using a large number of processes, each with 2-8 threads
-  us often the best from a performance perspective.
 """
 function prove(
     αs::Vector{Arb};
+    parallelization = :threaded,
     M = 10,
     only_estimate_D0 = false,
     D0_maxevals = 4000,
-    executor = ThreadedEx(basesize = 1),
-    threaded = false,
+    threaded = parallelization != :threaded,
     verbose = false,
     extra_verbose = false,
 )
-    executor == ThreadedEx(basesize = 1) &&
-        threaded &&
-        @warn "Using threaded executor with threading enabled"
+    if parallelization == :threaded && threaded
+        @warn "Using threaded parallelization with threading enabled. Disabling threading"
+        threaded = false
+    end
 
-    xf = Map() do α
-        HighestCuspedWave.prove(
-            α;
+    if parallelization == :sequential
+        res = similar(αs, Any)
+
+        ProgressLogging.@progress for i in eachindex(αs)
+            res[i] = HighestCuspedWave.prove(
+                αs[i];
+                M,
+                only_estimate_D0,
+                D0_maxevals,
+                threaded,
+                verbose,
+                extra_verbose,
+            )
+        end
+
+        res = DataFrame(res)
+    elseif parallelization == :threaded
+        res = similar(αs, Any)
+
+        j = Threads.Atomic{Int}(0)
+        ProgressLogging.@withprogress Threads.@threads for i in eachindex(αs)
+            res[i] = HighestCuspedWave.prove(
+                αs[i];
+                M,
+                only_estimate_D0,
+                D0_maxevals,
+                threaded,
+                verbose,
+                extra_verbose,
+            )
+            Threads.atomic_add!(j, 1)
+            ProgressLogging.@logprogress j[] / length(αs)
+        end
+
+        res = DataFrame(res)
+    elseif parallelization == :distributed
+        res = _prove_distributed(
+            αs,
+            Distributed.WorkerPool(Distributed.workers());
+            M,
+            only_estimate_D0,
+            D0_maxevals,
+            threaded,
+            verbose,
+            extra_verbose,
+        )
+    else
+        throw(ArgumentError("unknown parallelization type $parallelization"))
+    end
+
+    return res
+end
+
+# Helper function for _prove_distributed
+_prove_distributed_f(
+    α,
+    M,
+    only_estimate_D0,
+    D0_maxevals,
+    threaded,
+    verbose,
+    extra_verbose,
+) = HighestCuspedWave.prove(
+    α;
+    M,
+    only_estimate_D0,
+    D0_maxevals,
+    threaded,
+    verbose,
+    extra_verbose,
+)
+
+"""
+    _prove_distributed(αs::Vector{Arb}, pool::Distributed.AbstractWorkerPool; kwargs)
+
+Map [`prove`](@ref) over `αs` using the workers in the give worker
+pool.
+
+The arguments are keyword arguments are given directly to
+[`prove`](@ref).
+
+It reports progress using [`ProgressLogging`](@ref). For this to work
+properly you need to enable some form of progress meter. For example
+using
+```
+using Logging: global_logger
+using TerminalLoggers: TerminalLogger
+global_logger(TerminalLogger())
+```
+Note that all progress logging is done one the main process.
+"""
+function _prove_distributed(
+    αs::Vector{Arb},
+    pool::Distributed.AbstractWorkerPool = Distributed.WorkerPool(Distributed.workers());
+    M = 10,
+    only_estimate_D0 = false,
+    D0_maxevals = 4000,
+    threaded = true,
+    verbose = false,
+    extra_verbose = false,
+)
+    res = similar(αs, Any)
+
+    tasks = map(αs) do α
+        @async Distributed.remotecall_fetch(
+            _prove_distributed_f,
+            pool,
+            α,
             M,
             only_estimate_D0,
             D0_maxevals,
@@ -109,18 +215,9 @@ function prove(
         )
     end
 
-    itr = withprogress(αs, interval = 1)
+    ProgressLogging.@progress res = [fetch(task) for task in tasks]
 
-    # Manually pick the collect to use depending on the executor
-    if executor isa DistributedEx
-        res = dcollect(xf, itr, basesize = executor.kwargs[:basesize])
-    elseif executor isa ThreadedEx
-        res = tcollect(xf, itr, basesize = executor.kwargs[:basesize])
-    else
-        res = collect(xf, itr)
-    end
-
-    return DataFrame(res)
+    DataFrame(res)
 end
 
 """
