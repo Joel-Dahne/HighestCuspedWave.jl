@@ -82,6 +82,54 @@ function _reduce_argument_clausen(x::Arb)
 end
 
 """
+    _choose_precision_clausen(x::Union{Arb,Acb}, s::Arb)
+
+Compute a precision to use when computing Clausen functions with
+parameter `s` and argument `x`. It returns `prec, original_prec` where
+`prec` is the precision to use for the internal computations and
+`original_prec` is the precision to use for the return value.
+
+The precision to use is based on the relative accuracy of `x` and `s`
+as well as how close `s` is to an integer.
+
+The original precision is given by `Arblib._precision(x, s)` and the
+precision to use for the internal computations is never higher than
+this. The minimum precise is `32` if `s` is not close to an integer
+and `64` if it is, close is this case is determined by the midpoint of
+`s` being close than `1e-2` to an integer. In general the precision is
+then given by
+```
+max(
+    min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) + min_prec,
+    min_prec,
+)
+```
+"""
+function _choose_precision_clausen(x::Union{Arb,Acb}, s::Arb)
+    original_prec = Arblib._precision(x, s)
+
+    prec = if Arblib.isexact(x) && Arblib.isexact(s)
+        # In this case
+        # min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) + min_prec
+        # overflows
+        original_prec
+    else
+        s_f64 = Float64(s)
+        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
+
+        min(
+            max(
+                min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) + min_prec,
+                min_prec,
+            ),
+            original_prec,
+        )
+    end
+
+    return prec, original_prec
+end
+
+"""
     _clausenc_polylog(x::Arb, s::Union{Arb,Integer})
     _clausenc_polylog(x::Arb, s::ArbSeries)
     _clausenc_polylog(x::Arb, s::Arb, β::Integer)
@@ -534,15 +582,7 @@ If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by using that the
 function is `2π`-periodic, monotone for `x ∈ [0, π]` and even, so that
 it's enough to evaluate on the endpoints and possibly at `π` if it is
-contained in `x`. In this case it computes the endpoints at a reduced
-precision given by
-```
-prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-```
-where `min_prec` is `32` in general but `64` if `s` is close to an
-integer, determined by checking if the midpoint withing `1e-2` of an
-integer, in which case higher precision is typically needed.
-- **IMPROVE:** This could be tuned more, but is probably not needed.
+contained in `x`.
 """
 function clausenc(x::Arb, s::Arb)
     # The function is even and this avoids issues with very small
@@ -553,74 +593,65 @@ function clausenc(x::Arb, s::Arb)
 
     @assert !(has2pi && !haszero)
 
-    # Handle the special case when x contains zero
-    if haszero
-        if !(s > 1)
-            return indeterminate(x)
-        elseif haspi
-            # Extrema at x = 0 and x = π
-            return union(zeta(s), -Arblib.realref(eta(Acb(s))))
-        elseif iszero(x)
-            return zeta(s)
-        else
-            # Extrema at x = 0 and upper bound of abs(x)
-            return union(zeta(s), clausenc(ArbExtras.enclosure_ubound(abs(x)), s))
-        end
+    prec, original_prec = _choose_precision_clausen(x, s)
+    if prec != original_prec
+        x = setprecision(x, prec)
+        s = setprecision(s, prec)
     end
 
-    # We can now assume that 0 < x < 2π
-
-    if iswide(x)
-        s_f64 = Float64(s)
-        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
-
-        prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-
-        xₗ, xᵤ = ArbExtras.enclosure_getinterval(setprecision(x, prec))
+    if haszero # Handle the special case when x contains zero
+        if !(s > 1)
+            res = indeterminate(x)
+        elseif haspi
+            # Extrema at x = 0 and x = π
+            res = union(zeta(s), -Arblib.realref(eta(Acb(s))))
+        elseif iszero(x)
+            res = zeta(s)
+        else
+            # Extrema at x = 0 and upper bound of abs(x)
+            res = union(zeta(s), clausenc(ArbExtras.enclosure_ubound(abs(x)), s))
+        end
+    elseif iswide(x) # We can now assume that 0 < x < 2π
+        xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
 
         res = _clausenc_zeta(xₗ, s)
         Arblib.union!(res, res, _clausenc_zeta(xᵤ, s))
         if haspi
             Arblib.union!(res, res, clausenc(Arb(π; prec), s))
         end
-        return setprecision(res, precision(x))
+    else
+        res = _clausenc_zeta(x, s)
     end
 
-    return _clausenc_zeta(x, s)
+    if prec != original_prec
+        res = setprecision(res, original_prec)
+    end
+
+    return res
 end
 
 function clausenc(x::Acb, s::Arb)
     x_real, haszero, _, _ = _reduce_argument_clausen(real(x))
     x = Acb(x_real, Arblib.imagref(x))
 
+    prec, original_prec = _choose_precision_clausen(x, s)
+    if prec != original_prec
+        x = setprecision(x, prec)
+        s = setprecision(s, prec)
+    end
+
     # If x overlaps zero or s is a non-negative integer use polylog formulation
     if haszero || (isinteger(s) && Arblib.isnonnegative(s))
-        s = Acb(s)
-        return (polylog(s, exp(im * x)) + polylog(s, exp(-im * x))) / 2
+        res = (polylog(Acb(s), exp(im * x)) + polylog(Acb(s), exp(-im * x))) / 2
     else
-        prec = if Arblib.isexact(x) && Arblib.isexact(s)
-            # In this case
-            # min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) + min_prec
-            # overflows
-            Arblib._precision(x, s)
-        else
-            min_prec = 32
-
-            min(
-                max(
-                    min(Arblib.rel_accuracy_bits(x), Arblib.rel_accuracy_bits(s)) +
-                    min_prec,
-                    min_prec,
-                ),
-                Arblib._precision(x, s),
-            )
-        end
-
-        return setprecision(
-            _clausenc_zeta(setprecision(x, prec), setprecision(s, prec)),
-            Arblib._precision(x, s),
-        )
+        res = _clausenc_zeta(x, s)
     end
+
+    if prec != original_prec
+        res = setprecision(res, original_prec)
+    end
+
+    return res
 end
 
 function clausenc(x::Float64, s::Float64)
@@ -709,14 +740,7 @@ If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by first checking if the
 derivative doesn't contains zero, if not it uses monotonicity to only
 evaluate at endpoints. If the derivative does contain zero it uses a
-zeroth order approximation instead. In the wide case it computes the
-endpoints at a reduced precision given by
-```
-prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-```
-where `min_prec` is `32` in general but `64` if `s` is close to an
-integer, determined by checking if the midpoint withing `1e-2` of an
-integer, in which case higher precision is typically needed.
+zeroth order approximation instead.
 """
 function clausenc(x::Arb, s::Arb, β::Integer)
     # The function is even and this avoids issues with very small
@@ -727,36 +751,31 @@ function clausenc(x::Arb, s::Arb, β::Integer)
 
     @assert !(has2pi && !haszero)
 
-    # Handle the special case when x contains zero
-    if haszero
+    prec, original_prec = _choose_precision_clausen(x, s)
+    if prec != original_prec
+        x = setprecision(x, prec)
+        s = setprecision(s, prec)
+    end
+
+    if haszero # Handle the special case when x contains zero
         if !(s > 1)
             # Only finite for s > 1
-            return indeterminate(x)
+            res = indeterminate(x)
         else
             # Value at x = 0
             z = isone(β) ? dzeta(s) : zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
             if haspi
                 # Absolute value upper bounded by value at x = 0
-                return union(-z, z)
+                res = union(-z, z)
             elseif iszero(x)
-                return z
+                res = z
             else
                 # IMPROVE: Expand at x = 0? Check derivative at abs_ubound(x)?
                 # Absolute value upper bounded by value at x = 0
-                return union(-z, z)
+                res = union(-z, z)
             end
         end
-    end
-
-    # We can now assume that 0 < x < 2π
-
-    if iswide(x)
-        orig_prec = precision(x)
-        s_f64 = Float64(s)
-        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
-        prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-        x = setprecision(x, prec)
-
+    elseif iswide(x) # We can now assume that 0 < x < 2π
         # Compute derivative. We here call _clausens_zeta directly to
         # avoid potentially infinite recursion. This is okay since 0 <
         # x < 2π.
@@ -770,10 +789,15 @@ function clausenc(x::Arb, s::Arb, β::Integer)
             xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             res = union(clausenc(xₗ, s, β), clausenc(xᵤ, s, β))
         end
-        return setprecision(res, orig_prec)
+    else
+        res = _clausenc_zeta(x, s, β)
     end
 
-    return _clausenc_zeta(x, s, β)
+    if prec != original_prec
+        res = setprecision(res, original_prec)
+    end
+
+    return res
 end
 
 clausenc(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
@@ -1421,11 +1445,17 @@ use case.
 """
 function clausencmzeta(x::Arb, s::Arb)
     if s > 1 && iswide(s)
+        prec, original_prec = _choose_precision_clausen(x, s)
+        if prec != original_prec
+            x = setprecision(x, prec)
+            s = setprecision(s, prec)
+        end
+
         sₗ, sᵤ = getinterval(Arb, s)
-        sₗ > 1 || return indeterminate(x)
+        sₗ > 1 || return indeterminate(setprecision(x, original_prec))
         res_lower = clausenc(x, sₗ) - zeta(sₗ)
         res_upper = clausenc(x, sᵤ) - zeta(sᵤ)
-        return Arb((res_lower, res_upper))
+        return Arb((res_lower, res_upper), prec = original_prec)
     else
         return clausenc(x, s) - zeta(s)
     end

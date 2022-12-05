@@ -336,52 +336,39 @@ If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by first checking if the
 derivative doesn't contains zero, if not it uses monotonicity to only
 evaluate at endpoints. If the derivative does contain zero it uses a
-zeroth order approximation instead. In the wide case it computes the
-endpoints at a reduced precision given by
-```
-prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-```
-where `min_prec` is `32` in general but `64` if `s` is close to an
-integer, determined by checking if the midpoint withing `1e-2` of an
-integer, in which case higher precision is typically needed.
-- **IMPROVE:** This could be tuned more, but is probably not needed.
+zeroth order approximation instead.
 """
 function clausens(x::Arb, s::Arb)
     x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
 
     @assert !(has2pi && !haszero)
 
-    # Handle the special case when x contains zero
-    if haszero
+    prec, original_prec = _choose_precision_clausen(x, s)
+    if prec != original_prec
+        x = setprecision(x, prec)
+        s = setprecision(s, prec)
+    end
+
+    if haszero # Handle the special case when x contains zero
         if !(s > 1)
-            return indeterminate(x)
+            res = indeterminate(x)
         elseif haspi
             # We could give a better bound by checking if we should
             # include use the positive or negative version. But this
             # is likely not so important.
             z = zeta(s) # Trivial upper bound
-            return union(-z, z)
+            res = union(-z, z)
         elseif iszero(x)
-            return zero(x)
+            res = zero(x)
         elseif Arblib.ispositive(clausenc(abs_ubound(Arb, x), s - 1))
             # Monotone on the interval
             xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
-            return Arb((-clausens(-xₗ, s), clausens(xᵤ, s)))
+            res = Arb((-clausens(-xₗ, s), clausens(xᵤ, s)))
         else
             z = zeta(s) # Trivial upper bound
-            return union(-z, z)
+            res = union(-z, z)
         end
-    end
-
-    # We can now assume that 0 < x < 2π
-
-    if iswide(x)
-        orig_prec = precision(x)
-        s_f64 = Float64(s)
-        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
-        prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-        x = setprecision(x, prec)
-
+    elseif iswide(x) # We can now assume that 0 < x < 2π
         # Compute derivative
         dclausens = clausenc(x, s - 1)
         if Arblib.contains_zero(dclausens)
@@ -394,10 +381,15 @@ function clausens(x::Arb, s::Arb)
             res = _clausens_zeta(xₗ, s)
             Arblib.union!(res, res, _clausens_zeta(xᵤ, s))
         end
-        return setprecision(res, orig_prec)
+    else
+        res = _clausens_zeta(x, s)
     end
 
-    return _clausens_zeta(x, s)
+    if prec != original_prec
+        res = setprecision(res, original_prec)
+    end
+
+    return res
 end
 
 clausens(x::S, s::T) where {S<:Real,T<:Real} =
@@ -479,50 +471,38 @@ If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by first checking if the
 derivative doesn't contains zero, if not it uses monotonicity to only
 evaluate at endpoints. If the derivative does contain zero it uses a
-zeroth order approximation instead. In the wide case it computes the
-endpoints at a reduced precision given by
-```
-prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-```
-where `min_prec` is `32` in general but `64` if `s` is close to an
-integer, determined by checking if the midpoint withing `1e-2` of an
-integer, in which case higher precision is typically needed.
+zeroth order approximation instead.
 """
 function clausens(x::Arb, s::Arb, β::Integer)
     x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
 
     @assert !(has2pi && !haszero)
 
-    # Handle the special case when x contains zero
-    if haszero
+    prec, original_prec = _choose_precision_clausen(x, s)
+    if prec != original_prec
+        x = setprecision(x, prec)
+        s = setprecision(s, prec)
+    end
+
+    if haszero # Handle the special case when x contains zero
         if !(s > 1)
             # Only finite for s > 1
-            return indeterminate(x)
+            res = indeterminate(x)
         elseif haspi
             # Absolute value upper bounded by corresponding derivative
             # of zeta function
             r = isone(β) ? dzeta(s) : zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
-            return union(-r, r)
+            res = union(-r, r)
         elseif iszero(x)
-            return zero(x)
+            res = zero(x)
         else
             # IMPROVE: Expand at x = 0? Check derivative at abs_ubound(x)?
             # Absolute value upper bounded by corresponding derivative
             # of zeta function
             r = isone(β) ? dzeta(s) : zeta(ArbSeries((s, 1), degree = β))[β] * factorial(β)
-            return union(-r, r)
+            res = union(-r, r)
         end
-    end
-
-    # We can now assume that 0 < x < 2π
-
-    if iswide(x)
-        orig_prec = precision(x)
-        s_f64 = Float64(s)
-        min_prec = abs(s_f64 - round(s_f64)) < 1e-2 ? 64 : 32
-        prec = min(max(Arblib.rel_accuracy_bits(x) + min_prec, min_prec), precision(x))
-        x = setprecision(x, prec)
-
+    elseif iswide(x) # We can now assume that 0 < x < 2π
         # Compute derivative. We here call _clausenc_zeta directly to
         # avoid potentially infinite recursion. This is okay since 0 <
         # x < 2π.
@@ -536,10 +516,15 @@ function clausens(x::Arb, s::Arb, β::Integer)
             xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             res = union(clausens(xₗ, s, β), clausens(xᵤ, s, β))
         end
-        return setprecision(res, orig_prec)
+    else
+        res = _clausens_zeta(x, s, β)
     end
 
-    return _clausens_zeta(x, s, β)
+    if prec != original_prec
+        res = setprecision(res, original_prec)
+    end
+
+    return res
 end
 
 clausens(x::S, s::T, β::Integer) where {S<:Real,T<:Real} =
