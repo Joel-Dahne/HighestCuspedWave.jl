@@ -674,14 +674,23 @@ It's computed by directly computing the Taylor coefficients by
 differentiating `clausenc` and then composing with `x`.
 """
 function clausenc(x::ArbSeries, s)
+    s = convert(Arb, s)
+
     x₀ = _reduce_argument_clausen(x[0])[1]
 
     res = zero(x)
+
+    # Precompute clausenc functions for i = 0:2:Arblib.degree(x)+1.
+    # They are used both for the i-th coefficients and also in the
+    # computation of clausens for the (i-1)-th coefficient.
+    clausencs = [clausenc(x₀, s - i) for i = 0:2:Arblib.degree(x)+1]
     for i = 0:Arblib.degree(x)
         if i % 2 == 0
-            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
+            res[i] = (-1)^(i ÷ 2) * clausencs[i÷2+1] / factorial(i)
         else
-            res[i] = -(-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
+            res[i] =
+                -(-1)^(i ÷ 2) * clausens(x₀, s - i, deriv_x = clausencs[(i+1)÷2+1]) /
+                factorial(i)
         end
     end
 
@@ -1466,11 +1475,18 @@ function clausencmzeta(x::ArbSeries, s::Arb)
     x₀ = x[0]
 
     res[0] = clausencmzeta(x₀, s)
+
+    # Precompute clausenc functions for i = 2:2:Arblib.degree(x)+1.
+    # They are used both for the i-th coefficients and also in the
+    # computation of clausens for the (i-1)-th coefficient.
+    clausencs = [clausenc(x₀, s - i) for i = 2:2:Arblib.degree(x)+1]
     for i = 1:Arblib.degree(x)
         if i % 2 == 0
-            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
+            res[i] = (-1)^(i ÷ 2) * clausencs[i÷2] / factorial(i)
         else
-            res[i] = -(-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
+            res[i] =
+                -(-1)^(i ÷ 2) * clausens(x₀, s - i, deriv_x = clausencs[(i+1)÷2]) /
+                factorial(i)
         end
     end
 

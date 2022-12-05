@@ -337,8 +337,16 @@ If `x` is a wide ball (not containing zero), as determined by
 derivative doesn't contains zero, if not it uses monotonicity to only
 evaluate at endpoints. If the derivative does contain zero it uses a
 zeroth order approximation instead.
+
+It accepts the keyword argument `deriv_x` which can be set to a
+precomputed value of the derivative, more precisely it should be an
+enclosure of `clausenc(x, s - 1)`. If deriv_x` is not set it computes
+the derivative automatically. This argument is useful when computing
+expansions in `x` of Clausen functions since the derivative then
+corresponds to the next coefficient in the expansion and we can avoid
+computing it multiple times this way.
 """
-function clausens(x::Arb, s::Arb)
+function clausens(x::Arb, s::Arb; deriv_x::Union{Nothing,Arb} = nothing)
     x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
 
     @assert !(has2pi && !haszero)
@@ -370,11 +378,13 @@ function clausens(x::Arb, s::Arb)
         end
     elseif iswide(x) # We can now assume that 0 < x < 2π
         # Compute derivative
-        dclausens = clausenc(x, s - 1)
-        if Arblib.contains_zero(dclausens)
+        if isnothing(deriv_x)
+            deriv_x = clausenc(x, s - 1)
+        end
+        if Arblib.contains_zero(deriv_x)
             # Use a zero order approximation
             mid = midpoint(Arb, x)
-            res = Arblib.add_error!(_clausens_zeta(mid, s), (x - mid) * dclausens)
+            res = Arblib.add_error!(_clausens_zeta(mid, s), (x - mid) * deriv_x)
         else
             # Use that it's monotone
             xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
@@ -404,14 +414,23 @@ It's computed by directly computing the Taylor coefficients by
 differentiating `clausens` and then composing with `x`.
 """
 function clausens(x::ArbSeries, s)
+    s = convert(Arb, s)
+
     x₀ = _reduce_argument_clausen(x[0])[1]
 
     res = zero(x)
+
+    # Precompute clausenc functions for i = 1:2:Arblib.degree(x)+1.
+    # They are used both for the i-th coefficients and also in the
+    # computation of clausens for the (i-1)-th coefficient.
+    clausencs = [clausenc(x₀, s - i) for i = 1:2:Arblib.degree(x)+1]
     for i = 0:Arblib.degree(x)
         if i % 2 == 0
-            res[i] = (-1)^(i ÷ 2) * clausens(x₀, s - i) / factorial(i)
+            res[i] =
+                (-1)^(i ÷ 2) * clausens(x₀, s - i, deriv_x = clausencs[i÷2+1]) /
+                factorial(i)
         else
-            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
+            res[i] = (-1)^(i ÷ 2) * clausencs[(i+1)÷2] / factorial(i)
         end
     end
 
