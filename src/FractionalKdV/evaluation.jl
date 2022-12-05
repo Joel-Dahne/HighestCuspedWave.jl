@@ -195,8 +195,8 @@ function (u0::FractionalKdVAnsatz{Arb})(
 
     if u0.use_bhkdv
         s = 1 - u0.α
-        C1, _, p1, E1 = clausenc_expansion(x, s, M)
-        C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
+        C1, _, p1, E1 = clausenc_expansion(x, s, M, skip_constant = true)
+        C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M, skip_constant = true)
         if !skip_main
             res[(1, 0, 0)] += C1 * u0.a[0]
             res[(1, 1, 0)] += -C2 * u0.a[0]
@@ -207,7 +207,7 @@ function (u0::FractionalKdVAnsatz{Arb})(
         Arblib.add_error!(res[(0, 0, 2M)], (E1 - E2) * u0.a[0])
     else
         s = 1 - u0.α
-        C, _, p, E = clausenc_expansion(x, s, M)
+        C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
         if !skip_main
             res[(1, 0, 0)] += C * u0.a[0]
         end
@@ -220,7 +220,7 @@ function (u0::FractionalKdVAnsatz{Arb})(
     # Clausen terms
     for j = 1:u0.N0
         s = 1 - u0.α + j * u0.p0
-        C, _, p, E = clausenc_expansion(x, s, M)
+        C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
         # Below we handle the special case when s contains an odd
         # integer. When s is close to an odd integer we have very
@@ -377,8 +377,8 @@ function H(
 
         if u0.use_bhkdv
             s = 1 - 2u0.α
-            C1, _, p1, E1 = clausenc_expansion(x, s, M)
-            C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M)
+            C1, _, p1, E1 = clausenc_expansion(x, s, M, skip_constant = true)
+            C2, _, p2, E2 = clausenc_expansion(x, s + u0.p0, M, skip_constant = true)
             if !skip_main
                 res[(2, 0, 0)] -= C1 * u0.a[0]
                 res[(2, 1, 0)] -= -C2 * u0.a[0]
@@ -389,7 +389,7 @@ function H(
             Arblib.add_error!(res[(0, 0, 2M)], (E1 - E2) * u0.a[0])
         else
             s = 1 - 2u0.α
-            C, _, p, E = clausenc_expansion(x, s, M)
+            C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
             if !skip_main
                 res[(2, 0, 0)] -= C * u0.a[0]
             end
@@ -402,7 +402,7 @@ function H(
         # Clausen terms
         for j = 1:u0.N0
             s = 1 - 2u0.α + j * u0.p0
-            C, _, p, E = clausenc_expansion(x, s, M)
+            C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
             # Below we handle the special case when s contains an odd
             # integer. When s is close to an odd integer we have very
@@ -883,8 +883,8 @@ function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb
 
     C1, C2 = if u0.use_bhkdv
         let s = 1 - u0.α
-            C1 = clausenc_expansion(Arb(0), s, 3)[1]
-            C2 = clausenc_expansion(Arb(0), s + u0.p0, 3)[1]
+            C1 = clausenc_expansion_main(s)
+            C2 = clausenc_expansion_main(s + u0.p0)
 
             C1, C2
         end
