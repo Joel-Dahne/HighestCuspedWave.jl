@@ -1,3 +1,5 @@
+using ClusterManagers, Distributed
+
 # Setup TerminalLogger which works with the progress logging
 using Logging: global_logger
 using TerminalLoggers: TerminalLogger

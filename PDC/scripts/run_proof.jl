@@ -1,11 +1,11 @@
-using ClusterManagers, Dates, Distributed, Folds
+using Dates
 
 include("helper.jl")
 
 function run_proof(
     i,
     m;
-    executor = DistributedEx(basesize = 1),
+    parallelization = :distributed,
     only_estimate_D0 = false,
     threaded = true,
     verbose = false,
@@ -17,7 +17,7 @@ function run_proof(
 
     data = HighestCuspedWave.prove(
         αs;
-        executor,
+        parallelization,
         only_estimate_D0,
         threaded,
         verbose,
