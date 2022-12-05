@@ -232,7 +232,7 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
         (-0.85, 0:1:50, 8, (1 - α) / 2, false),
         (-0.5, 0:1:20, 16, (1 - α) / 2, false),
         (-0.33, 0:1:10, 16, T(3 // 4), false),
-        (-0.01, 0:1:5, 8, one(α), false),
+        (-0.01, 0:1:5, 2, one(α), false),
         (0, 0:1:5, 0, one(α), false),
     ]
 
@@ -242,8 +242,8 @@ function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
         α = midpoint(Arb, α)
     end
 
-    # Find the first element in parameters which is less than or equal
-    # to α
+    # Find the first element in parameters which is greater than or
+    # equal to α
     i = findfirst(value -> α <= value[1], parameters)
 
     _, N0s, N1, p, use_bhkdv = parameters[i]
