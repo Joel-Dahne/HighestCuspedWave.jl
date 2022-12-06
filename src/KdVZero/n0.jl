@@ -17,6 +17,8 @@ x^(1 + α) / 2(x^α * u0(x))
 ```
 """
 function n0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
+    verbose && @info "Computing enclosure of n0"
+
     # Compute expansion of u0 and evaluate the terms in α
     expansion = let expansion = u0(Arb(3.2), AsymptoticExpansion())
         res = empty(expansion, Arb)
@@ -33,7 +35,7 @@ function n0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
     # overestimations in g. It simply terminates when it reaches the
     # maximum number of evaluations. Since g is very fast to evaluate
     # this is not an issue.
-    m = ArbExtras.maximum_enclosure(
+    n0 = ArbExtras.maximum_enclosure(
         g,
         Arf(0),
         ubound(Arb(π)),
@@ -43,5 +45,7 @@ function n0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-3), verbose = false)
         verbose,
     )
 
-    return m
+    verbose && @info "Computed enclosure" n0
+
+    return n0
 end

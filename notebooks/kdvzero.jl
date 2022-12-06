@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.14
 
 using Markdown
 using InteractiveUtils
@@ -130,12 +130,13 @@ We start by computing an enclosure of $n_\alpha$ and plot it together with $N_\a
 """
 
 # ╔═╡ 13373308-42e3-44ac-bf99-2a5145e6a5df
-n0_time = @elapsed n0 = n0_bound(u0)
+n0_time = @elapsed n0 = n0_bound(u0, verbose = true)
 
 # ╔═╡ fa901388-6f0a-4de5-8323-d9b4832062f6
-n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
+n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)
     N = x -> u0.w(x) / 2u0(x)(u0.α)
     ys = Folds.map(N, xs)
+    ys[1] = 0 # It is zero at x = 0
     xs, ys
 end
 
@@ -179,7 +180,7 @@ Note that the polynomial for the Taylor model is zero, we can plot the remainder
 end
 
 # ╔═╡ 581ee14a-acac-4a3e-b854-f46a6f26dcc3
-Δδ_time = @elapsed Δδ = delta0_bound(u0).p[2]
+Δδ_time = @elapsed Δδ = delta0_bound(u0, verbose = true).p[2]
 
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
 let pl = plot(legend = :bottomright)
@@ -225,7 +226,7 @@ Note that the first coefficient in the expansion is $1$. We can plot the remaind
 end
 
 # ╔═╡ 39ce2082-2b36-4ce5-bcda-809c9c5214ec
-ΔD_time = @elapsed ΔD = D0_bound(u0).p[1]
+ΔD_time = @elapsed ΔD = D0_bound(u0, verbose = true).p[1]
 
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
 let pl = plot(legend = :bottomright)
@@ -275,6 +276,13 @@ Check that the inequality holds after rounding.
 
 # ╔═╡ c8de1b4b-2085-45a1-b61d-789ed3428687
 proved = Arb(Δδ_rounded) < Arb(ΔD_rounded)^2 / 4Arb(n0_rounded)
+
+# ╔═╡ c9a21c38-e27c-47b7-b95b-8ab737408f6f
+if proved
+    @info "Inequality holds!" n0_rounded Δδ_rounded ΔD_rounded
+else
+    @error "Inequality doesn't hold!" n0_rounded Δδ_rounded ΔD_rounded
+end
 
 # ╔═╡ ee0c1ff9-baed-416f-b0db-7740ebdd288e
 md"""
@@ -422,6 +430,7 @@ end
 # ╠═3ebb3003-a281-43ba-9122-e75e20e84041
 # ╟─c901abd7-4ca4-4e13-bf1e-ed157259864f
 # ╠═c8de1b4b-2085-45a1-b61d-789ed3428687
+# ╟─c9a21c38-e27c-47b7-b95b-8ab737408f6f
 # ╟─ee0c1ff9-baed-416f-b0db-7740ebdd288e
 # ╠═80c61213-b801-4aef-9c0e-7a9f74f880f3
 # ╠═a0376989-d0e2-4be5-b9f8-c694aafe83d4

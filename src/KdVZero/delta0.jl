@@ -16,11 +16,11 @@ For a given value of `x` [`F0`](@ref) gives us a Taylor model in `α`.
 We truncate this expansion to degree `2`, giving us a polynomial of
 the form
 ```
-0 + 0 * α + Δ(x) * α^2
+0 + 0 * α + Δδ(x) * α^2
 ```
 that gives an enclosure of `F0(u0)(x)` for every `α ∈ u0.α`. We are
-then interested in computing the maximum value of `abs(Δ(x))` for `x ∈
-[0, π]`.
+then interested in computing the maximum value of `abs(Δδ(x))` for `x
+∈ [0, π]`.
 
 It uses the asymptotic version of `F0(u0)` on the entire interval `[0,
 π]`.
@@ -38,6 +38,8 @@ function delta0_bound(
     verbose = false,
 )
     if iszero(u0.α0)
+        verbose && @info "Computing enclosure of Δδ"
+
         # Function for computing Δ(x)
         F0_asymptotic = F0(u0, Asymptotic(), ϵ = Arb(3.2))
         f = x -> let
@@ -47,7 +49,7 @@ function delta0_bound(
         end
 
         # Compute an enclosure on [0, ϵ]
-        Δ = ArbExtras.maximum_enclosure(
+        Δδ = ArbExtras.maximum_enclosure(
             f,
             zero(Arf),
             ubound(Arb(π)),
@@ -60,7 +62,9 @@ function delta0_bound(
             verbose,
         )
 
-        return TaylorModel(ArbSeries((0, 0, Δ), degree = 2), u0.α, u0.α0)
+        verbose && @info "Computed enclosure" Δδ
+
+        return TaylorModel(ArbSeries((0, 0, Δδ), degree = 2), u0.α, u0.α0)
     else
         # Determine a good choice of ϵ. Take it as large as possible
         # so that the asymptotic version still satisfies the required
