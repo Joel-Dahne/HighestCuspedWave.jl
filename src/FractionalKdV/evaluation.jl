@@ -228,7 +228,8 @@ function (u0::FractionalKdVAnsatz{Arb})(
         # expansion and it turns out to be beneficial to use the same
         # method as when s overlaps an odd integer to compute an
         # enclosure.
-        if is_approx_integer(s) && isodd(round(Float64(s)))
+        tol = s < 4 ? 0.01 : 0.001 # For large s it is worse to be close to integer
+        if is_approx_integer(s; tol) && isodd(round(Float64(s)))
             s = union(s, Arb(round(Float64(s))))
         end
 
@@ -410,6 +411,7 @@ function H(
             # expansion and it turns out to be beneficial to use the same
             # method as when s overlaps an odd integer to compute an
             # enclosure.
+            tol = s < 4 ? 0.01 : 0.001 # For large s it is worse to be close to integer
             if is_approx_integer(s) && isodd(round(Float64(s)))
                 s = union(s, Arb(round(Float64(s))))
             end
