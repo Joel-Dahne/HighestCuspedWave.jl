@@ -158,7 +158,41 @@ end
 Read data from a csv-file stored using [`save_data`](@ref).
 """
 function read_proof_data(filename; check = true)
-    data = CSV.read(filename, DataFrame)
+    # We give the types explicitly for two reasons.
+    # 1. When the Arb values happen to be exact they are parsed as
+    # floating points instead of as strings
+    # 2. There is a bug in CSV.jl which gives the wrong column type in
+    # some cases https://github.com/JuliaData/CSV.jl/issues/1010
+    types = [
+        String,
+        String,
+        String,
+        String,
+        Bool,
+        Bool,
+        Bool,
+        String,
+        String,
+        Float64,
+        String,
+        String,
+        Float64,
+        String,
+        String,
+        String,
+        String,
+        Float64,
+        Float64,
+        Float64,
+        Float64,
+        Float64,
+        Int64,
+        Int64,
+        Float64,
+        Int64,
+    ]
+
+    data = CSV.read(filename, DataFrame; types)
 
     for col_name in names(data)
         if endswith(col_name, "_dump")
