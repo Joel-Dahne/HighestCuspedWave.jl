@@ -577,15 +577,22 @@ function x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
     iszero(t) && return logabspow(x, 1, s)
 
     if Arblib.contains_zero(x)
-        # We don't work as hard to get a good enclosure in this case
+        # We don't work as hard to get a good enclosure or good
+        # performance in this case
         if Arblib.contains_zero(t)
             # Handle removable singularity
             return fx_div_x(t, force = true) do t
                 abspow(x, s + t) - abspow(x, s)
             end
         else
-            # Evaluate directly
-            return (abspow(x, s + t) - abspow(x, s)) / t
+            # Evaluate directly and with the removable zero added and
+            # take the intersection
+            res1 = (abspow(x, s + t) - abspow(x, s)) / t
+            res2 = fx_div_x(union(t, zero(t)), force = true) do t
+                abspow(x, s + t) - abspow(x, s)
+            end
+
+            return intersect(res1, res2)
         end
     end
 
