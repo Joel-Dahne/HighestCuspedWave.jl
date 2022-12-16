@@ -68,8 +68,13 @@ for subdivision = start:stop
 
     @info "Subdivision $subdivision took $time seconds"
 
-    estimate_total_time =
+    estimate_total_time = if isnothing(m)
+        # Running whole interval so the time is the estimated time
+        time
+    else
         time * HighestCuspedWave.proof_interval_subdivisions(subdivision)[2] / m
+    end
+
 
     open(logfile, append = true) do io
         println(
