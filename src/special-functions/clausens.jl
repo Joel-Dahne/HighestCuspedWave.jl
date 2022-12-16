@@ -110,7 +110,9 @@ function _clausens_zeta(x::Arb, s::Arb)
     Arblib.ispositive(onemxinv2pi) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
-    if round(Int, Float64(s)) >= 0 && is_approx_integer(s)
+    rounded_mid_s = round(Int, Float64(s))
+    tol = rounded_mid_s > 3 ? 0.001 : 0.01 # For large s it is worse to be close to integer
+    if rounded_mid_s >= 0 && is_approx_integer(s; tol)
         s = union(s, Arb(round(Float64(s))))
     end
 
