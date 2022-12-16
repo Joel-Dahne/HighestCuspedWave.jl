@@ -113,7 +113,7 @@ function delta0_bound(
         degree = ifelse(u0.use_bhkdv, -1, degree),
         log_bisection = true,
         depth = ifelse(u0.use_bhkdv, 40, 20),
-        maxevals = ifelse(u0.use_bhkdv, 50000, 1000);
+        maxevals = ifelse(u0.use_bhkdv, 50000, 5000);
         rtol,
         atol,
         ubound_tol,
