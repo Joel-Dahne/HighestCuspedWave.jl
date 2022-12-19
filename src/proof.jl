@@ -64,9 +64,9 @@ dataframe.
 The mapping of `αs` can be parallelized in three different ways by
 setting `parallelization` accordingly. It can be either `:sequential`,
 `:threaded` or `:distributed`. If set to `:sequential` then one value
-is processed at a time, possibly using threading for internally. If
-set to `:threaded` then threading is used to map over the values of
-`αs`, in this case internal threading is always disabled. Finally
+is processed at a time, possibly using threading internally. If set to
+`:threaded` then threading is used to map over the values of `αs`, in
+this case internal threading is always disabled. Finally
 `:distributed` can be used to parallelize it over several processes,
 see [`_prove_distributed`](@ref).
 
@@ -85,7 +85,7 @@ global_logger(TerminalLogger())
 """
 function prove(
     αs::Vector{Arb};
-    parallelization = :threaded,
+    parallelization = :sequential,
     M = 10,
     only_estimate_D0 = false,
     D0_maxevals = 4000,
@@ -218,6 +218,28 @@ function _prove_distributed(
     ProgressLogging.@progress res = [fetch(task) for task in tasks]
 
     DataFrame(res)
+end
+
+"""
+    prove_bisect_failed(data::DataFrame; kwargs...)
+
+Convenience function for bisecting all `α`s that failed and rerun the
+proof for them. The given dataframe can be as the one return by
+[`prove`](@ref) when given a vector as argument, in practice it only
+needs to have one `:proved` column and one `:α` column, if the
+`:proved` value is false it bisects the `α`.
+
+It gives the vector of bisected `α`s as argument to [`prove`](@ref)
+and keyword arguments are passed along.
+"""
+function prove_rerun_failed(data::DataFrame; kwargs...)
+    αs_bisected = map(filter(:proved => !, data).α) do α
+        [Arb((lbound(α), midpoint(α))), Arb((midpoint(α), ubound(α)))]
+    end
+
+    αs_bisected = vcat(αs_bisected...)
+
+    prove(αs_bisected; kwargs...)
 end
 
 """
