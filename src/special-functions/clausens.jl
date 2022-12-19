@@ -29,6 +29,169 @@ function _clausens_polylog(x::Arb, s::Arb, β::Integer)
 end
 
 """
+    _clausens_zeta_f(v::Arb, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+    _clausens_zeta_f(v::ArbSeries, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+
+Compute
+```
+gamma(v) * inv(2π)^v * sinpi(v / 2) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+```
+It assumes that the arguments after `v` are set to `2π`, `x / 2π` and
+`1 - x / 2π` respectively. This function is used internally by
+[`_clausens_zeta`](@ref).
+"""
+function _clausens_zeta_f(v::Arb, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+    res = zeta(v, xinv2pi)
+    tmp = zeta(v, onemxinv2pi)
+    Arblib.sub!(res, res, tmp)
+
+    Arblib.gamma!(tmp, v)
+    Arblib.mul!(res, res, tmp)
+
+    Arblib.pow!(tmp, inv2pi, v)
+    Arblib.mul!(res, res, tmp)
+
+    Arblib.mul_2exp!(tmp, v, -1)
+    Arblib.sin_pi!(tmp, tmp)
+    Arblib.mul!(res, res, tmp)
+
+    return res
+end
+
+function _clausens_zeta_f(v::ArbSeries, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+    res = zeta(v, xinv2pi)
+    tmp = zeta(v, onemxinv2pi)
+    Arblib.sub!(res, res, tmp)
+
+    Arblib.gamma_series!(tmp, v, length(tmp))
+    Arblib.mullow!(res, res, tmp, length(res))
+
+    Arblib.zero!(tmp)
+    tmp[0] = inv2pi
+    Arblib.pow_series!(tmp, tmp, v, length(tmp))
+    Arblib.mullow!(res, res, tmp, length(res))
+
+    Arblib.mul_2exp!(tmp, v, -1)
+    Arblib.sin_pi_series!(tmp, tmp, length(tmp))
+    Arblib.mullow!(res, res, tmp, length(res))
+
+    return res
+end
+
+"""
+    _clausens_zeta_f_one(v::Union{Arb,ArbSeries}, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+
+Compute
+```
+gamma(v) * inv(2π)^v * sinpi(v / 2) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+```
+in a way that accounts for the removable singularity at `v = 1`.
+
+If `v = 1` then both `zeta(v, x / 2π)` and `zeta(v, 1 - x / 2π)`
+blow up, however their difference is bounded. To see this let
+`zeta_deflated(s, a) = zeta(s, a) + 1 / (1 - s)` be the deflated zeta
+function. Looking at the difference the term `1 / (1 - v)` is
+cancelled and we get
+```
+zeta(v, x / 2π) - zeta(v, 1 - x / 2π) =
+    zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
+```
+
+It assumes that the arguments after `v` are set to `inv(2π)`, `x / 2π`
+and `1 - x / 2π` respectively. This function is used internally by
+[`_clausens_zeta`](@ref).
+"""
+_clausens_zeta_f_one(v::Union{Arb,ArbSeries}, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb) =
+    gamma(v) *
+    inv2pi^v *
+    sinpi(v / 2) *
+    (zeta_deflated(v, xinv2pi) - zeta_deflated(v, onemxinv2pi))
+
+"""
+    _clausens_zeta_f_even(v::Union{Arb,ArbSeries}, v0::Integer, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+
+Compute
+```
+gamma(v) * inv(2π)^v * sinpi(v / 2) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+```
+in a way that accounts for the removable singularity at even `v <= 0`.
+The argument `v0` should be set to the integer where the the removable
+singularity is located.
+
+In this case `gamma(v)` diverges but `cospi(v / 2)` is zero. We
+rewrite it as
+```
+(sinpi(v / 2) / (v - v0)) / (rgamma(v) / (v - v0))
+```
+and use [`fx_div_x`](@ref) to compute the factors.
+
+It assumes that the arguments after `v0` are set to `2π`, `x / 2π` and
+`1 - x / 2π` respectively. This function is used internally by
+[`_clausens_zeta`](@ref).
+"""
+function _clausens_zeta_f_even(
+    v::Union{Arb,ArbSeries},
+    v0::Integer,
+    inv2pi::Arb,
+    xinv2pi::Arb,
+    onemxinv2pi::Arb,
+)
+    # Enclosure of rgamma(v) / (v - v_integer)
+    rgamma_div_v = fx_div_x(t -> rgamma(t + v0), v - v0, extra_degree = 2)
+
+    # Enclosure of sinpi(v / 2) / (v - v_integer)
+    sin_div_v = fx_div_x(t -> sinpi((t + v0) / 2), v - v0, extra_degree = 2)
+
+    return inv2pi^v * sin_div_v / rgamma_div_v * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
+end
+
+"""
+    _clausens_zeta_f_odd(v::Union{Arb,ArbSeries}, v0::Integer, inv2pi::Arb, xinv2pi::Arb, onemxinv2pi::Arb)
+
+Compute
+```
+gamma(v) * inv(2π)^v * sinpi(v / 2) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+```
+in a way that accounts for the removable singularity at odd `v <= 0`.
+The argument `v0` should be set to the integer where the the removable
+singularity is located.
+
+In this case `gamma(v)` diverges but `zeta(v, x / 2π) - zeta(v, 1 - x
+/ 2π)` is zero. To see that `zeta(v, x / 2π) + zeta(v, 1 - x / 2π)` is
+zero when `v` is an odd non-positive integer we can use formula
+[25.11.14](https://dlmf.nist.gov/25.11.E14) together with
+[24.4.1](https://dlmf.nist.gov/24.4.E1). We rewrite it as
+```
+((zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / (v - v0)) / (rgamma(v) / (v - v0))
+```
+and use [`fx_div_x`](@ref) to compute the factors.
+
+It assumes that the arguments after `v0` are set to `2π`, `x / 2π` and
+`1 - x / 2π` respectively. This function is used internally by
+[`_clausens_zeta`](@ref).
+"""
+function _clausens_zeta_f_odd(
+    v::Union{Arb,ArbSeries},
+    v0::Integer,
+    inv2pi::Arb,
+    xinv2pi::Arb,
+    onemxinv2pi::Arb,
+)
+    # Enclosure of rgamma(v) / (v - v0)
+    rgamma_div_v = fx_div_x(t -> rgamma(t + v0), v - v0, extra_degree = 2)
+
+    # Enclosure of (zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / (v - v0)
+    zeta_div_v = fx_div_x(
+        t -> zeta(t + v0, xinv2pi) - zeta(t + v0, onemxinv2pi),
+        v - v0,
+        extra_degree = 2,
+        force = true,
+    )
+
+    return inv2pi^v * sinpi(v / 2) * zeta_div_v / rgamma_div_v
+end
+
+"""
     _clausens_zeta(x::Arb, s::Arb)
 
 Evaluation of the `clausens` function through the zeta function.
@@ -42,57 +205,17 @@ end
 Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
 periodic zeta function and then taking the imaginary part.
 
-The formula is well defined as long as `s` doesn't overlap with any
-non-negative integer. See further down for how those cases are
-handled.
+The formula is well defined as long as `v` doesn't overlap with any
+integer `<= 1` (meaning `s` doesn't overlap with any non-negative
+integer). For integer `v <= 1` there is a removable singularity that
+has to be handled. This is done using the functions
+[`_clausens_zeta_f_one`](@ref), [`_clausens_zeta_f_even`](@ref) and
+[`_clausens_zeta_f_odd`](@ref), handling the cases when `v` is one and
+`v <= 0` and even or odd respectively.
 
-It currently only handles `0 < x < 2π`.
-
-If `s` is wide, as determined by `iswide(s)` it computes a tighter
-enclosure using [`enclosure_series`](@ref).
-
-# Handling `s = 0`
-If `s` is zero then both `zeta(v, x / 2π)` and `zeta(v, 1 - x / 2π)`
-blow up, however their difference is bounded. To see this let
-`zeta_deflated(s, a) = zeta(s, a) + 1 / (1 - s)` be the deflated zeta
-function. Looking at the difference the term `1 / (1 - v)` is
-cancelled and we get
-```
-zeta(v, x / 2π) - zeta(v, 1 - x / 2π) =
-    zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
-```
-
-# Handling `s` overlapping a unique positive integer
-If `s` is a positive integer then `gamma(v)` diverges, if the
-integer is even then `zeta(v, x / 2π) - zeta(v, 1 - x / 2π)` is zero
-and if the integer is odd then `sinpi(v / 2)` is zero. To see that
-`zeta(v, x / 2π) - zeta(v, 1 - x / 2π)` is zero when `s` is an even
-non-negative integer, i.e. when `v` is an odd non-positive integer, we
-can use formula [25.11.14](https://dlmf.nist.gov/25.11.E14) together
-with [24.4.1](https://dlmf.nist.gov/24.4.E1).
-
-For even `s` we thus want to compute an enclosure of
-```
-gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
-```
-and for odd `s` we want to compute an enclosure of
-```
-gamma(v) * sinpi(v / 2)
-```
-In both cases we rewrite them using the reciprocal gamma function
-[`rgamma`](@ref), giving us
-```
-(zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / rgamma(v)
-
-sinpi(v / 2) / rgamma(v)
-```
-To be able to use [`fx_div_x`](@ref) we let `t = v - v_integer`, where
-`v_integer` is the integer that `v` overlaps with, and write them as
-```
-((zeta(t + v_integer, x / 2π) - zeta(t + v_integer, 1 - x / 2π)) / t) / (rgamma(t + v_integer) / t)
-
-(sinpi((t + v_integer) / 2) / t) / (rgamma(t + v_integer) / t)
-```
+It currently only handles `0 < x < 2π`. If `s` is wide, as determined
+by `iswide(s)` it computes a tighter enclosure of the coefficients
+using a Taylor expansion in `s`.
 """
 function _clausens_zeta(x::Arb, s::Arb)
     # Check that x > 0
@@ -110,90 +233,42 @@ function _clausens_zeta(x::Arb, s::Arb)
     Arblib.ispositive(onemxinv2pi) ||
         throw(DomainError(x, "method only supports x on the interval (0, 2π)"))
 
-    rounded_mid_s = round(Int, Float64(s))
-    tol = rounded_mid_s > 3 ? 0.001 : 0.01 # For large s it is worse to be close to integer
-    if rounded_mid_s >= 0 && is_approx_integer(s; tol)
-        s = union(s, Arb(round(Float64(s))))
-    end
-
     v = let v = zero(x) # We do it like this to preserve the precision
         Arblib.neg!(v, s)
         Arblib.add!(v, v, 1)
     end
 
-    unique, s_integer = unique_integer(s)
+    # Function for computing
+    # gamma(v) * inv(2π)^v * sinpi(v / 2) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
+    # It takes care of picking the right function to use near the
+    # removable singularities.
+    f(v) = begin
+        v0 = v isa Arb ? v : Arblib.ref(v, 0)
+        rounded_mid_v0 = round(Int, Float64(v0))
 
-    if unique && s_integer == 0
-        # Enclosure of zeta_deflated(v, x / 2π) - zeta_deflated(v, 1 - x / 2π)
-        z = zeta_deflated(v, xinv2pi) - zeta_deflated(v, onemxinv2pi)
-
-        if iswide(s)
-            rest = ArbExtras.enclosure_series(
-                v -> gamma(v) * inv2pi^v * sinpi(v / 2),
-                v,
-                degree = 2,
-            )
-        else
-            rest = gamma(v) * inv2pi^v * sinpi(v / 2)
+        if rounded_mid_v0 <= 1 && is_approx_integer(v0, tol = 0.001)
+            # v0 is never 0 in this case so no need to update degree
+            # in case v::ArbSeries
+            Arblib.union!(v0, v0, Arb(rounded_mid_v0))
         end
 
-        return rest * z
-    elseif unique && s_integer > 0
-        v_integer = 1 - s_integer
+        unique, v0_integer = unique_integer(v0)
 
-        # Enclosure of rgamma(v) / (v - v_integer)
-        rgamma_div_v = fx_div_x(t -> rgamma(t + v_integer), v - v_integer, extra_degree = 2)
-
-        if iseven(s_integer)
-            # Enclosure of (zeta(v, x / 2π) - zeta(v, 1 - x / 2π)) / (v - v_integer)
-            zeta_div_v = fx_div_x(
-                t -> zeta(t + v_integer, xinv2pi) - zeta(t + v_integer, onemxinv2pi),
-                v - v_integer,
-                extra_degree = 2,
-                force = true,
-            )
-
-            # Enclosure of gamma(v) * (zeta(v, x / 2π) - zeta(v, 1 - x / 2π))
-            gammazeta = zeta_div_v / rgamma_div_v
-
-            if iswide(s)
-                rest =
-                    ArbExtras.enclosure_series(v -> inv2pi^v * sinpi(v / 2), v, degree = 2)
-            else
-                rest = inv2pi^v * sinpi(v / 2)
-            end
-
-            return gammazeta * rest
+        if unique && v0_integer == 1
+            _clausens_zeta_f_one(v, inv2pi, xinv2pi, onemxinv2pi)
+        elseif unique && iseven(v0_integer) && v0_integer <= 0
+            _clausens_zeta_f_even(v, v0_integer, inv2pi, xinv2pi, onemxinv2pi)
+        elseif unique && isodd(v0_integer) && v0_integer <= 0
+            _clausens_zeta_f_odd(v, v0_integer, inv2pi, xinv2pi, onemxinv2pi)
         else
-            # Enclosure of sinpi(v / 2) / (v - v_integer)
-            sin_div_v =
-                fx_div_x(t -> sinpi((t + v_integer) / 2), v - v_integer, extra_degree = 2)
-
-            # Enclosure of gamma(v) * sinpi(v / 2)
-            gammasin = sin_div_v / rgamma_div_v
-
-            if iswide(s)
-                rest = ArbExtras.enclosure_series(
-                    v -> inv2pi^v * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi)),
-                    v,
-                    degree = 2,
-                )
-            else
-                rest = inv2pi^v * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
-            end
-
-            return gammasin * rest
+            _clausens_zeta_f(v, inv2pi, xinv2pi, onemxinv2pi)
         end
+    end
+
+    if iswide(s)
+        return ArbExtras.enclosure_series(f, v, degree = 2)
     else
-
-        f(v) =
-            gamma(v) * inv2pi^v * sinpi(v / 2) * (zeta(v, xinv2pi) - zeta(v, onemxinv2pi))
-
-        if iswide(s)
-            return ArbExtras.enclosure_series(f, v, degree = 2)
-        else
-            return f(v)
-        end
+        return f(v)
     end
 end
 

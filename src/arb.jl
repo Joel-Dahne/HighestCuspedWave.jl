@@ -102,7 +102,7 @@ stieltjes(T, n::Integer) = convert(T, stieltjes(Arb, n))
 If `x` contains a unique integer return `true, n` where `n` is the
 integer. Otherwise return `false, 0`
 """
-function unique_integer(x::Arb)
+function unique_integer(x::Arblib.ArbOrRef)
     res = fmpz_struct()
     unique = ccall(
         Arblib.@libarb(arb_get_unique_fmpz),
