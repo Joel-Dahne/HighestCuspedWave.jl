@@ -3577,8 +3577,9 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
         for t in range(a, b, 4)
             # The degree is truncated so they will not be exactly
             # equal
-            @assert isapprox(S1_v1(p, t), S1_v2(p, t), atol = Arb(1e-5))
-            @assert isapprox(S2_v1(p, t), S2_v2(p, t), atol = Arb(1e-5))
+            tol = a < 3 ? Arb(1e-3) : Arb(1e-5)
+            @assert isapprox(S1_v1(p, t), S1_v2(p, t), rtol = tol, atol = tol)
+            @assert isapprox(S2_v1(p, t), S2_v2(p, t), rtol = tol, atol = tol)
         end
     end
 
@@ -3658,7 +3659,8 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
 
     for n = 0:N
         for t in range(a, b, 4)
-            @assert isapprox(S_v1(n, t), S_v4(n, t), atol = Arb(1e-5))
+            tol = a < 3 ? Arb(1e-3) : Arb(1e-5)
+            @assert isapprox(S_v1(n, t), S_v4(n, t), atol = tol)
         end
     end
 
@@ -3927,7 +3929,7 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
     if false
         # This takes some time to compute so we skip it in general
         G22_2_2_upper_v1 = sum(2:N) do n
-            (-1)^n * (1 + α)^(n - 1) / factorial(n) * (
+            (1 + α)^(n - 1) / factorial(n) * (
                 I1_remainder_upper_v1(n) - inv(log(inv(x))) * I2_remainder_upper_v1(n) +
                 inv(log(inv(x))) * I3_remainder_upper_v1(n)
             )
@@ -3935,10 +3937,336 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
 
         @show G22_2_2_upper_v1
         @assert G22_2_2_v1 < G22_2_2_upper_v1
+    else
+        # Set to previous version so that further checks still work
+        G22_2_2_upper_v1 = G22_2_2_v1
     end
+
     #####
-    # NEXT: Bound tail of sum
+    # We want to use that log(t)^j <= log(t)^(l - 1) to factor it out
+    # all the way to h(l, t). But that only holds if t >= ℯ. We might
+    # therefore want to split the integration further. For now we use
+    # that log(t)^j <= 1 + log(t)^(l - 1) for t >= 1.
     #####
+
+    h_cs_upper_v2(l) =
+        let css = h_cs_v1[l], cs = Vector{Arb}(undef, K)
+            for m = 1:K
+                cs[m] = sum(max(0, l - m):l-1, init = zero(Arb)) do j
+                    binomial(l, j) * abs(css[l-j, m-l+j+1])
+                end
+            end
+            cs
+        end
+
+    h_upper_v3(l, t) =
+        let cs = h_cs_upper_v2(l)
+            #p1 = inv(t)^4 * cs[4]
+            #p2 = sum(6:2:K) do m
+            #    inv(t)^m * cs[m]
+            #end
+            #p1, p2
+            (1 + log(t)^(l - 1)) * sum(4:2:K) do m
+                inv(t)^m * cs[m]
+            end
+        end
+
+    for l = 1:N
+        for t in range(a, b, 4)
+            r1 = h_upper_v2(l, t)
+            r2 = h_upper_v3(l, t)
+            @assert !(r1 > r2)
+        end
+    end
+
+    #####
+    # Factor out inv(t)^4 and use that inv(t) < inv(a) to bound the
+    # rest
+    #####
+
+    h_cs_upper_v3(l) =
+        let css = h_cs_v1[l], cs = Vector{Arb}(undef, K)
+            for m = 1:K
+                cs[m] = sum(max(0, l - m):l-1, init = zero(Arb)) do j
+                    binomial(l, j) * abs(css[l-j, m-l+j+1])
+                end
+            end
+            cs
+        end
+
+    h_upper_v4(l, t) =
+        let cs = h_cs_upper_v2(l)
+            (1 + log(t)^(l - 1)) * inv(t)^4 * a^4 * sum(4:2:K) do m
+                cs[m] / a^m
+            end
+        end
+
+    for l = 1:N
+        for t in range(a, b, 4)
+            r1 = h_upper_v3(l, t)
+            r2 = h_upper_v4(l, t)
+            @assert !(r1 > r2)
+        end
+    end
+
+    #####
+    # Take out part of h_upper(l, t) that doesn't depend on t
+    #####
+
+    # Precompute for performance reasons
+    h_upper_constant_v1 = map(1:N) do l
+        let cs = h_cs_upper_v2(l)
+            a^4 * sum(4:2:K) do m
+                cs[m] / a^m
+            end
+        end
+    end
+
+    h_upper_v5(l, t) = (1 + log(t)^(l - 1)) * inv(t)^4 * h_upper_constant_v1[l]
+
+    for l = 1:N
+        for t in range(a, b, 4)
+            r1 = h_upper_v4(l, t)
+            r2 = h_upper_v5(l, t)
+            @assert Arblib.overlaps(r1, r2)
+        end
+    end
+
+    #####
+    # Insert back into G22_2_2
+    #####
+
+    H1_upper_v2(n, k) = Arblib.integrate(a, b) do t
+        log(t)^k * h_upper_v5(n - k, Acb(t)) * t
+    end |> real
+
+    H2_upper_v2(n, k) = Arblib.integrate(a, b) do t
+        log(t)^(k + 1) * h_upper_v5(n - k, Acb(t)) * t
+    end |> real
+
+    H3_upper_v2(n, k) =
+        Arblib.integrate(a, b) do t
+            log(t)^k * h_upper_v5(n - k, Acb(t)) * t * log(1 + c * x * t)
+        end |> real
+
+    for n = 1:N
+        for k = 0:n-1
+            r11 = H1_upper_v1(n, k)
+            r12 = H2_upper_v1(n, k)
+            r13 = H3_upper_v1(n, k)
+            r21 = H1_upper_v2(n, k)
+            r22 = H2_upper_v2(n, k)
+            r23 = H3_upper_v2(n, k)
+            @assert Arblib.ispositive(r21)
+            @assert Arblib.ispositive(r22)
+            @assert Arblib.ispositive(r23)
+            @assert !(r11 > r21)
+            @assert !(r12 > r22)
+            @assert !(r13 > r23)
+        end
+    end
+
+    I1_remainder_upper_v2(n) =
+        sum(0:n-1) do k
+            binomial(n, k) * γ^k * H1_upper_v2(n, k)
+        end
+
+    I2_remainder_upper_v2(n) =
+        sum(0:n-1) do k
+            binomial(n, k) * γ^k * H2_upper_v2(n, k)
+        end
+
+    I3_remainder_upper_v2(n) =
+        sum(0:n-1) do k
+            binomial(n, k) * γ^k * H3_upper_v2(n, k)
+        end
+
+    if false
+        # This takes some time to compute so we skip it in general
+        G22_2_2_upper_v2 = sum(2:N) do n
+            (1 + α)^(n - 1) / factorial(n) * (
+                I1_remainder_upper_v2(n) - inv(log(inv(x))) * I2_remainder_upper_v2(n) +
+                inv(log(inv(x))) * I3_remainder_upper_v2(n)
+            )
+        end
+
+        @show G22_2_2_upper_v2
+        @assert G22_2_2_v1 < G22_2_2_upper_v2
+    else
+        # Set to previous version so that further checks still work
+        G22_2_2_upper_v2 = G22_2_2_upper_v1
+    end
+
+    #####
+    # Insert h(l, t) into H1, H2 and H3 to be able to simplify
+    #####
+
+    # Recall that if a > ℯ we don't need the 1 + in front of the inner log
+    H1_upper_v3(n, k) =
+        h_upper_constant_v1[n-k] * Arblib.integrate(a, b) do t
+            log(t)^k * (1 + log(t)^(n - k - 1)) / t^3
+        end |> real
+
+    H2_upper_v3(n, k) =
+        h_upper_constant_v1[n-k] * Arblib.integrate(a, b) do t
+            log(t)^(k + 1) * (1 + log(t)^(n - k - 1)) / t^3
+        end |> real
+
+    H3_upper_v3(n, k) =
+        h_upper_constant_v1[n-k] * Arblib.integrate(a, b) do t
+            log(t)^k * (1 + log(t)^(n - k - 1)) / t^3 * log(1 + c * x * t)
+        end |> real
+
+    for n = 1:N
+        for k = 0:n-1
+            r11 = H1_upper_v2(n, k)
+            r12 = H2_upper_v2(n, k)
+            r13 = H3_upper_v2(n, k)
+            r21 = H1_upper_v3(n, k)
+            r22 = H2_upper_v3(n, k)
+            r23 = H3_upper_v3(n, k)
+            @assert Arblib.ispositive(r21)
+            @assert Arblib.ispositive(r22)
+            @assert Arblib.ispositive(r23)
+            @assert Arblib.overlaps(r11, r21)
+            @assert Arblib.overlaps(r12, r22)
+            @assert Arblib.overlaps(r13, r23)
+        end
+    end
+
+    #####
+    # Explicitly compute the integrals
+    #####
+
+    H1_upper_v4(n, k) =
+        h_upper_constant_v1[n-k] * (
+            (gamma(Arb(k + 1), 2log(a)) - gamma(Arb(k + 1), 2log(b))) / Arb(2)^(k + 1) +
+            (gamma(Arb(n), 2log(a)) - gamma(Arb(n), 2log(b))) / Arb(2)^n
+        )
+
+    H2_upper_v4(n, k) =
+        h_upper_constant_v1[n-k] * (
+            (gamma(Arb(k + 2), 2log(a)) - gamma(Arb(k + 2), 2log(b))) / Arb(2)^(k + 2) +
+            (gamma(Arb(n + 1), 2log(a)) - gamma(Arb(n + 1), 2log(b))) / Arb(2)^(n + 1)
+        )
+
+    # In this case we factor out the bound log(1 + c * x * b) for
+    # log(1 + c * x * t)
+    H3_upper_v4(n, k) = log(1 + c * x * b) * H1_upper_v4(n, k)
+
+    for n = 1:N
+        for k = 0:n-1
+            r11 = H1_upper_v3(n, k)
+            r12 = H2_upper_v3(n, k)
+            r13 = H3_upper_v3(n, k)
+            r21 = H1_upper_v4(n, k)
+            r22 = H2_upper_v4(n, k)
+            r23 = H3_upper_v4(n, k)
+            @assert Arblib.ispositive(r21)
+            @assert Arblib.ispositive(r22)
+            @assert Arblib.ispositive(r23)
+            @assert Arblib.overlaps(r11, r21)
+            @assert Arblib.overlaps(r12, r22)
+            @assert !(r13 > r23)
+        end
+    end
+
+    #####
+    # Upper bound the explicitly computed integrals. Uses that
+    # gamma(n, c) - gamma(n, d) <= gamma(n) for 0 < c < d and that k <
+    # n
+    #####
+
+    H1_upper_v5(n, k) = h_upper_constant_v1[n-k] * factorial(n - 1) / Arb(2)^(n - 1)
+
+    H2_upper_v5(n, k) = h_upper_constant_v1[n-k] * factorial(n) / Arb(2)^n
+
+    # In this case we factor out the bound log(1 + c * x * b) for
+    # log(1 + c * x * t)
+    H3_upper_v5(n, k) = log(1 + c * x * b) * H1_upper_v5(n, k)
+
+    for n = 1:N
+        for k = 0:n-1
+            r11 = H1_upper_v4(n, k)
+            r12 = H2_upper_v4(n, k)
+            r13 = H3_upper_v4(n, k)
+            r21 = H1_upper_v5(n, k)
+            r22 = H2_upper_v5(n, k)
+            r23 = H3_upper_v5(n, k)
+            @assert Arblib.ispositive(r21)
+            @assert Arblib.ispositive(r22)
+            @assert Arblib.ispositive(r23)
+            @assert !(r11 > r21)
+            @assert !(r12 > r22)
+            @assert !(r13 > r23)
+        end
+    end
+
+    #####
+    # Insert H1, H2 and H3 into I1_remainder, I2_remainder and I3_remainder
+    #####
+
+    I1_remainder_upper_v3(n) =
+        factorial(n - 1) / Arb(2)^(n - 1) * sum(0:n-1) do k
+            binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+        end
+
+    I2_remainder_upper_v3(n) =
+        factorial(n) / Arb(2)^n * sum(0:n-1) do k
+            binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+        end
+
+    I3_remainder_upper_v3(n) = log(1 + c * x * b) * I1_remainder_upper_v3(n)
+
+    G22_2_2_upper_v3 = sum(2:N) do n
+        (1 + α)^(n - 1) / factorial(n) * (
+            I1_remainder_upper_v3(n) - inv(log(inv(x))) * I2_remainder_upper_v3(n) +
+            inv(log(inv(x))) * I3_remainder_upper_v3(n)
+        )
+    end
+
+    @show G22_2_2_upper_v3
+    @assert G22_2_2_upper_v2 < G22_2_2_upper_v3
+
+    #####
+    # Insert I1_remainder, I2_remainder and I3_remainder into H22_2_2
+    # to simplify further
+    #####
+
+    G22_2_2_upper_v4 = sum(2:N) do n
+        (1 + α)^(n - 1) / Arb(2)^n *
+        (2(1 + inv(log(inv(x))) * log(1 + c * x * b)) / n - inv(log(inv(x)))) *
+        sum(0:n-1) do k
+            binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+        end
+    end
+
+    @show G22_2_2_upper_v4
+    @assert Arblib.overlaps(G22_2_2_upper_v3, G22_2_2_upper_v4)
+
+    #####
+    # Simplify sum further
+    #####
+
+    G22_2_2_upper_v5 =
+        ((1 + inv(log(inv(x))) * log(1 + c * x * b)) - inv(log(inv(x)))) * sum(2:N) do n
+            (1 + α)^(n - 1) / Arb(2)^n * sum(0:n-1) do k
+                binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+            end
+        end
+
+    @show G22_2_2_upper_v5
+    @assert !(G22_2_2_upper_v4 > G22_2_2_upper_v5)
+
+    #####
+    # Next: Bound the sum in G22_2_2 which no longer depends on a, b or x
+    #####
+
+    G22_2_2_upper_constant_v1 = sum(2:N) do n
+        (1 + α)^(n - 1) / Arb(2)^n * sum(0:n-1) do k
+            binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+        end
+    end
 end
 
 
