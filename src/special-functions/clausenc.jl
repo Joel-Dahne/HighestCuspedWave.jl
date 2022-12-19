@@ -992,23 +992,29 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
     P = ArbSeries(degree = 2M - 2, prec = precision(x))
     for m = (skip_constant ? 1 : 0):M-1
         if iswide(s)
-            z = ArbExtras.enclosure_series(s, degree = 2) do s
+            term = ArbExtras.enclosure_series(s, degree = 2) do s
                 z = zeta(s - 2m)
-                if !isfinite(z) && s isa ArbSeries
+                if s isa ArbSeries && abs(Float64(s[0] - 2m)) <= 0.1 && iswide(s)
                     # zeta doesn't handle wide arguments that are
                     # close to zero but not centered around zero very
                     # well. In this case it can be better to force the
                     # argument to be centered at zero instead.
                     t = s - 2m
                     t[0] = union(t[0], -t[0])
-                    z = zeta(t)
+                    z2 = zeta(t)
+
+                    if isfinite(z) && isfinite(z2)
+                        z = ArbSeries(intersect.(Arblib.coeffs(z), Arblib.coeffs(z2)))
+                    elseif isfinite(z2)
+                        z = z2
+                    end
                 end
                 z
             end
         else
-            z = zeta(s - 2m)
+            term = zeta(s - 2m)
         end
-        P[2m] = (-1)^m * z / factorial(2m)
+        P[2m] = (-1)^m * term / factorial(2m)
     end
 
     # Error term
