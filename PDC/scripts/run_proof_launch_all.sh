@@ -15,9 +15,9 @@ sbatch --time=48:00:00 -p shared -o PDC/logs/run_proof_1.o -e PDC/logs/run_proof
 sbatch --time=24:00:00 -p shared -o PDC/logs/run_proof_2.o -e PDC/logs/run_proof_2.e PDC/scripts/run_proof.sh 2 2
 
 # 3:9
-# Takes around 17 hours in total. To be conservative the time is set
-# to 24 hours.
-sbatch --time=24:00:00 -p shared -o PDC/logs/run_proof_3.o -e PDC/logs/run_proof_3.e PDC/scripts/run_proof.sh 3 9
+# Takes around 13 hours in total. To be conservative the time is set
+# to 18 hours.
+sbatch --time=18:00:00 -p shared -o PDC/logs/run_proof_3.o -e PDC/logs/run_proof_3.e PDC/scripts/run_proof.sh 3 9
 
 # 10:end
 # Takes around 16 hours in total. To be conservative the time is set
