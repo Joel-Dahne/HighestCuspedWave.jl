@@ -86,6 +86,30 @@ function n0_bound(
     )
 
     if !bounded
+        # In very few cases the picked ϵ2 gives a too tight bound and
+        # proof of the bound fails. It has been enough to rerun it
+        # with a slightly smaller ϵ2.
+
+        verbose && @warn "Could not prove bound on [ϵ1, ϵ2]"
+
+        ϵ2 *= 0.8
+        verbose && @warn "Rerunning with new ϵ2" ϵ2
+
+        bounded = ArbExtras.bounded_by(
+            g,
+            lbound(ϵ1),
+            ubound(ϵ2),
+            lbound(m1),
+            abs_value = true,
+            log_bisection = true,
+            maxevals = ifelse(u0.use_bhkdv, 100000, 1000);
+            degree,
+            threaded,
+            verbose,
+        )
+    end
+
+    if !bounded
         verbose && @error "Could not prove bound on [ϵ1, ϵ2]"
         return indeterminate(Arb)
     end
