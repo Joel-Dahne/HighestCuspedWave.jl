@@ -44,11 +44,11 @@ function delta0_bound(
         # These values have been determined by testing what seems to
         # work well in practice.
         if u0.use_bhkdv
-            if u0.α < -0.99985
-                ubound_tol = Arb(0.0003)
-            elseif u0.α < -0.99
+            if Float64(u0.α) < -0.99985
+                ubound_tol = Arb(0.00025)
+            elseif Float64(u0.α) < -0.99
                 ubound_tol = Arb(0.0002)
-            elseif u0.α < -0.9
+            elseif Float64(u0.α) < -0.9
                 ubound_tol = Arb(0.0004)
             else
                 ubound_tol = Arb(-Inf)
