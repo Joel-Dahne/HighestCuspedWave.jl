@@ -47,6 +47,8 @@ function delta0_bound(
     return_subresults = false,
     verbose = false,
 )
+    verbose && @info "Computing bound of δ0"
+
     ϵ = Arblib.midpoint(Arb("1e-1"))
 
     # Bound the value on [0, ϵ] using an asymptotic expansion
@@ -151,9 +153,13 @@ function delta0_bound(
 
     verbose && @info "Enclosure on [ϵ, π]" m2
 
+    δ0 = max(m1, m2)
+
+    verbose && @info "Computed bound" δ0
+
     if return_subresults
-        return max(m1, m2), m11, m12, m13, m14, m2
+        return δ0, m11, m12, m13, m14, m2
     else
-        return max(m1, m2)
+        return δ0
     end
 end

@@ -42,6 +42,8 @@ function n0_bound(
     return_details::Bool = false,
     verbose::Bool = false,
 )
+    verbose && @info "Computing enclosure of n0"
+
     # For non-asymptotic evaluation
     f = x -> u0.w(x) / (2u0(x))
     # For asymptotic evaluation
@@ -96,7 +98,7 @@ function n0_bound(
     end
 
     # Bound the value on [ϵ, π]
-    m = ArbExtras.maximum_enclosure(
+    n0 = ArbExtras.maximum_enclosure(
         f,
         lbound(ϵ),
         ubound(Arb(π)),
@@ -108,9 +110,11 @@ function n0_bound(
         verbose,
     )
 
+    verbose && @info "Computed enclosure" n0
+
     if return_details
-        return m, ϵ
+        return n0, ϵ
     else
-        return m
+        return n0
     end
 end
