@@ -57,7 +57,7 @@ function round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = noth
         end
     end
 
-    return inequality_holds_rounded, n₀_float, δ₀_float, D₀_float
+    return inequality_holds_rounded, n₀_rounded, δ₀_rounded, D₀_rounded
 end
 
 """
