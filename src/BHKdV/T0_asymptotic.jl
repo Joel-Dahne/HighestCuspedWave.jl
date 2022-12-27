@@ -1430,352 +1430,184 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
         x < 1 || throw(DomainError(x, "must have x < 1"))
 
         if true#Arblib.contains_zero(x)
-            # Tests for integrand
-            integrand1(t) =
-                let α = ubound(Arb, α)
-                    (((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-γ * (1 + α))) *
-                    t *
-                    log(c + inv(x * t))
-                end
-
-            integrand2(t) =
-                let α = ubound(Arb, α)
-                    t *
-                    log(c + inv(x * t)) *
-                    sum(1:10) do n
-                        (-1)^n * (1 + α)^n / factorial(n) * (
-                            (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n -
-                            2(1 + γ)^n * log(t)^n
-                        )
-                    end
-                end
-
-            #@show integrand1(Arb(3)) integrand2(Arb(3))
-            @assert integrand1(Arb(3)) ≈ integrand2(Arb(3))
-
-            # Integration limits for testing
-            a, b = Arb(2), Arb(100)
-
-            integral1 = Arblib.integrate(integrand1, a, b)
-
-            I_part(n, x) =
-                Arblib.integrate(a, b) do t
-                    (
-                        (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n -
-                        2(1 + γ)^n * log(t)^n
-                    ) *
-                    t *
-                    log(c + inv(x * t))
-                end |> real
-
-            integral2 = let α = ubound(Arb, α)
-                sum(1:10) do n
-                    (-1)^n * (1 + α)^n / factorial(n) * I_part(n, x)
-                end
-            end
-
-            @show integral1 integral2
-            @assert integral1 ≈ integral2
-
-            I1_part(n, x) =
-                Arblib.integrate(a, b) do t
-                    (
-                        (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n -
-                        2(1 + γ)^n * log(t)^n
-                    ) * t
-                end |> real
-
-            I2_part(n, x) =
-                Arblib.integrate(a, b) do t
-                    (
-                        (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n -
-                        2(1 + γ)^n * log(t)^n
-                    ) *
-                    t *
-                    log(t)
-                end |> real
-
-            I3_part(n, x) =
-                Arblib.integrate(a, b) do t
-                    (
-                        (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n -
-                        2(1 + γ)^n * log(t)^n
-                    ) *
-                    t *
-                    log(1 + c * x * t)
-                end |> real
-
-            for n = 1:10
-                q1 = I_part(n, x)
-                q2 = -log(x) * I1_part(n, x) - I2_part(n, x) + I3_part(n, x)
-
-                #@show n q1 q2 I1_part(n, x) I2_part(n, x) I3_part(n, x)
-                @assert Arblib.overlaps(q1, q2)
-            end
-
-            for n = 1:10
-                q1 = I3_part(n, x)#-log(x) * I1_part(n, x) - I2_part(n, x) + I3_part(n, x)
-                q2 = I1_part(n, x)#(Arb((log(1 + c * x), log(1 + c * π))) - log(x)) * I1_part(n, x) - I2_part(n, x)
-                #@show q1 q2
-                #@assert Arblib.overlaps(q1, q2)
-            end
-
-            R(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-
-            I1_part_v2(n, x) =
-                Arblib.integrate(a, b) do t
-                    t * sum(0:n-1) do k
-                        binomial(n, k) * γ^k * log(t)^k * R(n - k, t)
-                    end
-                end |> real
-
-            I2_part_v2(n, x) =
-                Arblib.integrate(a, b) do t
-                    t * log(t) * sum(0:n-1) do k
-                        binomial(n, k) * γ^k * log(t)^k * R(n - k, t)
-                    end
-                end |> real
-
-            for n = 1:10
-                q1 = I1_part(n, x)
-                q2 = I1_part_v2(n, x)
-
-                @assert Arblib.overlaps(q1, q2)
-
-                q1 = I2_part(n, x)
-                q2 = I2_part_v2(n, x)
-
-                @assert Arblib.overlaps(q1, q2)
-            end
-
-            I1_part_v3(n, x) =
-                sum(0:n-1) do k
-                    binomial(n, k) * γ^k * Arblib.integrate(a, b) do t
-                        log(t)^k * R(n - k, t) * t
-                    end
-                end |> real
-
-            I2_part_v3(n, x) =
-                sum(0:n-1) do k
-                    binomial(n, k) * γ^k * Arblib.integrate(a, b) do t
-                        log(t)^k * R(n - k, t) * t * log(t)
-                    end
-                end |> real
-
-            for n = 1:10
-                q1 = I1_part_v2(n, x)
-                q2 = I1_part_v3(n, x)
-
-                @assert Arblib.overlaps(q1, q2)
-
-                q1 = I2_part_v2(n, x)
-                q2 = I2_part_v3(n, x)
-
-                @assert Arblib.overlaps(q1, q2)
-            end
-
-            return zero(α)
-            # New version
-
-            # Bound G21(x)
-            # TODO: Work in progress!
-
+            # Main term
+            # FIXME: Bound for α overlapping -1 and x overlapping zero
             G21 =
                 let α = ubound(Arb, α),
-                    p0 = 1 + α + (1 + α)^2 / 2,
-                    s = (π / x)^(-(1 + α) * (1 + γ))
-
-                    -1 / ((1 - x^p0) * log(x)) * (
-                        (log(1 + c * π) - log(x)) * (1 - (2 + α) * s) / (1 + γ) -
-                        ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ)^2) +
-                        (2 + α) / (1 + γ) * s * (1 + α) * (1 + γ) * log(π / x)
-                    )
-                end
-
-            T21 =
-                let α = ubound(Arb, α), p0 = 1 + α + (1 + α)^2 / 2, q0 = (1 + α) * (1 + γ)
-                    1 / ((1 - x^p0) * (1 + γ)) * (
-                        (2 + α) / log(x) * (
-                            -log(1 + c * π) * (1 / (2 + α) - (x / π)^q0) +
-                            (1 - (x / π)^q0) / q0 - q0 * (x / π)^q0 * log(Arb(π))
-                        ) + (1 + (2 + α) * (x / π)^q0 * (q0 - 1))
-                    )
-                end
-
-            @show G21 T21
-
-            # Compute g(1)
-            # FIXME: Choose value to use for ϵ
-            g_1 = let q0 = (1 + α) * (1 + γ), ϵ = Arb(0.5)
-                1 + ϵ + (2 + α) / π^q0 * (-2 + q0 * (1 + log(1 + c * π)) - q0^2 * log(π))
-            end
-            #@show g_1
-            # Check that g(1) indeed is negative
-            Arblib.isnegative(g_1) || error("expected g(1) to be negative")
-
-            g(x) =
-                let p0 = (1 + α) * (1 + (1 + α) / 2), q0 = (1 + α) * (1 + γ), ϵ = Arb(0.5)
-                    (
-                        (2 + α) * x^(q0 - p0) / π^q0 *
-                        (-2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)) +
-                        (1 + ϵ) * (p0 * log(x) + 1)
-                    )
-                end
-
-            #@show g(Arb(0.1)) g(Arb(0.5)) g(Arb(0.9)) getball(Arb, g(Arb("1e-100")))
-
-            g_diff =
-                let p0 = (1 + α) * (1 + (1 + α) / 2),
+                    b = π / x,
                     q0 = (1 + α) * (1 + γ),
-                    ϵ = Arb(0.5),
-                    x = Arb(0.1)
+                    p0 = 1 + α + (1 + α)^2 / 2,
+                    D = Arb((-log(1 + c * x * b), log(1 + c * x * b)))
 
-                    (
-                        (2 + α) * x^(q0 - p0) / π^q0 * (
-                            (q0 - p0) *
-                            (-2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)) -
-                            q0 + q0^2
-                        ) + (1 + ϵ) * p0
-                    )
+                    (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) *
+                    ((D - log(x) - 1 / q0) * (1 - b^(-q0)) + log(b) * b^(-q0))
                 end
 
-            #@show getball(Arb, g_diff)
-
-            # Bound G22(x)
-            # TODO: Work in progress!
-
-            # Enclosure of (1 + α) / (1 - x^p0)
-            # PROVE: Add comment about where this is already proved.
-            factor_G22 = if iszero(x)
-                α + 1
-            elseif Arblib.contains_zero(x)
+            # First factor of remainder term. Given by (1 + α) / ((1 -
+            # x^p0))
+            G22_1 = begin
                 lower = α + 1
                 upper = let xᵤ = ubound(Arb, x)
                     inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), α + 1, extra_degree = 2))
                 end
                 Arb((lower, upper))
-            else
-                inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), α + 1, extra_degree = 2))
             end
 
-            # Enclosure of inv(log(x))
-            invlogx = if iszero(x)
+            # Enclosure of inv(log(inv(x)))
+            invloginvx = if iszero(x)
                 zero(x)
             elseif Arblib.contains_zero(x)
-                Arb((inv(log(ubound(Arb, x))), 0))
+                -Arb((inv(log(ubound(Arb, x))), 0))
             else
-                inv(log(x))
+                -inv(log(x))
             end
 
-            # Enclosure of 1 - log(1 + c * π) / log(x)
-            factor_S221 = 1 - log(1 + c * π) * invlogx
+            # First term in sum of second factor of remainder term
+            # FIXME: Fix evaluation for a = 1 and x overlapping zero
+            G22_2_1 = let a = Arb(1.001), b = Arb(π / x) # FIXME: Should have a = 1
+                I1_remainder_n1_primitive_v1(t) =
+                    (t^2 - 1) * (log(t - 1) + log(t + 1) - 2log(t)) / 2
+                I1_remainder_n1_v2 =
+                    I1_remainder_n1_primitive_v1(b) - I1_remainder_n1_primitive_v1(a)
 
-            # Enclosure of 1 / log(x)
-            factor_S222 = invlogx
+                I2_remainder_n1_primitive_v2(t) =
+                    (
+                        -3 - Arb(π)^2 / 3 +
+                        2(log(t - 1) + log(t + 1) + 2log(t)^2) +
+                        2t^2 * (
+                            -log(t - 1) - log(t + 1) +
+                            2log(t) +
+                            log(t) * (+2log(t - 1) + 2log(t + 1) - 4log(t))
+                        ) +
+                        2real(polylog(2, Acb(1 - t^2)))
+                    ) / 8 |> real
+                I2_remainder_n1_v3 =
+                    I2_remainder_n1_primitive_v2(b) - I2_remainder_n1_primitive_v2(a)
 
-            # Bound for integral from 1 to 2
-            H11(n, k, x) =
-                2log(Arb(2))^k * let l = n - k
-                    # This is not the simplest for of the upper bound
-                    # but the one which gives slightly better bounds
-                    log(Arb(3))^l +
-                    2log(Arb(2))^l +
-                    l * (l - 1) * log(Arb(2))^(l - 2) +
-                    l * log(Arb(2))^(l - 1) +
-                    factorial(l)
+                I3_remainder_n1_v2 =
+                    Arb((log(1 + c * x * a), log(1 + c * x * b))) * I1_remainder_n1_v2
+
+                -(
+                    I1_remainder_n1_v2 - invloginvx * I2_remainder_n1_v3 +
+                    invloginvx * I3_remainder_n1_v2
+                )
+            end
+
+            # Remaining terms in second factor of remainder terms
+            # integrated from 1 to 2
+            G22_2_2_1_to_2 = let a = Arb(1), b = Arb(2)
+                t1 = fx_div_x(1 + α) do s
+                    exp(s * (log(b + 1) + γ * log(b))) - 1
+                end
+                t2 = fx_div_x(1 + α) do s
+                    exp(s * γ * log(b)) - 1
+                end
+                t3 = fx_div_x(1 + α) do s
+                    exp(s * log(b) * (1 + γ)) - 1
                 end
 
-            # Bound for integral from 2 to π / x
-            H12(n, k, x) = 0
+                (1 + invloginvx * (log(b) + log(1 + c * x * b))) *
+                b *
+                (
+                    b^γ * (1 + α) / (-α) +
+                    (b - a) * (
+                        t1 - (log(b + 1) + γ * log(b)) - 3t2 + 3γ * log(b) + 2t3 -
+                        2log(b) * (1 + γ) +
+                        expm1((1 + α) * log(b) * (1 + γ)) +
+                        (1 + α) * exp((1 + α) * log(b) * (1 + γ))
+                    )
+                )
+            end
 
-            H1(n, k, x) =
-                if n == 1 && k == 0
-                    # Use explicitly computed upper bound
-                    abs(Arb(-1 // 2))
-                else
-                    H11(n, k, x) + H12(n, k, x)
-                end
-
-            # Bound for integral from 1 to 2
-            H21(n, k, x) =
-                2log(Arb(2))^(k + 1) * let l = n - k
-                    # This is not the simplest for of the upper bound
-                    # but the one which gives slightly better bounds
-                    log(Arb(3))^l +
-                    2log(Arb(2))^l +
-                    l * (l - 1) * log(Arb(2))^(l - 2) +
-                    l * log(Arb(2))^(l - 1) +
-                    factorial(l)
-                end
-
-            # Bound for integral from 2 to π / x
-            H22(n, k, x) = 0
-
-            H2(n, k, x) =
-                if n == 1 && k == 0
-                    # Use explicitly computed upper bound
-                    abs((6 - Arb(π)^2) / 24)
-                else
-                    H21(n, k, x) + H22(n, k, x)
-                end
-
-            # Bound of abs(S221(x))
-            S221 = sum(1:10) do n
-                term =
-                    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
-                        binomial(n, k) * γ^k * H1(n, k, x)
+            # Remaining terms in second factor of remainder terms
+            # integrated from 2 to π / x
+            # FIXME: Take limit as N and K goes to infinity
+            G22_2_2_2_to_π_div_x = let N = 10, K = 40, a = Arb(2)
+                S1_cs_v1(n) =
+                    let cs = Vector{Arb}(undef, K)
+                        cs[1] = (-1)^n
+                        for m = 1:K-1
+                            cs[m+1] =
+                                inv(-Arb(m)) * sum(
+                                    (k * n - m + k) * (-inv(Arb(k + 1))) * cs[m-k+1] for k = 1:m
+                                )
+                        end
+                        cs
                     end
-                q = inv(factorial(n)) * sum(0:n-1) do k
-                    binomial(n, k) * γ^k * H1(n, k, x)
-                end
-                @show q
-                term
-            end
 
-            # Bound of abs(S222(x))
-            S222 = sum(1:10) do n
-                term =
-                    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
-                        binomial(n, k) * γ^k * H2(n, k, x)
+                S_cs_v1(n) =
+                    let cs1 = S1_cs_v1(n)
+                        cs = 2cs1
+                        if isodd(n)
+                            for q = 0:2:K-1
+                                cs[q+1] = 0
+                            end
+                        else
+                            for q = 1:2:K-1
+                                cs[q+1] = 0
+                            end
+                        end
+
+                        cs
                     end
-                q = inv(factorial(n)) * sum(0:n-1) do k
-                    binomial(n, k) * γ^k * H2(n, k, x)
+
+                h_cs_v1 = map(1:N) do l
+                    let css = [S_cs_v1(n) for n = 1:l], cs = Matrix{Arb}(undef, l, K)
+                        for n = 1:l
+                            for m = 0:K-1
+                                cs[n, m+1] = css[n][m+1]
+                            end
+                        end
+                        cs
+                    end
                 end
-                @show q
-                term
+
+                h_cs_upper_v2 = map(1:N) do l
+                    let css = h_cs_v1[l], cs = Vector{Arb}(undef, K)
+                        for m = 1:K
+                            cs[m] = sum(max(0, l - m):l-1, init = zero(Arb)) do j
+                                    binomial(l, j) * abs(css[l-j, m-l+j+1])
+                                end
+                        end
+                        cs
+                    end
+                end
+
+                h_upper_constant_v1 = map(1:N) do l
+                    let cs = h_cs_upper_v2[l]
+                        a^4 * sum(4:2:K) do m
+                            cs[m] / a^m
+                        end
+                    end
+                end
+
+                ((1 + invloginvx) * log(1 + c * π) - invloginvx) * sum(2:N) do n
+                    (1 + α)^(n - 1) / Arb(2)^n * sum(0:n-1) do k
+                        binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+                    end
+                end
+
+                # FIXME: We hope that this is the bound
+                ((1 + invloginvx) * log(1 + c * π) - invloginvx) * 2^3 * (1 + α) / 2 * (
+                    (2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2)
+                )
             end
 
-            G22 = factor_G22 * (factor_S221 * S221 + factor_S222 * S222)
+            # Combine integration from 1 to 2 and from 2 to π / x to
+            # get full integral
+            G22_2_2 = G22_2_2_1_to_2 + G22_2_2_2_to_π_div_x
 
-            @show S221 S222 G22
+            # Add first term and remaining terms to get full G22_2
+            G22_2 = G22_2_1 + G22_2_2
+
+            # Multiply factors to get full G22
+            G22 = G22_1 * G22_2
 
             G2 = G21 + G22
 
-            T2 = f1(x) + f2(x)
+            @show G21 G22_1 G22_2_1 G22_2_2_1_to_2 G22_2_2_2_to_π_div_x G22_2_2 G22_2_1 G22_2_2 G22_2 G22 G2
 
-            @show G2 T2
-
-            # In this case we prove that G2 is bounded by 1 / (1 +
-            # γ). By above we only have to check two things
-            # 1. 1 - (2 + α) * (1 + q0 * log(π)) / π^q0 <= 0
-            # 2. 0 <= p0 - (q0 - p0) * (2 + α) * (1 + q0 * log(π)) / π^q0
-
-            # 1. This was reduced to checking that
-            # (π^q0 - q0 * log(π) - 1) / q0 <= 1 / (1 + γ) * log(π)
-            # holds for an upper bound of q0
-            lemma1 = let q0 = ubound(Arb, (1 + α) * (1 + γ)), π = Arb(π)
-                (π^q0 - q0 * log(π) - 1) / q0 <= 1 / (1 + γ) * log(π)
-            end
-
-            # 2. This was reduced to checking the same inequality
-            # as for 1. and using that γ <= 1
-            lemma2 = γ <= 1 && lemma1
-
-            if lemma1 && lemma2
-                return 1 / (1 + γ)
-            else
-                return indeterminate(α)
-            end
+            return G2
         else
             # TODO: Only use f1(x) + f2(x) for x not too small
             return f1(x) + f2(x)
@@ -4268,6 +4100,476 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
         end
     end
 end
+
+"""
+T0_asymptotic_main_2_testing_remainder_tail_sum(x::Arb = Arb(1e-10), α::Arb = Arb(-0.9999), γ::Arb = Arb(0.5), c::Arb = 2Arb(ℯ))
+
+Method for testing the development of [`_T0_asymptotic_main_2`](@ref).
+The background for that method is very long and it is easy to make
+mistakes. This method tests a lot of the rewrites and simplifications
+that is done for [`_T0_asymptotic_main_2`](@ref) to catch any
+mistakes.
+
+This tests the procedure for bounding what in
+[`_T0_asymptotic_main_2_testing_remainder_tail`](@ref) is called
+`G22_2_2_upper_constant`. We fix `a = 2`.
+"""
+function _T0_asymptotic_main_2_testing_remainder_tail_sum(
+    α::Arb = Arb(-0.9999),
+    γ::Arb = Arb(0.5),
+)
+    N = 50
+    K = 50
+
+    #####
+    # Setup the sum we want to bound in the way it is done in
+    # _T0_asymptotic_main_2_testing_remainder_tail
+    #####
+
+    S1_cs_v1 = map(1:N) do n
+        let cs = Vector{Arb}(undef, K)
+            cs[1] = (-1)^n
+            for m = 1:K-1
+                cs[m+1] =
+                    inv(-Arb(m)) *
+                    sum((k * n - m + k) * (-inv(Arb(k + 1))) * cs[m-k+1] for k = 1:m)
+            end
+            cs
+        end
+    end
+
+    S_cs_v1 = map(1:N) do n
+        let cs1 = S1_cs_v1[n]
+            cs = 2cs1
+            if isodd(n)
+                for q = 0:2:K-1
+                    cs[q+1] = 0
+                end
+            else
+                for q = 1:2:K-1
+                    cs[q+1] = 0
+                end
+            end
+
+            cs
+        end
+    end
+
+    h_cs_v1 = map(1:N) do l
+        let css = [S_cs_v1[n] for n = 1:l], cs = Matrix{Arb}(undef, l, K)
+            for n = 1:l
+                for m = 0:K-1
+                    cs[n, m+1] = css[n][m+1]
+                end
+            end
+            cs
+        end
+    end
+
+    h_cs_upper_v1 = map(1:N) do l
+        let css = h_cs_v1[l], cs = Vector{Arb}(undef, K)
+            for m = 1:K
+                cs[m] = sum(max(0, l - m):l-1, init = zero(Arb)) do j
+                    binomial(l, j) * abs(css[l-j, m-l+j+1])
+                end
+            end
+            cs
+        end
+    end
+
+    h_upper_constant_v1 = map(1:N) do l
+        let cs = h_cs_upper_v1[l]
+            2^4 * sum(4:2:K) do m
+                cs[m] / Arb(2)^m
+            end
+        end
+    end
+
+    G22_2_2_upper_constant_v1 = sum(2:N) do n
+        (1 + α)^(n - 1) / Arb(2)^n * sum(0:n-1) do k
+            binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
+        end
+    end
+
+    @show G22_2_2_upper_constant_v1
+
+    #####
+    # Rewrite S1_cs and S_cs as matrices
+    #####
+
+    S1_cs_v2 = let cs = Matrix{Arb}(undef, N, K)
+        for n = 1:N
+            cs[n, 1] = (-1)^n
+            for m = 1:K-1
+                cs[n, m+1] =
+                    inv(-Arb(m)) *
+                    sum((k * n - m + k) * (-inv(Arb(k + 1))) * cs[n, m-k+1] for k = 1:m)
+            end
+        end
+        cs
+    end
+
+    S_cs_v2 = let cs = 2S1_cs_v2
+        for n = 1:N
+            for m = 0:K-1
+                if isodd(n + m)
+                    cs[n, m+1] = 0
+                end
+            end
+        end
+        cs
+    end
+
+    for n = 1:N
+        for m = 0:K-1
+            @assert isequal(S1_cs_v1[n][m+1], S1_cs_v2[n, m+1])
+            @assert isequal(S_cs_v1[n][m+1], S_cs_v2[n, m+1])
+        end
+    end
+
+
+    #####
+    # Simplify S1_cs and S_cs
+    #####
+
+    S1_cs_v3 = let cs = Matrix{Arb}(undef, N, K)
+        for n = 1:N
+            cs[n, 1] = (-1)^n
+            for m = 2:K
+                cs[n, m] =
+                    sum((k * n - m + k + 1) // (k + 1) * cs[n, m-k] for k = 1:m-1) / (m - 1)
+            end
+        end
+        cs
+    end
+
+    S_cs_v3 = let cs = 2S1_cs_v3
+        for n = 1:N
+            for m = 1:K
+                if iseven(n + m)
+                    cs[n, m] = 0
+                end
+            end
+        end
+        cs
+    end
+
+    @assert all(Arblib.overlaps.(S1_cs_v2, S1_cs_v3))
+    @assert all(Arblib.overlaps.(S_cs_v2, S_cs_v3))
+
+    #####
+    # Rewrite h_cs_upper as a matrix
+    #####
+
+    h_cs_upper_v2 = let cs = similar(S_cs_v3)
+        for n = 1:N
+            for m = 1:K
+                cs[n, m] = sum(max(0, n - m):n-1, init = zero(Arb)) do j
+                    binomial(n, j) * abs(S_cs_v3[n-j, m-n+j+1])
+                end
+            end
+        end
+        cs
+    end
+
+    for n = 1:N
+        for m = 0:K-1
+            @assert Arblib.overlaps(h_cs_upper_v1[n][m+1], h_cs_upper_v2[n, m+1])
+        end
+    end
+
+    #####
+    # Rewrite h_upper_constant, factoring out 2^4 and including terms
+    # in the sum which are zero.
+    #####
+
+    h_upper_constant_v2 = map(1:N) do n
+        sum(1:K) do m
+            if m == 2
+                Arb(0) # This is the term we explicitly subtract
+            else
+                h_cs_upper_v2[n, m] / Arb(2)^m
+            end
+        end
+    end
+
+    @assert all(Arblib.overlaps.(h_upper_constant_v1, 2^4 * h_upper_constant_v2))
+
+    #####
+    # Insert back into G22_2_2_upper_constant
+    #####
+
+
+    G22_2_2_upper_constant_v2 =
+        2^3 * sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * sum(0:n-1) do k
+                binomial(n, k) * γ^k * h_upper_constant_v2[n-k]
+            end
+        end
+
+    @show G22_2_2_upper_constant_v2
+    @assert Arblib.overlaps(G22_2_2_upper_constant_v1, G22_2_2_upper_constant_v2)
+
+    #####
+    # Check what would happen if we had h_upper_constant_v2[n] < 2^n
+    #####
+
+    all(n -> h_upper_constant_v2[n] < 2^n, 1:N) ||
+        @warn "h_upper_constant_v2[n] < 2^n not satisfied"
+
+    G22_2_2_upper_constant_test_v1 =
+        2^3 * sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * sum(0:n-1) do k
+                binomial(n, k) * γ^k * 2^(n - k)
+            end
+        end
+
+    @show G22_2_2_upper_constant_test_v1
+
+    G22_2_2_upper_constant_test_v2 = 2^3 * sum(2:N) do n
+        ((1 + α) / 2)^(n - 1) * ((2 + γ)^n - γ^n)
+    end
+
+    @show G22_2_2_upper_constant_test_v2
+
+    G22_2_2_upper_constant_test_v3 =
+        2^3 * (1 + α) / 2 * ((2 + γ)^2 * sum(0:N) do n
+            ((1 + α) * (2 + γ) / 2)^n
+        end - γ^2 * sum(0:N) do n
+            ((1 + α) * γ / 2)^n
+        end)
+
+    @show G22_2_2_upper_constant_test_v3
+
+    G22_2_2_upper_constant_test_v4 =
+        2^3 * (1 + α) / 2 *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+
+    @show G22_2_2_upper_constant_test_v4
+
+    # Check that it works for α overlapping -1
+    G22_2_2_upper_constant_test_v5 = let α = union(Arb(-1), α)
+        2^3 * (1 + α) / 2 *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+    end
+
+    @show G22_2_2_upper_constant_test_v5
+
+    #####
+    # The above seems to be good enough! So the goal is to prove
+    # h_upper_constant_v2[n] < 2^n
+    #####
+
+    #####
+    # Switch notation
+    #####
+
+    D_v1 = let cs = Matrix{Arb}(undef, N, K)
+        for n = 1:N
+            cs[n, 1] = (-1)^n
+            for m = 2:K
+                cs[n, m] =
+                    sum((k * n - m + k + 1) // (k + 1) * cs[n, m-k] for k = 1:m-1) / (m - 1)
+            end
+        end
+        cs
+    end
+
+    C_v1 = let cs = 2D_v1
+        for n = 1:N
+            for m = 1:K
+                if iseven(n + m)
+                    cs[n, m] = 0
+                end
+            end
+        end
+        cs
+    end
+
+    B_v1 = let cs = similar(C_v1)
+        for n = 1:N
+            for m = 1:K
+                cs[n, m] = sum(max(0, n - m):n-1, init = zero(Arb)) do j
+                    binomial(n, j) * abs(C_v1[n-j, m-n+j+1])
+                end
+            end
+        end
+        cs
+    end
+
+    A_v1 = map(1:N) do n
+        # Terms for m = 1:3 are all zero
+        sum(4:K) do m
+            B_v1[n, m] / Arb(2)^m
+        end
+    end
+
+    @assert isequal(D_v1, S1_cs_v3)
+    @assert isequal(C_v1, S_cs_v3)
+    @assert isequal(B_v1, h_cs_upper_v2)
+    @assert isequal(A_v1, h_upper_constant_v2)
+
+    #return A_v1, B_v1, C_v1, D_v1
+
+    #####
+    # Simplify initial value for D. Setting it to 1 instead of (-1)^n
+    # only changes the sign, we take the absolute value in the end
+    # anyway.
+    #####
+
+    D_v2 = let cs = Matrix{Arb}(undef, N, K)
+        for n = 1:N
+            cs[n, 1] = 1
+            for m = 2:K
+                cs[n, m] =
+                    sum((k * n - m + k + 1) // (k + 1) * cs[n, m-k] for k = 1:m-1) / (m - 1)
+            end
+        end
+        cs
+    end
+
+    @assert isequal(abs.(D_v1), D_v2)
+
+    C_v2 = let cs = 2D_v2
+        for n = 1:N
+            for m = 1:K
+                if iseven(n + m)
+                    cs[n, m] = 0
+                end
+            end
+        end
+        cs
+    end
+
+    B_v2 = let cs = similar(C_v1)
+        for n = 1:N
+            for m = 1:K
+                cs[n, m] = sum(max(0, n - m):n-1, init = zero(Arb)) do j
+                    binomial(n, j) * abs(C_v2[n-j, m-n+j+1])
+                end
+            end
+        end
+        cs
+    end
+
+    A_v2 = map(1:N) do n
+        # Terms for m = 1:3 are all zero
+        sum(4:K) do m
+            B_v2[n, m] / Arb(2)^m
+        end
+    end
+
+    #return A_v2, B_v2, C_v2, D_v2
+
+    #####
+    # Use that binomial(n, j) <= 2^n to factor out 2^n in B
+    #####
+
+    B_v3 = let cs = similar(C_v1)
+        for n = 1:N
+            for m = 1:K
+                cs[n, m] = Arb(2)^n * sum(max(0, n - m):n-1, init = zero(Arb)) do j
+                    abs(C_v2[n-j, m-n+j+1])
+                end
+            end
+        end
+        cs
+    end
+
+    A_v3 = map(1:N) do n
+        # Terms for m = 1:3 are all zero
+        sum(4:K) do m
+            B_v3[n, m] / Arb(2)^m
+        end
+    end
+
+    G22_2_2_upper_constant_v3 =
+        2^3 * sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * sum(0:n-1) do k
+                binomial(n, k) * γ^k * A_v3[n-k]
+            end
+        end
+
+    @show G22_2_2_upper_constant_v3
+    #@assert Arblib.overlaps(G22_2_2_upper_constant_v1, G22_2_2_upper_constant_v2)
+
+    #####
+    # Factor out 2^n from B all the way
+    #####
+
+    B_v4 = let cs = similar(C_v1)
+        for n = 1:N
+            for m = 1:K
+                cs[n, m] = sum(max(0, n - m):n-1, init = zero(Arb)) do j
+                    abs(C_v2[n-j, m-n+j+1])
+                end
+            end
+        end
+        cs
+    end
+
+    A_v4 = map(1:N) do n
+        # Terms for m = 1:3 are all zero
+        sum(4:K) do m
+            B_v4[n, m] / Arb(2)^m
+        end
+    end
+
+    G22_2_2_upper_constant_v4 =
+        2^3 * sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * sum(0:n-1) do k
+                binomial(n, k) * γ^k * Arb(2)^(n - k) * A_v4[n-k]
+            end
+        end
+
+    @show G22_2_2_upper_constant_v4
+    @assert Arblib.overlaps(G22_2_2_upper_constant_v3, G22_2_2_upper_constant_v4)
+
+    #return A_v4, B_v4, C_v2, D_v2
+
+    #####
+    # Rewrite B in a recursive way
+    #####
+
+    B_v5 = let cs = similar(C_v1)
+        for n = 1:N
+            for m = 1:K
+                if n == 1
+                    cs[1, m] = abs(C_v2[1, m])
+                elseif n <= m
+                    cs[n, m] = abs(C_v2[n, m-n+1]) + cs[n-1, m]
+                else
+                    cs[n, m] = cs[n-1,m]
+                end
+            end
+        end
+        cs
+    end
+
+    @assert all(Arblib.overlaps.(B_v4, B_v5))
+
+    #####
+    # From the recursive definition it is clear that we have B[n, m]
+    # <= B[m, m]. Use this to get upper bound.
+    #####
+
+    A_test_v1 = sum(4:min(N,K)) do m
+            B_v4[m, m] / Arb(2)^m
+        end
+
+    G22_2_2_upper_constant_v5 =
+        2^3 * sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * A_test_v1 * sum(0:n-1) do k
+                binomial(n, k) * γ^k * Arb(2)^(n - k)
+            end
+        end
+
+    @show G22_2_2_upper_constant_v5
+    @assert !(G22_2_2_upper_constant_v4 > G22_2_2_upper_constant_v5)
+
+    return A_test_v1
+end
+
 
 
 """
