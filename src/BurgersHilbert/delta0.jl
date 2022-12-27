@@ -1,5 +1,5 @@
 """
-    delta0_bound(u0::BHAnsatz{Arb}; rtol, degree, verbose)
+    delta0_bound(u0::BHAnsatz{Arb}; rtol, verbose)
 
 Enclose the value of `δ₀` from the paper.
 
@@ -33,7 +33,6 @@ allocations in that case.
 # Arguments
 - `rtol = 1e-3`: Determines the relative tolerance used when enclosing
   the maximum.
-- `degree = 4`: Determines the degree used when enclosing the maximum.
 - `return_subresults`: If true it returns not only the maximum on the
   interval but the maximum on each of the intervals `[0, ϵ1]`, `[ϵ1,
   ϵ2]`, `[ϵ2, ϵ3]`, `[ϵ3, ϵ]` and `[ϵ, π]`.
@@ -43,7 +42,6 @@ allocations in that case.
 function delta0_bound(
     u0::BHAnsatz{Arb};
     rtol = Arb(1e-3),
-    degree = 4,
     return_subresults = false,
     verbose = false,
 )
@@ -82,52 +80,58 @@ function delta0_bound(
 
     verbose && @info "Enclosure on [0, ϵ1]" m11
 
+    ubound_tol = m11
     m12 = ArbExtras.maximum_enclosure(
         f1,
         ϵ1,
         ϵ2,
+        degree = 2,
         abs_value = true,
         log_bisection = true,
         depth_start = 24,
         threaded = true,
         maxevals = typemax(Int),
         depth = typemax(Int);
-        degree,
         rtol,
+        ubound_tol,
         verbose,
     )
 
     verbose && @info "Enclosure on [ϵ1, ϵ2]" m12
 
+    ubound_tol = max(ubound_tol, m12)
     m13 = ArbExtras.maximum_enclosure(
         f2,
         ϵ2,
         ϵ3,
+        degree = 4,
         abs_value = true,
         log_bisection = true,
-        depth_start = 17,
+        depth_start = 18,
         threaded = true,
         maxevals = typemax(Int),
         depth = typemax(Int);
-        degree,
         rtol,
+        ubound_tol,
         verbose,
     )
 
     verbose && @info "Enclosure on [ϵ2, ϵ3]" m13
 
+    ubound_tol = max(ubound_tol, m13)
     m14 = ArbExtras.maximum_enclosure(
         f3,
         ϵ3,
         ϵ,
+        degree = 4,
         abs_value = true,
         depth_start = 10,
         log_bisection = true,
         threaded = true,
         maxevals = typemax(Int),
         depth = typemax(Int);
-        degree,
         rtol,
+        ubound_tol,
         verbose,
     )
 
@@ -138,16 +142,18 @@ function delta0_bound(
     verbose && @info "Enclosure on [0, ϵ]" m1
 
     # Bound the value on [ϵ, π]
+    ubound_tol = m1
     m2 = ArbExtras.maximum_enclosure(
         F0(u0),
         ϵ,
         Arblib.ubound(Arb(π)),
+        degree = 4,
         abs_value = true,
         depth_start = 7,
         threaded = true,
         maxevals = 5000;
-        degree,
         rtol,
+        ubound_tol,
         verbose,
     )
 
