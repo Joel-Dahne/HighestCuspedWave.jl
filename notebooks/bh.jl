@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.14
 
 using Markdown
 using InteractiveUtils
@@ -122,11 +122,10 @@ To prove the result we need to bound three different value $n_0$, $\delta_0$ and
 
 # ╔═╡ f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 md"""
-The code can either compute rigorous error bounds for the required constants or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect $\delta_0$ we also make sure to use points asymptically close to $0$ since that's where the largest defect is found. Check the constants to use rigorous error bounds for
--  $n_0$ $(@bind use_rigorous_bounds_n0 CheckBox(default = false))
--  $\delta_0$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = false))
--  $D_0$ $(@bind use_rigorous_bounds_D0 CheckBox(default = false))
-Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X with 12 cores the computation of $n_0$ takes around 7 seconds, the computation of $\delta_0$ around 15 minutes and the computation of $D_0$ around 2 minutes.
+Computing rigorous bounds for $\delta_0$ and $D_0$ is fairly time consuming. For that reason the code can either compute rigorous error bounds or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect $\delta_0$ we also make sure to use points asymptically close to $0$ since that's where the largest defect is found. Check the constants to use rigorous error bounds for
+-  $\delta_0$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = !isdefined(Main, :PlutoRunner)))
+-  $D_0$ $(@bind use_rigorous_bounds_D0 CheckBox(default = !isdefined(Main, :PlutoRunner)))
+Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X the computation of $\delta_0$ around 15 minutes and the computation of $D_0$ around 2 minutes when using 12 threads. Note that for $n_0$ we always compute rigorous bounds since it doesn't take much time.
 """
 
 # ╔═╡ 4c4cbf2a-3aec-4257-9fac-d8a0418d12d7
@@ -134,31 +133,19 @@ md"""
 ### Bound $n_0$
 """
 
-# ╔═╡ 28978335-5797-4ddc-bfb4-9b04a0f9c4ac
+# ╔═╡ 9c42cbca-805d-4a76-9d7d-68d40129f10a
 md"""
-The code uses **$(ifelse(use_rigorous_bounds_n0, "rigorous bounds", "estimates"))** for $n_0$.
+We start by computing an enclosure of $n_0$ and plot it together with $N_0(x)$ for $x \in [0, \pi]$.
 """
+
+# ╔═╡ f1ca794b-e1fc-481b-9b75-1e42a0b48a58
+@time n0_time = @elapsed n0 = n0_bound(u0, verbose = true)
 
 # ╔═╡ f1dce520-a035-43e6-9e08-4696a14c5a54
 n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
     N = x -> u0.w(x) / 2u0(x)
     ys = Folds.map(N, xs)
     xs, ys
-end
-
-# ╔═╡ f1ca794b-e1fc-481b-9b75-1e42a0b48a58
-n0_enclosure, n0_time = if use_rigorous_bounds_n0
-    n0_time = @elapsed n0_enclosure = n0_bound(u0, verbose = true)
-    n0_enclosure, n0_time
-else
-    missing, missing
-end
-
-# ╔═╡ 61151255-15d4-45ec-a3ad-573c46d34d93
-n0 = if use_rigorous_bounds_n0
-    n0_enclosure
-else
-    maximum(abs.(n0_ys))
 end
 
 # ╔═╡ ab9d59df-3488-4f8a-a321-d23aab7e01d4
@@ -173,19 +160,23 @@ md"""
 ### Bound $\delta_0$
 """
 
-# ╔═╡ 237d130e-d0c0-400d-b8bf-42e88a5a889d
+# ╔═╡ 05740cb8-a7fd-4add-a4c7-95b617508f28
 md"""
-The code uses **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_0$.
+Next we compute bounds of $\delta_0$. The code is set to use **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_0$.
 """
+
+# ╔═╡ 664df5e6-152a-4b9a-adf8-352bdef59055
+δ0_bound, δ0_time, δ0_subintervals = if use_rigorous_bounds_δ0
+    @time δ0_time = @elapsed δ0_bound, δ0_subintervals... =
+        delta0_bound(u0, return_subresults = true, verbose = true)
+    δ0_bound, δ0_time, δ0_subintervals
+else
+    missing, missing, (Arb(NaN), Arb(NaN), Arb(NaN), Arb(NaN), Arb(NaN))
+end
 
 # ╔═╡ 67aa36b0-b77c-4531-a248-f7d474ffd47d
 md"""
-For the defect we do three different plots. one non-asymptotic plot on $[0.1, \pi]$, one asymptotic plot on $[10^{-100}, 0.1]$ and when even more asymptotic plot on $[10^{-20000}, 10^{-100}]$.
-"""
-
-# ╔═╡ 67786c2c-a101-44db-a1b6-f191d2703bb0
-md"""
-We want to have the inequality $\delta_0 \leq \frac{(1 - D_0)^2}{4n_0}$. We therefore include the value of the right hand side in this inequality in the plots, this is the goal that we want the defect to be smaller than.
+We do three different plots. One non-asymptotic plot on $[0.1, \pi]$, one asymptotic plot on $[10^{-100}, 0.1]$ and when even more asymptotic plot on $[10^{-20000}, 10^{-100}]$.
 """
 
 # ╔═╡ b8c5ba34-748e-4c4b-be9c-135240287351
@@ -208,14 +199,10 @@ end
         xs, ys
     end
 
-# ╔═╡ 664df5e6-152a-4b9a-adf8-352bdef59055
-δ0_bound, δ0_time, δ0_subintervals = if use_rigorous_bounds_δ0
-    δ0_time = @elapsed δ0_bound, δ0_subintervals... =
-        delta0_bound(u0, return_subresults = true, verbose = true)
-    δ0_bound, δ0_time, δ0_subintervals
-else
-    missing, missing, (Arb(NaN), Arb(NaN), Arb(NaN), Arb(NaN), Arb(NaN))
-end
+# ╔═╡ 67786c2c-a101-44db-a1b6-f191d2703bb0
+md"""
+We want to have the inequality $\delta_0 \leq \frac{(1 - D_0)^2}{4n_0}$. We therefore include the value of the right hand side in this inequality in the plots, this is the goal that we want the defect to be smaller than.
+"""
 
 # ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
 δ0 = if use_rigorous_bounds_δ0
@@ -229,23 +216,23 @@ md"""
 ### Bound $D_0$
 """
 
-# ╔═╡ f4ede9a7-c57e-44ce-adae-4345205fa4e4
+# ╔═╡ 77d49bd5-2a4e-468d-a19a-b2e16a132f78
 md"""
-The code uses **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_0$
+Next we compute bounds of $D_0$. The code is set to use **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_0$.
 """
+
+# ╔═╡ de5bed6f-7079-40a9-a5eb-f315abc20ddf
+D0_enclosure, D0_time = if use_rigorous_bounds_D0
+    @time D0_time = @elapsed D0_enclosure = D0_bound(u0, verbose = true)
+    D0_enclosure, D0_time
+else
+    missing, missing
+end
 
 # ╔═╡ de4546e1-4a9f-4d37-b59c-ee4509d09868
 D0_xs, D0_ys = let xs = range(Arb(1e-3), π, length = 100)
     ys = Folds.map(T0(u0, Ball()), xs)
     xs, ys
-end
-
-# ╔═╡ de5bed6f-7079-40a9-a5eb-f315abc20ddf
-D0_enclosure, D0_time = if use_rigorous_bounds_D0
-    D0_time = @elapsed D0_enclosure = D0_bound(u0, verbose = true)
-    D0_enclosure, D0_time
-else
-    missing, missing
 end
 
 # ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
@@ -341,13 +328,13 @@ proved, n0_rounded, δ0_rounded, D0_rounded =
 
 # ╔═╡ 4d5054ff-6001-4d34-913b-a8029017d217
 if proved
-    if use_rigorous_bounds_n0 && use_rigorous_bounds_D0 && use_rigorous_bounds_δ0
-        "The result holds! 🎉🎉🎉"
+    if use_rigorous_bounds_D0 && use_rigorous_bounds_δ0
+        @info "The result holds! 🎉🎉🎉"
     else
-        "The inequality holds but the bounds are not rigorous"
+        @info "The inequality holds but the bounds are not rigorous"
     end
 else
-    "Could not prove the result 😥"
+    @info "Could not prove the result 😥"
 end
 
 # ╔═╡ f25bcedf-cf4f-45f6-929a-abba66e7730c
@@ -662,28 +649,27 @@ end
 # ╟─43ff127c-f7fa-4ff0-9827-36fc9507fb0b
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─4c4cbf2a-3aec-4257-9fac-d8a0418d12d7
-# ╟─28978335-5797-4ddc-bfb4-9b04a0f9c4ac
-# ╟─f1dce520-a035-43e6-9e08-4696a14c5a54
+# ╟─9c42cbca-805d-4a76-9d7d-68d40129f10a
 # ╠═f1ca794b-e1fc-481b-9b75-1e42a0b48a58
-# ╠═61151255-15d4-45ec-a3ad-573c46d34d93
+# ╟─f1dce520-a035-43e6-9e08-4696a14c5a54
 # ╟─ab9d59df-3488-4f8a-a321-d23aab7e01d4
 # ╟─36b6ce98-6b64-4eee-a7d7-613772e4b79f
-# ╟─237d130e-d0c0-400d-b8bf-42e88a5a889d
+# ╟─05740cb8-a7fd-4add-a4c7-95b617508f28
+# ╠═664df5e6-152a-4b9a-adf8-352bdef59055
 # ╟─67aa36b0-b77c-4531-a248-f7d474ffd47d
-# ╟─67786c2c-a101-44db-a1b6-f191d2703bb0
-# ╠═358b2691-3b1b-4733-a173-acf987a221ea
 # ╟─b8c5ba34-748e-4c4b-be9c-135240287351
 # ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
 # ╟─fb6c12ad-3391-4623-a201-412335742930
-# ╠═664df5e6-152a-4b9a-adf8-352bdef59055
+# ╟─67786c2c-a101-44db-a1b6-f191d2703bb0
+# ╠═358b2691-3b1b-4733-a173-acf987a221ea
 # ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
 # ╟─ac03e920-25ad-4127-ad87-00e907701da3
 # ╟─15e21dde-fb44-47d8-83d8-9f5ffffab74d
 # ╟─f5ee2d3b-4a4c-411b-9e46-35164f6e3e83
 # ╟─61e8da72-69c0-4af9-bab0-454442dad253
-# ╟─f4ede9a7-c57e-44ce-adae-4345205fa4e4
-# ╟─de4546e1-4a9f-4d37-b59c-ee4509d09868
+# ╟─77d49bd5-2a4e-468d-a19a-b2e16a132f78
 # ╠═de5bed6f-7079-40a9-a5eb-f315abc20ddf
+# ╟─de4546e1-4a9f-4d37-b59c-ee4509d09868
 # ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 # ╟─89d54f92-8b3a-4913-875d-31068856fb62
 # ╟─3f30187c-0bdb-4cde-9c50-a9ccaaf8bb4b
