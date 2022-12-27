@@ -31,6 +31,8 @@ does decrease the number of times we have to evaluate `u0`, which
 turns out to be the more costly part of the procedure.
 """
 function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
+    verbose && @info "Computing bound of D0"
+
     ϵ = Arf(1e-2)
 
     # Bound the value on [ϵ, π]
@@ -60,7 +62,7 @@ function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
     # Bound it on [ϵ, π]
     estimate = maximum(abs.(T0(u0).(range(Arb(ϵ), π, length = 10))))
 
-    m = ArbExtras.maximum_enclosure(
+    D0 = ArbExtras.maximum_enclosure(
         g,
         ϵ,
         ubound(Arb(π)),
@@ -72,13 +74,13 @@ function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
         atol,
         verbose,
     )
-    return m
-    # Show that it is bounded by m on [0, ϵ]
+
+    # Show that it is bounded by D0 on [0, ϵ]
     h = T0(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
     ϵ2 = Arf(1e-100)
 
     # Handle the interval [0, ϵ2] with one evalution
-    if !(h(Arb((0, ϵ2))) <= m)
+    if !(h(Arb((0, ϵ2))) <= D0)
         verbose && @error "Bounds not satisfied on [0, $(Float64(ϵ2))]"
         return indeterminate(Arb)
     end
@@ -90,7 +92,7 @@ function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
         h,
         ϵ2,
         ϵ,
-        lbound(m),
+        lbound(D0),
         degree = -1,
         log_bisection = true,
         threaded = true;
@@ -99,12 +101,10 @@ function D0_bound(u0::BHAnsatz; atol = 1e-3, verbose = false)
 
     if !bounded
         verbose && @error "Could not prove bound on [$(Float64(ϵ2)), $(Float64(ϵ))]"
-        if return_details
-            return indeterminate(Arb), ϵ
-        else
-            return indeterminate(Arb)
-        end
+        return indeterminate(Arb)
     end
 
-    return m
+    verbose && @info "Computed bound" D0
+
+    return D0
 end
