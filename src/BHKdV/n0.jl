@@ -61,6 +61,8 @@ This means that `u0.w(x) / 2u0(x)` is **upper** bounded by `u0.w(x) /
 that we only get an upper bound instead of an enclosure.
 """
 function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
+    verbose && @info "Computing bound of n0"
+
     # Function for asymptotic evaluation
 
     # This uses a hard coded version of the weight so just as an extra
@@ -116,7 +118,7 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
 
     # Finally we compute the maximum on the interval [ϵ, π]
 
-    m = ArbExtras.maximum_enclosure(
+    n0 = ArbExtras.maximum_enclosure(
         g,
         ϵ,
         ubound(Arb(π)),
@@ -129,5 +131,7 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
         verbose,
     )
 
-    return m
+    verbose && @info "Computed bound" n0
+
+    return n0
 end

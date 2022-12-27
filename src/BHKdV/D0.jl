@@ -45,6 +45,8 @@ then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
 separately.
 """
 function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
+    verbose && @info "Computing bound of D0"
+
     ϵ = midpoint(Arb("1e-1"))
 
     # Bound the value on [ϵ, π]
@@ -86,24 +88,24 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
         ys[i] = g(xs[i])
     end
 
-    m_approx = maximum(abs.(ys))
+    D0_approx = maximum(abs.(ys))
 
-    verbose && @info "Approximate maximum" m_approx
+    verbose && @info "Approximate maximum" D0_approx
 
-    m = ArbExtras.maximum_enclosure(
+    D0 = ArbExtras.maximum_enclosure(
         g,
         a,
         b,
         degree = -1,
         abs_value = true,
-        point_value_max = m_approx,
+        point_value_max = D0_approx,
         depth_start = 8,
         threaded = true;
         atol,
         verbose,
     )
 
-    verbose && @info "Maximum on [$(Float64(ϵ)), π]" m
+    verbose && @info "Maximum on [$(Float64(ϵ)), π]" D0
 
     # Show that it is bounded by m on [0, ϵ]
 
@@ -111,7 +113,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
     ϵ2 = Arf(1e-10)
 
     # Handle the interval [0, ϵ2] with one evalution
-    if !(h(Arb((0, ϵ2))) <= m)
+    if !(h(Arb((0, ϵ2))) <= D0)
         @error "Bound doesn't hold on $((0, Float64(ϵ2)))"
         return indeterminate(Arb)
     end
@@ -123,7 +125,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
         h,
         ϵ2,
         ϵ,
-        lbound(m),
+        lbound(D0),
         degree = -1,
         log_bisection = true,
         threaded = true;
@@ -135,5 +137,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
         return indeterminate(Arb)
     end
 
-    return m
+    verbose && @info "Computed bound" D0
+
+    return D0
 end

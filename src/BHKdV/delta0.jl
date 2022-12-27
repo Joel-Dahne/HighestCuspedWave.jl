@@ -33,6 +33,8 @@ function delta0_bound(
     ubound_tol = Arb(5e-4),
     verbose = false,
 )
+    verbose && @info "Computing bound of δ0"
+
     # Determine a good choice of ϵ. Take it as large as possible so
     # that the asymptotic version still satisfies the specified
     # tolerance or it is better than the non-asymptotic version.
@@ -117,19 +119,8 @@ function delta0_bound(
 
     verbose && @info "Maximum on [ϵ1, ϵ]" m2
 
-    # Bound the value on [ϵ2, π]
+    # Bound the value on [ϵ, π]
     g = F0_bound(u0)
-
-    # Compute an approximation of the maximum on [ϵ, π]
-    xs = range(Arb(ϵ), π, length = 20)
-    ys = similar(xs)
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = g(xs[i])
-    end
-
-    m3_approx = maximum(abs.(ys))
-
-    verbose && @info "Approximate maximum on [ϵ, π]" m3_approx
 
     m3 = ArbExtras.maximum_enclosure(
         g,
@@ -137,18 +128,19 @@ function delta0_bound(
         ubound(Arb(π)),
         degree = 4,
         abs_value = true,
-        point_value_max = m3_approx,
         threaded = true,
-        depth_start = 4,
-        maxevals = 100000,
-        depth = 40;
+        depth_start = 4;
         atol,
         rtol,
         ubound_tol,
         verbose,
     )
 
-    verbose && @info "Maximum in [ϵ, π]" m3
+    verbose && @info "Maximum on [ϵ, π]" m3
 
-    return max(m1, m2, m3)
+    δ0 = max(m1, m2, m3)
+
+    verbose && @info "Computed bound" δ0
+
+    return δ0
 end
