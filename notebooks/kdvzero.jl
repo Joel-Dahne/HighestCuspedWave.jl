@@ -130,7 +130,7 @@ We start by computing an enclosure of $n_\alpha$ and plot it together with $N_\a
 """
 
 # ╔═╡ 13373308-42e3-44ac-bf99-2a5145e6a5df
-n0_time = @elapsed n0 = n0_bound(u0, verbose = true)
+@time n0_time = @elapsed n0 = n0_bound(u0, verbose = true)
 
 # ╔═╡ fa901388-6f0a-4de5-8323-d9b4832062f6
 n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)
@@ -180,7 +180,7 @@ Note that the polynomial for the Taylor model is zero, we can plot the remainder
 end
 
 # ╔═╡ 581ee14a-acac-4a3e-b854-f46a6f26dcc3
-Δδ_time = @elapsed Δδ = delta0_bound(u0, verbose = true).p[2]
+@time Δδ_time = @elapsed Δδ = delta0_bound(u0, verbose = true).p[2]
 
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
 let pl = plot(legend = :bottomright)
@@ -226,7 +226,7 @@ Note that the first coefficient in the expansion is $1$. We can plot the remaind
 end
 
 # ╔═╡ 39ce2082-2b36-4ce5-bcda-809c9c5214ec
-ΔD_time = @elapsed ΔD = D0_bound(u0, verbose = true).p[1]
+@time ΔD_time = @elapsed ΔD = D0_bound(u0, verbose = true).p[1]
 
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
 let pl = plot(legend = :bottomright)
@@ -255,27 +255,15 @@ md"""
 We compute rounded values of the upper bounds that are given in the paper, as well as produce figures for the paper.
 """
 
-# ╔═╡ 8289dd0e-c400-444d-b6df-aa525e41b3a8
-md"""
-**TODO:** This should possibly be done in a `round_for_publishing` method.
-"""
-
-# ╔═╡ 47d4faa9-ecdd-4a04-b485-7e75333632ab
-n0_rounded = round(Arblib.get_d(ubound(n0), RoundUp), RoundUp, sigdigits = 3)
-
-# ╔═╡ 9d432aa8-ecb4-44d7-9180-595c9167cf09
-Δδ_rounded = round(Arblib.get_d(ubound(Δδ), RoundUp), RoundUp, sigdigits = 2)
-
-# ╔═╡ 3ebb3003-a281-43ba-9122-e75e20e84041
-ΔD_rounded = round(Arblib.get_d(lbound(ΔD), RoundDown), RoundDown, sigdigits = 3)
-
-# ╔═╡ c901abd7-4ca4-4e13-bf1e-ed157259864f
-md"""
-Check that the inequality holds after rounding.
-"""
-
-# ╔═╡ c8de1b4b-2085-45a1-b61d-789ed3428687
-proved = Arb(Δδ_rounded) < Arb(ΔD_rounded)^2 / 4Arb(n0_rounded)
+# ╔═╡ dc035349-06ff-42c9-8956-932144c703c0
+proved, n0_rounded, Δδ_rounded, ΔD_rounded = HighestCuspedWave.round_for_publishing_kdvzero(
+    n0,
+    Δδ,
+    ΔD,
+    sigdigits_n₀ = 3,
+    sigdigits_Δδ = 2,
+    sigdigits_ΔD = 3,
+)
 
 # ╔═╡ c9a21c38-e27c-47b7-b95b-8ab737408f6f
 if proved
@@ -424,12 +412,7 @@ end
 # ╠═b142ad21-e34e-42b5-b73f-8a32e71feb26
 # ╠═04ea9588-f613-4715-9f82-d23b786cc0ce
 # ╟─93ae49fd-f041-4475-9dc0-823b0aa01178
-# ╟─8289dd0e-c400-444d-b6df-aa525e41b3a8
-# ╠═47d4faa9-ecdd-4a04-b485-7e75333632ab
-# ╠═9d432aa8-ecb4-44d7-9180-595c9167cf09
-# ╠═3ebb3003-a281-43ba-9122-e75e20e84041
-# ╟─c901abd7-4ca4-4e13-bf1e-ed157259864f
-# ╠═c8de1b4b-2085-45a1-b61d-789ed3428687
+# ╠═dc035349-06ff-42c9-8956-932144c703c0
 # ╟─c9a21c38-e27c-47b7-b95b-8ab737408f6f
 # ╟─ee0c1ff9-baed-416f-b0db-7740ebdd288e
 # ╠═80c61213-b801-4aef-9c0e-7a9f74f880f3

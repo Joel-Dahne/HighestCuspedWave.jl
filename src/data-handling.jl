@@ -61,6 +61,66 @@ function round_for_publishing(n₀::Arb, δ₀::Arb, D₀::Arb; sigdigits = noth
 end
 
 """
+    round_for_publishing_kdvzero(n₀::Arb, Δδ::Arb, ΔD::Arb; sigdigits = nothing)
+
+Similar to [`round_for_publishing`](@ref) but treating the inequality
+for the [`KdVZeroAnsatz`](@ref) case.
+"""
+function round_for_publishing_kdvzero(
+    n₀::Arb,
+    Δδ::Arb,
+    ΔD::Arb;
+    sigdigits_n₀ = nothing,
+    sigdigits_Δδ = nothing,
+    sigdigits_ΔD = nothing,
+)
+    inequality_holds = Δδ < ΔD^2 / 4n₀
+
+    n₀_float = Arblib.get_d(ubound(n₀), RoundUp)
+    Δδ_float = Arblib.get_d(ubound(Δδ), RoundUp)
+    ΔD_float = Arblib.get_d(lbound(ΔD), RoundDown)
+
+    # Try to round up, if it fails return input without rounding
+    try_round = (x, direction, sigdigits) -> begin
+        y = round(x, direction; sigdigits)
+        if direction == RoundUp
+            return x <= y ? y : x
+        elseif direction == RoundDown
+            return x >= y ? y : x
+        end
+    end
+
+    n₀_rounded = try_round(n₀_float, RoundUp, sigdigits_n₀)
+    Δδ_rounded = try_round(Δδ_float, RoundUp, sigdigits_Δδ)
+    ΔD_rounded = try_round(ΔD_float, RoundDown, sigdigits_ΔD)
+
+    @assert isnan(n₀) || n₀ <= n₀_rounded
+    @assert isnan(Δδ) || Δδ <= Δδ_rounded
+    @assert isnan(ΔD) || ΔD >= ΔD_rounded
+
+    # Check that the inequality holds before rounding. Conversion to
+    # Float64 loses precision so this is not guaranteed.
+    inequality_holds_float = Arb(Δδ_float) < Arb(ΔD_float)^2 / 4Arb(n₀_float)
+
+    # Check that the inequality holds after rounding.
+    inequality_holds_rounded = Arb(Δδ_rounded) < Arb(ΔD_rounded)^2 / 4Arb(n₀_rounded)
+
+    if inequality_holds
+        if !inequality_holds_float
+            @warn "Inequality holds before but not after conversion to Float64" n₀_float,
+            Δδ_float,
+            ΔD_float
+        elseif !inequality_holds_rounded
+            @warn "Inequality holds after conversion but not after rounding" n₀_rounded,
+            Δδ_rounded,
+            ΔD_rounded
+        end
+    end
+
+    return inequality_holds_rounded, n₀_rounded, Δδ_rounded, ΔD_rounded
+end
+
+"""
     add_rounded_data(data)
 
 Take the data returned from [`prove`](@ref) for `-1 < α < 0` and add
