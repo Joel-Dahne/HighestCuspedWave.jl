@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.14
 
 using Markdown
 using InteractiveUtils
@@ -27,7 +27,7 @@ begin
     Pkg.activate("../")
     using Arblib, ArbExtras, Folds, HighestCuspedWave, LaTeXStrings, Plots, PlutoUI
 
-    setprecision(Arb, 128)
+    setprecision(Arb, 100)
 
     nothing
 end
@@ -82,7 +82,7 @@ $\delta_\alpha < \frac{(1 - D_\alpha)^2}{4n_\alpha}.$
 
 # ╔═╡ 5119010f-c9b1-41f5-9dac-cbb6f2b3a24d
 md"""
-This is the ϵ we use for the computations.
+This is the $\epsilon$ we use for the computations.
 """
 
 # ╔═╡ 8747f80d-82f6-4e2f-bfba-d87280649950
@@ -119,10 +119,10 @@ md"## Computing constants
 
 # ╔═╡ f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 md"""
-The code can either compute rigorous error bounds for $\delta_\alpha$ and $D_\alpha$ or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect $\delta_\alpha$ we also make sure to use points asymptically close to $0$ since that's where the largest defect is found. Check the constants to use rigorous error bounds for
--  $δ_\alpha$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = false))
--  $D_\alpha$ $(@bind use_rigorous_bounds_D0 CheckBox(default = false))
-Notice that the rigorous error bounds take **significantly** longer time to compute with. On the order of 30 minutes using 12 threads.
+Computing rigorous bounds for $\delta_0$ and $D_0$ is fairly time consuming. For that reason the code can either compute rigorous error bounds or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect $\delta_0$ we also make sure to use points asymptically close to $0$ since that's where the largest defect is found. Check the constants to use rigorous error bounds for
+-  $δ_\alpha$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = !isdefined(Main, :PlutoRunner)))
+-  $D_\alpha$ $(@bind use_rigorous_bounds_D0 CheckBox(default = !isdefined(Main, :PlutoRunner)))
+Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X the computation of $\delta_0$ and $D_0$ takes around 10 minutes each when using 12 threads. Note that for $n_\alpha$ we always compute rigorous bounds since it doesn't take much time.
 """
 
 # ╔═╡ 3e6b7582-bb9f-46be-84de-f568dec6780e
@@ -137,11 +137,13 @@ md"""
 ### Bound $n_\alpha$
 """
 
+# ╔═╡ 1ee80528-225a-4c29-b4b0-ea1ab9876aef
+md"""
+We start by computing a bound of $n_\alpha$ and plot it together with $N_\alpha(x)$ for $x \in [0, \pi]$.
+"""
+
 # ╔═╡ b24c29d2-1933-49c1-94e4-7a765acf355e
-n0_time, n0 = begin
-    n0_time = @elapsed n0 = n0_bound(u0)
-    n0_time, n0
-end
+@time n0_time = @elapsed n0 = n0_bound(u0, verbose = true)
 
 # ╔═╡ f1dce520-a035-43e6-9e08-4696a14c5a54
 n0_xs, n0_ys = let xs = range(Arb(0), π, length = 100)[2:end]
@@ -176,7 +178,7 @@ let pl = plot(legend = :bottomleft, xaxis = :log10)
         m = :circle,
         ms = 1,
     )
-    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n bound")
+    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n0 bound")
     pl
 end
 
@@ -187,8 +189,16 @@ md"""
 
 # ╔═╡ cf99b665-f81a-4e17-8b9f-9357904cf676
 md"""
-The code uses **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_\alpha$.
+Next we compute bounds of $\delta_\alpha$. The code is set to use **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_\alpha$.
 """
+
+# ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
+δ0_bound, δ0_time = if use_rigorous_bounds_δ0
+    @time δ0_time = @elapsed δ0_bound = delta0_bound(u0, verbose = true)
+    δ0_bound, δ0_time
+else
+    missing, missing
+end
 
 # ╔═╡ 3d72c6ae-5b44-491f-bfee-c8ea23224ea9
 md"""
@@ -215,13 +225,10 @@ end
         xs, ys
     end
 
-# ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
-δ0_bound, δ0_time = if use_rigorous_bounds_δ0
-    δ0_time = @elapsed δ0_bound = delta0_bound(u0, verbose = true)
-    δ0_bound, δ0_time
-else
-    missing, missing
-end
+# ╔═╡ 481c9ae0-ae19-42cb-a781-4ad0c26fca1c
+md"""
+We want to have the inequality $\delta_\alpha \leq \frac{(1 - D_\alpha)^2}{4n_\alpha}$. We therefore include the value of the right hand side in this inequality in the plots, this is the goal that we want the defect to be smaller than.
+"""
 
 # ╔═╡ fa5c8c0b-a5b4-4438-a219-1604c065897e
 δ0 = if use_rigorous_bounds_δ0
@@ -237,21 +244,21 @@ md"""
 
 # ╔═╡ cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
 md"""
-The code uses **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_\alpha$
+Next we compute bounds of $D_\alpha$. The code is set to use **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_\alpha$.
 """
+
+# ╔═╡ 26345012-4f0c-454c-b3f4-ee9dbffb53d3
+D₀_bound, D0_time = if use_rigorous_bounds_D0
+    @time D0_time = @elapsed D₀_bound = D0_bound(u0, verbose = true)
+    D₀_bound, D0_time
+else
+    missing, missing
+end
 
 # ╔═╡ baae040c-58f6-4657-b92f-6ca96740cbc8
 D0_xs, D0_ys = let xs = range(Arb(0.1), π, length = 100)
     ys = Folds.map(T0(u0, Ball()), xs)
     xs, ys
-end
-
-# ╔═╡ 26345012-4f0c-454c-b3f4-ee9dbffb53d3
-D₀_bound, D0_time = if use_rigorous_bounds_D0
-    D0_time = @elapsed D₀_bound = D0_bound(u0, verbose = true)
-    D₀_bound, D0_time
-else
-    missing, missing
 end
 
 # ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
@@ -261,30 +268,7 @@ else
     maximum(D0_ys)
 end
 
-# ╔═╡ 89d54f92-8b3a-4913-875d-31068856fb62
-let pl = plot(legend = :bottomright, xlims = (0, NaN))
-    plot!(
-        pl,
-        D0_xs,
-        D0_ys,
-        ribbon = Arblib.radius.(Arb, D0_ys),
-        label = "",
-        m = :circle,
-        ms = 1,
-    )
-    hline!(pl, [D0], ribbon = [Arblib.radius(Arb, D0)], color = :green, label = "D0 bound")
-    pl
-end
-
-# ╔═╡ 34ca657f-e539-49c4-8e44-8f897c816e5f
-md"""
-The inequality we want to check is $\delta_\alpha < \frac{(1 - D_\alpha)^2}{4n_\alpha}$
-"""
-
-# ╔═╡ 27854d39-0483-4db1-9653-d3f0761f1205
-δ0
-
-# ╔═╡ bacd05e6-7d35-4f8d-97e6-80cfd6c231d6
+# ╔═╡ 28011fc3-11ae-4c9b-af14-3a9acc43b4cf
 δ0_goal = (1 - D0)^2 / 4n0
 
 # ╔═╡ ac03e920-25ad-4127-ad87-00e907701da3
@@ -342,8 +326,20 @@ let pl = plot(legend = :bottomright)
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
 end
 
-# ╔═╡ c3ce65c8-be0a-46fc-ab17-725aa62c60d6
-δ0 < δ0_goal
+# ╔═╡ 89d54f92-8b3a-4913-875d-31068856fb62
+let pl = plot(legend = :bottomright, xlims = (0, NaN))
+    plot!(
+        pl,
+        D0_xs,
+        D0_ys,
+        ribbon = Arblib.radius.(Arb, D0_ys),
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!(pl, [D0], ribbon = [Arblib.radius(Arb, D0)], color = :green, label = "D0 bound")
+    pl
+end
 
 # ╔═╡ fe5b35d4-e831-4d18-a73a-b6faac1d51a2
 md"""
@@ -351,27 +347,20 @@ md"""
 We compute rounded values of the upper bounds that are given in the paper, as well as produce figures for the paper.
 """
 
-# ╔═╡ 9b641a34-21e0-4690-acdc-fec29f4603d9
-md"""
-**TODO:** This should possibly be done in a `round_for_publishing` method.
-"""
+# ╔═╡ 0588c4ad-ab18-4abc-8b74-cbce6883593c
+proved, n0_rounded, δ0_rounded, D0_rounded =
+    HighestCuspedWave.round_for_publishing(n0, δ0, D0, sigdigits = 3)
 
-# ╔═╡ 7ec5d2ec-de6d-4c2b-abd4-e7a4e60f92ff
-n0_rounded = round(Arblib.get_d(ubound(n0), RoundUp), RoundUp, sigdigits = 3)
-
-# ╔═╡ 8ed0be92-8c35-4495-880f-9c653013333a
-δ0_rounded = round(Arblib.get_d(ubound(δ0), RoundUp), RoundUp, sigdigits = 2)
-
-# ╔═╡ 45a99eb3-a82c-456a-ae4d-b1068141b3de
-D0_rounded = round(Arblib.get_d(ubound(D0), RoundUp), RoundUp, sigdigits = 3)
-
-# ╔═╡ f630741a-ce2c-4152-9aac-374129ce5022
-md"""
-Check that the inequality holds after rounding.
-"""
-
-# ╔═╡ d3f87464-24d2-4b0d-b176-5d5722a18ce2
-inequality_holds_rounded = Arb(δ0_rounded) < (1 - Arb(D0_rounded))^2 / 4Arb(n0_rounded)
+# ╔═╡ d6a23d80-81fe-478e-8bbc-fbba582f3a23
+if proved
+    if use_rigorous_bounds_D0 && use_rigorous_bounds_δ0
+        @info "Inequality holds 🎉🎉🎉" n0_rounded δ0_rounded D0_rounded
+    else
+        @warn "Inequality holds, but bounds are not rigorous" n0_rounded δ0_rounded D0_rounded
+    end
+else
+    @error "Inequality doesn't hold 😥" n0_rounded δ0_rounded D0_rounded
+end
 
 # ╔═╡ 7a5071ea-47bd-4a02-a9c0-8d23bfdfc9b8
 md"""
@@ -388,7 +377,7 @@ Arb(n0_printed) < n0_rounded
 δ0_printed = string(δ0)
 
 # ╔═╡ 6b534294-6c31-4420-9817-41907802c7bc
-Arb(δ0_printed) < δ0_rounded
+Arb(δ0_printed) < δ0_rounded || δ0_printed == "[+/- 5.00e-4]" && δ0_rounded == 0.0005
 
 # ╔═╡ a590ffc8-3a0c-49e5-9692-fcb4ad7b67cb
 D0_printed = string(D0)
@@ -518,7 +507,7 @@ let pl = plot(
 end
 
 # ╔═╡ Cell order:
-# ╠═a0ab3d57-b420-43c2-b69b-c403dde1f3ad
+# ╟─a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 # ╟─3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
 # ╟─d9575be4-0776-46d2-ad22-9fc8bc614a49
 # ╟─5119010f-c9b1-41f5-9dac-cbb6f2b3a24d
@@ -532,6 +521,7 @@ end
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─3e6b7582-bb9f-46be-84de-f568dec6780e
 # ╟─d6c88a1f-94e2-4e01-bc6a-6f201f93c379
+# ╟─1ee80528-225a-4c29-b4b0-ea1ab9876aef
 # ╠═b24c29d2-1933-49c1-94e4-7a765acf355e
 # ╟─f1dce520-a035-43e6-9e08-4696a14c5a54
 # ╟─22573416-3918-4bb9-9ec2-06b87d923c1d
@@ -539,32 +529,26 @@ end
 # ╟─681e590a-a297-4dcc-8528-2f24e05df30f
 # ╟─af8899b0-eac1-442d-90ef-9d399aeb170c
 # ╟─cf99b665-f81a-4e17-8b9f-9357904cf676
+# ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
 # ╟─3d72c6ae-5b44-491f-bfee-c8ea23224ea9
 # ╟─b8c5ba34-748e-4c4b-be9c-135240287351
 # ╟─f88046ed-d4c4-4ce4-a424-96c87dc87711
 # ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
-# ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
+# ╟─481c9ae0-ae19-42cb-a781-4ad0c26fca1c
+# ╠═28011fc3-11ae-4c9b-af14-3a9acc43b4cf
 # ╠═fa5c8c0b-a5b4-4438-a219-1604c065897e
 # ╟─ac03e920-25ad-4127-ad87-00e907701da3
 # ╟─9e18768c-40d0-45a8-b1fe-01d092b50f52
 # ╟─15e21dde-fb44-47d8-83d8-9f5ffffab74d
 # ╟─6dfdb4b5-fbd1-4b0d-96d9-8d4985c7b0dd
 # ╟─cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
-# ╟─baae040c-58f6-4657-b92f-6ca96740cbc8
 # ╠═26345012-4f0c-454c-b3f4-ee9dbffb53d3
+# ╟─baae040c-58f6-4657-b92f-6ca96740cbc8
 # ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 # ╟─89d54f92-8b3a-4913-875d-31068856fb62
-# ╟─34ca657f-e539-49c4-8e44-8f897c816e5f
-# ╠═27854d39-0483-4db1-9653-d3f0761f1205
-# ╠═bacd05e6-7d35-4f8d-97e6-80cfd6c231d6
-# ╠═c3ce65c8-be0a-46fc-ab17-725aa62c60d6
 # ╟─fe5b35d4-e831-4d18-a73a-b6faac1d51a2
-# ╟─9b641a34-21e0-4690-acdc-fec29f4603d9
-# ╠═7ec5d2ec-de6d-4c2b-abd4-e7a4e60f92ff
-# ╠═8ed0be92-8c35-4495-880f-9c653013333a
-# ╠═45a99eb3-a82c-456a-ae4d-b1068141b3de
-# ╟─f630741a-ce2c-4152-9aac-374129ce5022
-# ╠═d3f87464-24d2-4b0d-b176-5d5722a18ce2
+# ╠═0588c4ad-ab18-4abc-8b74-cbce6883593c
+# ╟─d6a23d80-81fe-478e-8bbc-fbba582f3a23
 # ╟─7a5071ea-47bd-4a02-a9c0-8d23bfdfc9b8
 # ╠═147e1d3b-da36-4ac5-84d5-59d37595cfd5
 # ╠═14659193-b02c-47f3-9742-e0946e1c8b4f
