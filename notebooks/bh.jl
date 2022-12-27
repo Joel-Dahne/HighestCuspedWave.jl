@@ -329,12 +329,12 @@ proved, n0_rounded, δ0_rounded, D0_rounded =
 # ╔═╡ 4d5054ff-6001-4d34-913b-a8029017d217
 if proved
     if use_rigorous_bounds_D0 && use_rigorous_bounds_δ0
-        @info "The result holds! 🎉🎉🎉"
+        @info "Inequality holds 🎉🎉🎉" n0_rounded δ0_rounded D0_rounded
     else
-        @info "The inequality holds but the bounds are not rigorous"
+        @warn "Inequality holds, but bounds are not rigorous" n0_rounded δ0_rounded D0_rounded
     end
 else
-    @info "Could not prove the result 😥"
+    @error "Inequality doesn't hold 😥" n0_rounded δ0_rounded D0_rounded
 end
 
 # ╔═╡ f25bcedf-cf4f-45f6-929a-abba66e7730c
