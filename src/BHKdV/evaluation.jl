@@ -361,7 +361,6 @@ function eval_expansion(
 
                         # FIXME: Prove that this gives an upper bound
                         upper = let x = ubound(Arb, x)
-                            @warn "Non-rigorous evaluation of expansion" maxlog = 1
                             (1 - Arb(Irrational{:γ}()) - log(x)) / π
                         end
 
