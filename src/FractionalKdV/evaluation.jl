@@ -775,7 +775,7 @@ function _F0_bhkdv(
             end
         end
 
-        return π * gamma(s + 2) * sinc_sp2 / 2rising(s, 1)
+        return π * gamma(s + 2) * sinc_sp2 / 2s
     end
 
     return (x::Arb) -> begin
