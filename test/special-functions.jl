@@ -53,6 +53,18 @@
 
     end
 
+    @testset "abspow" begin
+        # In an earlier version there was a bug that made this example
+        # fail
+        xs = exp.(range(log(Arb("1e-100000")), log(Arb("1e-1000")), length = 100))
+        y = ArbSeries((5e-5, 1, 0))
+
+        res = HighestCuspedWave.abspow(union(xs...), y)
+        for x in xs
+            @test Arblib.overlaps(res, HighestCuspedWave.abspow(x, y))
+        end
+    end
+
     @testset "x_pow_s_x_pow_t_m1_div_t" begin
         for x in
             (Arb(-0.2), Arb(0.3), ArbSeries((-0.2, 0.5, 0.7)), ArbSeries((0.1, 0.5, 0.7)))

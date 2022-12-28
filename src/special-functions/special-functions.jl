@@ -399,6 +399,8 @@ function abspow(x::Arb, y::ArbSeries)
 
         deg <= 3 || error("supports degree at most 3")
 
+        y0 = y[0]
+
         res = zero(y)
 
         res[0] = abspow(x, y[0])
@@ -406,50 +408,58 @@ function abspow(x::Arb, y::ArbSeries)
             # res[1] = y[1] * log(x) * abspow(x, y[0])
 
             # Compute enclosure of log(x) * abspow(x, y[0])
-            # Evaluate at x = 0, x = ubound(x) and possibly extrema
-            f1(x) = log(x) * abspow(x, y[0])
+            f1(x) = logabspow(x, 1, y0)
 
-            term = union(zero(x), f1(ubound(Arb, x)))
+            # Evaluate at endpoints
+            term = union(f1(zero(x)), f1(ubound(Arb, x)))
 
-            extrema = exp(-1 / y[0])
+            # Evaluate at possible extrema
+            # IMPROVE: If y[0] is extremely small and somewhat wide
+            # then the enclosure of extrema might overlap zero due to
+            # radius having low precision.
+            extrema = exp(-1 / y0)
             if Arblib.overlaps(x, extrema)
-                term = union(term, f1(extrema))
+                Arblib.union!(term, term, f1(extrema))
             end
 
             res[1] = y[1] * term
         end
         if deg >= 2
-            #res[2] = (2y[2] * log(x) + (y[1] * log(x))^2) / 2 * abspow(x, y[0])
+            # res[2] = (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0])
+            #        = 2y[2] * logabspow(x, 1, y[0]) + y[1]^2 * logabspow(x, 2, y[0])
+            y1, y2 = y[1], y[2]
 
-            # Compute enclosure of (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0])
-            f2(x) = (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0])
+            f2(x) = 2y2 * logabspow(x, 1, y0) + y1^2 * logabspow(x, 2, y0)
 
-            term = union(zero(x), f2(ubound(Arb, x)))
+            # Evaluate at endpoints
+            term = union(f2(zero(x)), f2(ubound(Arb, x)))
 
+            # Evaluate at possible extrema
             if iszero(y[1])
                 # The extrema simplifies
-                extrema = exp(-1 / y[0])
+                extrema = exp(-1 / y0)
                 if Arblib.overlaps(x, extrema)
                     term = union(term, f2(extrema))
                 end
             else
-                Δ = 4(y[0] * y[2] + y[1]^2)^2 - 8y[1]^2 * y[2]
+                Δ = (2y1 + y0 * 2y1)^2 - 4y0 * y1 * 2y2
                 if Arblib.contains_nonnegative(Δ) # Otherwise there are no real roots
-                    Arblib.sqrtpos(Δ)
-                    extrema1 = exp((-2(y[0] * y[2] + y[1]^2) + Arblib.sqrtpos(Δ)) / 2y[1]^2)
-                    extrema2 = exp((-2(y[0] * y[2] + y[1]^2) - Arblib.sqrtpos(Δ)) / 2y[1]^2)
+                    A = -(2y1^2 + y0 * 2y2)
+                    B = 2y0 * y1^2
+                    sqrt_Δ = Arblib.sqrtpos(Δ)
+                    extrema1 = exp((A + sqrt_Δ) / B)
+                    extrema2 = exp((A - sqrt_Δ) / B)
                     if Arblib.overlaps(x, extrema1)
-                        term = union(term, f2(extrema1))
+                        Arblib.union!(term, term, f2(extrema1))
                     end
                     if Arblib.overlaps(x, extrema2)
-                        term = union(term, f2(extrema2))
+                        Arblib.union!(term, term, f2(extrema2))
                     end
                 end
-
-                res[2] = term / 2
             end
+
+            res[2] = term / 2
         end
-        deg >= 3 && error("supports degree at most 2")
 
         return res
     end
