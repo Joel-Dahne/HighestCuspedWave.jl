@@ -562,38 +562,51 @@ abs(x)^s * (abs(x)^t - 1) / t
 ```
 in a way that works well for `t` overlapping zero.
 
+To get a good enclosure it uses monotonicity in `t`. The derivative in
+`t` can be written as
+```
+abs(x)^s * (1 + (log(abs(x)) * t - 1) * exp(log(abs(x)) * t)) / t^2
+```
+This is either zero or The sign depends only on `1 + (log(abs(x)) * t
+- 1) * exp(log(abs(x)) * t)´. If we let `v = log(abs(x)) * t` we have
+to study `1 + (v - 1) * exp(v)` which has the unique root `v = 0` and
+is positive for all other values of `v`. It is hence non-decreasing in
+`t` and we can evaluate on the endpoints.
+
 For `t = 0` it reduces to `abs(x)^s * log(abs(x))`
 
-For `x` overlapping zero we computes it as
+For `x` overlapping zero we write it as
 ```
 (abspow(x, s + t) - abspow(x, s)) / t
 ```
-Directly if `t` doesn't overlap zero, otherwise using
-[`fx_div_x`](@ref) to handle the removable singularity.
+Which we can evaluate directly if `t` doesn't overlap zero, otherwise
+using [`fx_div_x`](@ref) to handle the removable singularity.
 
-For non-zero `x` it uses monotonicity in `t`. The derivative in `t`
-can be written as
-```
-x^s * (1 + (log(x) * t - 1) * exp(log(x) * t)) / t^2
-```
-The sign depends only on `1 + (log(x) * t - 1) * exp(log(x) * t)´. If
-we let `v = log(x) * t` we have to study `1 + (v - 1) * exp(v)` which
-has the unique root `v = 0` and is positive for all other values of
-`v`. At `v = 0` the derivative is still positive due to the removable
-singularity. It is hence increasing in `t` and we can evaluate on the
-endpoints.
+**IMPROVE:** It doesn't handle very small `s` and `x` overlapping zero
+very well. This is however hard to do in general since the function
+grows extremely quickly in `x` near `x = 0` in that case. It would be
+possibly to improve the current version by checking for monotonicity
+in `x`, however we might not need to do that.
 """
 function x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
     iszero(t) && return logabspow(x, 1, s)
+
+    if Arblib.contains_zero(t) || iswide(t)
+        # Use that it is non-decreasing in t
+        tₗ, tᵤ = getinterval(Arb, t)
+        return Arb((x_pow_s_x_pow_t_m1_div_t(x, s, tₗ), x_pow_s_x_pow_t_m1_div_t(x, s, tᵤ)))
+    end
 
     if Arblib.contains_zero(x)
         # We don't work as hard to get a good enclosure or good
         # performance in this case
         if Arblib.contains_zero(t)
             # Handle removable singularity
-            return fx_div_x(t, force = true) do t
+            res = fx_div_x(t, force = true) do t
                 abspow(x, s + t) - abspow(x, s)
             end
+
+            return res
         else
             # Evaluate directly and with the removable zero added and
             # take the intersection
@@ -601,15 +614,14 @@ function x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
             res2 = fx_div_x(union(t, zero(t)), force = true) do t
                 abspow(x, s + t) - abspow(x, s)
             end
-
-            return intersect(res1, res2)
+            if !isfinite(res1)
+                return res2
+            elseif !isfinite(res2)
+                return res1
+            else
+                return intersect(res1, res2)
+            end
         end
-    end
-
-    if Arblib.contains_zero(t) || iswide(t)
-        # Use that it is increasing in t
-        tₗ, tᵤ = getinterval(Arb, t)
-        return Arb((x_pow_s_x_pow_t_m1_div_t(x, s, tₗ), x_pow_s_x_pow_t_m1_div_t(x, s, tᵤ)))
     end
 
     res = abs(x)
