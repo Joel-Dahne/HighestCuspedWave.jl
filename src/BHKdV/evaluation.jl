@@ -121,9 +121,11 @@ _exponent!(
 end
 
 """
-    eval_expansion(u0::BHKdVAnsatz, expansion, x)
+    eval_expansion(u0::BHKdVAnsatz, expansion, x; div_logx = false)
 
-Evaluate the given expansion.
+Evaluate the given expansion. If `div_logx` is true then divide the
+result by `log(x)`, in case `x` overlaps with zero this allows for
+cancellations that improve the enclosure.
 
 It requires that `0 <= x < 1`, any negative parts of `x` are ignored.
 
@@ -134,17 +136,17 @@ y * x^(i * α + j * p0 - k*u0.v0.α + l*u0.v0.p0 + m)
 ```
 where `α ∈ (-1, -1 + u0.ϵ]` and `p0 = 1 + α + (1 + α)^2 / 2`.
 
-The parameter `p` corresponds to multiplication by the factor
+Let `c(s) = gamma(s) * cospi(s / 2)`. The parameter `p` corresponds to
+multiplication by the factor
 ```
-a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) * x^-α
+a0 * (c(α) - c(α - p0) * x^p0) * x^-α
 ```
 to the power `p`, which is the part of the expansion for the main term
 which is not even powers of `x`. The parameter `q` corresponds to
 multiplication by the factor
 ```
 -a0 * (
-    gamma(2α) * cospi(α) * x^(-2α) -
-    gamma(2α - p0) * cospi((2α - p0) / 2) * x^(-2α + p0) +
+    c(2α) * x^(-2α) - c(2α - p0) * x^(-2α + p0) +
     (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * x^2
 )
 ```
@@ -158,40 +160,60 @@ reason we don't bother implementing them here.
 
 For `x != 0` the factor
 ```
-a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
+a0 * (c(α) - c(α - p0) * x^p0)
 ```
 has a removable singularity at `α = -1`. To handle this we rewrite it
 as
 ```
-a0 * (α + 1) * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
+a0 * (α + 1) * (c(α) - c(α - p0) * x^p0) / (α + 1)
 ```
-and use [`finda0αp1`](@ref) to compute `a0 * (α + 1)`. To evaluate
-`gamma(α) * cospi(α / 2)` and `gamma(α - p0) * cospi((α - p0) / 2)` at
-the removable singularity we rewrite them as
-```
-gamma(α) * cospi(α / 2) = gamma(α + 2) / (α * (α + 1)) * sinpi((α + 1) / 2)
-    = π / 2 * gamma(α + 2) * sinc((α + 1) / 2) / α
-gamma(α - p0) * cospi((α - p0) / 2) = gamma(α - p0 + 2) / ((α - p0) * (α - p0 + 1)) * sinpi((α - p0 + 1) / 2)
-    = π / 2 * gamma(α - p0 + 2) * sinc((α - p0 + 1) / 2) / (α - p0)
-    = π / 2 * gamma(-(1 + α)^2 / 2 + 1) * sinc(-(1 + α)^2 / 4) / (-1 - (1 + α)^2 / 2)
-```
-We can then evaluate
-```
-(gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
-```
-using [`fx_div_x`](@ref).
+and use [`finda0αp1`](@ref) to compute `a0 * (α + 1)`. For non-zero
+`x` we can evaluate `(c(α) - c(α - p0) * x^p0) / (α + 1)` using
+[`fx_div_x`](@ref).
 
-For `x = 0` this doesn't work. For now we use that it converges to
+To better handle `x` overlapping zero we add and subtract `c(α)^x^p0`
+to the numerator, giving us
 ```
-(1 - γ - log(x)) / π
+(c(α) - c(α - p0) * x^p0) / (α + 1) =
+    c(α) * (1 - x^p0) / (α + 1) + x^p0 * (c(α) - c(α - p0)) / (1 + α)
 ```
-and that this gives an upper bound.
-- **PROVE:** That `(1 - γ - log(x)) / π` gives an upper bound.
-  Alternatively we don't use this method for `x = 0` (using
-  [`inv_u0_bound`](@ref) instead).
+We can write
+```
+(1 - x^p0) / (α + 1) = -(1 + (1 + α) / 2) * (x^p0 - 1) / p0
+```
+to get
+```
+(c(α) - c(α - p0) * x^p0) / (α + 1) =
+    x^p0 * (c(α) - c(α - p0)) / (1 + α) - c(α) * (1 + (1 + α) / 2) * (x^p0 - 1) / p0
+```
+If we let
+```
+C1 = a0 * (α + 1) * (c(α) - c(α - p0)) / (1 + α)
+C2 = a0 * (α + 1) * c(α) * (1 + (1 + α) / 2)
+```
+then we have
+```
+a0 * (α + 1) * (c(α) - c(α - p0) * x^p0) / (α + 1) =
+    C1 * x^p0 - C2 * (x^p0 - 1) / p0
+```
+The factor `(x^p0 - 1) / p0` is not finite near `x = 0` and we
+therefore have to take into account the multiplication by `x^s` when
+evaluating, we then have
+```
+x^s * a0 * (α + 1) * (c(α) - c(α - p0) * x^p0) / (α + 1) =
+    C1 * x^(s + p0) - C2 * x^s * (x^p0 - 1) / p0
+```
 
-The argument `use_approx_p_and_q` is used for computing approximate
-values and is mainly intended for testing.
+We can use [`x_pow_s_x_pow_t_m1_div_t`](@ref) to evaluate `x^s * (x^p0
+- 1) / p0`, however this gives very poor results when `s` is very
+small. If `div_logx` is true this can be handled in a much better way.
+From the documentation of [`x_pow_s_x_pow_t_m1_div_t`](@ref) we have
+that `x^s * (x^p0 - 1) / p0` is increasing in `p0`. A lower bound is
+hence given by letting `p0 = 0`, for which we get `x^s * log(x)`.
+Since `x^p0 - 1 <= 0` for `0 <= x < 1` and `p0 > 0` a trivial upper
+bound is given by `0`. We thus have the enclosure `[x^s * log(x), 0]`
+and when `div_logx` is true we can explicitly divide by `log(x)` to
+get the enclosure `[0, x^s]`.
 
 # Terms not depending on `p` or `q`
 The terms for which `p == q == 0` we take out and handle in a separate
@@ -202,16 +224,17 @@ function eval_expansion(
     u0::BHKdVAnsatz{Arb},
     expansion::AbstractDict{NTuple{7,Int},Arb},
     x::Arb;
-    use_approx_p_and_q = false,
+    div_logx = false,
 )
     @assert x < 1
 
     # We only care about the non-negative part of x
     x = Arblib.nonnegative_part!(zero(x), x)
 
-    # Enclosure of α, α + 1 and a0 * (α + 1)
+    # Enclosure of α, α + 1, p0 and a0 * (α + 1)
     α = Arb((-1, -1 + u0.ϵ))
     αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
+    p0 = Arblib.nonnegative_part!(zero(α), αp1 + αp1^2 / 2)
     a0αp1 = finda0αp1(α)
 
     # Precomputed values used in _exponents!, upper bounds of α and p0
@@ -222,11 +245,8 @@ function eval_expansion(
     # It is only called with α::ArbSeries if x is non-zero
     logx = log(x)
     f(α) =
-        let exponent = zero(α)
+        let exponent = zero(α), term = zero(α), buffer1 = zero(α), buffer2 = zero(Arb)
             S = zero(α)
-            term = zero(α)
-            buffer1 = zero(α)
-            buffer2 = zero(Arb)
             for ((p, q, i, j, k, l, m), y) in expansion
                 if !iszero(y) && iszero(p) && iszero(q)
                     _exponent!(
@@ -263,158 +283,128 @@ function eval_expansion(
         ArbExtras.enclosure_series(f, α)
     end
 
+    # c(s) = gamma(s) * cospi(s / 2)
+    c(s) = begin
+        sinc_sp2 = _sinc((1 + s) / 2)
+
+        if s isa ArbSeries && round(Float64(s[0])) == -1
+            # _sinc performs poorly for arguments close to zero, it is
+            # often better to slightly widen the argument to include
+            # zero
+            t = (1 + s) / 2
+            t[0] = union(t[0], Arb(0))
+            sinc_sp2_wide = _sinc(t)
+
+            for i = 0:Arblib.degree(s)
+                sinc_sp2[i] = intersect(sinc_sp2[i], sinc_sp2_wide[i])
+            end
+        end
+
+        return π * gamma(s + 2) * sinc_sp2 / 2s
+    end
+
     # Compute enclosure of the p-coefficient
-    # a0 * (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0)
+    # a0 * (c(α) - c(α - p0) * x^p0)
     # Note that this depends on x and is only used when x doesn't contain zero
     p_coefficient = if !Arblib.contains_zero(x)
-        extra_degree = 2
         ArbExtras.enclosure_series(α) do α
-            # α is always in the interval [-1, -1 + u0.ϵ]. Due to
-            # rounding we sometimes get a slightly smaller value for
-            # which we have large cancellations. In that case just
-            # take the union with -1
-            if α isa Arb && α < -1
-                α = union(α, Arb(-1))
-            end
-
-            # Enclosure of
-            # (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (α + 1)
-            if (α isa Arb && Arblib.contains_zero(α + 1)) ||
-               (α isa ArbSeries && Arblib.contains_zero(α[0] + 1))
-                coefficient_div_α =
-                    fx_div_x(α + 1, force = true; extra_degree) do r::ArbSeries
-                        # If r is very small we get bad enclosures due to
-                        # rounding. It is better to take the union with
-                        # zero in that case and use the formulation
-                        # handling the removable singularity
-                        if r isa ArbSeries && abs(r[0]) < 1e-10
-                            r[0] = union(r[0], zero(r[0]))
-                        end
-
-                        if Arblib.contains_zero(r[0])
-                            return Arb(π) / 2 * (
-                                gamma(r + 1) * _sinc(r / 2) / (r - 1) -
-                                gamma(-r^2 / 2 + 1) * _sinc((-r^2 / 2) / 2) /
-                                (-r^2 / 2 - 1) * x^(r + r^2 / 2)
-                            )
-                        else
-                            # In general α is not wide in this case and we hence
-                            # don't need to work to get a good enclosure and can
-                            # use the simplest formulation
-                            return let α = r - 1, p0 = r + r^2 / 2
-                                gamma(α) * cospi(α / 2) -
-                                gamma(α - p0) * cospi((α - p0) / 2) * x^p0
-                            end
+            # Enclosure of (c(α) - c(α - p0) * x^p0) / (α + 1)
+            coefficient_div_α =
+                if (α isa Arb && contains(α, -1)) || (α isa ArbSeries && contains(α[0], -1))
+                    fx_div_x(α + 1, force = true, extra_degree = 2) do r::ArbSeries
+                        let α = r - 1, p0 = r + r^2 / 2
+                            c(α) - c(α - p0) * x^p0
                         end
                     end
-            else
-                # In general α is not wide in this case and we hence
-                # don't need to work to get a good enclosure and can
-                # use the simplest formulation
-                coefficient_div_α = let p0 = 1 + α + (1 + α)^2 / 2
-                    (gamma(α) * cospi(α / 2) - gamma(α - p0) * cospi((α - p0) / 2) * x^p0) / (1 + α)
+                else
+                    coefficient_div_α = let p0 = 1 + α + (1 + α)^2 / 2
+                        (c(α) - c(α - p0) * x^p0) / (1 + α)
+                    end
                 end
-            end
 
-            return finda0αp1(α) * coefficient_div_α
+            finda0αp1(α) * coefficient_div_α
         end
     else
         indeterminate(α)
     end
-    # Sum of terms with either p or q non-zero
-    res2 = zero(x)
-    let exponent = zero(α)
-        buffer1 = zero(α)
-        buffer2 = zero(α)
-        term = zero(α)
-        for ((p, q, i, j, k, l, m), y) in expansion
-            if !iszero(y) && !(iszero(p) && iszero(q))
-                if isone(p)
-                    # Add -α to the exponent coming from the p factor
-                    _exponent!(
-                        exponent,
-                        α,
-                        i - 1,
-                        j,
-                        k,
-                        l,
-                        m,
-                        α_upper,
-                        p0_upper,
-                        u0,
-                        buffer1,
-                        buffer2,
-                    )
 
-                    if iszero(x)
-                        if Arblib.ispositive(exponent)
-                            Arblib.zero!(term)
-                        else
-                            Arblib.indeterminate!(term)
+    # Compute enclosures of C1 and C2, these are only used if x
+    # overlaps zero.
+    if Arblib.contains_zero(x)
+        # Enclosure of a0 * (α + 1) * (c(α) - c(α - p0)) / (1 + α)
+        C1 = ArbExtras.enclosure_series(α) do α
+            # Enclosure of (c(α) - c(α - p0)) / (α + 1)
+            coefficient_div_α =
+                if (α isa Arb && contains(α, -1)) || (α isa ArbSeries && contains(α[0], -1))
+                    fx_div_x(α + 1, force = true, extra_degree = 2) do r::ArbSeries
+                        let α = r - 1, p0 = r + r^2 / 2
+                            c(α) - c(α - p0)
                         end
-                    elseif Arblib.contains_zero(x)
-                        if Arblib.ispositive(exponent)
-                            lower = zero(x)
-                        else
-                            lower = indeterminate(x)
-                        end
-
-                        # FIXME: Prove that this gives an upper bound
-                        upper = let x = ubound(Arb, x)
-                            (1 - Arb(Irrational{:γ}()) - log(x)) / π
-                        end
-
-                        term = Arb((lower, upper)) * abspow(x, exponent)
-                    else
-                        abspow!(term, x, exponent)
-                        Arblib.mul!(term, term, p_coefficient)
                     end
                 else
-                    use_approx_p_and_q ||
-                        throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
-
-                    _exponent!(
-                        exponent,
-                        α,
-                        i,
-                        j,
-                        k,
-                        l,
-                        m,
-                        α_upper,
-                        p0_upper,
-                        u0,
-                        buffer1,
-                        buffer2,
-                    )
-
-                    term = abspow(x, exponent)
-
-                    let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-                        p_factor =
-                            a0 *
-                            (
-                                gamma(α) * cospi(α / 2) -
-                                gamma(α - p0) * cospi((α - p0) / 2) * x^p0
-                            ) *
-                            x^-α
-                        term *= p_factor^p
+                    coefficient_div_α = let p0 = 1 + α + (1 + α)^2 / 2
+                        (c(α) - c(α - p0)) / (1 + α)
                     end
                 end
 
-                # We don't support evaluation of non-zero q
-                if !iszero(q)
-                    use_approx_p_and_q ||
-                        throw(ArgumentError("only q == 0 is supported, got q = $q"))
-                    let α = -1 + u0.ϵ, p0 = 1 + α + (1 + α)^2 / 2, a0 = finda0(α)
-                        q_factor =
-                            -a0 * (
-                                gamma(2α) * cospi(α) * x^(-2α) -
-                                gamma(2α - p0) * cospi((2α - p0) / 2) * x^(-2α + p0) +
-                                (-zeta(1 - 2α - 2) / 2 + zeta(1 - 2α + p0 - 2) / 2) * x^2
-                            )
-                        term *= q_factor^q
+            finda0αp1(α) * coefficient_div_α
+        end
+
+        # Enclosure of a0 * (α + 1) * c(α) * (1 + (1 + α) / 2)
+        C2 = ArbExtras.enclosure_series(α) do α
+            finda0αp1(α) * c(α) * (1 + (1 + α) / 2)
+        end
+    else
+        C1, C2 = indeterminate(α), indeterminate(α)
+    end
+
+    # Sum of terms with either p or q non-zero
+    res2 = zero(x)
+    let term = zero(α), exponent = zero(α), buffer1 = zero(α), buffer2 = zero(α)
+        for ((p, q, i, j, k, l, m), y) in expansion
+            if !iszero(y) && !(iszero(p) && iszero(q))
+                # We don't implement any other cases since they are
+                # handled specially by F0.
+                isone(p) ||
+                    throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
+                iszero(q) || throw(ArgumentError("only q == 0 supported, got q = $q"))
+
+                # Can assume that p = 1 and q = 0
+
+                # Add -α to the exponent coming from the p factor
+                _exponent!(
+                    exponent,
+                    α,
+                    i - 1,
+                    j,
+                    k,
+                    l,
+                    m,
+                    α_upper,
+                    p0_upper,
+                    u0,
+                    buffer1,
+                    buffer2,
+                )
+
+                if Arblib.contains_zero(x)
+                    # term = C1 * abspow(x, exponent + p0)
+                    Arblib.add!(term, exponent, p0)
+                    abspow!(term, x, term)
+                    Arblib.mul!(term, term, C1)
+
+                    # term -= C2 * x_pow_s_x_pow_t_m1_div_t(x, exponent, p0)
+                    # Possibly dividing by log(x) if div_logx is true.
+                    D = if div_logx
+                        # Perform the division by log(x) directly
+                        Arb((zero(x), abspow(x, exponent)))
+                    else
+                        Arb((logabspow(x, 1, exponent), zero(x)))
                     end
+                    Arblib.submul!(term, C2, D)
+                else
+                    abspow!(term, x, exponent)
+                    Arblib.mul!(term, term, p_coefficient)
                 end
 
                 #res += y * term
@@ -423,7 +413,26 @@ function eval_expansion(
         end
     end
 
-    return res1 + res2
+    if div_logx
+        # Enclosure of inv(log(x))
+        invlogx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            Arb((inv(log(ubound(Arb, x))), 0))
+        else
+            inv(log(x))
+        end
+
+        if Arblib.contains_zero(x)
+            # In this case the division by log(x) is done directly
+            # when computing res2
+            return res1 * invlogx + res2
+        else
+            return (res1 + res2) * invlogx
+        end
+    else
+        return res1 + res2
+    end
 end
 
 """
@@ -966,16 +975,10 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
     end
 end
 
-function H(
-    u0::BHKdVAnsatz,
-    ::Asymptotic;
-    M::Integer = 3,
-    skip_singular_j_until = 0,
-    use_approx_p_and_q = false,
-)
+function H(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_singular_j_until = 0)
     f = H(u0, AsymptoticExpansion(); M, skip_singular_j_until)
 
-    return x -> eval_expansion(u0, f(x), x; use_approx_p_and_q)
+    return x -> eval_expansion(u0, f(x), x)
 end
 
 """
@@ -1967,7 +1970,9 @@ function F0(
         T2 = sum(T2s, init = zero(x)) * invgamma1mxp0
 
         # Enclosure of the remaining terms in the expansion
-        T3 = eval_expansion(u0, Du0_expansion_div_x_onemα, x) * invlogx * invgamma1mxp0
+        T3 =
+            eval_expansion(u0, Du0_expansion_div_x_onemα, x, div_logx = true) *
+            invgamma1mxp0
 
         # (u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))
         F = T1 + T2 + T3
