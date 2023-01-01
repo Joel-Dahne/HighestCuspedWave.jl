@@ -8,3 +8,6 @@ using HighestCuspedWave
 ]
 
 HighestCuspedWave.prove(αs, only_estimate_D0 = false)
+
+# This avoid compilation during construction for α close to -1
+FractionalKdVAnsatz(HighestCuspedWave.proof_interval_subdivisions_mince(3)[end])
