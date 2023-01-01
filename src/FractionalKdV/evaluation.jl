@@ -1114,6 +1114,9 @@ function D2(
     J = maximum(key -> key[2], exponents)
     M = maximum(key -> key[3], exponents)
 
+    # Check if there are any exponents of type 1
+    skip_singular_analytic = !any(exponent -> exponent[1] == 1, exponents)
+
     # Next step is to precompute the coefficients in the expansions of
     # the Clausen functions
 
@@ -1121,90 +1124,150 @@ function D2(
     # the functions and it is therefore beneficial to do the
     # calculations in Arb and then convert back to T
     α = convert(Arb, u0.α)
+    two_α = Arblib.mul_2exp!(zero(α), α, 1)
     p0 = convert(Arb, u0.p0)
 
-    u0_precomputed_singular = map(0:u0.N0) do j
-        s = α - j * p0
-        convert(T, gamma(s) * cospi(s / 2))
+    # For α close to -1 this method has a high memory footprint. To
+    # reduce memory pressure we do most of the calculations using
+    # inplace arithmetic.
+    s = zero(α)
+    tmp1 = zero(α)
+    tmp2 = zero(α)
+
+    # Compute gamma(s) * cospi(s / 2)
+    gamma_cospi!(res, s, tmp) = begin
+        Arblib.mul_2exp!(res, s, -1)
+        Arblib.cos_pi!(res, res)
+        Arblib.gamma!(tmp, s)
+        Arblib.mul!(res, res, tmp)
     end
-    u0_precomputed_analytic =
-        T[(-1)^m * zeta(1 - α + j * p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0]
+
+    # Compute (-1)^m * zeta(s - 2m) / factorial(2m)
+    zeta_div_factorial!(res, s, m) = begin
+        Arblib.sub!(res, s, 2m)
+        Arblib.zeta!(res, res)
+        Arblib.mul!(res, res, (-1)^m)
+        Arblib.div!(res, res, factorial(2m))
+    end
+
+    u0_precomputed_singular = map(0:u0.N0) do j
+        # s = α - j * p0
+        Arblib.fma!(s, p0, -j, α)
+        # gamma(s) * cospi(s / 2)
+        T(gamma_cospi!(tmp1, s, tmp2))
+    end
+
+    u0_precomputed_analytic = Matrix{T}(undef, M, u0.N0 + 1)
+    for j = 0:u0.N0
+        # s = 1 - α + j * p0
+        Arblib.fma!(s, p0, -j, α)
+        Arblib.neg!(s, s)
+        Arblib.add!(s, s, 1)
+        for m = 1:M
+            # (-1)^m * zeta(s - 2m) / factorial(2m)
+            u0_precomputed_analytic[m, j+1] = T(zeta_div_factorial!(tmp1, s, m))
+        end
+    end
 
     Hu0_precomputed_singular = map(0:u0.N0) do j
-        s = 2α - j * p0
+        # s = 2α - j * p0
+        Arblib.fma!(s, p0, -j, two_α)
         if s == -1
             # -gamma(s) * cospi(s / 2) has a removable singularity at
             # -s = -1, where it takes the value π / 2
             convert(T, π) / 2
         else
-            convert(T, -gamma(s) * cospi(s / 2))
+            # -gamma(s) * cospi(s / 2)
+            gamma_cospi!(tmp1, s, tmp2)
+            T(Arblib.neg!(tmp1, tmp1))
         end
     end
-    Hu0_precomputed_analytic =
-        T[-(-1)^m * zeta(1 - 2α + j * p0 - 2m) / factorial(2m) for m = 1:M, j = 0:u0.N0]
+
+    Hu0_precomputed_analytic = Matrix{T}(undef, M, u0.N0 + 1)
+    for j = 0:u0.N0
+        # s = 1 - 2α + j * p0
+        Arblib.fma!(s, p0, -j, two_α)
+        Arblib.neg!(s, s)
+        Arblib.add!(s, s, 1)
+        for m = 1:M
+            # -(-1)^m * zeta(s - 2m) / factorial(2m)
+            zeta_div_factorial!(tmp1, s, m)
+            Hu0_precomputed_analytic[m, j+1] = T(Arblib.neg!(tmp1, tmp1))
+        end
+    end
 
     return a::AbstractVector -> begin
         @assert length(a) == length(u0_precomputed_singular)
 
+        ## Compute all singular terms
+
         u0_res_singular = u0_precomputed_singular .* a.parent
-        u0_res_analytic = u0_precomputed_analytic * a.parent
-        Hu0_res_singular = Hu0_precomputed_singular .* a.parent
-        Hu0_res_analytic = Hu0_precomputed_analytic * a.parent
 
         # Compute u0_res_singular^2 / 2
-        u02_res_singular = zeros(eltype(u0_res_singular), J + 1)
+        res_singular = zeros(eltype(u0_res_singular), J + 1)
         if threaded && J >= 256
             Threads.@threads for i = 1:J+1
                 @inbounds for j = 1:i÷2
-                    u02_res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
+                    res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
                 end
                 if isodd(i)
-                    @inbounds u02_res_singular[i] += u0_res_singular[i÷2+1]^2 / 2
+                    @inbounds res_singular[i] += u0_res_singular[i÷2+1]^2 / 2
                 end
             end
         else
             @inbounds for i = 1:J+1
                 for j = 1:i÷2
-                    u02_res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
+                    res_singular[i] += u0_res_singular[j] * u0_res_singular[i-j+1]
                 end
                 if isodd(i)
-                    u02_res_singular[i] += u0_res_singular[i÷2+1]^2 / 2
+                    res_singular[i] += u0_res_singular[i÷2+1]^2 / 2
                 end
             end
         end
 
+        # Add singular terms from H(u0)
+        @inbounds for k = 1:min(length(Hu0_precomputed_singular), length(res_singular))
+            res_singular[k] += Hu0_precomputed_singular[k] * a.parent[k]
+        end
+
+        ## Compute all analytic terms
+
+        u0_res_analytic = u0_precomputed_analytic * a.parent
+
         # Compute u0_res_analytic^2 / 2
-        u02_res_analytic = zeros(eltype(u0_res_analytic), M)
+        res_analytic = zeros(eltype(u0_res_analytic), M)
         @inbounds for i = 1:M
             for j = 1:(i-1)÷2
-                u02_res_analytic[i] += u0_res_analytic[j] * u0_res_analytic[i-j]
+                res_analytic[i] += u0_res_analytic[j] * u0_res_analytic[i-j]
             end
             if iseven(i)
-                u02_res_analytic[i] += u0_res_analytic[i÷2]^2 / 2
+                res_analytic[i] += u0_res_analytic[i÷2]^2 / 2
             end
         end
 
-        # Compute u0_res_singular * u0_res_analytic / 2
-        u02_res_singular_analytic = u0_res_singular * transpose(u0_res_analytic)
-
-        # We don't need the above computed results to make changes
-        # inplace
-        res_singular = u02_res_singular
-        @inbounds for k = 1:min(length(Hu0_res_singular), length(res_singular))
-            res_singular[k] += Hu0_res_singular[k]
-        end
-        res_analytic = u02_res_analytic
+        Hu0_res_analytic = Hu0_precomputed_analytic * a.parent
+        # Add analytic terms from H(u0)
         @inbounds for k = 1:min(length(Hu0_res_analytic), length(res_analytic))
             res_analytic[k] += Hu0_res_analytic[k]
         end
-        res_singular_analytic = u02_res_singular_analytic
 
-        res = Vector{eltype(res_singular)}(undef, u0.N0)
+        # Compute all terms which are singular terms times an analytic
+        # term. In some cases there are no such terms in the expansion
+        # and then we skip the computation.
+        res_singular_analytic = if skip_singular_analytic
+            Matrix{eltype(u0_res_singular)}(undef, 0, 0)
+        else
+            # Compute u0_res_singular * u0_res_analytic / 2
+            u0_res_singular * transpose(u0_res_analytic)
+        end
+
+        res = resize!(u0_res_singular, u0.N0) # Reuse u0_res_singular
         @inbounds for k in eachindex(exponents, res)
             i, j, m = exponents[k]
             if i == 0
                 res[k] = res_analytic[m]
             elseif i == 1
+                @assert !skip_singular_analytic
                 res[k] = res_singular_analytic[j+1, m]
             else
                 res[k] = res_singular[j+1]
