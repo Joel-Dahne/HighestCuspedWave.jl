@@ -183,7 +183,7 @@ is bounded by
 ```
 1.1
 ```
-- **TODO:** This bound can be checked numerically to be valid but
+- **PROVE:** This bound can be checked numerically to be valid but
   should be updated with a better bound once we have that. Annoyingly
   enough the upper bound is not quite one, but some number slightly
   larger than one.

@@ -59,7 +59,7 @@ function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0
                 if tt < t0
                     tᵤ = ubound(Arb, tt)
 
-                    # TODO: Prove monotonicity of weight factor
+                    # PROVE: Monotonicity of weight factor
                     part1 =
                         clausenc(x * (1 - tt), -α) +
                         clausenc(x * (1 + tt), -α) * Arb((0, tᵤ * u0.wdivx(x * tᵤ)))

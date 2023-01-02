@@ -21,9 +21,7 @@ KdV equations with `α ∈ (-1, 0)`. It has the following parameters
 - `use_bhkdv`: In some cases we want to use a slightly different
   approach for the evaluation when `α` is very close to `-1`. This
   value is set to true if we want to use the different approach.
-  **TODO:** At the moment this is not used much, mostly for testing.
-  In the end we might or might not need it. If we do end up using it
-  we should document it more.
+  **IMPROVE:** Document this more.
 
 There are requirements on the parameters needed to give the correct
 asymptotic values. These are
