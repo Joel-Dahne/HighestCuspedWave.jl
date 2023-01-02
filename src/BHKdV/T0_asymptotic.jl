@@ -1429,7 +1429,9 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
     return x::Arb -> begin
         x < 1 || throw(DomainError(x, "must have x < 1"))
 
-        if true#Arblib.contains_zero(x)
+        if Arblib.contains_zero(x) || x < 1e-5
+            # PROVE: That all terms here are as given
+
             # Main term
             # FIXME: Bound for α overlapping -1 and x overlapping zero
             G21 =
@@ -1463,33 +1465,51 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             end
 
             # First term in sum of second factor of remainder term
-            # FIXME: Fix evaluation for a = 1 and x overlapping zero
-            G22_2_1 = let a = Arb(1.001), b = Arb(π / x) # FIXME: Should have a = 1
-                I1_remainder_n1_primitive_v1(t) =
-                    (t^2 - 1) * (log(t - 1) + log(t + 1) - 2log(t)) / 2
-                I1_remainder_n1_v2 =
-                    I1_remainder_n1_primitive_v1(b) - I1_remainder_n1_primitive_v1(a)
+            G22_2_1 = begin
+                I1_remainder_n1_primitive_inv_t(invt) =
+                    if iszero(invt)
+                        -Arb(1 // 2)
+                    elseif Arblib.contains_zero(invt)
+                        Arb((
+                            I1_remainder_n1_primitive_inv_t(zero(invt)),
+                            I1_remainder_n1_primitive_inv_t(ubound(Arb, invt)),
+                        ))
+                    else
+                        let t = inv(invt)
+                            (t^2 - 1) * (log(t - 1) + log(t + 1) - 2log(t)) / 2
+                        end
+                    end
 
-                I2_remainder_n1_primitive_v2(t) =
-                    (
-                        -3 - Arb(π)^2 / 3 +
-                        2(log(t - 1) + log(t + 1) + 2log(t)^2) +
-                        2t^2 * (
-                            -log(t - 1) - log(t + 1) +
-                            2log(t) +
-                            log(t) * (+2log(t - 1) + 2log(t + 1) - 4log(t))
-                        ) +
-                        2real(polylog(2, Acb(1 - t^2)))
-                    ) / 8 |> real
-                I2_remainder_n1_v3 =
-                    I2_remainder_n1_primitive_v2(b) - I2_remainder_n1_primitive_v2(a)
+                I1_remainder_n1 = I1_remainder_n1_primitive_inv_t(x / π)
 
-                I3_remainder_n1_v2 =
-                    Arb((log(1 + c * x * a), log(1 + c * x * b))) * I1_remainder_n1_v2
+                I2_remainder_n1_primitive_part_inv_t(invt) =
+                    if iszero(invt)
+                        1 - Arb(π)^2 / 6
+                    elseif Arblib.contains_zero(invt)
+                        # Increasing in inv_t
+                        Arb((
+                            I2_remainder_n1_primitive_part_inv_t(zero(invt)),
+                            I2_remainder_n1_primitive_part_inv_t(ubound(Arb, invt)),
+                        ),)
+                    else
+                        let t = inv(invt)
+                            r1 = log(t - 1) + log(t + 1) + 2log(t)^2
+                            r2 = -t^2 * (log(t - 1) + log(t + 1) - 2log(t))
+                            r3 = 2t^2 * log(t) * (log(t - 1) + log(t + 1) - 2log(t))
+                            r4 = real(polylog(2, Acb(1 - t^2)))
+                            r1 + r2 + r3 + r4
+                        end
+                    end
+
+                I2_remainder_n1 = I2_remainder_n1_primitive_part_inv_t(x / π) / 4
+
+                I3_remainder_n1 = let x = union(x, Arb(0))
+                    Arb((log(1 + c * x), log(1 + c * π))) * I1_remainder_n1
+                end
 
                 -(
-                    I1_remainder_n1_v2 - invloginvx * I2_remainder_n1_v3 +
-                    invloginvx * I3_remainder_n1_v2
+                    I1_remainder_n1 - invloginvx * I2_remainder_n1 +
+                    invloginvx * I3_remainder_n1
                 )
             end
 
@@ -1544,35 +1564,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
 
             return G2
         else
-            # TODO: Only use f1(x) + f2(x) for x not too small
             return f1(x) + f2(x)
-
-            # FIXME: Handle the remaining remainder term in the below approach
-            extra_degree = 2
-
-            # Enclosure of (1 + α) / (1 - x^p0)
-            factor1 = inv(fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), 1 + α; extra_degree))
-
-            factor2 = let
-                term1 =
-                    inv(1 + γ) * fx_div_x(1 + α, 2, force = true; extra_degree) do ϵ
-                        (x / π)^(ϵ * (1 + γ)) - ϵ * (1 + γ) * log(x / π) - 1
-                    end
-
-                term2 = log(Arb(π)) * fx_div_x(1 + α; extra_degree) do ϵ
-                    (x / π)^(ϵ * (1 + γ)) - 1
-                end
-
-                term3 = inv(1 + γ) * fx_div_x(1 + α; extra_degree) do ϵ
-                    (x / π)^(ϵ * (1 + γ)) - 1
-                end
-
-                term4 = log(Arb(π)) * (x / π)^((1 + α) * (1 + γ))
-
-                term1 + term2 + term3 + term4
-            end
-
-            return factor1 * factor2 / (log(inv(x)) * (1 + γ))
         end
     end
 end
@@ -3662,7 +3654,7 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
     # Insert back into G22_2_2
     #####
 
-    # FIXME: We have to be careful here because depending on where we
+    # We have to be careful here because depending on where we
     # put the absolute values we might or might not get an analytic
     # function.
     H1_upper_v1(n, k) = Arblib.integrate(a, b) do t
@@ -4037,7 +4029,7 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
 end
 
 """
-T0_asymptotic_main_2_testing_remainder_tail_sum(x::Arb = Arb(1e-10), α::Arb = Arb(-0.9999), γ::Arb = Arb(0.5), c::Arb = 2Arb(ℯ))
+T0_asymptotic_main_2_testing_remainder_tail_sum(α::Arb = Arb(-0.9999), γ::Arb = Arb(0.5))
 
 Method for testing the development of [`_T0_asymptotic_main_2`](@ref).
 The background for that method is very long and it is easy to make
@@ -4818,6 +4810,352 @@ function _T0_asymptotic_main_2_testing_remainder_tail_sum(
     return G22_2_2_upper_constant_final
 end
 
+"""
+    _T0_asymptotic_main_2_testing_G22_2_1(x::Arb = Arb(1e-10), α::Arb = Arb(-0.9999), γ::Arb = Arb(0.5), c::Arb = 2Arb(ℯ))
+
+Method for testing the development of [`_T0_asymptotic_main_2`](@ref).
+The background for that method is very long and it is easy to make
+mistakes. This method tests a lot of the rewrites and simplifications
+that is done for [`_T0_asymptotic_main_2`](@ref) to catch any
+mistakes.
+
+This looks at evaluating `G22_2_1` from
+[`_T0_asymptotic_main_2_testing_remainder`](@ref) in a way that works
+for `a = 1` and `b = π / x` with `x` overlapping zero.
+"""
+function _T0_asymptotic_main_2_testing_G22_2_1(
+    x::Arb = Arb(1e-10),
+    α::Arb = Arb(-0.9999),
+    γ::Arb = Arb(0.5),
+    c::Arb = 2Arb(ℯ),
+)
+
+    # Enclosure of inv(log(inv(x)))
+    invloginvx = if iszero(x)
+        zero(x)
+    elseif Arblib.contains_zero(x)
+        -Arb((inv(log(ubound(Arb, x))), 0))
+    else
+        -inv(log(x))
+    end
+
+    # In the end we want to have a = 1 and b possibly overlapping ∞
+    a = Arb(1 + 1e-15)
+    b = π / x
+
+    #####
+    # Starting version
+    #####
+
+    I1_remainder_n1_primitive_v1(t) = (t^2 - 1) * (log(t - 1) + log(t + 1) - 2log(t)) / 2
+    I1_remainder_n1_v1 = I1_remainder_n1_primitive_v1(b) - I1_remainder_n1_primitive_v1(a)
+
+    I2_remainder_n1_primitive_v1(t) =
+        (
+            -3 - Arb(π)^2 / 3 +
+            2(log(t - 1) + log(t + 1) + 2log(t)^2) +
+            2t^2 * (
+                -log(t - 1) - log(t + 1) +
+                2log(t) +
+                log(t) * (2log(t - 1) + 2log(t + 1) - 4log(t))
+            ) +
+            2real(polylog(2, Acb(1 - t^2)))
+        ) / 8 |> real
+    I2_remainder_n1_v1 = I2_remainder_n1_primitive_v1(b) - I2_remainder_n1_primitive_v1(a)
+
+    I3_remainder_n1_v1 = Arb((log(1 + c * x * a), log(1 + c * x * b))) * I1_remainder_n1_v1
+
+    @show I1_remainder_n1_v1 I2_remainder_n1_v1 I3_remainder_n1_v1
+
+    G22_2_1_v1 = -(
+        I1_remainder_n1_v1 - invloginvx * I2_remainder_n1_v1 +
+        invloginvx * I3_remainder_n1_v1
+    )
+
+    @show G22_2_1_v1
+
+    #####
+    # Evaluating I1_remainder_n1_primitive_v1 at t = 1 gives zero
+    #####
+
+    @assert isapprox(I1_remainder_n1_primitive_v1(Arb(1) + 1e-10), 0, atol = 1e-8)
+    @assert isapprox(I1_remainder_n1_primitive_v1(Arb(1) + 1e-20), 0, atol = 1e-16)
+
+    #####
+    # Simplify I1_remainder_n1
+    #####
+
+    I1_remainder_n1_v2 = I1_remainder_n1_primitive_v1(b)
+
+    @assert isapprox(I1_remainder_n1_v1, I1_remainder_n1_v2, atol = 1e-6)
+
+    #####
+    # Rewrite I1_remainder_n1_primitive to allow for evaluation at
+    # t=∞. Rewrite it in terms of inv(t). PROVE: that it is decreasing
+    # in inv(t) and -0.5 for inv(t) = 0
+    #####
+
+    I1_remainder_n1_primitive_inv_t_v1(invt) =
+        if iszero(invt)
+            -Arb(1 // 2)
+        elseif Arblib.contains_zero(invt)
+            Arb((
+                I1_remainder_n1_primitive_inv_t_v1(zero(invt)),
+                I1_remainder_n1_primitive_inv_t_v1(ubound(Arb, invt)),
+            ))
+        else
+            let t = inv(invt)
+                (t^2 - 1) * (log(t - 1) + log(t + 1) - 2log(t)) / 2
+            end
+        end
+
+    @assert Arblib.overlaps(
+        I1_remainder_n1_primitive_v1(b),
+        I1_remainder_n1_primitive_inv_t_v1(inv(b)),
+    )
+    @assert isfinite(I1_remainder_n1_primitive_inv_t_v1(inv(b)))
+    @assert isapprox(
+        I1_remainder_n1_primitive_inv_t_v1(Arb(0)),
+        I1_remainder_n1_primitive_inv_t_v1(inv(b)),
+        atol = 1e-6,
+    )
+
+    # Ensure that it can be evaluated for x overlapping zero
+    let x = union(x, Arb(0))
+        @show x / π
+        @show I1_remainder_n1_primitive_inv_t_v1(x / π)
+        @assert isfinite(I1_remainder_n1_primitive_inv_t_v1(x / π))
+    end
+
+    #####
+    # Use the above to update I1_remainder_n1
+    #####
+
+    I1_remainder_n1_v3 = I1_remainder_n1_primitive_inv_t_v1(inv(b))
+
+    @assert isapprox(I1_remainder_n1_v2, I1_remainder_n1_v3, atol = 1e-6)
+
+    #####
+    # Write final version that works for x overlapping zero
+    #####
+
+    I1_remainder_n1_final = let x = union(x, Arb(0))
+        I1_remainder_n1_primitive_inv_t_v1(x / π)
+    end
+
+    I3_remainder_n1_final = let x = union(x, Arb(0))
+        Arb((log(1 + c * x), log(1 + c * π))) * I1_remainder_n1_final
+    end
+
+    @show I1_remainder_n1_final
+    @show I3_remainder_n1_final
+    @assert isfinite(I1_remainder_n1_final)
+    @assert isfinite(I3_remainder_n1_final)
+    @assert isapprox(I1_remainder_n1_v1, I1_remainder_n1_final, atol = 1e-6)
+    @assert isapprox(
+        midpoint(I3_remainder_n1_v1),
+        midpoint(I3_remainder_n1_final),
+        atol = 1e-6,
+    )
+
+    #####
+    # Simplify I2_remainder_n1_primitive at t = 1
+    #####
+
+    # Insert a directly
+    I2_remainder_n1_primitive_one_v1 =
+        (
+            -3 - Arb(π)^2 / 3 +
+            2(log(a - 1) + log(a + 1) + 2log(a)^2) +
+            2a^2 * (
+                -log(a - 1) - log(a + 1) +
+                2log(a) +
+                log(a) * (2log(a - 1) + 2log(a + 1) - 4log(a))
+            ) +
+            2real(polylog(2, Acb(1 - a^2)))
+        ) / 8 |> real
+
+    @assert Arblib.overlaps(
+        I2_remainder_n1_primitive_v1(a),
+        I2_remainder_n1_primitive_one_v1,
+    )
+
+    # Insert a = 1 where we get finite terms
+    I2_remainder_n1_primitive_one_v2 = let aa = one(a)
+        (
+            -3 - Arb(π)^2 / 3 +
+            2(log(a - 1) + log(aa + 1) + 2log(aa)^2) +
+            2aa^2 * (
+                -log(a - 1) - log(aa + 1) +
+                2log(aa) +
+                log(aa) * (2log(a - 1) + 2log(aa + 1) - 4log(aa))
+            ) +
+            2real(polylog(2, Acb(1 - aa^2)))
+        ) / 8 |> real
+    end
+
+    @assert isapprox(
+        I2_remainder_n1_primitive_one_v1,
+        I2_remainder_n1_primitive_one_v2,
+        atol = 1e-12,
+    )
+
+    # Remove terms that are zero and explicitly insert 1 in other places
+    I2_remainder_n1_primitive_one_v3 =
+        (-3 - Arb(π)^2 / 3 + 2(log(a - 1) + log(Arb(2))) + 2(-log(a - 1) - log(Arb(2)))) / 8
+
+    @assert Arblib.overlaps(
+        I2_remainder_n1_primitive_one_v2,
+        I2_remainder_n1_primitive_one_v3,
+    )
+
+    # Simplify
+    I2_remainder_n1_primitive_one_v4 = -(3 + Arb(π)^2 / 3) / 8
+
+    @assert Arblib.overlaps(
+        I2_remainder_n1_primitive_one_v3,
+        I2_remainder_n1_primitive_one_v4,
+    )
+
+    #####
+    # Take out problematic part of I2_remainder_n1_primitive
+    #####
+
+    I2_remainder_n1_primitive_part_v1(t) = begin
+        r1 = log(t - 1) + log(t + 1) + 2log(t)^2
+        r2 = -t^2 * (log(t - 1) + log(t + 1) - 2log(t))
+        r3 = 2t^2 * log(t) * (log(t - 1) + log(t + 1) - 2log(t))
+        r4 = real(polylog(2, Acb(1 - t^2)))
+        r1 + r2 + r3 + r4
+    end
+
+    I2_remainder_n1_primitive_v2(t) = begin
+        part = I2_remainder_n1_primitive_part_v1(t)
+
+        ((-3 - Arb(π)^2 / 3) / 2 + part) / 4
+    end
+
+    @assert isfinite(I2_remainder_n1_primitive_v2(b))
+    @assert Arblib.overlaps(
+        I2_remainder_n1_primitive_v1(b),
+        I2_remainder_n1_primitive_v2(b),
+    )
+
+    #####
+    # Rewrite in terms of inv(t) to allow for evaluation at infinity
+    #####
+
+    I2_remainder_n1_primitive_part_inv_t_v1(invt) =
+        let t = inv(invt)
+            r1 = log(t - 1) + log(t + 1) + 2log(t)^2
+            r2 = -t^2 * (log(t - 1) + log(t + 1) - 2log(t))
+            r3 = 2t^2 * log(t) * (log(t - 1) + log(t + 1) - 2log(t))
+            r4 = real(polylog(2, Acb(1 - t^2)))
+            r1 + r2 + r3 + r4
+        end
+
+    I2_remainder_n1_primitive_inv_t_v1(invt) = begin
+        part = I2_remainder_n1_primitive_part_inv_t_v1(invt)
+
+        ((-3 - Arb(π)^2 / 3) / 2 + part) / 4
+    end
+
+    @assert isfinite(I2_remainder_n1_primitive_inv_t_v1(inv(b)))
+    @assert Arblib.overlaps(
+        I2_remainder_n1_primitive_v2(b),
+        I2_remainder_n1_primitive_inv_t_v1(inv(b)),
+    )
+
+    #####
+    # PROVE: That I3_remainder_n1_primitive_part is decreasing
+    # in t and converges to 1 - π^2 / 6 at t = ∞.
+    #####
+
+    I2_remainder_n1_primitive_part_inv_t_v2(invt) =
+        if iszero(invt)
+            1 - Arb(π)^2 / 6
+        elseif Arblib.contains_zero(invt)
+            # Increasing in inv_t
+            Arb((
+                I2_remainder_n1_primitive_part_inv_t_v2(zero(invt)),
+                I2_remainder_n1_primitive_part_inv_t_v2(ubound(Arb, invt)),
+            ),)
+        else
+            let t = inv(invt)
+                r1 = log(t - 1) + log(t + 1) + 2log(t)^2
+                r2 = -t^2 * (log(t - 1) + log(t + 1) - 2log(t))
+                r3 = 2t^2 * log(t) * (log(t - 1) + log(t + 1) - 2log(t))
+                r4 = real(polylog(2, Acb(1 - t^2)))
+                r1 + r2 + r3 + r4
+            end
+        end
+
+    I2_remainder_n1_primitive_inv_t_v2(invt) = begin
+        part = I2_remainder_n1_primitive_part_inv_t_v2(invt)
+
+        ((-3 - Arb(π)^2 / 3) / 2 + part) / 4
+    end
+
+    @assert isfinite(I2_remainder_n1_primitive_inv_t_v2(inv(b)))
+    @assert Arblib.overlaps(
+        I2_remainder_n1_primitive_inv_t_v1(inv(b)),
+        I2_remainder_n1_primitive_inv_t_v2(inv(b)),
+    )
+
+    # Limit seems correct
+    @assert isapprox(
+        I2_remainder_n1_primitive_inv_t_v2(Arb(1e-5)),
+        I2_remainder_n1_primitive_inv_t_v2(Arb(0)),
+        atol = 1e-8,
+    )
+    # Seems to be increasing in inv(t)
+    @assert I2_remainder_n1_primitive_inv_t_v2(Arb(0)) <
+            I2_remainder_n1_primitive_inv_t_v2(Arb(1e-5)) <
+            I2_remainder_n1_primitive_inv_t_v2(Arb(1e-3))
+
+    #####
+    # Insert the above back into I2_remainder_n1
+    #####
+
+    I2_remainder_n1_v2 =
+        I2_remainder_n1_primitive_inv_t_v2(x / π) - I2_remainder_n1_primitive_one_v4
+
+    @assert isapprox(I2_remainder_n1_v1, I2_remainder_n1_v2, atol = 1e-5)
+
+    #####
+    # Simplify
+    #####
+
+    I2_remainder_n1_v3 = I2_remainder_n1_primitive_part_inv_t_v2(x / π) / 4
+
+    @assert Arblib.overlaps(I2_remainder_n1_v2, I2_remainder_n1_v3)
+
+    #####
+    # Write final version that works for x overlapping zero
+    #####
+
+    I2_remainder_n1_final = let x = union(x, zero(x))
+        I2_remainder_n1_primitive_part_inv_t_v2(x / π) / 4
+    end
+
+    @show I2_remainder_n1_final
+    @assert isfinite(I2_remainder_n1_final)
+    @assert isapprox(I2_remainder_n1_v1, I2_remainder_n1_final, atol = 1e-5)
+
+    #####
+    # Insert everything back into G22_2_1
+    #####
+
+    G22_2_1_final = -(
+        I1_remainder_n1_final - invloginvx * I2_remainder_n1_final +
+        invloginvx * I3_remainder_n1_final
+    )
+
+    @show G22_2_1_final
+    @assert isapprox(midpoint(G22_2_1_v1), midpoint(G22_2_1_final), atol = 1e-6)
+    # They should not be exactly equal but will in practice overlap
+    @assert Arblib.overlaps(G22_2_1_v1, G22_2_1_final)
+end
 
 
 """
