@@ -1521,77 +1521,12 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
 
             # Remaining terms in second factor of remainder terms
             # integrated from 2 to π / x
-            # FIXME: Take limit as N and K goes to infinity
-            G22_2_2_2_to_π_div_x = let N = 10, K = 40, a = Arb(2)
-                S1_cs_v1(n) =
-                    let cs = Vector{Arb}(undef, K)
-                        cs[1] = (-1)^n
-                        for m = 1:K-1
-                            cs[m+1] =
-                                inv(-Arb(m)) * sum(
-                                    (k * n - m + k) * (-inv(Arb(k + 1))) * cs[m-k+1] for k = 1:m
-                                )
-                        end
-                        cs
-                    end
-
-                S_cs_v1(n) =
-                    let cs1 = S1_cs_v1(n)
-                        cs = 2cs1
-                        if isodd(n)
-                            for q = 0:2:K-1
-                                cs[q+1] = 0
-                            end
-                        else
-                            for q = 1:2:K-1
-                                cs[q+1] = 0
-                            end
-                        end
-
-                        cs
-                    end
-
-                h_cs_v1 = map(1:N) do l
-                    let css = [S_cs_v1(n) for n = 1:l], cs = Matrix{Arb}(undef, l, K)
-                        for n = 1:l
-                            for m = 0:K-1
-                                cs[n, m+1] = css[n][m+1]
-                            end
-                        end
-                        cs
-                    end
-                end
-
-                h_cs_upper_v2 = map(1:N) do l
-                    let css = h_cs_v1[l], cs = Vector{Arb}(undef, K)
-                        for m = 1:K
-                            cs[m] = sum(max(0, l - m):l-1, init = zero(Arb)) do j
-                                    binomial(l, j) * abs(css[l-j, m-l+j+1])
-                                end
-                        end
-                        cs
-                    end
-                end
-
-                h_upper_constant_v1 = map(1:N) do l
-                    let cs = h_cs_upper_v2[l]
-                        a^4 * sum(4:2:K) do m
-                            cs[m] / a^m
-                        end
-                    end
-                end
-
-                ((1 + invloginvx) * log(1 + c * π) - invloginvx) * sum(2:N) do n
-                    (1 + α)^(n - 1) / Arb(2)^n * sum(0:n-1) do k
-                        binomial(n, k) * γ^k * h_upper_constant_v1[n-k]
-                    end
-                end
-
-                # FIXME: We hope that this is the bound
-                ((1 + invloginvx) * log(1 + c * π) - invloginvx) * 2^3 * (1 + α) / 2 * (
-                    (2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2)
-                )
-            end
+            G22_2_2_2_to_π_div_x =
+                ((1 + invloginvx) * log(1 + c * π) - invloginvx) *
+                2^3 *
+                (inv(1 + log(1 - inv(Arb(2)))) - 1) *
+                (1 + α) *
+                ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
 
             # Combine integration from 1 to 2 and from 2 to π / x to
             # get full integral
@@ -4539,7 +4474,7 @@ function _T0_asymptotic_main_2_testing_remainder_tail_sum(
                 elseif n <= m
                     cs[n, m] = abs(C_v2[n, m-n+1]) + cs[n-1, m]
                 else
-                    cs[n, m] = cs[n-1,m]
+                    cs[n, m] = cs[n-1, m]
                 end
             end
         end
@@ -4550,16 +4485,31 @@ function _T0_asymptotic_main_2_testing_remainder_tail_sum(
 
     #####
     # From the recursive definition it is clear that we have B[n, m]
-    # <= B[m, m]. Use this to get upper bound.
+    # <= B[m, m]. We therefore only have to work with B[m, m].
     #####
 
-    A_test_v1 = sum(4:min(N,K)) do m
-            B_v4[m, m] / Arb(2)^m
+    B_m_v1 = let cs = Vector{Arb}(undef, size(C_v1, 1))
+        for m = 1:min(N, K)
+            cs[m] = sum(0:m-1, init = zero(Arb)) do j
+                abs(C_v2[m-j, j+1])
+            end
         end
+        cs
+    end
+
+    @assert !any(B_v5 .> B_m_v1')
+
+    #####
+    # Give upper bound of A not depending on n.
+    #####
+
+    A_bound_v1 = sum(4:min(N, K)) do m
+        B_m_v1[m] / Arb(2)^m
+    end
 
     G22_2_2_upper_constant_v5 =
         2^3 * sum(2:N) do n
-            ((1 + α) / 2)^(n - 1) * A_test_v1 * sum(0:n-1) do k
+            ((1 + α) / 2)^(n - 1) * A_bound_v1 * sum(0:n-1) do k
                 binomial(n, k) * γ^k * Arb(2)^(n - k)
             end
         end
@@ -4567,7 +4517,305 @@ function _T0_asymptotic_main_2_testing_remainder_tail_sum(
     @show G22_2_2_upper_constant_v5
     @assert !(G22_2_2_upper_constant_v4 > G22_2_2_upper_constant_v5)
 
-    return A_test_v1
+    #####
+    # Simplify C[m-j,j+1] in B_m depending on m
+    #####
+
+    B_m_v2 = let cs = zeros(Arb, size(C_v1, 1))
+        # Only even coefficients are non-zero
+        for m = 2:2:min(N, K)
+            cs[m] = 2sum(0:m-1, init = zero(Arb)) do j
+                abs(D_v2[m-j, j+1])
+            end
+        end
+        cs
+    end
+
+    @assert all(Arblib.overlaps.(B_m_v1, B_m_v2))
+
+    #####
+    # Remove odd terms in B_b
+    #####
+
+    B_m_even_v1 = map(2:2:min(N, K)) do m
+        2sum(0:m-1, init = zero(Arb)) do j
+            abs(D_v2[m-j, j+1])
+        end
+    end
+
+    @assert all(Arblib.overlaps.(B_m_v2[2:2:end], B_m_even_v1))
+
+    A_bound_v2 = sum(2:length(B_m_even_v1)) do m
+        B_m_even_v1[m] / Arb(4)^(m)
+    end
+
+    @assert Arblib.overlaps(A_bound_v1, A_bound_v2)
+
+    #####
+    # Numerically B_m_even seems to behave like a^m for a ≈ 2.5 for m
+    # >= 2
+    #####
+
+    @assert all(2:length(B_m_even_v1)) do m
+        Arb(2)^m < B_m_even_v1[m] < Arb(3)^m
+    end
+
+    #####
+    # Compute bound if we would have that B_m_even is bounded by 3^m
+    # for m >= 2
+    #####
+
+    A_bound_test_v1 = Arb(9 // 4)
+
+    G22_2_2_upper_constant_test_v6 =
+        2^3 *
+        A_bound_test_v1 *
+        sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * sum(0:n-1) do k
+                binomial(n, k) * γ^k * Arb(2)^(n - k)
+            end
+        end
+
+    @assert A_bound_test_v1 > A_bound_v2
+
+    @show G22_2_2_upper_constant_test_v6
+    @assert G22_2_2_upper_constant_test_v6 > G22_2_2_upper_constant_v5
+
+    #####
+    # Simplify G22_2_2 in the above case
+    #####
+
+    G22_2_2_upper_constant_test_v7 =
+        2^3 * A_bound_test_v1 * sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * ((2 + γ)^n - γ^n)
+        end
+
+    @assert Arblib.overlaps(G22_2_2_upper_constant_test_v6, G22_2_2_upper_constant_test_v7)
+
+    G22_2_2_upper_constant_test_v8 =
+        2^3 * A_bound_test_v1 * (1 + α) / 2 * ((2 + γ)^2 * sum(0:N) do n
+            ((1 + α) * (2 + γ) / 2)^n
+        end - γ^2 * sum(0:N) do n
+            ((1 + α) * γ / 2)^n
+        end)
+
+    @assert Arblib.overlaps(G22_2_2_upper_constant_test_v7, G22_2_2_upper_constant_test_v8)
+
+    G22_2_2_upper_constant_test_v9 =
+        2^3 * A_bound_test_v1 * (1 + α) / 2 *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+
+    @assert Arblib.overlaps(G22_2_2_upper_constant_test_v8, G22_2_2_upper_constant_test_v9)
+
+    # Check that it works for α overlapping -1
+    G22_2_2_upper_constant_test_v10 = let α = union(Arb(-1), α)
+        2^3 * A_bound_test_v1 * (1 + α) / 2 *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+    end
+
+    @show G22_2_2_upper_constant_test_v10
+    @assert Arblib.overlaps(G22_2_2_upper_constant_test_v9, G22_2_2_upper_constant_test_v10)
+
+    #####
+    # The above seems to be good enough. So the goal is to prove that
+    # B_m_even is bounded by 3^m for m >= 2.
+    #####
+
+    #####
+    # Numerically we see that all elements of D are positive, we
+    # should hence be able to remove the absolute value in B. This
+    # should be possible to prove by going back to the definition of D
+    # as coefficients in Taylor expansions.
+    #####
+
+    @assert all(Arblib.ispositive, D_v2)
+
+    B_m_even_v2 = map(2:2:min(N, K)) do m
+        2sum(0:m-1, init = zero(Arb)) do j
+            D_v2[m-j, j+1]
+        end
+    end
+
+    @assert all(Arblib.overlaps.(B_m_even_v1, B_m_even_v2))
+
+    #####
+    # Insert definition of B into A
+    #####
+
+    A_bound_v3 = 2sum(2:N÷2) do m
+        1 / Arb(4)^(m) * sum(0:2m-1, init = zero(Arb)) do j
+            D_v2[2m-j, j+1]
+        end
+    end
+
+    @assert Arblib.overlaps(A_bound_v2, A_bound_v3)
+
+    #####
+    # Switch up order of summation. Instead of summing along the skew
+    # diagonals we sum along the rows.
+    #####
+
+    # Helper method to see which indices are accessed
+    D_v3(n, m, accesses) = begin
+        accesses[n, m] += 1
+        D_v2[n, m]
+    end
+
+    # Old version, summing along skew diagonals
+    accesses1 = zeros(Int, size(D_v2))
+    A_bound_v4 = 2sum(2:N÷2) do m
+        1 / Arb(4)^(m) * sum(0:2m-1, init = zero(Arb)) do j
+            D_v3(2m - j, j + 1, accesses1)
+        end
+    end
+
+    @assert Arblib.overlaps(A_bound_v3, A_bound_v4)
+
+    # New version, summing along rows
+    accesses2 = zeros(Int, size(D_v2))
+    N == K || @warn "method probably needs N == K"
+    A_bound_v5 =
+        2sum(1:N) do n
+            start = n <= 2 ? 2 : 1
+            # We need this since the old version doesn't sum below the
+            # main skew diagonal.
+            stop = K + 1 - n
+            if isodd(n)
+                sum(D_v3(n, 2m, accesses2) / Arb(4)^m for m = start:(stop+1)÷2) /
+                Arb(2)^(n - 1)
+            else
+                sum(D_v3(n, 2m - 1, accesses2) / Arb(4)^m for m = start:(stop+1)÷2) /
+                Arb(2)^(n - 2)
+            end
+        end
+
+    @assert Arblib.overlaps(A_bound_v4, A_bound_v5)
+
+    #####
+    # Slightly modify summation for A_bound
+    #####
+
+    A_bound_v6 =
+        4sum(1:N) do n
+            start = n <= 2 ? 2 : 1
+            # We need this since the old version doesn't sum below the
+            # main skew diagonal.
+            stop = K + 1 - n
+            if isodd(n)
+                sum(D_v2[n, 2m] / Arb(2)^2m for m = start:(stop+1)÷2) / Arb(2)^n
+            else
+                sum(D_v2[n, 2m-1] / Arb(2)^(2m - 1) for m = start:(stop+1)÷2) / Arb(2)^n
+            end
+        end
+
+    @assert Arblib.overlaps(A_bound_v5, A_bound_v6)
+
+    #####
+    # Write D in terms of expansion of log(1 - t)
+    #####
+
+    D_v4 = let cs = Matrix{Arb}(undef, N, K)
+        for n = 1:N
+            t = ArbSeries((0, 1), degree = K + n - 1)
+            expansion = (-log(1 - t))^n << n
+            cs[n, :] = Arblib.coeffs(expansion)
+        end
+        cs
+    end
+
+    @assert all(Arblib.overlaps.(D_v2, D_v4))
+
+    #####
+    # Give upper bound of A_bound by summing whole rows
+    #####
+
+    A_bound_upper_v1 = 4sum(1:N) do n
+        sum(D_v2[n, m] / Arb(2)^m for m = 1:K) / Arb(2)^n
+    end
+
+    @assert A_bound_v6 < A_bound_upper_v1
+
+    #####
+    # Rewrite in terms of log
+    #####
+
+    A_bound_upper_v2 = 4sum(1:N) do n
+        (-log(1 - inv(Arb(2))))^n / 2
+    end
+
+    @show A_bound_upper_v1 A_bound_upper_v2
+
+    # v2 includes all terms in the m expansion
+    @assert A_bound_upper_v1 < A_bound_upper_v2
+    @assert isapprox(A_bound_upper_v1, A_bound_upper_v2, atol = 1e-5)
+
+    #####
+    # Explicitly compute sum
+    #####
+
+    A_bound_upper_v3 = 2 / (1 + log(1 - inv(Arb(2)))) - 2
+
+    @show A_bound_upper_v2 A_bound_upper_v3
+
+    # v3 includes all terms in the n expansion
+    @assert A_bound_upper_v2 < A_bound_upper_v3
+    @assert isapprox(A_bound_upper_v2, A_bound_upper_v3, atol = 1e-5)
+
+    #####
+    # Insert back into G22_2_2
+    #####
+
+    G22_2_2_upper_constant_v6 =
+        2^3 *
+        A_bound_upper_v3 *
+        sum(2:N) do n
+            ((1 + α) / 2)^(n - 1) * sum(0:n-1) do k
+                binomial(n, k) * γ^k * Arb(2)^(n - k)
+            end
+        end
+
+    @show G22_2_2_upper_constant_v6
+    @assert G22_2_2_upper_constant_v5 < G22_2_2_upper_constant_v6
+
+    G22_2_2_upper_constant_v7 =
+        2^3 * A_bound_upper_v3 * (1 + α) / 2 * ((2 + γ)^2 * sum(0:N) do n
+            ((1 + α) * (2 + γ) / 2)^n
+        end - γ^2 * sum(0:N) do n
+            ((1 + α) * γ / 2)^n
+        end)
+
+    @assert Arblib.overlaps(G22_2_2_upper_constant_v6, G22_2_2_upper_constant_v7)
+
+    G22_2_2_upper_constant_v8 =
+        2^3 * A_bound_upper_v3 * (1 + α) / 2 *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+
+    @assert Arblib.overlaps(G22_2_2_upper_constant_v7, G22_2_2_upper_constant_v8)
+
+    # Check that it works for α overlapping -1
+    G22_2_2_upper_constant_v9 = let α = union(Arb(-1), α)
+        2^3 * A_bound_upper_v3 * (1 + α) / 2 *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+    end
+
+    @show G22_2_2_upper_constant_v9
+    @assert Arblib.overlaps(G22_2_2_upper_constant_v8, G22_2_2_upper_constant_v9)
+
+    #####
+    # Give final closed form formula
+    #####
+
+    G22_2_2_upper_constant_final = let α = union(Arb(-1), α)
+        2^3 *
+        (inv(1 + log(1 - inv(Arb(2)))) - 1) *
+        (1 + α) *
+        ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+    end
+
+    @show G22_2_2_upper_constant_final
+    @assert Arblib.overlaps(G22_2_2_upper_constant_v9, G22_2_2_upper_constant_final)
+
+    return G22_2_2_upper_constant_final
 end
 
 
