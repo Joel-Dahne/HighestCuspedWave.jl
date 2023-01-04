@@ -312,14 +312,17 @@ G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *
                 t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
 
-If `x` is not too small it uses [`_T0_asymptotic_main_2_1`](@ref) and
-[`_T0_asymptotic_main_2_2`](@ref) to compute the integral by splitting
-the interval into ``[1, 2]`` and ``[2, π / x]``. Otherwise it uses the
+If `x` not overlapping zero it uses [`_T0_asymptotic_main_2_1`](@ref)
+and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral by
+splitting the interval of integration into ``[1, 2]`` and ``[2, π /
+x]``. This works well as long as `x` is not too small, in practice it
+is only used for `x > 1e-10`. When `x` overlaps zero it uses the
 approach described below.
-- **TODO:** What does "too small" mean? For now we always use this
-  approach since the approach described below is not finished. It
-  seems like it might be possible to use the below approach to handle
-  the interval `[0, 1e-10]` and the above approach for larger `x`.
+
+**TODO:** The documentation below is outdated and should be updated.
+The main work is done in the `_testing` methods corresponding to this
+method. The actual code should be correct but needs to be properly
+proved.
 
 ## Expanding integrand
 We want to get rid of the fractional exponents inside the integral. To
@@ -1429,21 +1432,29 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
     return x::Arb -> begin
         x < 1 || throw(DomainError(x, "must have x < 1"))
 
-        if Arblib.contains_zero(x) || x < 1e-5
-            # PROVE: That all terms here are as given
+        if Arblib.contains_zero(x)
+            # PROVE: That all of this is correct.
 
-            # Main term
-            # FIXME: Bound for α overlapping -1 and x overlapping zero
-            G21 =
-                let α = ubound(Arb, α),
-                    b = π / x,
-                    q0 = (1 + α) * (1 + γ),
-                    p0 = 1 + α + (1 + α)^2 / 2,
-                    D = Arb((-log(1 + c * x * b), log(1 + c * x * b)))
+            # IMPROVE: For now everything here is written to accept
+            # both x overlapping zero and x not overlapping zero.
+            # However we only use it for x overlapping zero so if we
+            # want we could remove all handling of non-zero x.
 
-                    (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) *
-                    ((D - log(x) - 1 / q0) * (1 - b^(-q0)) + log(b) * b^(-q0))
-                end
+            # Enclosure of inv(log(inv(x)))
+            invloginvx = if iszero(x)
+                zero(x)
+            elseif Arblib.contains_zero(x)
+                -Arb((inv(log(ubound(Arb, x))), 0))
+            else
+                -inv(log(x))
+            end
+
+            G21 = let D = Arb((-log(1 + c * π), log(1 + c * π)))
+                G21_1 = 2invloginvx
+                G21_2 = one(G21_1)
+
+                (2 + α) / (1 + γ) * (D * G21_1 + G21_2)
+            end
 
             # First factor of remainder term. Given by (1 + α) / ((1 -
             # x^p0))
@@ -1453,15 +1464,6 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                     inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), α + 1, extra_degree = 2))
                 end
                 Arb((lower, upper))
-            end
-
-            # Enclosure of inv(log(inv(x)))
-            invloginvx = if iszero(x)
-                zero(x)
-            elseif Arblib.contains_zero(x)
-                -Arb((inv(log(ubound(Arb, x))), 0))
-            else
-                -inv(log(x))
             end
 
             # First term in sum of second factor of remainder term
@@ -1559,8 +1561,6 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             G22 = G22_1 * G22_2
 
             G2 = G21 + G22
-
-            @show G21 G22_1 G22_2_1 G22_2_2_1_to_2 G22_2_2_2_to_π_div_x G22_2_2 G22_2_1 G22_2_2 G22_2 G22 G2
 
             return G2
         else
@@ -5157,6 +5157,399 @@ function _T0_asymptotic_main_2_testing_G22_2_1(
     @assert Arblib.overlaps(G22_2_1_v1, G22_2_1_final)
 end
 
+
+"""
+    _T0_asymptotic_main_2_testing_G21(x::Arb = Arb(1e-10), α::Arb = Arb(-0.9999), γ::Arb = Arb(0.5), c::Arb = 2Arb(ℯ))
+
+Method for testing the development of [`_T0_asymptotic_main_2`](@ref).
+The background for that method is very long and it is easy to make
+mistakes. This method tests a lot of the rewrites and simplifications
+that is done for [`_T0_asymptotic_main_2`](@ref) to catch any
+mistakes.
+
+This looks at evaluating `G21` from
+[`_T0_asymptotic_main_2_testing`](@ref) in a way that works for `α`
+overlapping `-1` and `x` overlapping zero.
+"""
+function _T0_asymptotic_main_2_testing_G21(
+    x::Arb = Arb(1e-10),
+    α::Arb = Arb(-0.9999),
+    γ::Arb = Arb(0.5),
+    c::Arb = 2Arb(ℯ),
+)
+
+    #####
+    # Starting point - same as in _T0_asymptotic_main_2_testing
+    #####
+
+    G21_v1 =
+        let a = one(x),
+            b = π / x,
+            q0 = (1 + α) * (1 + γ),
+            p0 = 1 + α + (1 + α)^2 / 2,
+            D = Arb((-log(1 + c * x * b), log(1 + c * x * b)))
+
+            (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) * (
+                (D - log(x) - inv(q0)) * (a^(-q0) - b^(-q0)) +
+                (log(b) * b^(-q0) - log(a) * a^(-q0))
+            )
+        end
+
+    @show G21_v1
+
+    #####
+    # To make testing easier temporarily take the upper bound of D
+    #####
+
+    G21_mid_v1 =
+        let a = one(x),
+            b = π / x,
+            q0 = (1 + α) * (1 + γ),
+            p0 = 1 + α + (1 + α)^2 / 2,
+            D = abs_ubound(Arb, Arb((-log(1 + c * x * b), log(1 + c * x * b))))
+
+            (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) * (
+                (D - log(x) - inv(q0)) * (a^(-q0) - b^(-q0)) +
+                (log(b) * b^(-q0) - log(a) * a^(-q0))
+            )
+        end
+
+    @show G21_mid_v1
+
+    @assert Arblib.overlaps(G21_v1, G21_mid_v1)
+
+    #####
+    # Factor out (2 + α) / (1 + γ) and split other factor into part
+    # with D and part without.
+    #####
+
+    G21_mid_part1_v1 = let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+
+        (1 - (x / π)^q0) / ((1 - x^p0) * log(inv(x)))
+    end
+
+    G21_mid_part2_v1 = let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+        (log(Arb(π)) * (x / π)^q0 - (1 - (x / π)^q0) / q0 - log(x)) / ((1 - x^p0) * log(inv(x)))
+    end
+
+
+    #####
+    # Explicitly insert a = 1 and simplify D
+    #####
+
+    G21_mid_v2 =
+        let b = π / x,
+            q0 = (1 + α) * (1 + γ),
+            p0 = 1 + α + (1 + α)^2 / 2,
+            D = abs_ubound(Arb, Arb((-log(1 + c * π), log(1 + c * π))))
+
+            (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) *
+            ((D - log(x) - inv(q0)) * (1 - b^(-q0)) + log(b) * b^(-q0))
+        end
+
+    @assert Arblib.overlaps(G21_mid_v1, G21_mid_v2)
+
+    #####
+    # Insert b = π / x
+    #####
+
+    G21_mid_v3 =
+        let q0 = (1 + α) * (1 + γ),
+            p0 = 1 + α + (1 + α)^2 / 2,
+            D = abs_ubound(Arb, Arb((-log(1 + c * π), log(1 + c * π))))
+
+            (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) *
+            ((D - log(x) - inv(q0)) * (1 - (x / π)^q0) + log(π / x) * (x / π)^q0)
+        end
+
+    @assert Arblib.overlaps(G21_mid_v2, G21_mid_v3)
+
+    #####
+    # Split terms in numerator
+    #####
+
+    G21_mid_v4 =
+        let q0 = (1 + α) * (1 + γ),
+            p0 = 1 + α + (1 + α)^2 / 2,
+            D = abs_ubound(Arb, Arb((-log(1 + c * π), log(1 + c * π))))
+
+            (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) * (
+                (D - inv(q0)) * (1 - (x / π)^q0) - log(x) +
+                log(x) * (x / π)^q0 +
+                log(Arb(π)) * (x / π)^q0 - log(x) * (x / π)^q0
+            )
+        end
+
+    @assert Arblib.overlaps(G21_mid_v3, G21_mid_v4)
+
+
+    #####
+    # Simplify numerator
+    #####
+
+    G21_mid_v5 =
+        let q0 = (1 + α) * (1 + γ),
+            p0 = 1 + α + (1 + α)^2 / 2,
+            D = abs_ubound(Arb, Arb((-log(1 + c * π), log(1 + c * π))))
+
+            (2 + α) / (1 + γ) / ((1 - x^p0) * log(inv(x))) *
+            ((D - inv(q0)) * (1 - (x / π)^q0) - log(x) + log(Arb(π)) * (x / π)^q0)
+        end
+
+    @assert Arblib.overlaps(G21_mid_v4, G21_mid_v5)
+
+    #####
+    # Factor out (2 + α) / (1 + γ) and split other factor into part
+    # with D and part without.
+    #####
+
+    G21_mid_part1_v1 = let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+
+        (1 - (x / π)^q0) / ((1 - x^p0) * log(inv(x)))
+    end
+
+    G21_mid_part2_v1 = let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+        (log(Arb(π)) * (x / π)^q0 - (1 - (x / π)^q0) / q0 - log(x)) / ((1 - x^p0) * log(inv(x)))
+    end
+
+    G21_mid_v6 = let D = abs_ubound(Arb, Arb((-log(1 + c * π), log(1 + c * π))))
+        (2 + α) / (1 + γ) * (D * G21_mid_part1_v1 + G21_mid_part2_v1)
+    end
+
+    @show G21_mid_part1_v1 G21_mid_part2_v1 G21_mid_v6
+
+    @assert Arblib.overlaps(G21_mid_v5, G21_mid_v6)
+
+    #####
+    # Write G21_mid_part1 in terms of exp
+    #####
+
+    G21_mid_part1_v2 = let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+
+        (1 - exp(log(x / π) * q0)) / (1 - exp(log(x) * p0)) / log(inv(x))
+    end
+
+    @assert Arblib.overlaps(G21_mid_part1_v1, G21_mid_part1_v2)
+
+    #####
+    # Write in terms of t = log(x) * p0
+    #####
+
+    G21_mid_part1_v3 =
+        let p0 = 1 + α + (1 + α)^2 / 2,
+            t = log(x) * p0,
+            C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
+
+            (1 - exp(C * t)) / (1 - exp(t)) / log(inv(x))
+        end
+
+    @assert Arblib.overlaps(G21_mid_part1_v2, G21_mid_part1_v3)
+
+    #####
+    # Split into two terms by adding and subtracting exp(t) to the
+    # numerator
+    #####
+
+    G21_mid_part1_v4 =
+        let p0 = 1 + α + (1 + α)^2 / 2,
+            t = log(x) * p0,
+            C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
+
+            (1 + exp(t) * (1 - exp((C - 1) * t)) / (1 - exp(t))) / log(inv(x))
+        end
+
+    @assert Arblib.overlaps(G21_mid_part1_v3, G21_mid_part1_v4)
+
+    #####
+    # Upper bound by using that exp((C - 1) * t) > exp(t)
+    #####
+
+    G21_mid_part1_upper_v1 =
+        let p0 = 1 + α + (1 + α)^2 / 2,
+            t = log(x) * p0,
+            C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
+
+            @assert C > 1
+
+            (1 + exp(t)) / log(inv(x))
+        end
+
+    @assert G21_mid_part1_v4 < G21_mid_part1_upper_v1
+
+    #####
+    # Upper bound by using that t <= 0 and evaluate for x overlapping zero
+    #####
+
+    G21_mid_part1_upper_final = let x = union(x, zero(x))
+        invloginvx = if iszero(x)
+            zero(x)
+        elseif Arblib.contains_zero(x)
+            -Arb((inv(log(ubound(Arb, x))), 0))
+        else
+            -inv(log(x))
+        end
+
+        2invloginvx
+    end
+
+    @show G21_mid_part1_upper_final
+    @assert isfinite(G21_mid_part1_upper_final)
+    @assert Arblib.overlaps(G21_mid_part1_upper_v1, G21_mid_part1_upper_final)
+
+    #####
+    # We want to prove that G21_mid_part2 is bounded by 1. To begin
+    # with we check that this seems to be the case and that the bound
+    # seems sharp
+    #####
+
+    G21_mid_part2_v2(x, α) =
+        let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+            (log(Arb(π)) * (x / π)^q0 - (1 - (x / π)^q0) / q0 - log(x)) /
+            ((1 - x^p0) * log(inv(x)))
+        end
+
+    for x in exp.(range(log(Arb("1e-100000")), log(Arb("1e-1")), 100))
+        for α in -1 .+ exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), 100))
+            @assert G21_mid_part2_v2(x, α) < 1
+        end
+    end
+
+    @assert isapprox(G21_mid_part2_v2(Arb("1e-100000"), Arb("1e-10")), 1, atol = 1e-5)
+
+    #####
+    # Rewrite expression - multiplying with q0 and using exp
+    #####
+
+    G21_mid_part2_v3 = let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+        -(
+            q0 * log(Arb(π)) * exp(q0 * log(x) - q0 * log(Arb(π))) - 1 +
+            exp(q0 * log(x) - q0 * log(Arb(π))) - q0 * log(x)
+        ) / ((1 - exp(p0 * log(x))) * q0 * log(x))
+    end
+
+    @assert Arblib.overlaps(G21_mid_part2_v1, G21_mid_part2_v3)
+
+    #####
+    # Rewrite in terms of s = q0 * log(π), t = q0 * log(x) and h = p0
+    # / q0 = (1 + (1 + α) / 2) / (1 + γ). From α ∈ [-1, 0] and x ∈ [0,
+    # 1] we get q0, p0 ∈ [0, 2] and from there s ∈ [0, 2log(π)], t ∈
+    # [-∞, 0] and h ∈ [1 / (1 + γ), 2]. Note that these enclosures are way
+    # larger than needed, but enough for what we need.
+    #####
+
+    G21_mid_part2_v4 =
+        let q0 = (1 + α) * (1 + γ),
+            s = q0 * log(Arb(π)),
+            t = q0 * log(x),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            -(s * exp(t - s) - 1 + exp(t - s) - t) / ((1 - exp(h * t)) * t)
+        end
+
+    @assert Arblib.overlaps(G21_mid_part2_v3, G21_mid_part2_v4)
+
+    # Check enclosures of s, t and h
+
+    s_enclosure = Arb((0, 2log(Arb(π))))
+    h_enclosure = Arb((1 / (1 + γ), 2))
+
+    for x in exp.(range(log(Arb("1e-100000")), log(Arb("1e-1")), 100))
+        for α in -1 .+ exp.(range(log(Arb("1e-10")), log(Arb("1e-1")), 100))
+            let q0 = (1 + α) * (1 + γ), p0 = 1 + α + (1 + α)^2 / 2
+                @assert contains(s_enclosure, q0 * log(Arb(π)))
+                @assert Arblib.isnegative(q0 * log(x))
+                @assert contains(h_enclosure, p0 / q0)
+            end
+        end
+    end
+
+    #####
+    # Simplify slightly
+    #####
+
+    G21_mid_part2_v5 =
+        let q0 = (1 + α) * (1 + γ),
+            s = q0 * log(Arb(π)),
+            t = q0 * log(x),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            (1 + t - exp(t - s) * (1 + s)) / ((1 - exp(h * t)) * t)
+        end
+
+    @assert Arblib.overlaps(G21_mid_part2_v4, G21_mid_part2_v5)
+
+    #####
+    # We want to prove that this is bounded by 1. Since denominator is
+    # negative we want to check that numerator minus denominator is
+    # positive.
+    #####
+
+    G21_mid_part2_inequality_v1 =
+        let q0 = (1 + α) * (1 + γ),
+            s = q0 * log(Arb(π)),
+            t = q0 * log(x),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            (1 + t - exp(t - s) * (1 + s)) - ((1 - exp(h * t)) * t)
+        end
+
+    @show G21_mid_part2_inequality_v1
+
+    @assert G21_mid_part2_inequality_v1 > 0
+
+
+    #####
+    # Simplify expression
+    #####
+
+    G21_mid_part2_inequality_v2 =
+        let q0 = (1 + α) * (1 + γ),
+            s = q0 * log(Arb(π)),
+            t = q0 * log(x),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            1 + t * exp(h * t) - (1 + s) * exp(t - s)
+        end
+
+    @assert Arblib.overlaps(G21_mid_part2_inequality_v1, G21_mid_part2_inequality_v2)
+
+    #####
+    # Since both t * exp(h * t) and -(1 + s) * exp(t - s) are
+    # non-positive this is clearly bounded by 1. Which is what we
+    # wanted to prove.
+    #####
+
+    let q0 = (1 + α) * (1 + γ),
+        s = q0 * log(Arb(π)),
+        t = q0 * log(x),
+        h = (1 + (1 + α) / 2) / (1 + γ)
+
+        @assert t * exp(h * t) < 0
+        @assert -(1 + s) * exp(t - s) < 0
+    end
+
+    G21_mid_part2_upper_final = one(x)
+
+    @assert G21_mid_part2_v5 < G21_mid_part2_upper_final
+
+    #####
+    # Insert back into G21
+    #####
+
+    G21_mid_final = let D = abs_ubound(Arb, Arb((-log(1 + c * π), log(1 + c * π))))
+        (2 + α) / (1 + γ) * (D * G21_mid_part1_upper_final + G21_mid_part2_upper_final)
+    end
+
+    @assert G21_mid_v6 < G21_mid_final
+
+    G21_final = let D = Arb((-log(1 + c * π), log(1 + c * π)))
+        (2 + α) / (1 + γ) * (D * G21_mid_part1_upper_final + G21_mid_part2_upper_final)
+    end
+
+    @assert !(G21_v1 > G21_final)
+
+    @show G21_final
+end
 
 """
     _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
