@@ -136,19 +136,29 @@ end
 
 
 function (u0::FractionalKdVAnsatz)(x, ::Ball)
-    res = zero(u0.α)
-
+    s = 1 - u0.α
     if u0.use_bhkdv
-        s = 1 - u0.α
-        res += u0.a[0] * clausencmzeta_diff(x, s, u0.p0)
+        res = u0.a[0] * clausencmzeta_diff(x, s, u0.p0)
     else
-        s = 1 - u0.α
-        res += u0.a[0] * clausencmzeta(x, s)
+        res = u0.a[0] * clausencmzeta(x, s)
     end
 
+    onemα = copy(s)
     for j = 1:u0.N0
-        s = 1 - u0.α + j * u0.p0
-        res += u0.a[j] * clausencmzeta(x, s)
+        if s isa Arb
+            Arblib.fma!(s, u0.p0, j, onemα)
+        else
+            s = onemα + j * u0.p0
+        end
+        term = clausencmzeta(x, s)
+        if res isa Arb
+            Arblib.addmul!(res, u0.a[j], term)
+        elseif res isa ArbSeries
+            Arblib.mul!(term, term, u0.a[j])
+            Arblib.add!(res, res, term)
+        else
+            res += u0.a[j] * term
+        end
     end
 
     for n = 1:u0.N1
@@ -296,19 +306,29 @@ end
 
 function H(u0::FractionalKdVAnsatz, ::Ball)
     return x -> begin
-        res = zero(u0.α)
-
+        s = 1 - 2u0.α
         if u0.use_bhkdv
-            s = 1 - 2u0.α
-            res -= u0.a[0] * clausencmzeta_diff(x, s, u0.p0)
+            res = -u0.a[0] * clausencmzeta_diff(x, s, u0.p0)
         else
-            s = 1 - 2u0.α
-            res -= u0.a[0] * clausencmzeta(x, s)
+            res = -u0.a[0] * clausencmzeta(x, s)
         end
 
+        onem2α = copy(s)
         for j = 1:u0.N0
-            s = 1 - 2u0.α + j * u0.p0
-            res -= u0.a[j] * clausencmzeta(x, s)
+            if s isa Arb
+                Arblib.fma!(s, u0.p0, j, onem2α)
+            else
+                s = onem2α + j * u0.p0
+            end
+            term = clausencmzeta(x, s)
+            if res isa Arb
+                Arblib.submul!(res, u0.a[j], term)
+            elseif res isa ArbSeries
+                Arblib.mul!(term, term, u0.a[j])
+                Arblib.sub!(res, res, term)
+            else
+                res -= u0.a[j] * term
+            end
         end
 
         for n = 1:u0.N1
