@@ -34,7 +34,7 @@ the interval ``[0, ϵ1]`` can be handled in one evaluation.
 function delta0_bound(
     u0::FractionalKdVAnsatz{Arb};
     M::Integer = 10,
-    degree::Integer = ifelse(u0.N0 > 100, 4, 6),
+    degree::Integer = u0.N0 > 100 ? (midpoint(u0.α) < -0.99985 ? 2 : 4) : 6,
     rtol = Arb(1e-3),
     ubound_tol = nothing,
     threaded = true,
@@ -138,7 +138,7 @@ function delta0_bound(
         lbound(ϵ2),
         ubound(Arb(π)),
         abs_value = true,
-        depth_start = 2;
+        depth_start = midpoint(u0.α) < -0.99985 ? 5 : 2;
         rtol,
         atol,
         ubound_tol,
