@@ -651,7 +651,7 @@ get the series for `(abs(x)^t - 1) / t` we first compute the
 derivative, then integrate and set the constant according to
 `x_pow_t_div_t(x[0], 0, t)`. The derivative is given by
 ```
-x' * x^(t - 1)
+abs(x)' * abs(x)^(t - 1)
 ```
 where `x'` denotes the derivative of `x`.
 """
@@ -665,14 +665,21 @@ function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
     # Only constant term
     iszero(Arblib.degree(x)) && return ArbSeries(x_pow_s_x_pow_t_m1_div_t(x[0], s, t))
 
-    # Compute x' * x^(t - 1) with one degree lower and then integrate
-    res = Arblib.integral(
-        Arblib.derivative(abs(x)) *
-        abspow(x, ArbSeries(t, degree = Arblib.degree(x) - 1) - 1),
-    )
+    res = let absx = abs(x)
+        # Compute x' * x^(t - 1) with one degree lower
+        dres = let tmp1 = ArbSeries(absx, degree = Arblib.degree(x) - 1)
+            xtm1 = abspow(tmp1, t - 1)
+            Arblib.derivative!(tmp1, absx)
+            Arblib.mullow!(tmp1, tmp1, xtm1, length(tmp1))
+        end
+
+        # Integrate
+        res = Arblib.integral!(absx, dres) # Reuse absx
+    end
+
     # Set the constant of integration correctly
     res[0] = x_pow_s_x_pow_t_m1_div_t(x[0], zero(s), t)
 
     # Multiply with series for abs(x)^s
-    return abspow(x, s) * res
+    return Arblib.mullow!(res, res, abspow(x, s), length(res))
 end
