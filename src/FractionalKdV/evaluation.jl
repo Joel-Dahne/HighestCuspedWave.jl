@@ -747,14 +747,24 @@ function _F0_bhkdv(
 )
     @assert u0.use_bhkdv
 
-    if isnothing(skip_singular_j_until)
-        skip_singular_j_until =
-            min(findlast(j -> 1 - 2u0.α + j * u0.p0 < 3.2, 1:u0.N0)::Int, 100)
+    # Store in variable set to ::Int. Otherwise it fails with
+    # determining the type properly.
+    skip_singular_j_until_int::Int = if isnothing(skip_singular_j_until)
+        min(findlast(j -> 1 - 2u0.α + j * u0.p0 < 3.2, 1:u0.N0)::Int, 100)
+    else
+        skip_singular_j_until
     end
 
     u0_expansion = u0(ϵ, AsymptoticExpansion(), skip_main = true; M)
-    Hu0_expansion =
-        H(u0, AsymptoticExpansion(), skip_main = true; M, skip_singular_j_until)(ϵ)
+    Hu0_expansion = H(
+        u0,
+        AsymptoticExpansion(),
+        skip_main = true,
+        skip_singular_j_until = skip_singular_j_until_int;
+        M,
+    )(
+        ϵ,
+    )
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
@@ -835,7 +845,7 @@ function _F0_bhkdv(
         Hu0_part3_divpα = let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α
             -clausenc_expansion_odd_s_singular_K3(1) *
             ArbExtras.enclosure_series(x) do x
-                sum(1:min(skip_singular_j_until, u0.N0), init = zero(x)) do j
+                sum(1:min(skip_singular_j_until_int, u0.N0), init = zero(x)) do j
                     u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * u0.p0)
                 end
             end
