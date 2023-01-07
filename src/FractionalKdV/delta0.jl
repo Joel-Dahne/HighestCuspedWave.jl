@@ -128,7 +128,7 @@ function delta0_bound(
 
     # Ball evaluation is expensive and we are worried about extra
     # evaluations, the tolerances are therefore set rather high.
-    estimate = max(abs(g(ϵ2)), abs(g(Arb(π))))
+    estimate = max(gϵ2, abs(g(Arb(π))))
     atol = max(max_asymptotic / 2, 1.5radius(gϵ2))
     ubound_tol = max(ubound_tol, ubound(Arb, max_asymptotic), ubound(Arb, estimate))
 
