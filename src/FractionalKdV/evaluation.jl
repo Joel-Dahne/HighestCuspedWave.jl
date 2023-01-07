@@ -842,12 +842,23 @@ function _F0_bhkdv(
             eval_expansion(u0, Hu0_expansion, x, offset = -u0.p, offset_i = -1)
 
         # Hu0_part3 / x^(p - α)
-        Hu0_part3_divpα = let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α
+        Hu0_part3_divpα = let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α, tmp = zero(v2)
             -clausenc_expansion_odd_s_singular_K3(1) *
             ArbExtras.enclosure_series(x) do x
-                sum(1:min(skip_singular_j_until_int, u0.N0), init = zero(x)) do j
-                    u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * u0.p0)
+                S = zero(x)
+                for j = 1:min(skip_singular_j_until_int, u0.N0)
+                    # Compute
+                    # S += u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * p0)
+                    Arblib.fma!(tmp, u0.p0, j, v2)
+                    term = x_pow_s_x_pow_t_m1_div_t(x, v1, tmp)
+                    if x isa Arb
+                        Arblib.addmul!(S, term, u0.a[j])
+                    else
+                        Arblib.mul!(term, term, u0.a[j])
+                        Arblib.add!(S, S, term)
+                    end
                 end
+                S
             end
         end
 
