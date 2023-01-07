@@ -1,5 +1,16 @@
 export iswide
 
+# There is no version of this in Arblib
+function Arblib.indeterminate!(x::Union{ArbSeries,AcbSeries})
+    for i = 0:Arblib.degree(x)
+        Arblib.indeterminate!(Arblib.ref(x, i))
+    end
+    # Since we manually set the coefficients of the polynomial we
+    # need to also manually set the degree.
+    Arblib.cstruct(x).length = Arblib.degree(x) + 1
+    return x
+end
+
 """
     indeterminate(x)
 
@@ -7,17 +18,7 @@ Construct an indeterminate version of `x`.
 """
 indeterminate(x::Union{Arblib.ArbOrRef,Arblib.AcbOrRef}) = Arblib.indeterminate!(zero(x))
 indeterminate(::Type{T}) where {T<:Union{Arb,Acb}} = Arblib.indeterminate!(zero(T))
-
-function indeterminate(x::Union{ArbSeries,AcbSeries})
-    res = zero(x)
-    for i = 0:Arblib.degree(x)
-        Arblib.indeterminate!(Arblib.ref(res, i))
-    end
-    # Since we manually set the coefficients of the polynomial we
-    # need to also manually set the degree.
-    Arblib.cstruct(res).length = Arblib.degree(x) + 1
-    return res
-end
+indeterminate(x::Union{ArbSeries,AcbSeries}) = Arblib.indeterminate!(zero(x))
 
 """
     mince(x::Arb, n::Integer)
@@ -115,6 +116,22 @@ function unique_integer(x::Arblib.ArbOrRef)
     return !iszero(unique), Int(res)
 end
 
+# See documentation for abs(x::ArbSeries) for behaviour
+function Arblib.abs!(res::ArbSeries, x::ArbSeries)
+    Arblib.degree(res) == Arblib.degree(x) ||
+        throw(ArgumentError("res and x should have the same degree"))
+    sgn = Arblib.sgn_nonzero(Arblib.ref(x, 0))
+    if sgn == 0
+        Arblib.indeterminate!(res)
+        Arblib.abs!(Arblib.ref(res, 0), Arblib.ref(x, 0))
+        return Arblib.normalise!(res)
+    elseif sgn < 0
+        return Arblib.neg!(res, x)
+    else
+        return Arblib.set!(res, x)
+    end
+end
+
 """
     abs(x::ArbSeries)
 
@@ -124,15 +141,4 @@ If `x[0]` contains zero then all non-constant terms are set to `NaN`,
 otherwise either `-x` or `x` is returned depending on the sign of
 `x[0]`.
 """
-function Base.abs(x::ArbSeries)
-    if Arblib.contains_zero(Arblib.ref(x, 0))
-        res = indeterminate(x)
-        Arblib.abs!(Arblib.ref(res, 0), Arblib.ref(x, 0))
-        Arblib.normalise!(res)
-        return res
-    elseif Arblib.isnegative(Arblib.ref(x, 0))
-        return -x
-    else
-        return copy(x)
-    end
-end
+Base.abs(x::ArbSeries) = Arblib.abs!(zero(x), x)
