@@ -18,7 +18,7 @@ evaluation with ball arithmetic. The value of `ϵ1` is taken such that
 the interval ``[0, ϵ1]`` can be handled in one evaluation.
 
 # Arguments
-- `M::Integer = 5`: Number of terms to use in the asymptotic
+- `M::Integer = 10`: Number of terms to use in the asymptotic
   expansions.
 - `degree::Integer = ifelse(u0.N0 > 100, 4, 6)`: Degree used for
   [`ArbExtras.maximum_enclosure`](@ref).
@@ -33,7 +33,7 @@ the interval ``[0, ϵ1]`` can be handled in one evaluation.
 """
 function delta0_bound(
     u0::FractionalKdVAnsatz{Arb};
-    M::Integer = 5,
+    M::Integer = 10,
     degree::Integer = ifelse(u0.N0 > 100, 4, 6),
     rtol = Arb(1e-3),
     ubound_tol = nothing,
