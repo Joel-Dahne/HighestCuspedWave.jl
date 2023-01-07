@@ -792,13 +792,21 @@ function _F0_bhkdv(
         @assert x <= ϵ
 
         # part1 / x^(u0.p - u0.α)
-        # abspow(x, y::ArbSeries) only supports y of degree at most 2
-        # when x overlaps with zero. We therefore lower the degree
-        # used in this case.
-        part1_divpα = ArbExtras.enclosure_series(
-            u0.α,
-            degree = ifelse(Arblib.contains_zero(x), 1, 3),
-        ) do α
+        degree = if Arblib.contains_zero(x)
+            # abspow(x, y::ArbSeries) only supports y of degree at most 2
+            # when x overlaps with zero. We therefore lower the degree
+            # used in this case.
+            1
+        elseif Float64(u0.α) < -0.99985
+            # Degree 3 gives slightly better enclosures but many more
+            # allocations. For α close to -1 we are worried about
+            # memory usage and it seems like degree 2 is good enough
+            # in that case as well.
+            2
+        else
+            3
+        end
+        part1_divpα = ArbExtras.enclosure_series(u0.α; degree) do α
             cα = c(α)
             c2α = c(2α)
             cαmp0 = c(α - u0.p0)
