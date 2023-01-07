@@ -883,7 +883,7 @@ separately. This gives better enclosures for `α` close to `-1`.
 function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb = one(Arb))
     expansion = u0(ϵ, AsymptoticExpansion(), skip_main = u0.use_bhkdv; M)
 
-    C1, C2 = if u0.use_bhkdv
+    C1::Arb, C2::Arb = if u0.use_bhkdv
         let s = 1 - u0.α
             C1 = clausenc_expansion_main(s)
             C2 = clausenc_expansion_main(s + u0.p0)
