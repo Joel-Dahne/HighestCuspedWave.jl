@@ -69,6 +69,45 @@ function D0_bounded_by(
 
     verbose && @info "Bound holds on [ϵ2, ϵ]"
 
+    # In practice u0 is increasing on [0, π]. Try to prove that this is
+    # the case on the interval [ϵ, b] with b < π.
+    # IMPROVE: Write about this in the documentation.
+    b = Arf(3.14)
+
+    verbose && @info "Trying to prove that u0 is increasing on [ϵ, b]" b
+
+    # Try to prove that minus the derivative of u0 is non-positive,
+    # meaning the derivative is non-negative.
+    is_increasing = ArbExtras.bounded_by(
+        ϵ,
+        b,
+        Arf(0),
+        degree = 0,
+        depth_start = 2,
+        depth = 4,
+        threaded = true;
+        verbose,
+    ) do x
+        # IMPROVE: Compute derivative directly instead of by using
+        # ArbSeries.
+        if x isa Arb
+            -u0(ArbSeries((x, 1)))[1]
+        elseif Arblib.degree(x) == 0
+            -Arblib.derivative(u0(ArbSeries((x[0], 1))))
+        else
+            -Arblib.derivative(u0(ArbSeries(x, degree = Arblib.degree(x) + 1)))
+        end
+    end
+
+    if verbose
+        if is_increasing
+            @info "Succeeded with proving that it is increasing"
+        else
+            # This means we fall back to using enclosure_series
+            @info "Failed with proving that it is increasing"
+        end
+    end
+
     g = T0(u0, Ball(), skip_div_u0 = true)
 
     h(x) = begin
@@ -76,7 +115,24 @@ function D0_bounded_by(
 
         isfinite(res) || return res
 
-        u0x = ArbExtras.enclosure_series(u0, x)
+        u0x = if iswide(x)
+            if is_increasing && x < b
+                xₗ, xᵤ = getinterval(Arb, x)
+                # IMPROVE: It would be nice to precompute these so we
+                # don't have two compute all of them twice. The issue
+                # is that they way maximum_enclosure works when degree
+                # = -1 makes it so that the right endpoint of one x is
+                # not exactly the same as the left endpoint of the
+                # next x.
+                u0xₗ = u0(xₗ)
+                u0xᵤ = u0(xᵤ)
+                Arb((u0xₗ, u0xᵤ))
+            else
+                ArbExtras.enclosure_series(u0, x)
+            end
+        else
+            u0(x)
+        end
 
         res /= u0x
 
