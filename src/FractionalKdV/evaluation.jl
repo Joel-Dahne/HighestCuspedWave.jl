@@ -808,6 +808,35 @@ function _F0_bhkdv(
         return π * gamma(s + 2) * sinc_sp2 / 2s
     end
 
+    # We make use of the values c(α), c(2α), c(α - u0.p0), c(2α -
+    # u0.p0) and zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0). Since they
+    # don't depend on x it is possible to precompute them once and for
+    # all. However since they are used inside
+    # ArbExtras.enclosure_series it is a bit complicated to determine
+    # exactly for which values of α we need to compute it. Instead we
+    # compute it on the go and store in a dictionary.
+    # IMPROVE: Dict is not fully thread-safe and in principle this
+    # could lead to issues. However, in our case the value is fully
+    # determined from the key and it doesn't matter if we lose any
+    # updates since it will just compute the value directly instead.
+    # But it could be worth looking more into exactly what could
+    # happen.
+
+    # Dicts for storing values
+    c_precomputed_Arb = Dict{Arb,NTuple{5,Arb}}()
+    c_precomputed_ArbSeries = Dict{ArbSeries,NTuple{5,ArbSeries}}()
+
+    # Function to compute values for a given α
+    c_precompute(α) =
+        () -> (
+            c(α),
+            c(2α),
+            c(α - u0.p0),
+            c(2α - u0.p0),
+            zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0),
+        )
+
+
     return (x::Arb) -> begin
         @assert x <= ϵ
 
@@ -827,16 +856,17 @@ function _F0_bhkdv(
             3
         end
         part1_divpα = ArbExtras.enclosure_series(u0.α; degree) do α
-            cα = c(α)
-            c2α = c(2α)
-            cαmp0 = c(α - u0.p0)
+            cα, c2α, cαmp0, c2αmp0, z = if α isa Arb
+                get!(c_precompute(α), c_precomputed_Arb, α)
+            else # α isa ArbSeries
+                get!(c_precompute(α), c_precomputed_ArbSeries, α)
+            end
             if Arblib.contains_zero(x)
                 2c2α / cα^2 *
                 abspow(x, -α + u0.p0 - u0.p) *
                 (
-                    c(2α - u0.p0) - 2c2α * cαmp0 / cα + (
-                        (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 *
-                        abspow(x, 2 + 2α - u0.p0) +
+                    c2αmp0 - 2c2α * cαmp0 / cα + (
+                        z / 2 * abspow(x, 2 + 2α - u0.p0) +
                         c2α * (cαmp0 / cα)^2 * abspow(x, u0.p0)
                     )
                 )
@@ -844,19 +874,21 @@ function _F0_bhkdv(
                 2c2α / cα^2 *
                 abspow(x, -α + u0.p0 - u0.p) *
                 (
-                    c(2α - u0.p0) - 2c2α * cαmp0 / cα +
-                    (
-                        (zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0)) / 2 +
-                        c2α * (cαmp0 / cα)^2 * abspow(x, -2 - 2α + 2u0.p0)
-                    ) * abspow(x, 2 + 2α - u0.p0)
+                    c2αmp0 - 2c2α * cαmp0 / cα +
+                    (z / 2 + c2α * (cαmp0 / cα)^2 * abspow(x, -2 - 2α + 2u0.p0)) *
+                    abspow(x, 2 + 2α - u0.p0)
                 )
             end
         end
 
         # u0_part1 / x^-u0.α
         u0_part1_divα = ArbExtras.enclosure_series(u0.α, degree = 1) do α
-            cα = c(α)
-            2c(2α) / cα^2 * (cα - c(α - u0.p0) * abspow(x, u0.p0))
+            cα, c2α, cαmp0, _, _ = if α isa Arb
+                get!(c_precompute(α), c_precomputed_Arb, α)
+            else # α isa ArbSeries
+                get!(c_precompute(α), c_precomputed_ArbSeries, α)
+            end
+            2c2α / cα^2 * (cα - cαmp0 * abspow(x, u0.p0))
         end
 
         # u0_part2 / x^p
