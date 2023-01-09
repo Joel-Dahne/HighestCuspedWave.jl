@@ -3,6 +3,7 @@
 # Run with sbatch --partition=shared PDC/slurm-test.sh
 #SBATCH --job-name run_proof
 #SBATCH --account snic2022-22-821
+#SBATCH --mail-type=ALL
 #SBATCH --time 04:00:00
 
 #SBATCH --nodes=1
