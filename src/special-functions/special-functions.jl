@@ -588,16 +588,44 @@ grows extremely quickly in `x` near `x = 0` in that case. It would be
 possibly to improve the current version by checking for monotonicity
 in `x`, however we might not need to do that.
 """
-function x_pow_s_x_pow_t_m1_div_t(x::Arb, s::Arb, t::Arb)
+function x_pow_s_x_pow_t_m1_div_t(x::Arblib.ArbOrRef, s::Arb, t::Arb)
     iszero(t) && return logabspow(x, 1, s)
 
     if Arblib.contains_zero(t) || iswide(t)
         # Use that it is non-decreasing in t
-        tₗ, tᵤ = getinterval(Arb, t)
-        return Arb((x_pow_s_x_pow_t_m1_div_t(x, s, tₗ), x_pow_s_x_pow_t_m1_div_t(x, s, tᵤ)))
+        if Arblib.contains_zero(x)
+            # Avoid reimplementing this special case
+            tₗ, tᵤ = getinterval(Arb, t)
+            return Arb((
+                x_pow_s_x_pow_t_m1_div_t(x, s, tₗ),
+                x_pow_s_x_pow_t_m1_div_t(x, s, tᵤ),
+            ))
+        else
+            # Manually implement this case for performance reasons
+
+            # resₗ = resᵤ = log(abs(x))
+            resₗ = abs(x)
+            Arblib.log!(resₗ, resₗ)
+            resᵤ = copy(resₗ)
+
+            t0 = lbound(Arb, t)
+            Arblib.mul!(resₗ, resₗ, t0)
+            Arblib.expm1!(resₗ, resₗ)
+            Arblib.div!(resₗ, resₗ, t0)
+
+            Arblib.get_ubound!(Arblib.midref(t0), t)
+            Arblib.mul!(resᵤ, resᵤ, t0)
+            Arblib.expm1!(resᵤ, resᵤ)
+            Arblib.div!(resᵤ, resᵤ, t0)
+
+            Arblib.union!(resₗ, resₗ, resᵤ)
+            abspow!(resᵤ, x, s)
+            return Arblib.mul!(resₗ, resₗ, resᵤ)
+        end
     end
 
     if Arblib.contains_zero(x)
+        x = convert(Arb, x) # This case doesn't handle ArbRef
         # We don't work as hard to get a good enclosure or good
         # performance in this case
         if Arblib.contains_zero(t)
@@ -658,12 +686,13 @@ where `x'` denotes the derivative of `x`.
 function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
     if Arblib.contains_zero(Arblib.ref(x, 0))
         res = indeterminate(x)
-        res[0] = x_pow_s_x_pow_t_m1_div_t(x[0], s, t)
+        res[0] = x_pow_s_x_pow_t_m1_div_t(Arblib.ref(x, 0), s, t)
         return res
     end
 
     # Only constant term
-    iszero(Arblib.degree(x)) && return ArbSeries(x_pow_s_x_pow_t_m1_div_t(x[0], s, t))
+    iszero(Arblib.degree(x)) &&
+        return ArbSeries(x_pow_s_x_pow_t_m1_div_t(Arblib.ref(x, 0), s, t))
 
     res = let absx = abs(x)
         # Compute x' * x^(t - 1) with one degree lower
@@ -678,7 +707,7 @@ function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
     end
 
     # Set the constant of integration correctly
-    res[0] = x_pow_s_x_pow_t_m1_div_t(x[0], zero(s), t)
+    res[0] = x_pow_s_x_pow_t_m1_div_t(Arblib.ref(x, 0), zero(s), t)
 
     # Multiply with series for abs(x)^s
     return Arblib.mullow!(res, res, abspow(x, s), length(res))
