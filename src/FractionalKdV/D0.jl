@@ -84,7 +84,7 @@ function D0_bounded_by(
         Arf(0),
         degree = 0,
         depth_start = 2,
-        depth = 4,
+        depth = 5,
         threaded = true;
         verbose,
     ) do x
