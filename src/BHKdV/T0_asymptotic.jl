@@ -1450,7 +1450,11 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             end
 
             G21 = let D = Arb((-log(1 + c * π), log(1 + c * π)))
-                G21_1 = 2invloginvx
+                G21_1 = if x < inv(Arb(π)^3) # Required for the bound we use
+                    2invloginvx
+                else
+                    indeterminate(x)
+                end
                 G21_2 = one(G21_1)
 
                 (2 + α) / (1 + γ) * (D * G21_1 + G21_2)
@@ -5361,7 +5365,7 @@ function _T0_asymptotic_main_2_testing_G21(
     @assert Arblib.overlaps(G21_mid_part1_v3, G21_mid_part1_v4)
 
     #####
-    # Upper bound by using that exp((C - 1) * t) > exp(t)
+    # Upper bound using that t < 0 so exp(t) < 1
     #####
 
     G21_mid_part1_upper_v1 =
@@ -5369,15 +5373,50 @@ function _T0_asymptotic_main_2_testing_G21(
             t = log(x) * p0,
             C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
 
-            @assert C > 1
-
-            (1 + exp(t)) / log(inv(x))
+            (1 + (1 - exp((C - 1) * t)) / (1 - exp(t))) / log(inv(x))
         end
 
     @assert G21_mid_part1_v4 < G21_mid_part1_upper_v1
 
     #####
-    # Upper bound by using that t <= 0 and evaluate for x overlapping zero
+    # We want to bound the quotient using that exp((C - 1) * t) >
+    # exp(t). For this to hold we must have (C - 1) * t > t. Since t
+    # is negative this corresponds to C < 2.
+    #####
+
+    G21_mid_part1_upper_v2 =
+        let p0 = 1 + α + (1 + α)^2 / 2,
+            t = log(x) * p0,
+            C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
+
+            @assert C < 2
+
+            2 / log(inv(x))
+        end
+
+    @assert G21_mid_part1_upper_v1 < G21_mid_part1_upper_v2
+
+    #####
+    # However, C < 2 doesn't hold for all values of x. Since 1 + (1 +
+    # α) / 2 > 1 an upper bound for C is given by (1 + γ) * (1 -
+    # log(Arb(π)) / log(x)). For this to be bounded by 2 we must have
+    # x > π^((1 + γ) / (1 - γ)).
+    #####
+
+    let x = 1.001 * inv(Arb(π)^((1 + γ) / (1 - γ))),
+        C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
+
+        @assert !(C < 2)
+    end
+
+    let x = 0.999 * inv(Arb(π)^((1 + γ) / (1 - γ))),
+        C = (1 + γ) / (1 + (1 + α) / 2) * (1 - log(Arb(π)) / log(x))
+
+        @assert C < 2
+    end
+
+    #####
+    # Evaluate for x overlapping zero
     #####
 
     G21_mid_part1_upper_final = let x = union(x, zero(x))
@@ -5514,9 +5553,151 @@ function _T0_asymptotic_main_2_testing_G21(
     @assert Arblib.overlaps(G21_mid_part2_inequality_v1, G21_mid_part2_inequality_v2)
 
     #####
-    # Since both t * exp(h * t) and -(1 + s) * exp(t - s) are
-    # non-positive this is clearly bounded by 1. Which is what we
-    # wanted to prove.
+    # Differentiating w.r.t s we get s * e^(t - s), which is
+    # clearly positive.
+    #####
+
+    G21_mid_part2_inequality_ds_v1 =
+        let q0 = (1 + α) * (1 + γ),
+            s = ArbSeries((q0 * log(Arb(π)), 1)),
+            t = q0 * log(x),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            (1+t*exp(h * t)-(1+s)*exp(t - s))[1]
+        end
+
+
+    G21_mid_part2_inequality_ds_v2 =
+        let q0 = (1 + α) * (1 + γ),
+            s = q0 * log(Arb(π)),
+            t = q0 * log(x),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            s * exp(t - s)
+        end
+
+    @assert Arblib.overlaps(G21_mid_part2_inequality_ds_v1, G21_mid_part2_inequality_ds_v2)
+    @assert Arblib.ispositive(G21_mid_part2_inequality_ds_v2)
+
+    #####
+    # It follows that the left hand side for the inequality is lower
+    # bounded by the value for s = 0
+    #####
+
+    G21_mid_part2_inequality_v3 =
+        let q0 = (1 + α) * (1 + γ), t = q0 * log(x), h = (1 + (1 + α) / 2) / (1 + γ)
+
+            1 + t * exp(h * t) - exp(t)
+        end
+
+    @show G21_mid_part2_inequality_v3
+    @assert G21_mid_part2_inequality_v2 > G21_mid_part2_inequality_v3 > 0
+
+    #####
+    # Differentiating w.r.t. t we get exp(t) * ((1 + h * t) * exp((h -
+    # 1) * t) - ). We want to check that this is negative.
+    #####
+
+    G21_mid_part2_inequality_dt_v1 =
+        let q0 = (1 + α) * (1 + γ),
+            t = ArbSeries((q0 * log(x), 1)),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            (1+t*exp(h * t)-exp(t))[1]
+        end
+
+
+    G21_mid_part2_inequality_dt_v2 =
+        let q0 = (1 + α) * (1 + γ), t = q0 * log(x), h = (1 + (1 + α) / 2) / (1 + γ)
+
+            exp(t) * ((1 + h * t) * exp((h - 1) * t) - 1)
+        end
+
+    @assert Arblib.overlaps(G21_mid_part2_inequality_dt_v1, G21_mid_part2_inequality_dt_v2)
+    @assert Arblib.isnegative(G21_mid_part2_inequality_dt_v2) # Want to show this
+
+    #####
+    # If we differentiate the second factor again w.r.t. t we get (2h
+    # - 1 + (h - 1) * h * t) * exp((h - 1) * t)
+    #####
+
+    G21_mid_part2_inequality_dtt_v1 =
+        let q0 = (1 + α) * (1 + γ),
+            t = ArbSeries((q0 * log(x), 1)),
+            h = (1 + (1 + α) / 2) / (1 + γ)
+
+            ((1+h*t)*exp((h - 1) * t)-1)[1]
+        end
+
+
+    G21_mid_part2_inequality_dtt_v2 =
+        let q0 = (1 + α) * (1 + γ), t = q0 * log(x), h = (1 + (1 + α) / 2) / (1 + γ)
+
+            (2h - 1 + h * (h - 1) * t) * exp((h - 1) * t)
+        end
+
+    @show G21_mid_part2_inequality_dtt_v1 G21_mid_part2_inequality_dtt_v2
+    @assert Arblib.overlaps(
+        G21_mid_part2_inequality_dtt_v1,
+        G21_mid_part2_inequality_dtt_v2,
+    )
+
+    #####
+    # We have 2h - 1 = (2 + α - γ) / (1 + γ), which is positive
+    #####
+
+    let q0 = (1 + α) * (1 + γ), t = q0 * log(x), h = (1 + (1 + α) / 2) / (1 + γ)
+
+        @assert Arblib.overlaps(2h - 1, (2 + α - γ) / (1 + γ))
+        @assert Arblib.ispositive((2 + α - γ) / (1 + γ))
+    end
+
+    #####
+    # We have h - 1 = ((1 + α) / 2 - γ) / (1 + γ), which is negative
+    # if α < 2γ - 1. In particular this always holds for γ = 1 / 2.
+    #####
+
+
+    let q0 = (1 + α) * (1 + γ), t = q0 * log(x), h = (1 + (1 + α) / 2) / (1 + γ)
+
+        @assert Arblib.overlaps(h - 1, ((1 + α) / 2 - γ) / (1 + γ))
+        @assert Arblib.isnegative(((1 + α) / 2 - γ) / (1 + γ))
+    end
+
+    #####
+    # Since t < 0 and h > 0 it follows from the above that 2h - 1 + h
+    # * (h - 1) * t is positive. Hence G21_mid_part2_inequality_dt is
+    # increasing in t and takes it maximum value at t = 0, where it is
+    # zero.
+    #####
+
+    G21_mid_part2_inequality_dt_v3 =
+        let q0 = (1 + α) * (1 + γ), t = Arb(0), h = (1 + (1 + α) / 2) / (1 + γ)
+
+            exp(t) * ((1 + h * t) * exp((h - 1) * t) - 1)
+        end
+
+    @assert iszero(G21_mid_part2_inequality_dt_v3)
+    @assert G21_mid_part2_inequality_dt_v2 < G21_mid_part2_inequality_dt_v3
+
+    #####
+    # It follows that G21_mid_part2_inequality is decreasing in t and
+    # attains attains it minimum at t = 0, which is zero. Hence it is
+    # positive for t < 0.
+    #####
+
+    G21_mid_part2_inequality_v4 = let q0 = (1 + α) * (1 + γ), t = 0
+        h = (1 + (1 + α) / 2) / (1 + γ)
+
+        1 + t * exp(h * t) - exp(t)
+    end
+
+    @assert iszero(G21_mid_part2_inequality_v4)
+    @assert G21_mid_part2_inequality_v3 > G21_mid_part2_inequality_v4
+
+    #####
+    # From the above it follows that G21_mid_part2_upper is upper
+    # bounded by 1.
     #####
 
     let q0 = (1 + α) * (1 + γ),
