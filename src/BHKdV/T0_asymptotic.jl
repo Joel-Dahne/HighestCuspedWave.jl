@@ -1521,27 +1521,22 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
 
             # Remaining terms in second factor of remainder terms
             # integrated from 1 to 2
+            # IMPROVE: This uses the expression from the paper (commit
+            # e4332e3), the documentation here has yet to be updated.
             G22_2_2_1_to_2 = let a = Arb(1), b = Arb(2)
                 t1 = fx_div_x(1 + α) do s
-                    exp(s * (log(b + 1) + γ * log(b))) - 1
+                    exp(3s * log(Arb(3) / 2)) - 1
                 end
                 t2 = fx_div_x(1 + α) do s
-                    exp(s * γ * log(b)) - 1
-                end
-                t3 = fx_div_x(1 + α) do s
-                    exp(s * log(b) * (1 + γ)) - 1
+                    exp(3s / 2) - 1
                 end
 
-                (1 + invloginvx * (log(b) + log(1 + c * x * b))) *
-                b *
-                (
-                    b^γ * (1 + α) / (-α) +
-                    (b - a) * (
-                        t1 - (log(b + 1) + γ * log(b)) - 3t2 + 3γ * log(b) + 2t3 -
-                        2log(b) * (1 + γ) +
-                        expm1((1 + α) * log(b) * (1 + γ)) +
-                        (1 + α) * exp((1 + α) * log(b) * (1 + γ))
-                    )
+                2(1 + log(1 + x) * invloginvx) * (
+                    -sqrt(Arb(ℯ)) * (1 + α) / α
+                    + 2log(Arb(3)) / 3 * (t1 / (3log(Arb(3) / 2))- 1)
+                    + 4 // 3 * (t2 / (3 // 2) - 1)
+                    + (2 + α) * exp(3(1 + α) / 2)
+                    - 1
                 )
             end
 
