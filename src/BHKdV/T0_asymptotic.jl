@@ -1522,7 +1522,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             # Remaining terms in second factor of remainder terms
             # integrated from 1 to 2
             # IMPROVE: This uses the expression from the paper (commit
-            # e4332e3), the documentation here has yet to be updated.
+            # e23f063), the documentation here has yet to be updated.
             G22_2_2_1_to_2 = let a = Arb(1), b = Arb(2)
                 t1 = fx_div_x(1 + α) do s
                     exp(3s * log(Arb(3) / 2)) - 1
@@ -1531,23 +1531,20 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                     exp(3s / 2) - 1
                 end
 
-                2(1 + log(1 + x) * invloginvx) * (
-                    -sqrt(Arb(ℯ)) * (1 + α) / α
-                    + 2log(Arb(3)) / 3 * (t1 / (3log(Arb(3) / 2))- 1)
-                    + 4 // 3 * (t2 / (3 // 2) - 1)
-                    + (2 + α) * exp(3(1 + α) / 2)
-                    - 1
+                2(1 + log(1 + c * x) * invloginvx) * (
+                    -sqrt(Arb(ℯ)) * (1 + α) / α +
+                    2log(Arb(3)) / 3 * (t1 / (3log(Arb(3) / 2)) - 1) +
+                    4 // 3 * (t2 / (3 // 2) - 1) +
+                    (2 + α) * exp(3(1 + α) / 2) - 1
                 )
             end
 
             # Remaining terms in second factor of remainder terms
             # integrated from 2 to π / x
+            # IMPROVE: This uses the expression from the paper (commit
+            # 5d83efa), the documentation here has yet to be updated.
             G22_2_2_2_to_π_div_x =
-                ((1 + invloginvx) * log(1 + c * π) - invloginvx) *
-                2^3 *
-                (inv(1 + log(1 - inv(Arb(2)))) - 1) *
-                (1 + α) *
-                ((2 + γ)^2 / (1 - (1 + α) * (2 + γ) / 2) - γ^2 / (1 - (1 + α) * γ / 2))
+                192log(Arb(2)) * (1 + log(1 + c * x) * invloginvx) * (1 + α) / (-α)
 
             # Combine integration from 1 to 2 and from 2 to π / x to
             # get full integral
@@ -3932,7 +3929,9 @@ function _T0_asymptotic_main_2_testing_remainder_tail(
     #####
     # Upper bound the explicitly computed integrals. Uses that
     # gamma(n, c) - gamma(n, d) <= gamma(n) for 0 < c < d and that k <
-    # n
+    # n. FIXME: We don't have factorial(k) / 2^(k + 1) < factorial(n -
+    # 1) / 2^n in all cases though! So the below is not fully correct.
+    # The paper does this correctly.
     #####
 
     H1_upper_v5(n, k) = h_upper_constant_v1[n-k] * factorial(n - 1) / Arb(2)^(n - 1)
