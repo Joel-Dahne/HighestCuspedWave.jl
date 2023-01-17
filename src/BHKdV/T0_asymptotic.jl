@@ -313,13 +313,22 @@ G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *
 ```
 
 If `x` not overlapping zero it uses [`_T0_asymptotic_main_2_1`](@ref)
-and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral by
-splitting the interval of integration into ``[1, 2]`` and ``[2, π /
-x]``. This works well as long as `x` is not too small, in practice it
-is only used for `x > 1e-10`. When `x` overlaps zero it uses the
-approach described below.
+and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral.
+Factoring out `1 + α` from the integral we get
+```
+G2(x) = (1 + α) / (1 - x^p0) * 1 / log(inv(x)) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α)*
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+```
+The factor `(1 + α) / (1 - x^p0)` can be enclosed by handling the
+removable singularity. For the remaining part we split the interval of
+integration into ``[1, 2]`` and ``[2, π / x]``, which are handled in
+[`_T0_asymptotic_main_2_1`](@ref) and
+[`_T0_asymptotic_main_2_2`](@ref). This works well as long as `x` is
+not too small, in practice it is only used for `x > 1e-10`. When `x`
+overlaps zero it uses the approach described below.
 
-**TODO:** The documentation below is outdated and should be updated.
+**IMPROVE:** The documentation below is outdated and should be updated.
 The main work is done in the `_testing` methods corresponding to this
 method. The actual code should be correct but needs to be properly
 proved.
@@ -1493,7 +1502,20 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
 
             return G2
         else
-            return f1(x) + f2(x)
+            # Enclosure of (1 + α) / (1 - x^p0)
+            αp1_div_1mxp0 = if iszero(x)
+                1 + α
+            elseif Arblib.contains_zero(x)
+                lower = 1 + α
+                upper = let xᵤ = ubound(Arb, x)
+                    inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), 1 + α, extra_degree = 2))
+                end
+                Arb((lower, upper))
+            else
+                inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
+            end
+
+            return αp1_div_1mxp0 * (f1(x) + f2(x))
         end
     end
 end
@@ -5664,8 +5686,8 @@ end
 
 Compute an upper bound of
 ```
-G21(x) = 1 / ((1 - x^p0) * log(inv(x))) *
-            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+G21(x) = 1 / log(inv(x)) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
                 t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
 where the integration is taken from `1` to `2`.
@@ -5674,11 +5696,9 @@ For ``t ∈ [1, 2]`` we have
 ```
 log(c + inv(2x)) <= log(c + inv(x * t)) <= log(c + inv(x))
 ```
-allowing us to factor out `log(c + inv(x * t))`. If we also factor out
-`1 + α` we get
+allowing us to factor out `log(c + inv(x * t))`, we get
 ```
-G21(x) <= (1 + α) / ((1 - x^p0) * log(inv(x))) *
-         log(c + inv(x)) *
+G21(x) = log(c + inv(x * Arb((1, 2)))) / log(inv(x)) *
             ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
                 t^(1 - γ * (1 + α)) dt
 ```
@@ -5712,11 +5732,9 @@ For `t = 1` this simplifies to
 This allows us to compute the integral
 """
 function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
-    αp1 = Arblib.nonnegative_part!(zero(α), α + 1)
-
     # Primitive function of
     # ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t
-    primitive = let s = -αp1
+    primitive = let s = -(1 + α)
         t -> begin
             t1 = fx_div_x(v -> (t - 1)^v + (t + 1)^v - 2t^v, s)
             t2 = fx_div_x(v -> (t - 1)^v + (t + 1)^v - 2, s)
@@ -5734,9 +5752,6 @@ function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
     I = Arb((1, 2))^(-γ * (1 + α)) * (primitive(Arb(2)) - primitive_one)
 
     return x::Arb -> begin
-        # This function assumes that x is less than or equal to 1 // 2
-        @assert x <= 1 // 2
-
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
         invloginvx = if iszero(x)
             zero(x)
@@ -5752,20 +5767,7 @@ function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
         logfactor_upper = 1 + log1p(c * x) * invloginvx
         logfactor = Arb((logfactor_lower, logfactor_upper))
 
-        # Enclosure of (1 + α) / (1 - x^p0)
-        αp1_div_1mxp0 = if iszero(x)
-            αp1
-        elseif Arblib.contains_zero(x)
-            lower = αp1
-            upper = let xᵤ = ubound(Arb, x)
-                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), αp1, extra_degree = 2))
-            end
-            Arb((lower, upper))
-        else
-            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), αp1, extra_degree = 2))
-        end
-
-        return logfactor * αp1_div_1mxp0 * I
+        return logfactor * I
     end
 end
 
@@ -5774,22 +5776,14 @@ end
 
 Compute an upper bound of
 ```
-G22(x) = 1 / ((1 - x^p0) * log(inv(x))) *
-            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
+G22(x) = 1 / log(inv(x)) *
+            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
                 t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
 where the integration is taken from `2` to `π / x`.
 
-This method is meant for non-zero `x`.
-
-We factor out `1 + α` from the integral and write it as
-```
-G22(x) = (1 + α) / ((1 - x^p0) * log(inv(x))) *
-            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
-                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
-```
-and compute the integral and the factor outside of the integral
-separately. The integral is computed by integrating numerically.
+This method is meant for non-zero `x`. The integral is computed by
+integrating numerically.
 
 To compute better enclosures in the numerical integration we compute a
 lower bound by integrating to the lower bound of `π / x` and an upper
@@ -5800,9 +5794,6 @@ log(c + inv(ubound(x) * t)) <= log(c + inv(x * t)) <= log(c + inv(lbound(x) * t)
 """
 function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
     return x::Arb -> begin
-        # This function assumes that x is less than or equal to 1
-        @assert x <= 1 // 2
-
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
         invloginvx = if iszero(x)
             zero(x)
@@ -5810,19 +5801,6 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
             -Arb((inv(log(ubound(Arb, x))), 0))
         else
             -inv(log(x))
-        end
-
-        # Enclosure of (1 + α) / (1 - x^p0)
-        αp1_div_1mxp0 = if iszero(x)
-            α + 1
-        elseif Arblib.contains_zero(x)
-            lower = α + 1
-            upper = let xᵤ = ubound(Arb, x)
-                inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), 1 + α, extra_degree = 2))
-            end
-            Arb((lower, upper))
-        else
-            inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
         end
 
         # Enclosure of the integral
@@ -5883,7 +5861,7 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
 
         I = Arb((I_lower, I_upper))
 
-        return invloginvx * αp1_div_1mxp0 * I
+        return invloginvx * I
     end
 end
 
