@@ -1433,12 +1433,11 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
         x < 1 || throw(DomainError(x, "must have x < 1"))
 
         if Arblib.contains_zero(x)
-            # PROVE: That all of this is correct.
-
-            # IMPROVE: For now everything here is written to accept
-            # both x overlapping zero and x not overlapping zero.
-            # However we only use it for x overlapping zero so if we
-            # want we could remove all handling of non-zero x.
+            # IMPROVE: This currently uses the version from the paper
+            # and the documentation for this method or the test
+            # methods below have not been fully updated to reflect
+            # that. More precisely it uses the version from commit
+            # ab0a451.
 
             # Enclosure of inv(log(inv(x)))
             invloginvx = if iszero(x)
@@ -1449,7 +1448,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                 -inv(log(x))
             end
 
-            G21 = let D = Arb((-log(1 + c * π), log(1 + c * π)))
+            G2_M = let D = Arb((-log(1 + c * π), log(1 + c * π)))
                 G21_1 = if x < inv(Arb(π)^3) # Required for the bound we use
                     2invloginvx
                 else
@@ -1460,97 +1459,37 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                 (2 + α) / (1 + γ) * (D * G21_1 + G21_2)
             end
 
-            # First factor of remainder term. Given by (1 + α) / ((1 -
-            # x^p0))
-            G22_1 = begin
+            # First factor of remainder term.
+            # Given by (1 + α) / ((1 - x^p0)) * (1 + log(1 + c * x) / log(1 / x))
+            G2_R_factor = begin
                 lower = α + 1
                 upper = let xᵤ = ubound(Arb, x)
                     inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), α + 1, extra_degree = 2))
                 end
-                Arb((lower, upper))
+                Arb((lower, upper)) * (1 + log(1 + c * x) * invloginvx)
             end
 
-            # First term in sum of second factor of remainder term
-            G22_2_1 = begin
-                I1_remainder_n1_primitive_inv_t(invt) =
-                    if iszero(invt)
-                        -Arb(1 // 2)
-                    elseif Arblib.contains_zero(invt)
-                        Arb((
-                            I1_remainder_n1_primitive_inv_t(zero(invt)),
-                            I1_remainder_n1_primitive_inv_t(ubound(Arb, invt)),
-                        ))
-                    else
-                        let t = inv(invt)
-                            (t^2 - 1) * (log(t - 1) + log(t + 1) - 2log(t)) / 2
-                        end
-                    end
-
-                I1_remainder_n1 = I1_remainder_n1_primitive_inv_t(x / π)
-
-                I2_remainder_n1_primitive_part_inv_t(invt) =
-                    if iszero(invt)
-                        1 - Arb(π)^2 / 6
-                    elseif Arblib.contains_zero(invt)
-                        # Increasing in inv_t
-                        Arb((
-                            I2_remainder_n1_primitive_part_inv_t(zero(invt)),
-                            I2_remainder_n1_primitive_part_inv_t(ubound(Arb, invt)),
-                        ),)
-                    else
-                        let t = inv(invt)
-                            r1 = log(t - 1) + log(t + 1) + 2log(t)^2
-                            r2 = -t^2 * (log(t - 1) + log(t + 1) - 2log(t))
-                            r3 = 2t^2 * log(t) * (log(t - 1) + log(t + 1) - 2log(t))
-                            r4 = real(polylog(2, Acb(1 - t^2)))
-                            r1 + r2 + r3 + r4
-                        end
-                    end
-
-                I2_remainder_n1 = I2_remainder_n1_primitive_part_inv_t(x / π) / 4
-
-                I3_remainder_n1 = let x = union(x, Arb(0))
-                    Arb((log(1 + c * x), log(1 + c * π))) * I1_remainder_n1
-                end
-
-                -(
-                    I1_remainder_n1 - invloginvx * I2_remainder_n1 +
-                    invloginvx * I3_remainder_n1
-                )
-            end
+            # First term in sum of second factor of remainder term, n = 1
+            G2_R_n1 = Arb(1 // 2)
 
             # Remaining terms in second factor of remainder terms
             # integrated from 1 to 2
-            # IMPROVE: This uses the expression from the paper (commit
-            # d13a7d6), the documentation here has yet to be updated.
-            G22_2_2_1_to_2 = let a = Arb(1), b = Arb(2)
+            G2_R_1 = begin
                 s = fx_div_x(3(1 + α)) do t
                     exp(t) - t - 1
                 end
 
-                2(1 + log(1 + c * x) * invloginvx) * (
-                    sqrt(Arb(ℯ)) * (1 + α) / (-α) + 4s + (2 + α) * exp(3(1 + α) / 2) - 1
-                )
+                2(sqrt(Arb(ℯ)) * (1 + α) / (-α) + 4s + (2 + α) * exp(3(1 + α) / 2) - 1)
             end
 
             # Remaining terms in second factor of remainder terms
             # integrated from 2 to π / x
-            # IMPROVE: This uses the expression from the paper (commit
-            # 5d83efa), the documentation here has yet to be updated.
-            G22_2_2_2_to_π_div_x =
-                192log(Arb(2)) * (1 + log(1 + c * x) * invloginvx) * (1 + α) / (-α)
+            G2_R_2 = 192log(Arb(2)) * (1 + α) / (-α)
 
-            # Combine integration from 1 to 2 and from 2 to π / x to
-            # get full integral
-            G22_2_2 = G22_2_2_1_to_2 + G22_2_2_2_to_π_div_x
+            # Combine factors and all parts of sum
+            G2_R = G2_R_factor * (G2_R_n1 + G2_R_1 + G2_R_2)
 
-            # Add first term and remaining terms to get full G22_2
-            G22_2 = G22_2_1 + G22_2_2
-
-            # Multiply factors to get full G22
-            G22 = G22_1 * G22_2
-
-            G2 = G21 + G22
+            G2 = G2_M + G2_R
 
             return G2
         else
