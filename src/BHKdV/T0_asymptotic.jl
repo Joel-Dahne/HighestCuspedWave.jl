@@ -177,7 +177,7 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
         b = Arb(0.99)
 
         # Check that expression inside absolute value is positive on
-        # [a, 1]
+        # [b, 1]
         @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
 
         # Compute for the interval [0, b]
@@ -236,7 +236,7 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
         b = Arb(0.99)
 
         # Check that expression inside absolute value is positive on
-        # [a, 1]
+        # [b, 1]
         @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
 
         # Compute for the interval [0, b]
@@ -1447,6 +1447,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             # methods below have not been fully updated to reflect
             # that. More precisely it uses the version from commit
             # ab0a451.
+            @assert γ == 1 // 2 # The paper assumes this
 
             # Enclosure of inv(log(inv(x)))
             invloginvx = if iszero(x)
@@ -5730,6 +5731,9 @@ For `t = 1` this simplifies to
 -(2^-α - 2) / (α * (1 - α))
 ```
 This allows us to compute the integral
+
+**IMPROVE:** This uses slightly different notation compared to the
+paper. Partially because it handles general `γ`.
 """
 function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
     # Primitive function of
