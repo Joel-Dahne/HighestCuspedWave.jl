@@ -166,29 +166,28 @@ it for the `x` in the interval `[0, π]`.
 lemma_bhkdv_main_term_H_limit() = true
 
 """
-    lemma_bhkdv_weight_div_asymptotic_bound()
+    lemma_bhkdv_weight_div_asymptotic_enclosure()
 
 # Statement
 Let
 ```
-0 <= γ < 1
+γ = 1 // 2
 -1 < α < 0
 p0 = (1 + α) + (1 + α)^2 / 2
 ```
 then the function
 ```
--x^((1 - γ) * (1 + α)) * log(x) / (gamma(1 + α) * (1 - x^p0))
+-x^((1 + α) / 2) * log(x) * (1 + α) / (1 - x^p0)
 ```
-is bounded by
+satisfies the inequality
 ```
-1.1
+0 < -x^((1 + α) / 2) * log(x) * (1 + α) / (1 - x^p0) < 1
 ```
-- **PROVE:** This bound can be checked numerically to be valid but
-  should be updated with a better bound once we have that. Annoyingly
-  enough the upper bound is not quite one, but some number slightly
-  larger than one.
 
 # Proof
-**PROVE:** Prove this.
+See paper
 """
-lemma_bhkdv_weight_div_asymptotic_bound(u0::BHKdVAnsatz{T}) where {T} = convert(T, 1.1)
+function lemma_bhkdv_weight_div_asymptotic_enclosure(u0::BHKdVAnsatz{Arb})
+    @assert u0.γ == 1 // 2
+    return Arblib.unit_interval!(zero(u0.ϵ))
+end

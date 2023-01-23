@@ -36,20 +36,20 @@ gives us
 G(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x)) / (2gamma(1 + α) * x^(-α) * (1 - x^p0))
      = x^((1 - u0.γ) * (1 + α)) * log(u0.c + inv(x)) / (2gamma(1 + α) * (1 - x^p0))
 ```
-Multiplying and dividing by `log(inv(x))` we can split it into the two
-factors
+Multiplying and dividing by `log(inv(x))` and using that `gamma(1 + α)
+= gamma(2 + α) / (1 + α)` we can split this into three factors as
 ```
-G1(x) = log(u0.c + inv(x)) / 2log(inv(x)) = -log(u0.c + inv(x)) / 2log(x)
-G2(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (gamma(1 + α) * (1 - x^p0))
+G1 = inv(gamma(2 + α))
+G2(x) = log(u0.c + inv(x)) / 2log(inv(x)) = -log(u0.c + inv(x)) / 2log(x)
+G3(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (gamma(1 + α) * (1 - x^p0))
 ```
+We can enclose `G1(x)` directly and `G2(x)` using that it is
+increasing in `x` for `0 < x < 1` and that the limit as `x -> 0` is `1
+/ 2`.
 
-We can enclose `G1(x)` using that it is increasing in `x` for `0 < x <
-1` and that the limit as `x -> 0` is `1 / 2`.
-
-The function `G2(x)` occurs in
-[`lemma_bhkdv_weight_div_asymptotic_bound`](@ref) and we can get an
-upper bound from that. Furthermore it is trivially lower bounded by
-zero.
+The function `G3(x)` occurs in
+[`lemma_bhkdv_weight_div_asymptotic_enclosure`](@ref) and we can get
+an enclosure from that.
 
 # The interval `[ϵ, π]`
 Here we use that `u0.v0(x)` gives a **lower** bound for `u0(x)`. This
@@ -76,7 +76,10 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
     end
     F = inv_u0_bound(u0, ϵ = Arb(1 // 2))
 
-    G1(x) =
+    # inv(gamma(2 + α)) = rgamma(1 + u0.ϵ)
+    G1 = rgamma(1 + u0.ϵ)
+
+    G2(x) =
         if Arblib.contains_zero(x)
             xᵤ = ubound(Arb, x)
             Arb((1 // 2, -log(u0.c + inv(xᵤ)) / 2log(xᵤ)))
@@ -84,9 +87,9 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
             -log(u0.c + inv(x)) / 2log(x)
         end
 
-    G2(x) = Arb((0, lemma_bhkdv_weight_div_asymptotic_bound(u0)))
+    G3(x) = lemma_bhkdv_weight_div_asymptotic_enclosure(u0)
 
-    f(x) = F(x) * G1(x) * G2(x)
+    f(x) = F(x) * G1 * G2(x) * G3(x)
 
     # Function for non-asymptotic evaluation
 
