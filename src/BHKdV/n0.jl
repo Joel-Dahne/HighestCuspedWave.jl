@@ -55,10 +55,15 @@ an enclosure from that.
 Here we use that `u0.v0(x)` gives a **lower** bound for `u0(x)`. This
 is the statement of [`lemma_bhkdv_monotonicity_alpha`](@ref).
 
-This means that `u0.w(x) / 2u0(x)` is **upper** bounded by `u0.w(x) /
-2u0.v0(x)`. The approach is therefore the same as in the version for
-`BHAnsatz` which the only difference being the different weight and
-that we only get an upper bound instead of an enclosure.
+If `u0.v0(x)` is positive we then get that `u0.w(x) / 2u0(x)` is
+**upper** bounded by `u0.w(x) / 2u0.v0(x)`. The approach is therefore
+the same as in the version for `BHAnsatz` which the only difference
+being the different weight and that we only get an upper bound instead
+of an enclosure.
+
+To prove that `u0.v0(x)` is positive it is enough to ensure that
+`u0.v0(π)` is positive and that the bound for `u0.w(x) / 2u0.v0(x)` on
+the interval is finite. In this case `u0.v0(x)` can never be zero.
 """
 function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
     verbose && @info "Computing bound of n0"
@@ -103,6 +108,12 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
     # f(Arb((0, ϵ))) is bounded by this value.
 
     gπ = g(Arb(π))
+
+    # Check that the value at π is positive, so that u0.w(x) / 2u0(x)
+    # indeed is upper bounded by u0.w(x) / 2u0.v0(x). This is still
+    # provided that the resulting bound is finite. But if it is not
+    # finite it doesn't matter anyway.
+    Arblib.ispositive(gπ) || error("value at π not positive")
 
     verbose && @info "Value at x = π" gπ
 
