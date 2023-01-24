@@ -1283,6 +1283,9 @@ long as `u0.v0(x)` is positive at least, which is easily checked.
 calculations in common. We could improve performance by using this.
 """
 function F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
+    # Assert that the lemma holds
+    @assert lemma_bhkdv_monotonicity_alpha(u0)
+
     g = D(u0, evaltype)
 
     return x::Union{Arb,ArbSeries} -> begin
