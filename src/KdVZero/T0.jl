@@ -115,7 +115,7 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
         root0 = compute_root0(x) # In this case x never overlaps zero
     elseif xᵤ < ϵ
         root0 = Arb((compute_root0(ϵ), root0_zero))
-    elseif xₗ < eps(Arb)
+    elseif xₗ < ϵ
         root0 = Arb((compute_root0(xᵤ), root0_zero))
     else
         root0 = Arb((compute_root0(xᵤ), compute_root0(xₗ)))

@@ -325,7 +325,7 @@ function check_proof_data(data::DataFrame)
                 error("proved is set but inequality doesn't hold")
             end
 
-            row.proved_estimate || error("proved is set but no proved_estimate")
+            row.proved_estimate || error("proved is set but not proved_estimate")
         end
 
         # Check rounded data

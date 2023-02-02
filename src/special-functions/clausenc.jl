@@ -1422,9 +1422,9 @@ to rewrite it as
 K1 = (
     gamma(2m + 2 - s) / rising(1 - s, 2m) * sinpi(s / 2)
     - (-1)^m / factorial(2m)
-) / (2m + 1 - s) * x^(s - 1)
+) / (2m + 1 - s)
 ```
-where the coefficient has a removable singularity at `s = 2m + 1`.
+which has a removable singularity at `s = 2m + 1`.
 """
 function clausenc_expansion_odd_s_singular_K1_K2(s::Arb, m::Integer)
     m >= 1 || throw(ArgumentError("m should be positive"))

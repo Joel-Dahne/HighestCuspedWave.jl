@@ -587,7 +587,7 @@ function F0(
     u0.use_bhkdv && return _F0_bhkdv(u0, Asymptotic(); M, ϵ, skip_singular_j_until)
 
     if isnothing(skip_singular_j_until)
-        if 1 - 2u0.α + 1 * u0.p0 > 2.8
+        if 1 - 2u0.α + u0.p0 > 2.8
             skip_singular_j_until = findlast(j -> 1 - 2u0.α + j * u0.p0 < 3.2, 1:u0.N0)::Int
         else
             skip_singular_j_until = 0
@@ -723,7 +723,7 @@ By construction `a0 = 2c(2α) / c(α)^2`, giving us `a0 * c(α)^2 / 2 -
 c(2α) = 0` and allows us to simplify it as
 ```
 part1 = 2c(2α) / c(α)^2 * (
-    c(2α - p0) - c(2α) * c(α - p0) / c(α)
+    c(2α - p0) - 2c(2α) * c(α - p0) / c(α)
     + c(2α) * (c(α - p0) / c(α))^2 * x^p0
     + (zeta(-1 - 2α) - zeta(-1 - 2α + p0)) / 2 * x^(2 + 2α - p0)
 ) * x^(-2α + p0)
@@ -835,7 +835,6 @@ function _F0_bhkdv(
             c(2α - u0.p0),
             zeta(-1 - 2α) - zeta(-1 - 2α + u0.p0),
         )
-
 
     return (x::Arb) -> begin
         @assert x <= ϵ

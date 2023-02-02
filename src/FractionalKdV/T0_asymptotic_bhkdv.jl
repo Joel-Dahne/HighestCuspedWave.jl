@@ -136,7 +136,7 @@ absolute value. For the numerical integration we thus want to compute
 For the integration from `1` to `a` we factor out the log-factor as
 well as the factor `t^(1 - p)`, leaving us with
 ```
-Arb((1, a))^(1 - p) * log(1 + 2ℯ * x * Arb((1, a))) * ∫ _integrand_I_hat(x, t, α) * t^p dt
+Arb((1, a))^(1 - p) * log(1 + 2ℯ * x * Arb((1, a))) * ∫ _integrand_I_hat(x, t, α) * t dt
 ```
 The integral can be computed explicitly using that the primitive
 function is
@@ -680,9 +680,9 @@ primitive_inv(a, b) = -inv(α - p) * (
 such that `primitive_inv(inv(a), inv(b))` gives the integral from `a`
 to `b`.
 
-## Handling small `t`
-For small values of `t` the function `primitive_inv(a, b)` has large
-cancellations that needs to be accounted for. To handle this we
+## Handling large values of `a` and `b`
+For large values of `a` and `b` the function `primitive_inv(a, b)` has
+large cancellations that needs to be accounted for. To handle this we
 rewrite it using the series expansion.
 
 From the series expansion of `hypgeom_2f1` we get

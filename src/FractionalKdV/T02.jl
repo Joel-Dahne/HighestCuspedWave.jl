@@ -142,7 +142,7 @@ function T02(
     ϵ::Arb = Arb(1),
     return_enclosure::Bool = false,
 )
-    u0.use_bhkdv && @error "Method not updated for weight of when u0.use_bhkdv = true"
+    @assert !u0.use_bhkdv
     # This is required for the bound of the tail of d
     ϵ <= Arb(π) / 2 || throw(ArgumentError("we require that ϵ <= π / 2"))
 

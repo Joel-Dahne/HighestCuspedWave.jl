@@ -567,7 +567,7 @@ To get a good enclosure it uses monotonicity in `t`. The derivative in
 ```
 abs(x)^s * (1 + (log(abs(x)) * t - 1) * exp(log(abs(x)) * t)) / t^2
 ```
-This is either zero or The sign depends only on `1 + (log(abs(x)) * t
+This is either zero or the sign depends only on `1 + (log(abs(x)) * t
 - 1) * exp(log(abs(x)) * t)´. If we let `v = log(abs(x)) * t` we have
 to study `1 + (v - 1) * exp(v)` which has the unique root `v = 0` and
 is positive for all other values of `v`. It is hence non-decreasing in
