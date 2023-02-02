@@ -312,7 +312,7 @@ function check_proof_data(data::DataFrame)
     for row in eachrow(data)
         # Sanity checks on data
         -1 < row.α < 0 || error("-1 < α < 0 not satisfied")
-        0 < row.p <= 1 || error("0 < p <= 1 not satisfied")
+        -row.α < row.p <= 1 || error("0 < p <= 1 not satisfied")
 
         # Check Arb data
         n₀, δ₀, D₀, D₀_e = row.n₀, row.δ₀, row.D₀, row.D₀_estimate
