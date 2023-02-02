@@ -811,15 +811,12 @@ is the same as that for
 ```
 a[j] * clausencmzeta(x, 1 - 2α + j * p0)
 ```
-for `j = 0, 1, 2`. Since the coefficient `a[j]` is the same for both
-terms we can ignore it when comparing the terms. However `a[j]` has a
-zero constant coefficient in all cases so the linear term of the
-product will be determined by the constant term of the Clausen
-functions.
-
-But the constant terms of the expansion in `α` are given by directly
-plugging in `α = 0`, in which case the two terms are clearly
-identical, which is what we wanted to show.
+for `j = 0, 1, 2`. For `j = 1, 2` the Clausen term is finite and since
+`a[j]` has a zero constant coefficient the linear term of the product
+will be determined by the constant term of the Clausen functions,
+which is trivially the same. For `j = 0` there is a removable
+singularity to treat. The linear terms are the same in this case as
+well, for a proof we refer to the corresponding lemma in the paper.
 """
 function F0(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
