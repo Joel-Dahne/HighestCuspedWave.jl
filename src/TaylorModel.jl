@@ -41,21 +41,12 @@ function TaylorModel(f, I::Arb, x0::Arb; degree::Integer, enclosure_degree::Inte
             p[degree+1] = f(ArbSeries((I, 1), degree = degree + 1))[degree+1]
         else
             # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
-            g(x::Arb) =
-                f(ArbSeries((x, 1), degree = degree + 1))[degree+1] * factorial(degree + 1)
-            g(x::ArbSeries) =
-                if iszero(Arblib.degree(x))
-                    ArbSeries(g(x[0]))
-                else
-                    Arblib.derivative(
-                        f(ArbSeries(x, degree = Arblib.degree(x) + degree + 1)),
-                        degree + 1,
-                    )
-                end
-
             p[degree+1] =
-                ArbExtras.enclosure_series(g, I, degree = enclosure_degree) /
-                factorial(degree + 1)
+                ArbExtras.enclosure_series(
+                    ArbExtras.derivative_function(f, degree + 1),
+                    I,
+                    degree = enclosure_degree,
+                ) / factorial(degree + 1)
         end
     end
 
@@ -200,19 +191,9 @@ function compose(f, M::TaylorModel)
     J = M(M.I) # Interval to compute remainder on
     if isfinite(J)
         # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
-        g(x::Arb) =
-            f(ArbSeries((x, 1), degree = degree + 1))[degree+1] * factorial(degree + 1)
-        g(x::ArbSeries) =
-            if iszero(Arblib.degree(x))
-                ArbSeries(g(x[0]))
-            else
-                Arblib.derivative(
-                    f(ArbSeries(x, degree = Arblib.degree(x) + degree + 1)),
-                    degree + 1,
-                )
-            end
-
-        remainder_term = ArbExtras.enclosure_series(g, J) / factorial(degree + 1)
+        remainder_term =
+            ArbExtras.enclosure_series(ArbExtras.derivative_function(f, degree + 1), J) /
+            factorial(degree + 1)
     else
         remainder_term = indeterminate(J)
     end

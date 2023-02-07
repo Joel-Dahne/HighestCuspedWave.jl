@@ -102,19 +102,12 @@ function taylor_with_remainder(
         res[degree] = f(ArbSeries((interval, 1); degree))[degree]
     else
         # We compute a tighter enclosure with the help of ArbExtras.enclosure_series
-        g(x::Arb) = f(ArbSeries((x, 1); degree))[degree] * factorial(degree)
-        g(x::ArbSeries) =
-            if iszero(Arblib.degree(x))
-                ArbSeries(g(x[0]))
-            else
-                Arblib.derivative(
-                    f(ArbSeries(x, degree = Arblib.degree(x) + degree)),
-                    degree,
-                )
-            end
         res[degree] =
-            ArbExtras.enclosure_series(g, interval, degree = enclosure_degree) /
-            factorial(degree)
+            ArbExtras.enclosure_series(
+                ArbExtras.derivative_function(f, degree),
+                interval,
+                degree = enclosure_degree,
+            ) / factorial(degree)
     end
 
     return res

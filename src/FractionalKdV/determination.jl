@@ -139,13 +139,7 @@ function finda0(α)
         # Try to prove that a0 is increasing on α
 
         # Function for evaluating derivative of -f(α)
-        mdf(α::Arb) = -f(ArbSeries((α, 1)))[1]
-        mdf(α::ArbSeries) =
-            if iszero(Arblib.degree(α))
-                ArbSeries(df(α[0]))
-            else
-                Arblib.derivative(-f(ArbSeries(α, degree = Arblib.degree(α) + 1)))
-            end
+        mdf = ArbExtras.derivative_function(α -> -f(α))
 
         # Try to prove that mdf is bounded by 0
         α_low, α_upp = getinterval(α)

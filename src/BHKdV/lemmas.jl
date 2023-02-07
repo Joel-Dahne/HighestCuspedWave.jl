@@ -87,13 +87,11 @@ function lemma_bhkdv_main_term_monotonicity(u0::BHKdVAnsatz)
 
     Arblib.ispositive(a0_minimum) || error("failed proving that a0 is positive")
 
+    a0αp1_deriv = ArbExtras.derivative_function(finda0αp1)
+
     a0_deriv_minimum =
         ArbExtras.minimum_enclosure(Arf(-1), Arf(-3 // 4), lbound_tol = Arf(0)) do α
-            if α isa Arb
-                -finda0αp1(ArbSeries((α, 1)))[1]
-            else # α isa ArbSeries
-                Arblib.derivative(-finda0αp1(ArbSeries(α, degree = Arblib.degree(α) + 1)))
-            end
+            -a0αp1_deriv(α)
         end
 
     Arblib.ispositive(a0_deriv_minimum) || error("failed proving that a0 is increasing")

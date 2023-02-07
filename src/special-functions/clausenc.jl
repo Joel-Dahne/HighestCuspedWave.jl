@@ -582,16 +582,11 @@ values of `s`.
 """
 function _clausenc_zeta(x::Arb, s::Arb, β::Integer)
     if iswide(s)
-        f(s::Arb) = _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
-        f(s::ArbSeries) = begin
-            @assert !iszero(Arblib.degree(s)) # Doesn't work in this case
-            Arblib.derivative(
-                _clausenc_zeta(x, ArbSeries(s, degree = Arblib.degree(s) + β)),
-                β,
-            )
-        end
-
-        res = ArbExtras.enclosure_series(f, s, degree = 10)
+        res = ArbExtras.enclosure_series(
+            ArbExtras.derivative_function(s -> _clausenc_zeta(x, s), β),
+            s,
+            degree = 10,
+        )
     else
         res = _clausenc_zeta(x, ArbSeries((s, 1), degree = β))[β] * factorial(β)
     end

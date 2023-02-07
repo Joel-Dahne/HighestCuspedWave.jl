@@ -78,7 +78,9 @@ function D0_bounded_by(
 
     # Try to prove that minus the derivative of u0 is non-positive,
     # meaning the derivative is non-negative.
+    # IMPROVE: Compute derivative directly instead of by using
     is_increasing = ArbExtras.bounded_by(
+        ArbExtras.derivative_function(x -> -u0(x)),
         ϵ,
         b,
         Arf(0),
@@ -87,17 +89,7 @@ function D0_bounded_by(
         depth = 5,
         threaded = true;
         verbose,
-    ) do x
-        # IMPROVE: Compute derivative directly instead of by using
-        # ArbSeries.
-        if x isa Arb
-            -u0(ArbSeries((x, 1)))[1]
-        elseif Arblib.degree(x) == 0
-            -Arblib.derivative(u0(ArbSeries((x[0], 1))))
-        else
-            -Arblib.derivative(u0(ArbSeries(x, degree = Arblib.degree(x) + 1)))
-        end
-    end
+    )
 
     if verbose
         if is_increasing
