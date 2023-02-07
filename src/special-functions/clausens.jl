@@ -511,11 +511,7 @@ function clausens(x::ArbSeries, s)
         end
     end
 
-    # Compose the Taylor series for the result with that of the input
-    x_tmp = copy(x)
-    x_tmp[0] = 0
-
-    return Arblib.compose(res, x_tmp)
+    return ArbExtras.compose_zero(res, x)
 end
 
 """
@@ -828,9 +824,5 @@ function clausens_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
         res[β] = clausens_expansion_remainder(x, s[0], β, M) / factorial(β)
     end
 
-    # Compose the Taylor series with that of the input
-    s_tmp = copy(s)
-    s_tmp[0] = 0
-
-    return Arblib.compose(res, s_tmp)
+    return ArbExtras.compose_zero(res, s)
 end

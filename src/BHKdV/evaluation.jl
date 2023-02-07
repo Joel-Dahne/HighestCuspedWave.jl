@@ -645,10 +645,7 @@ function (u0::BHKdVAnsatz{Arb})(x::Union{Arb,ArbSeries}, ::Ball)
                 end
             end
 
-            x_tmp = copy(x)
-            x_tmp[0] = 0
-
-            Arblib.compose(C₀, x_tmp)
+            ArbExtras.compose_zero(C₀, x)
         end
     end
 
@@ -941,10 +938,7 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
                     end
                 end
 
-                x_tmp = copy(x)
-                x_tmp[0] = 0
-
-                Arblib.compose(C₀, x_tmp)
+                ArbExtras.compose_zero(C₀, x)
             end
         end
 

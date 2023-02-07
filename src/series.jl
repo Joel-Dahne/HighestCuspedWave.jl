@@ -247,9 +247,5 @@ function fx_div_x(
         Arblib.derivative!(expansion_div_x, expansion_div_x)
     end
 
-    # Compose the Taylor series for the result with that of the input
-    x_tmp = copy(x)
-    x_tmp[0] = 0
-
-    return Arblib.compose(res, x_tmp)
+    return ArbExtras.compose_zero(res, x)
 end

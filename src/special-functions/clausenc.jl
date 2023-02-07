@@ -734,11 +734,7 @@ function clausenc(x::ArbSeries, s)
         end
     end
 
-    # Compose the Taylor series for the result with that of the input
-    x_tmp = copy(x)
-    x_tmp[0] = 0
-
-    return Arblib.compose(res, x_tmp)
+    return ArbExtras.compose_zero(res, x)
 end
 
 """
@@ -873,12 +869,7 @@ function clausenc(x::ArbSeries, s, β::Integer)
         end
     end
 
-    # Compose the Taylor series for the Clausian with that of the
-    # input
-    x_tmp = copy(x)
-    x_tmp[0] = 0
-
-    return Arblib.compose(res, x_tmp)
+    return ArbExtras.compose_zero(res, x)
 end
 
 """
@@ -1236,11 +1227,7 @@ function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
         res[β] = clausenc_expansion_remainder(x, s[0], β, M) / factorial(β)
     end
 
-    # Compose the Taylor series with that of the input
-    s_tmp = copy(s)
-    s_tmp[0] = 0
-
-    return Arblib.compose(res, s_tmp)
+    return ArbExtras.compose_zero(res, s)
 end
 
 """
@@ -1536,11 +1523,7 @@ function clausencmzeta(x::ArbSeries, s::Arb)
         end
     end
 
-    # Compose the Taylor series for the result with that of the input
-    x_tmp = copy(x)
-    x_tmp[0] = 0
-
-    return Arblib.compose(res, x_tmp)
+    return ArbExtras.compose_zero(res, x)
 end
 
 clausencmzeta(x::ArbSeries, s) = clausenc(x, s) - zeta(Arb(s, prec = precision(x)))

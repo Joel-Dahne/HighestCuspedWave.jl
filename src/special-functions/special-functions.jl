@@ -217,11 +217,7 @@ function _zeta_deflated(s::ArbSeries, a::Arb)
     @assert all(isreal, z)
     res = ArbSeries(real.(z))
 
-    # Compose with non-constant part
-    s_tmp = copy(s)
-    s_tmp[0] = 0
-
-    return Arblib.compose(res, s_tmp)
+    return ArbExtras.compose_zero(res, s)
 end
 
 _zeta_deflated(s::Arb, a::Arb) = _zeta_deflated(ArbSeries(s), a)[0]

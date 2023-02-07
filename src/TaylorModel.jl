@@ -219,12 +219,8 @@ function compose(f, M::TaylorModel)
 
     p[degree+1] = remainder_term
 
-    # M.p - M.p[0]
-    MpmMp0 = copy(M.p)
-    MpmMp0[0] = 0
-
     # Compute a non-truncated composition
-    q = Arblib.compose(p.poly, MpmMp0.poly)
+    q = ArbExtras.compose_zero(p.poly, M.p.poly)
 
     # Truncate the polynomial to the specified degree
     return TaylorModel(
@@ -340,12 +336,8 @@ function clausenc(x::Arb, s::TaylorModel)
     remainder_term = clausenc(x, J, degree + 1) / factorial(degree + 1)
     p[degree+1] = remainder_term
 
-    # s.p - s.p[0]
-    spmsp0 = copy(s.p)
-    spmsp0[0] = 0
-
     # Compute a non-truncated composition
-    q = Arblib.compose(p.poly, spmsp0.poly)
+    q = ArbExtras.compose_zero(p.poly, s.p.poly)
 
     # Truncate the polynomial to the specified degree
     return TaylorModel(
@@ -381,12 +373,8 @@ function clausens(x::Arb, s::TaylorModel)
     remainder_term = clausens(x, J, degree + 1) / factorial(degree + 1)
     p[degree+1] = remainder_term
 
-    # s.p - s.p[0]
-    spmsp0 = copy(s.p)
-    spmsp0[0] = 0
-
     # Compute a non-truncated composition
-    q = Arblib.compose(p.poly, spmsp0.poly)
+    q = ArbExtras.compose_zero(p.poly, s.p.poly)
 
     # Truncate the polynomial to the specified degree
     return TaylorModel(
@@ -439,12 +427,8 @@ function clausencmzeta(x::Arb, s::TaylorModel)
 
     p[degree+1] = remainder_term
 
-    # s - s[0]
-    sms0 = copy(s.p)
-    sms0[0] = 0
-
     # Compute a non-truncated composition
-    q = Arblib.compose(p.poly, sms0.poly)
+    q = ArbExtras.compose_zero(p.poly, s.p.poly)
 
     # Truncate to the specified degree
     return TaylorModel(
@@ -487,12 +471,8 @@ function abspow(x::Arb, y::TaylorModel)
 
     p[degree+1] = abspow(x, (ArbSeries((yinterval, 1), degree = degree + 1)))[degree+1]
 
-    # y - y[0]
-    ymy0 = copy(y.p)
-    ymy0[0] = 0
-
     # Compute a non-truncated composition
-    q = Arblib.compose(p.poly, ymy0.poly)
+    q = ArbExtras.compose_zero(p.poly, y.p.poly)
 
     # Truncate to the specified degree
     return TaylorModel(
