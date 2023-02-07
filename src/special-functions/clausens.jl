@@ -506,7 +506,7 @@ function clausens(x::ArbSeries, s)
         end
     end
 
-    return ArbExtras.compose_zero(res, x)
+    return ArbExtras.compose_zero!(res, res, x)
 end
 
 """

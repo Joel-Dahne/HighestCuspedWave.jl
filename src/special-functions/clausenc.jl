@@ -729,7 +729,7 @@ function clausenc(x::ArbSeries, s)
         end
     end
 
-    return ArbExtras.compose_zero(res, x)
+    return ArbExtras.compose_zero!(res, res, x)
 end
 
 """
@@ -864,7 +864,7 @@ function clausenc(x::ArbSeries, s, β::Integer)
         end
     end
 
-    return ArbExtras.compose_zero(res, x)
+    return ArbExtras.compose_zero!(res, res, x)
 end
 
 """
@@ -1518,7 +1518,7 @@ function clausencmzeta(x::ArbSeries, s::Arb)
         end
     end
 
-    return ArbExtras.compose_zero(res, x)
+    return ArbExtras.compose_zero!(res, res, x)
 end
 
 clausencmzeta(x::ArbSeries, s) = clausenc(x, s) - zeta(Arb(s, prec = precision(x)))
