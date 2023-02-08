@@ -131,8 +131,30 @@ in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
 The existence and uniqueness of the root is based on lemma
 [`lemma_integrand_1`](@ref).
 
-It uses that the root is increasing in `α` and decreasing in `x` to
-better handle wide input intervals.
+It uses that the root is decreasing in `x` to better handle wide input
+intervals.
+
+In practice the root is also decreasing in `α`, though this is harder
+to prove in the general case. Instead we do the computations assuming
+it is decreasing in `α` and then afterward verify that this indeed was
+the case. If this verification fails it falls back to not assuming
+that the root is decreasing in `α`.
+
+The verification is done in the following way. Consider `αₗ, αᵤ =
+getinterval(Arb, α)` and let `rₗ` be the root computed with `αᵤ` and
+`rᵤ` the root computed with `αₗ`. If the derivative of
+```
+_integrand_I_hat(x, rₗ, α)
+```
+is positive then, since `_integrand_I_hat(x, rₗ, αᵤ) = 0`, we have
+that `_integrand_I_hat(x, rₗ, α) <= 0`. Since the function is
+increasing in `t` this ensures that the root is at `rₗ` or to the left
+of it. Similarly we have that if the derivative of
+```
+_integrand_I_hat(x, rᵤ, α)
+```
+is positive then `_integrand_I_hat(x, rₗ, α) >= 0` and the root must
+lie at or to the right of `rᵤ`.
 
 If the lower bound of `x` is zero or close to zero (smaller than
 `eps(Arb)`) it computes an upper bound of the root by considering the
@@ -170,31 +192,41 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
             df = t -> _integrand_I_hat_dt(x, t, α)
 
             # The root is lower bounded by 1 / 2
-            root_lower = Arf(0.5)
+            r_lower = Arf(0.5)
 
             # Find a crude upper bound for the root
-            # root_lower + δ gives upper bound of root
-            δ = root_zero - root_lower
-            while Arblib.ispositive(f(root_lower + δ / 2))
+            δ = root_zero - r_lower # root_lower + δ gives upper bound of root
+            while Arblib.ispositive(f(r_lower + δ / 2))
                 Arblib.mul_2exp!(δ, δ, -1)
             end
-            root_upper = ubound(root_lower + δ)
+            r_upper = ubound(r_lower + δ)
 
             # Short circuit in case the sign can't be determined on
             # the lower endpoint, this happens when x is very close to
             # π
-            Arblib.contains_zero(f(Arb(root_lower))) && return Arb((root_lower, root_upper))
+            Arblib.contains_zero(f(Arb(r_lower))) && return Arb((r_lower, r_upper))
 
             # Improve the enclosure of the root
-            roots, flags = ArbExtras.isolate_roots(f, root_lower, root_upper)
+            roots, flags = ArbExtras.isolate_roots(f, r_lower, r_upper)
             if length(flags) == 1 && flags[1]
                 # Refine the unique root
-                root = ArbExtras.refine_root(f, Arb(only(roots)); df, atol)
+                r = ArbExtras.refine_root(f, Arb(only(roots)); df, atol)
             else
-                root = Arb((roots[1][1], roots[end][2]))
+                r = Arb((roots[1][1], roots[end][2]))
             end
 
-            return root
+            return r
+        end
+
+    root_is_decreasing(x::Arb, t::Arb, α::Arb) =
+        let
+            dfdα = ArbExtras.enclosure_series(
+                ArbExtras.derivative_function(α -> _integrand_I_hat(x, t, α)),
+                α,
+                degree = 2,
+            )
+
+            Arblib.ispositive(dfdα)
         end
 
     xₗ, xᵤ = getinterval(Arb, x)
@@ -206,20 +238,61 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
     if iszero(x)
         root = root_zero
     elseif Arblib.overlaps(xᵤ, Arb(π))
-        root = Arb((1 // 2, compute_root(xₗ, αₗ))) # Lower bound is 1 / 2
+        rootₗ = Arb(1 // 2) # Lower bound is 1 / 2
+
+        rootᵤ = compute_root(xₗ, αₗ)
+        if !root_is_decreasing(xₗ, rootᵤ, α)
+            rootᵤ = compute_root(xₗ, α)
+        end
+
+        root = Arb((rootₗ, rootᵤ))
     elseif !iswide(x)
         # In this case x never overlaps zero
         if iswide(α)
-            root = Arb((compute_root(x, αᵤ), compute_root(x, αₗ)))
+            rootₗ = compute_root(x, αᵤ)
+            if !root_is_decreasing(x, rootₗ, α)
+                rootₗ = compute_root(x, α)
+            end
+
+            rootᵤ = compute_root(x, αₗ)
+            if !root_is_decreasing(x, rootᵤ, α)
+                rootᵤ = compute_root(x, α)
+            end
+
+            root = Arb((rootₗ, rootᵤ))
         else
             root = compute_root(x, α)
         end
     elseif xᵤ < ϵ
-        root = Arb((compute_root(ϵ, αᵤ), root_zero))
+        rootₗ = compute_root(ϵ, αᵤ)
+        if !root_is_decreasing(ϵ, rootₗ, α)
+            rootₗ = compute_root(ϵ, α)
+        end
+
+        rootᵤ = root_zero
+
+        root = Arb((rootₗ, rootᵤ))
     elseif xₗ < ϵ
-        root = Arb((compute_root(xᵤ, αᵤ), root_zero))
+        rootₗ = compute_root(xᵤ, αᵤ)
+        if !root_is_decreasing(xᵤ, rootₗ, α)
+            rootₗ = compute_root(xᵤ, α)
+        end
+
+        rootᵤ = root_zero
+
+        root = Arb((rootₗ, rootᵤ))
     else
-        root = Arb((compute_root(xᵤ, αᵤ), compute_root(xₗ, αₗ)))
+        rootₗ = compute_root(xᵤ, αᵤ)
+        if !root_is_decreasing(xᵤ, rootₗ, α)
+            rootₗ = compute_root(xᵤ, α)
+        end
+
+        rootᵤ = compute_root(xₗ, αₗ)
+        if !root_is_decreasing(xₗ, rootᵤ, α)
+            rootᵤ = compute_root(xₗ, α)
+        end
+
+        root = Arb((rootₗ, rootᵤ))
     end
 
     return root
