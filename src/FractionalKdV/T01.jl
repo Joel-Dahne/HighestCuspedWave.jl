@@ -196,6 +196,13 @@ function _integrand_compute_root(::Type{<:FractionalKdVAnsatz}, x::Arb, α::Arb)
 
             # Find a crude upper bound for the root
             δ = root_zero - r_lower # root_lower + δ gives upper bound of root
+            if Arblib.midref(x) < 1e-5 && !Arblib.ispositive(f(r_lower + δ))
+                # If x is very small then the sign might not be
+                # determined at root_zero. In that case it is
+                # beneficial to slightly increase the bound for
+                # isolate_roots to be able to isolate the root.
+                δ += sqrt(eps(δ))
+            end
             while Arblib.ispositive(f(r_lower + δ / 2))
                 Arblib.mul_2exp!(δ, δ, -1)
             end
