@@ -8,10 +8,17 @@ clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 in `t` on the interval `[0, 1]`, one enclosure for `α = 0` and one
 valid for `α ∈ [αₗ, 0]`. It assumes that `0 <= x <= π`.
 
-To compute the root for `α ∈ [αₗ, 0]` it uses that the root is
-decreasing in `α`. To get an enclosure it is therefore enough to
-compute the root at `α = 0` and `α = αₗ`. To compute the root at `αₗ`
-it uses `_integrand_compute_root(FractionalKdVAnsatz, x, αₗ)`.
+To compute the root for `α ∈ [αₗ, 0]` it uses that the root in
+practice is decreasing in `α`. It computes the root at `α = 0` and `α
+= αₗ` and does an a posteriori check for the root being decreasing in
+`α`. The a posteriori check is done in the same was as in the
+corresponding `FractionalKdVAnstaz` version of this method, by
+checking that the derivative w.r.t. `α` is positive. To be able to
+compute the derivative near `α` we have to normalise the function by
+dividing by `α`.
+
+To compute the root at `αₗ` it uses
+`_integrand_compute_root(FractionalKdVAnsatz, x, αₗ)`.
 
 # Computing the root for `α = 0`
 In the limit as `α -> 0` the function
@@ -48,14 +55,17 @@ compute the root at `eps(Arb)` and use that as a lower bound. This
 avoids computing with very small values of `x`.
 """
 function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
+    # For x = 0 the version for FractionalKdVAnsatz is able to compute
+    # the root without further work.
+
     # Compute root for α = 0 and x = 0
-    root0_zero = let
-        f = t -> (1 - t)^(-1) + (1 + t)^(-1) - 2t^(-1)
+    root0_zero = _integrand_compute_root(FractionalKdVAnsatz, Arb(0), Arb(0))
 
-        roots, flags = ArbExtras.isolate_roots(f, Arf(0.5), Arf(0.9))
-        length(flags) == 1 && flags[1] || error("could not isolate root for x = 0")
+    if iszero(x)
+        # Compute root for α = [αₗ, 0] and x = 0
+        root_zero = _integrand_compute_root(FractionalKdVAnsatz, Arb(0), Arb((αₗ, 0)))
 
-        ArbExtras.refine_root(f, Arb(only(roots)))
+        return root0_zero, root_zero
     end
 
     # If x is wide we don't need to compute the root to very high
@@ -101,36 +111,89 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
             return root
         end
 
-    # Compute an enclosure of the root for α = 0
+    root_is_decreasing(x::Arb, t::Arb, α::Arb) =
+        let
+            # Use when α overlaps zero
+            f1 = ArbExtras.derivative_function() do α
+                fx_div_x(
+                    α -> _integrand_I_hat(x, t, α),
+                    α,
+                    force = true,
+                    enclosure_degree = -1,
+                    extra_degree = 2,
+                )
+            end
+
+            # Use when α doesn't overlap zero
+            f2 = ArbExtras.derivative_function(α -> _integrand_I_hat(x, t, α) / α)
+
+            dfdα = ArbExtras.enclosure_series(α, degree = 4) do α
+                if α isa Arb && abs(α) < 1e-10
+                    α = union(α, zero(α))
+                end
+
+                if α isa ArbSeries && Arblib.contains_zero(α[0]) ||
+                   α isa Arb && Arblib.contains_zero(α)
+                    f1(α)
+                else
+                    f2(α)
+                end
+            end
+
+            Arblib.isnegative(dfdα)
+        end
+
+    # Compute an enclosure of the root for α = 0 as well as a lower
+    # bound of the root for the root on the interval [αₗ, 0].
 
     xₗ, xᵤ = getinterval(Arb, x)
     xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
     ϵ = eps(Arb)
 
     if iszero(x)
-        root0 = root0_zero
+        rootₗ = root0_zero
+        root0 = rootₗ
     elseif Arblib.overlaps(xᵤ, Arb(π))
-        root0 = Arb((1 // 2, compute_root0(xₗ))) # Lower bound is 1 / 2
+        rootₗ = Arb(1 // 2)
+        root0 = Arb((rootₗ, compute_root0(xₗ))) # Lower bound is 1 / 2
     elseif !iswide(x)
-        root0 = compute_root0(x) # In this case x never overlaps zero
+        rootₗ = compute_root0(x) # In this case x never overlaps zero
+        root0 = rootₗ
     elseif xᵤ < ϵ
-        root0 = Arb((compute_root0(ϵ), root0_zero))
+        rootₗ = compute_root0(ϵ)
+        root0 = Arb((rootₗ, root0_zero))
     elseif xₗ < ϵ
-        root0 = Arb((compute_root0(xᵤ), root0_zero))
+        rootₗ = compute_root0(xᵤ)
+        root0 = Arb((rootₗ, root0_zero))
     else
-        root0 = Arb((compute_root0(xᵤ), compute_root0(xₗ)))
+        rootₗ = compute_root0(xᵤ)
+        root0 = Arb((rootₗ, compute_root0(xₗ)))
     end
 
+    # Compute an upper bound of root on the interval [αₗ, 0] by
+    # computing the root at αₗ
     if iszero(αₗ)
-        rootₗ = root0
+        rootᵤ = root0
     elseif -1 < αₗ < 0
-        # Compute root at α = αₗ
-        rootₗ = _integrand_compute_root(FractionalKdVAnsatz, x, αₗ)
+        # Compute root at αₗ
+        rootᵤ = _integrand_compute_root(FractionalKdVAnsatz, xₗ, αₗ)
     else
         throw(ArgumentError("requires that -1 < αₗ < 0"))
     end
 
-    return root0, Arb((root0, rootₗ))
+    if !Arblib.overlaps(xᵤ, Arb(π)) && !root_is_decreasing(xᵤ, rootₗ, Arb((αₗ, 0)))
+        # Root is always lower bounded by 1 / 2. In practice we expect
+        # this to fail only for x very close to π, in which case the
+        # lower bound is fairly tight.
+        rootₗ = Arb(1 // 2)
+    end
+    if !root_is_decreasing(xₗ, rootᵤ, Arb((αₗ, 0)))
+        # Root is always upper bounded by the value at x = 0. In
+        # practice we don't expect this case to occur.
+        rootᵤ = _integrand_compute_root(FractionalKdVAnsatz, Arb(0), Arb((αₗ, 0)))
+    end
+
+    return root0, Arb((rootₗ, rootᵤ))
 end
 
 """
