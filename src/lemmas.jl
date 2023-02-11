@@ -36,7 +36,7 @@ log(x * (1 - t) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2) =
 with the unique root `hat_r(-1, 0) = 1 / sqrt(2)`.
 
 # Proof
-**PROVE**
+For a proof see the corresponding lemma in the paper.
 """
 lemma_integrand_1() = true
 
@@ -71,6 +71,6 @@ log(x * (1 - t) / 2) + log(x * (1 + t) / 2) - 2log(x * t / 2) =
 is positive.
 
 # Proof
-**PROVE**
+For a proof see the corresponding lemma in the paper.
 """
 lemma_integrand_2() = true
