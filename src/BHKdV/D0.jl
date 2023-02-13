@@ -12,11 +12,12 @@ compute the maximum on this part first and then only prove that the
 value on `[0, ϵ]` is bounded by this value.
 
 This method uses the fact that `u0.v0(x)` gives a **lower** bound for
-`u0(x)` for `0 <= x <= π` and any `α` in the interval `(-1, -1 +
-u0.ϵ]`. This means that `inv(u0(x))` is **upper** bounded by
-`inv(u0.v0(x))`.
-- **PROVE:** That `u0(x)` indeed is lower bounded by `u0.v0(x)`. See
-  [`n0_bound`](@ref).
+`u0(x)`. This is the statement of
+[`lemma_bhkdv_monotonicity_alpha`](@ref). This means that as long as
+`u0.v0(x) > 0` we have that `inv(u0(x))` is **upper** bounded by
+`inv(u0.v0(x))`. To prove that `u0.v0(x)` is positive it is enough to
+ensure that `u0.v0(π)` is positive and that the final bound is finite,
+in this case `u0.v0(x)` can never be zero.
 
 For the non-asymptotic version we do a number of optimizations for
 performance reasons.
@@ -50,6 +51,12 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
     ϵ = midpoint(Arb("1e-1"))
 
     # Bound the value on [ϵ, π]
+
+    # Assert that the lemma holds
+    @assert lemma_bhkdv_monotonicity_alpha(u0)
+
+    # Check that u0.v0 is positive at x = π
+    Arblib.ispositive(u0.v0(Arb(π))) || error("u0.v0(π) not positive")
 
     # The evaluation of T0 doesn't support ArbSeries, but the
     # evaluation of u0 does. We can use ArbSeries to get a tighter
