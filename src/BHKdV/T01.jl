@@ -1,36 +1,64 @@
 """
-    T01(u0::BHKdVAnsatz, ::Ball; δ, skip_div_u0)
+    T012(u0::BHKdVAnsatz; δ, skip_div_u0)
 
-Returns a function such that `T01(u0, Ball(); δ)(x)` computes the
-integral ``T_{0,1}`` from the paper.
+Return a functions `f` such that `f(x)` computes the integral
+```
+inv(π * u0(x) * u0.w(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(x * t) dt
+```
+where the integration is taken from `0` to `1 - δ`.
 
-If `skip_div_u0` is `true` then don't divide the integral by `u0(x)`.
-"""
-function T01(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-5), skip_div_u0 = false)
-    f = T012(u0, evaltype, skip_div_u0 = true; δ)
-    g = T013(u0, evaltype, skip_div_u0 = true; δ)
+As a first step we rewrite it as
+```
+inv(π * u0(x) * u0.wdivx(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * t * u0.wdivx(x * t) dt
+```
 
-    if skip_div_u0
-        return x -> f(x) + g(x)
-    else
-        return x -> (f(x) + g(x)) / u0(x)
-    end
-end
+The integrand is not differentiable at the endpoint `t = 0`. For
+computing an enclosure the only problematic part of the integrand is
+the term `clausenc(x * t, -α) * u0.w(x * t). This is given by
+```
+clausenc(x * t, -α) * u0.w(x * t) = clausenc(x * t, -α) * abs(x * t)^(1 - u0.γ *
+                                        (α + 1)) * log(u0.c + inv(abs(x * t)))
+```
+For `u0.γ == 1 // 2` and `u0.c = 2ℯ` there is a lemma in the paper
+proving this to be increasing in `t` for `0 < t < t0` with
+```
+t0 = (-2gamma(1 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 / 2) / zeta(-α))^inv(α + 1)
+```
+Furthermore it is zero at `t = 0`.
 
-"""
-    T012(u0::BHKdVAnsatz; δ)
-
-Returns a function such that `T012(u0; δ)(x; tol)` computes the
-integral ``T_{0,1,2}`` from the paper using the prescribed tolerance
-in the integration.
+To evaluate `t0` we use that
+```
+gamma(1 + α) / zeta(-α) = gamma(2 + α) / ((1 + α) * zeta_deflated(-α, 1) - 1)
+```
+Giving us
+```
+t0 = (
+        -2gamma(2 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 / 2) /
+        ((1 + α) * zeta_deflated(-α, 1) - 1)
+    )^inv(α + 1)
+```
+Next we rewrite the power into `exp` and `log` as
+```
+t0 = exp(
+    log(
+        -2gamma(2 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 / 2) /
+        ((1 + α) * zeta_deflated(-α, 1) - 1)
+    ) / (α + 1)
+)
+```
+The division by `α + 1` has to be done taking into account the
+removable singularity.
 """
 function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
     # Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that the
     # lower endpoint is exactly -1
     α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
+    @assert u0.γ == 1 // 2
+    @assert Arblib.overlaps(u0.c, 2Arb(ℯ))
+
     return (x::Arb; tol = Arb(1e-5)) -> begin
-        # Compute critical point of clausenc(x * t, -α) * t^0.5
+        # Compute  t0
         t0 = begin
             a = TaylorModel(α, Arb(-1), degree = 2) do α
                 num = -2gamma(2 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 // 2)
@@ -59,11 +87,15 @@ function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0
                 if tt < t0
                     tᵤ = ubound(Arb, tt)
 
-                    # PROVE: Monotonicity of weight factor
+                    # Use that t * u0.wdivx(x * t) is increasing in t.
+                    # This follows from that the derivative has the
+                    # same sign as x * t * u0.wdivx(x * t) = u0.w(x *
+                    # t) and u0.w is increasing.
                     part1 =
                         clausenc(x * (1 - tt), -α) +
                         clausenc(x * (1 + tt), -α) * Arb((0, tᵤ * u0.wdivx(x * tᵤ)))
 
+                    # Use that this term is increasing in t.
                     part2 = Arb((0, clausenc(x * tᵤ, -α) * tᵤ * u0.wdivx(x * tᵤ)))
 
                     if t isa Arb
@@ -88,80 +120,6 @@ function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0
         res = ArbExtras.integrate(integrand, Arb(0), 1 - δ, atol = tol, rtol = tol)
 
         res *= x / (π * u0.wdivx(x))
-
-        if skip_div_u0
-            return res
-        else
-            return res / u0(x)
-        end
-    end
-end
-
-"""
-    T013(u0::BHKdVAnsatz; δ)
-
-Computes the integral ``T_{0,1,3}`` from the paper.
-
-To begin with we notice that the weight part of the integrand is well
-behaved and we can just factor it out by evaluating it on the whole
-interval.
-
-As long as `1 - δ` lies to the right of the unique root of the
-integrand the value inside the absolute value is positive so we can
-remove the absolute value. Since the root is increasing in `x` and
-decreasing in `α` it is enough to check that `1 - δ` is to the right
-of the root for `x = 0` and `α = 1`, for which the root is
-`inv(sqrt(2))`.
-
-We are left with integrating the three Clausen terms
-1. `clausenc(x * (1 - t), -α)`
-2. `clausenc(x * (1 + t), -α)`
-3. `2clausenc(x * t, -α)`
-We have that the primitive functions for the three terms are given by
-1. `-clausens(x * (1 - t), 1 - α) / x`
-2. `clausens(x * (1 + t), 1 - α) / x`
-3. `2clausens(x * t, 1 - α) / x`
-Hence the integral from `1 - δ` to `1` is
-```
-inv(x) * (
-    (-clausens(0, 1 - α) + clausens(2x, 1 - α) - 2clausens(x, 1 - α)) -
-    (-clausens(x * δ, 1 - α) + clausens(x * (2 - δ), 1 - α) - 2clausens(x * (1 - δ), 1 - α))
-)
-```
-The multiplication by `inv(x)` can be cancelled by the multiplication
-by `x` that is outside of the integral. Since `1 - α > 1` we have
-`clausens(0, 1 - α) = 0`. If we also reorder the terms to more clearly
-see which ones gives cancellations we get
-```
-clausens(x * δ, 1 - α) +
-(clausens(2x, 1 - α) - clausens(x * (2 - δ), 1 - α)) -
-2(clausens(x, 1 - α) - clausens(x * (1 - δ), 1 - α))
-```
-
-- **IMPROVE:** Could improve enclosures by better handling
-  cancellations for `clausens(2x, 1 - α) - clausens(x * (2 - δ), 1 -
-  α)` and `clausens(x, 1 - α) - clausens(x * (1 - δ), 1 - α)`. Though
-  this might not be needed.
-"""
-function T013(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
-    # Check that 1 - δ is to the right of the root of the integrand
-    inv(sqrt(Arb(2))) < 1 - δ || error("interval of integration contains root")
-
-    return x::Arb -> begin
-        weight_factor = let t = Arb((1 - δ, 1))
-            t * u0.wdivx(x * t)
-        end
-
-        # s = 1 - α
-        s = Arb((2 - u0.ϵ, 2))
-
-        integral =
-            clausens(x * δ, s) + (clausens(2x, s) - clausens(x * (2 - δ), s)) -
-            2(clausens(x, s) - clausens(x * (1 - δ), s))
-
-        integral *= weight_factor
-
-        res = integral / (π * u0.wdivx(x))
 
         if skip_div_u0
             return res

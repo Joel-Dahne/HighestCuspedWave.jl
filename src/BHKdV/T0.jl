@@ -5,7 +5,6 @@ function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = 
     f2 = T0_primitive(u0, evaltype, skip_div_u0 = true)
     # Integration on [b, π] with b picked later
     f3 = T022(u0, evaltype, skip_div_u0 = true)
-    # Construction depends on x
 
     return x -> begin
         # We take the tolerance used for the integration to be twice
@@ -16,14 +15,14 @@ function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = 
 
         isfinite(part1) || return part1
 
-        # We want to take the upper integration independent of x in
-        # the variables used by T022. We take it to be
-        # ubound((1 + δ) * x)
+        # We want to take the b, lower integration limit in T022,
+        # independent of x in the variables used by T022. We take it
+        # to be ubound((1 + δ) * x)
         b_y = ubound(Arb, (1 + δ) * x) # Upper bound in the variable y
         # We check (b_y / x) * x < π instead of b_y < π to make sure
         # that the inequality b_t * x < π holds even when x is a ball.
         if (b_y / x) * x < π
-            # Compute upper bound in the variable t = y / x
+            # Compute upper bound of b in the variable t = y / x
             b_t = b_y / x
             part2 = f2(x, 1 - δ, b_t)
 
@@ -31,6 +30,9 @@ function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = 
 
             part3 = f3(x, b_y; tol)
         else
+            # In this case use b = π. This means that f3 is zero and
+            # we want to integrate f2 all the way to the endpoint.
+
             # The value 1 + δ is not important
             part2 = f2(x, 1 - δ, 1 + δ, to_endpoint = true)
 
@@ -263,13 +265,13 @@ above, integrating from `a` to `b`. Optionally it accepts the keyword
 argument `to_endpoint` which if true makes it compute the integral
 from `a` to `π / x`, i.e. `f(x, a, b, to_endpoint = true)`.
 
-The value of `a` should be large than the unique root of the integrand
-on ``[0, 1]`` (see [`lemma_integrand_1`](@ref)). This allows us to
-remove the absolute value in the integral. To ensure that this is the
-case we check that the integrand is positive at `t = a`. Since the
-location of the zero on ``[0, 1]`` is decreasing in `x` it is enough
-to check this for a lower bound of `x`, this makes it easier to handle
-wide values of `x`.
+The value of `a` should be larger than the unique root of the
+integrand on ``[0, 1]`` (see [`lemma_integrand_1`](@ref)). This allows
+us to remove the absolute value in the integral. To ensure that this
+is the case we check that the integrand is positive at `t = a`. Since
+the location of the zero on ``[0, 1]`` is decreasing in `x` it is
+enough to check this for a lower bound of `x`, this makes it easier to
+handle wide values of `x`.
 
 The computation is done by factoring out part of the weight and
 integrating the rest explicitly.
@@ -512,21 +514,6 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
         factor_div_x = inv(π * log(u0.c + inv(x)))
 
         res = factor_div_x * weight_enclosure * I_mul_x
-
-        # Other version for computing it, can be used for checking.
-        # Though it doesn't support all cases.
-        if false
-            # T013 uses the variable t as well so we get δ1 = 1 - a
-            f = T013(u0, evaltype, δ1 = 1 - a, skip_div_u0 = true)
-            # T021 uses the variable y directly, so b corresponds to x *
-            # b, hence δ2 = x * (b - 1).
-            g = T021(u0, evaltype, δ2 = x * (b - 1), skip_div_u0 = true)
-            part1 = abs(f(x))
-            part2 = abs(g(x))
-            res2 = part1 + part2
-
-            @assert Arblib.overlaps(res, res2)
-        end
 
         if skip_div_u0
             return res
