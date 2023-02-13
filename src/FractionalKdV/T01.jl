@@ -462,7 +462,7 @@ function T01(
 end
 
 """
-    T012(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1::Arb = skip_div_u0 = false)
+    T012(u0::FractionalKdVAnsatz{Arb}, ::Ball; δ1::Arb = Arb(1e-3), skip_div_u0 = false)
 
 Return a functions such that `T012(u0; δ1)(x)` computes the integral
 ```
@@ -491,10 +491,10 @@ for the integration.
 
 The integrand is not analytic at the endpoint `t = 0`. For computing
 an enclosure the only problematic part of the integrand is the term
-`clausenc(x * t, -α) * u0.w(t). To enclose it we compute an expansion
-of `clausenc` and explicitly handle the multiplication with `u0.w(t)`.
-This enclosure is only finite if `u0.p - u0.α - 1 > 0` , which is true
-in all cases we consider.
+`clausenc(x * t, -α) * u0.w(x * t). To enclose it we compute an
+expansion of `clausenc` and explicitly handle the multiplication with
+`u0.w(x * t)`. This enclosure is only finite if `u0.p - u0.α - 1 > 0`
+, which is true in all cases we consider.
 
 If `skip_div_u0` is true then skip the division by `u0(x)` in the
 result.
@@ -651,16 +651,19 @@ end
 
 Return a function such that `T013(u0; δ1)(x)` computes the integral
 ```
-inv(π * u0(x) * u0.w(x)) * x * ∫ _integrand_I_hat(x, t, α) * u0.w(x * t) dt
+inv(π * u0(x) * u0.w(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(x * t) dt
 ```
 where the integration is taken from `1 - δ1` to `1`.
 
 Since `u0.w` is bounded on the interval of integration we can factor
 it out as
 ```
-inv(π * u0(x) * u0.w(x)) * x * u0.w(x * Arb((1 - δ1, 1))) * ∫ _integrand_I_hat(x, t, α) dt
+inv(π * u0(x) * u0.w(x)) * x * u0.w(x * Arb((1 - δ1, 1))) * ∫ abs(_integrand_I_hat(x, t, α)) dt
 ```
-and compute the integral explicitly. It is given by
+
+As long as `1 - δ1` is larger than the unique root of the integrand we
+can remove the absolute value. In this case the integral can be
+computed explicitly. It is given by
 ```
 ∫ _integrand_I_hat(x, t, α) dt = inv(x) * (
     clausens(2x, 1 - α) -
@@ -670,6 +673,9 @@ and compute the integral explicitly. It is given by
     2clausens(x * (1 - δ1), 1 - α)
 )
 ```
+
+Since the root is decreasing in `x` it is enough to check that `1 -
+δ1` is larger than the root for `x = 0`.
 
 If `weightfactors(u0)` is true then `u0.w(x * t) = u0.w(x) * u0.w(t)`
 and we can simplify the result to
@@ -703,6 +709,10 @@ function T013(
     δ1::Arb = Arb(1e-3),
     skip_div_u0 = false,
 )
+    # Check that 1 - δ1 is larger than the root for x = 0
+    _integrand_compute_root(typeof(u0), Arb(0), u0.α) < 1 - δ1 ||
+        error("must have 1 - δ1 larger than root")
+
     return x::Arb -> begin
         if weightfactors(u0)
             weight_factor = u0.w(Arb((1 - δ1, 1)))
