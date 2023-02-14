@@ -735,44 +735,42 @@ We can write the first term as
 ```
 -(zeta(2 - 2m + (-t)) - zeta(2 - 2m)) / (-t)
 ```
-which is on the form `(f(s) - f(0)) / s` and hence given by `f'(ξ)`
-for some `ξ` between `0` and `-t`.
+which is on the form `(f(s) - f(0)) / s` and hence given by
+`f'(ξ1[m])` for some `ξ1[m]` between `0` and `-t`.
 
 For the second term we write it as
 ```
 (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
 = t / 2 * (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / (t^2 / 2)
 ```
-which is given by `t / 2 * f'(ξ)` for some `ξ` between `0` and `t^2 /
-2`.
+which is given by `t / 2 * f'(ξ2[m])` for some `ξ2[m]` between `0` and
+`t^2 / 2`.
 
 Combining this gives us that
 ```
-(zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1) + t / 2 * dzeta(2 - 2m + ξ2)
+(zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1[m]) + t / 2 * dzeta(2 - 2m + ξ2[m])
 ```
-with `ξ1` between `0` and `-t` and `ξ2` between `0` and `t^2 / 2`. In
-terms of interval arithmetic we can write this as (using Arblib
-notation)
+with `ξ1[m]` between `0` and `-t` and `ξ2[m]` between `0` and `t^2 /
+2`. Hence
 ```
--dzeta(2 - 2m + Arb((-t, 0))) + t / 2 * dzeta(2 - 2m + Arb((0, t^2 / 2)))
+abs(S) <= abs(S1) + (α + 1) / 2 * abs(S2)
 ```
-Thus we can reduce bounding the absolute value of `S` to bounding the
-absolute value of
+with
 ```
-S1 = sum((-1)^m * zeta(2 + Arb((-(α + 1), 0)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
-S2 = sum((-1)^m * dzeta(2 + Arb((0, (α + 1)^2 / 2)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S1 = sum((-1)^m * dzeta(2 + ξ1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(2 + ξ2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
-and combine them as `S1 + (α + 1) / 2 * S2`. These sums are the same
-as those appearing in
+Which we can also write as
 ```
-clausenc_expansion_remainder(x, 2 + Arb((-(α + 1), 0)), 1, M)
-clausenc_expansion_remainder(x, 2 + Arb((0, (α + 1)^2 / 2)), 1, M)
+S1 = sum((-1)^m * dzeta(s1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(s2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
-- **PROVE:** This is mostly true, the issue is that we are not
-  guaranteed that the value in `Arb((-(α + 1), 0))` taken for the
-  argument of the zeta function is the same on each iteration. This
-  does not seem to be an issue because we rely on any cancellations
-  occurring in the sum. But it would need to be proved.
+with `1 - α <= s1[m] <= 2` and `2 <= s2[m] <= 2 + (1 + α)^2 / 2`.
+These sums are on the same form as the ones bounded by
+[`clausenc_expansion_remainder`](@ref). The only difference is that
+the argument `s` depends on `m`. This can however be shown to not
+affect the bound, see the lemma in the paper, and we can thus use
+[`clausenc_expansion_remainder`](@ref) to bound them.
 """
 function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @assert M >= 3
@@ -1053,44 +1051,43 @@ We can write the first term as
 ```
 -2(zeta(3 - 2m + (-2t)) - zeta(3 - 2m)) / (-2t)
 ```
-which is on the form `(f(s) - f(0)) / s` and hence given by `f'(ξ)`
-for some `ξ` between `0` and `-2t`.
+which is on the form `(f(s) - f(0)) / s` and hence given by
+`f'(ξ1[m])` for some `ξ1[m]` between `0` and `-2t`.
 
 For the second term we write it as
 ```
 (zeta(3 - 2m - t + t^2 / 2) - zeta(3 - 2m)) / t
 = (-1 + t / 2) * (zeta(3 - 2m + t^2 / 2) - zeta(3 - 2m)) / (-t + t^2 / 2)
 ```
-which is given by `(-1 + t / 2) * f'(ξ)` for some `ξ` between `0` and
-`-t + t^2 / 2`.
+which is given by `(-1 + t / 2) * f'(ξ2[m])` for some `ξ2[m]` between
+`0` and `-t + t^2 / 2`.
 
 Combining this gives us that
 ```
-(zeta(3 - 2m - 2t) - zeta(3 - 2m -t + t^2 / 2)) / t = -2dzeta(3 - 2m + ξ1) + (-1 + t / 2) * dzeta(3 - 2m + ξ2)
+(zeta(3 - 2m - 2t) - zeta(3 - 2m -t + t^2 / 2)) / t
+= -2dzeta(3 - 2m + ξ1[m]) + (-1 + t / 2) * dzeta(3 - 2m + ξ2[m])
 ```
-with `ξ1` between `0` and `-2t` and `ξ2` between `0` and `-t + t^2 / 2`. In
-terms of interval arithmetic we can write this as (using Arblib
-notation)
+with `ξ1[m]` between `0` and `-2t` and `ξ2[m]` between `0` and `-t +
+t^2 / 2`. Hence
 ```
--2dzeta(3 - 2m + Arb((-2t, 0))) + (-1 + t / 2) * dzeta(3 - 2m + Arb((-t + t^2 / 2, 0)))
+abs(S) <= 2abs(S1) + (1 - (1 + α) / 2) * abs(S2)
 ```
-Thus we can reduce bounding the absolute value of `S` to bounding the
-absolute value of
+with
 ```
-S1 = sum((-1)^m * zeta(3 + Arb((-2(α + 1), 0)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
-S2 = sum((-1)^m * dzeta(3 + Arb((0, -(α + 1) + (α + 1)^2 / 2)) - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S1 = sum((-1)^m * dzeta(3 + ξ1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(3 + ξ2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
-and combine them as `2S1 + (1 - (α + 1) / 2) * S2`. These sums are
-the same as those appearing in
+Which we can also write as
 ```
-clausenc_expansion_remainder(x, 3 + Arb((-2(α + 1), 0)), 1, M)
-clausenc_expansion_remainder(x, 3 + Arb((0, -(α + 1) + (α + 1)^2 / 2)), 1, M)
+S1 = sum((-1)^m * dzeta(s1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(s2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
-- **PROVE:** This is mostly true, the issue is that we are not
-  guaranteed that the value in e.g.g `Arb((-2(α + 1), 0))` taken for
-  the argument of the zeta function is the same on each iteration.
-  This does not seem to be an issue because we rely on any
-  cancellations occurring in the sum. But it would need to be proved.
+with `1 - 2α <= s1[m] <= 3` and `2 - α + (1 + α)^2 / 2 <= s2[m] <= 3`.
+These sums are on the same form as the ones bounded by
+[`clausenc_expansion_remainder`](@ref). The only difference is that
+the argument `s` depends on `m`. This can however be shown to not
+affect the bound, see the lemma in the paper, and we can thus use
+[`clausenc_expansion_remainder`](@ref) to bound them.
 
 # Tail
 For both the Clausen terms and the Fourier terms we let `α` be a ball.
