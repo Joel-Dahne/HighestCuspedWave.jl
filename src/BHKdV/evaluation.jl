@@ -1,5 +1,3 @@
-# PROVE: That all occurrences of force = true indeed are zero
-
 """
     _exponent!(exponent::Arb, α::Arb, i, j, k, l, m, buffer1::Arb, buffer2::Arb, α_upper::Arb, p0_upper::Arb, u0)
 
