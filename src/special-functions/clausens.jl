@@ -683,8 +683,9 @@ by
 sum((-1)^m * zeta(s - 2m - 1) * x^(2m + 1) / factorial(2m) for m = M:Inf) / x^(2M + 1)
 ```
 
-It requires that `abs(x) < 2π` and `2M >= s + 1`. In this case an
-upper bound for the absolute value of the remainder is given by
+It requires that `abs(x) < 2π`, `s >= 0` and `2M >= s + 1`. In this
+case an upper bound for the absolute value of the remainder is given
+by
 ```
 2(2π)^(s - 2M) * abs(cospi(s / 2)) * zeta(2M + 2 - s) / (4π^2 - x^2)
 ```
@@ -694,6 +695,7 @@ function clausens_expansion_remainder(x::Arb, s::Arb, M::Integer)
     pi = Arb(π)
 
     abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
+    s >= 0 || throw(DomainError(M, "s must be positive, got s = $s"))
     2M >= s + 1 || throw(DomainError(M, "must have 2M >= s + 1, got s = $s"))
 
     return Arblib.add_error!(
@@ -716,7 +718,7 @@ sum((-1)^m * dzeta(s - 2m - 1, β) * x^(2m + 1) / factorial(2m + 1) for m = M:In
 where we by `dzeta(s - 2m, β)` mean the zeta-function differentiated
 `β` times.
 
-It requires that `abs(x) < 2π` and `2M >= s + 1`.
+It requires that `abs(x) < 2π`, `s >= 0` and `2M >= s + 1`.
 
 The upper bound of the absolute value of the remainder is given by a
 somewhat awkward expression involving a multitude of special
@@ -729,6 +731,7 @@ function clausens_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
     β == 0 && return clausens_expansion_remainder(x, s, M)
 
     abs(x) < 2pi || throw(DomainError(x, "x must be less than 2π"))
+    s >= 0 || throw(DomainError(M, "s must be positive, got s = $s"))
     2M >= s + 1 || throw(DomainError(M, "must have 2M >= s + 1, got s = $s"))
 
     twopi = 2Arb(π)
