@@ -261,9 +261,13 @@ x / (π * u0(x) * log(u0.c + inv(x))) *
 ```
 where for the full norm the integral is taken from `0` to `π / x`.
 This method returns a function `f` such that `f(x, a, b)` computes the
-above, integrating from `a` to `b`. Optionally it accepts the keyword
-argument `to_endpoint` which if true makes it compute the integral
-from `a` to `π / x`, i.e. `f(x, a, b, to_endpoint = true)`.
+above, integrating from `a` to `b`.
+
+It accepts the keyword argument `to_endpoint` which if true makes it
+compute the integral from `a` to `π / x`, i.e. `f(x, a, b, to_endpoint
+= true)`. In that case the value for `b` is not used.
+
+If `to_endpoint = false` then we require that `b * x < π`.
 
 The value of `a` should be larger than the unique root of the
 integrand on ``[0, 1]`` (see [`lemma_integrand_1`](@ref)). This allows
@@ -354,11 +358,7 @@ where `clausenc(Arb(π), 2 - α)` can also be given as the negated
 alternating zeta function, `-eta(2 - α)`. Evaluating `clausenc(x + π,
 2 - α)` directly when `x` overlaps `π` gives an indeterminate result.
 Instead we use that it is `2π` periodic and even to get `clausenc(π -
-x, 2 - α)`. Since `π - x` is expected to be small, we only need this
-for `x` close to `π` we want to use the expansion at `x = 0`. However
-in our case `2 - α` overlaps with `3` and hence the expansion is
-singular. We therefore use
-[`clausenc_expansion_odd_s_singular`](@ref).
+x, 2 - α)`.
 
 # Handling wide values of `a` and `b`
 If either `a` or `b` is a wide ball we can compute a tighter enclosure
@@ -378,6 +378,11 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
     s2 = 3 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     return (x::Arb, a::Arb, b::Arb; to_endpoint = false) -> begin
+        a < 1 < b || throw(ArgumentError("should have a < 1 < b"))
+        b * x < π ||
+            to_endpoint ||
+            throw(ArgumentError("must have either b * x < π or integrate to endpoint"))
+
         # Check that the integrand is positive on the left endpoint.
         # It is enough to check this for a lower bound of x.
         let t = lbound(Arb, a), x = lbound(Arb, x), α = Arb((-1, -1 + u0.ϵ))
@@ -451,7 +456,9 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                 return term1 - term2
             end
 
-        if b * x < π && !to_endpoint
+        if !to_endpoint
+            @assert b * x < π # We have already checked this above
+
             # We integrate on [a, b]
             weight_enclosure = let α = Arb((-1, -1 + u0.ϵ)), t = Arb((a, b))
                 t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))
@@ -465,7 +472,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             else
                 primitive_bma_mul_x(a, b)
             end
-        elseif to_endpoint || b * x > π || contains(π / x, b)
+        else
             # We integrate on [a, π / x]
             weight_enclosure = let α = Arb((-1, -1 + u0.ϵ)), t = Arb((a, π / x))
                 t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))
@@ -479,35 +486,10 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                 # Enclosure of π - x using that x <= π
                 pimx = Arblib.nonnegative_part!(zero(x), π - x)
 
-                # Compute an enclosure of clausenc(π - x, s2)
-                if Arblib.overlaps(x, Arb(π))
-                    # Compute the analytic terms in the expansion
-                    C, _, p, E = clausenc_expansion(ubound(Arb, pimx), s2, 3)
-
-                    @assert !isfinite(C)
-
-                    # Set the singular term to zero, we handle it separately.
-                    @assert !isfinite(p[2])
-                    p[2] = 0
-
-                    # Factor out x^1.5
-                    exponent = Arb(3 // 2)
-                    D = clausenc_expansion_odd_s_singular(ubound(Arb, pimx), s2, exponent)
-                    clausenc_pimx = D * pimx^exponent + p(pimx)
-                else
-                    clausenc_pimx = clausenc(pimx, s2)
-                end
-
-                2(clausenc_pimx + real(eta(Acb(s2)))) / x
+                2(clausenc(pimx, s2) + real(eta(Acb(s2)))) / x
             end
 
             I_mul_x = primitive_pidivx_mul_x - primitive_mul_x(a)
-        else
-            # In this case it is unclear what integration limit we
-            # should use. Make a warning and return NaN. This should
-            # not happen in practice.
-            @warn "Unclear integration limit" b π / x x
-            return indeterminate(x)
         end
 
         # Enclosure of factor in front of integral divided by x, excluding u0
