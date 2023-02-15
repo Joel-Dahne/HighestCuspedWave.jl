@@ -312,7 +312,7 @@ G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *
                 t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
 
-If `x` not overlapping zero it uses [`_T0_asymptotic_main_2_1`](@ref)
+If `x` does not overlap zero it uses [`_T0_asymptotic_main_2_1`](@ref)
 and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral.
 Factoring out `1 + α` from the integral we get
 ```
@@ -324,1114 +324,98 @@ The factor `(1 + α) / (1 - x^p0)` can be enclosed by handling the
 removable singularity. For the remaining part we split the interval of
 integration into ``[1, 2]`` and ``[2, π / x]``, which are handled in
 [`_T0_asymptotic_main_2_1`](@ref) and
-[`_T0_asymptotic_main_2_2`](@ref). This works well as long as `x` is
-not too small, in practice it is only used for `x > 1e-10`. When `x`
-overlaps zero it uses the approach described below.
+[`_T0_asymptotic_main_2_2`](@ref). This only works well as long as `x`
+is not too small, in practice it is only used for `x > 1e-10`.
 
-**IMPROVE:** The documentation below is outdated and should be updated.
-The main work is done in the `_testing` methods corresponding to this
-method. The actual code should be correct but needs to be properly
-proved.
+When `x` overlaps zero significantly more work is required to get a
+bound. The details are given in the corresponding section of the
+paper. We here give an overview of the approach used.
 
-## Expanding integrand
-We want to get rid of the fractional exponents inside the integral. To
-do this we focus on the part of the integrand given by
+# Split into `G2_M`, `G2_R_1` and `G2_R_2`
+We have
 ```
-((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-γ * (1 + α))
+G2(x) <= G2_M(x) + G2_R_factor(x) * (G2_R_n1(x) + G2_R_1(x) + G2_R_2(x))
 ```
-We can rewrite this as
+Here
 ```
-((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^(-γ * (1 + α)) =
-    (exp(-log(t - 1) * (1 + α)) + exp(-log(t + 1) * (1 + α)) - 2exp(-log(t) * (1 + α))) *
-        exp(-γ * log(t) * (1 + α)) =
-    exp(-(log(t - 1) + γ * log(t)) * (1 + α)) +
-        exp(-(log(t + 1) + γ * log(t)) * (1 + α)) -
-        2exp(-(1 + γ) * log(t) * (1 + α))
+G2_M(x) = inv(1 - x^(1 + α + (1 + α)^2 / 2)) * inv(log(inv(x))) * (4 + 2α) / 3 *
+    (
+        (D - log(x) - 2 / 3 * inv(1 + α)) * (1 - (x / π)^(3 / 2 * (1 + α)))
+        + log(π / x) * (x / π)^(3 / 2 * (1 + α))
+    )
 ```
-Expanding the exponentials and joining the three sums we arrive at
+with `D = Arb((-log(1 + cπ), log(1 + cπ)))`.
 ```
-sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n)
-    for n = 1:Inf
-)
+G2_R_factor(x) = (1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2)) * (1 + log(1 + c * x) / log(1 / x))
 ```
-Inserting this into the integral and switching the order of
-integration and summation gives us
 ```
-G2(x) = -1 / ((1 - x^p0) * log(x)) * sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
-        t * log(c + inv(x * t)) dt
-    for n = 1:Inf
-)
+G2_R_n1 = (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_1^(π / x) log(t)^k * abs(h(n - k, t)) * t dt
+    end
 ```
-Where the integration is done from `1` to `π / x`. We are hence
-interested in computing the integrals
 ```
-I(n, x) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
-    t * log(c + inv(x * t)) dt
-```
-for `n = 1, 2, ...`. From which we can recover `G2(x)` as
-```
-G2(x) = -1 / ((1 - x^p0) * log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I(n, x) for n = 1:Inf)
-```
-
-## Computing `I(n, x)`
-
-### Split `I(n, x)` into three parts
-As a first step we split `I(n, x)` into three parts by using that
-```
-log(c + inv(x * t)) = log((c * x * t + 1) / (x * t)) = log(1 + c * x * t) - log(x) - log(t)
-```
-Letting
-```
-I1(n, x) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
-    t dt
-
-I2(n, x) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
-    t * log(t) dt
-
-I3(n, x) = ∫ ((log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n) *
-    t * log(1 + c * x * t) dt
-```
-we then get
-```
-I(n, x) = -log(x) * I1(n, x) - I2(n, x) + I3(n, x)
-```
-
-### Bound `I3(n, x)` in terms of `I1(n, x)`
-For `I3(n, x)` the factor `log(1 + c * x * t)` in the integrand is
-bounded and an upper bound is given by `log(1 + c * π)`. We thus have
-```
-I3(n, x) <= log(1 + c * π) * I1(n, x)
-```
-giving us
-```
-I(n, x) <= (log(1 + c * π) - log(x)) * I1(n, x) - I2(n, x)
-```
-**FIXME:** This upper bound only holds if `I(n, x)` is positive. This
-is not always the case. Most likely it is also not always the case
-that `I1(n, x)` and `I3(n, x)` have the same sign. We don't even have
-an enclosure if we instead multiply with the enclosure of `log(1 + c *
-x * t)` on the interval since the sign changes.
-
-### Simplifying the integrand for `I1(n, x)` and `I2(n, x)`
-To begin with we want to study the part of the integrand given by
-```
-f(n, t) = (log(t - 1) + γ * log(t))^n + (log(t + 1) + γ * log(t))^n - 2(1 + γ)^n * log(t)^n
-```
-Using the binomial theorem we can write this as
-```
-f(n, t) = sum(binomial(n, k) γ^k * log(t)^k * log(t - 1)^(n - k) for k = 0:n) +
-    sum(binomial(n, k) γ^k * log(t)^k * log(t + 1)^(n - k) for k = 0:n) -
-    2(1 + γ)^n * log(t)^n
-```
-By joining the sums we can write this as
-```
-f(n, t) = sum(binomial(n, k) * γ^k * log(t)^k * (log(t - 1)^(n - k) + log(t + 1)^(n - k)) for k = 0:n) -
-    2(1 + γ)^n * log(t)^n
-```
-
-For large values of `t` the factor
-```
-log(t - 1)^(n - k) + log(t + 1)^(n - k)
-```
-behaves almost like `2log(t)^(n - k)`. We can therefore split it into
-this term plus a remainder and handle them separately. If we let
-```
-R(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-```
-we can split the sum as
-```
-sum(binomial(n, k) * γ^k * log(t)^k * (log(t - 1)^(n - k) + log(t + 1)^(n - k)) for k = 0:n) =
-    sum(binomial(n, k) * γ^k * log(t)^k * 2log(t)^(n - k) for k = 0:n) +
-    sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n)
-```
-
-We can now notice that the first of these sums
-```
-sum(binomial(n, k) * γ^k * log(t)^k * 2log(t)^(n - k) for k = 0:n)
-```
-is exactly equal to
-```
-2(1 + γ)^n * log(t)^n
-```
-and hence cancels the corresponding term in `f(n, t)`. This leaves us
-with
-```
-f(n, t) = sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n)
-```
-Noticing that `R(0, t) = 0` we can simplify this to
-```
-f(n, t) = sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1)
-```
-
-Inserting this back into `I1(n, x)` and `I2(n, x)` we get
-```
-I1(n, x) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t dt
-
-I2(n, x) = ∫ sum(binomial(n, k) * γ^k * log(t)^k * R(n - k, t) for k = 0:n-1) * t * log(t) dt
-```
-where we recall that
-```
-R(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-```
-
-### Computing `I1(n, x)` and `I2(n, x)`
-Switching the summation and integration in `I1(n, x)` and `I2(n, x)` we
-arrive at
-```
-I1(n, x) = sum(binomial(n, k) * γ^k * ∫ log(t)^k * R(n - k, t) * t dt for k = 0:n-1)
-
-I2(n, x) = sum(binomial(n, k) * γ^k * ∫ log(t)^(k + 1) * R(n - k, t) * t dt for k = 0:n-1)
-```
-Using that `R(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l` we can
-write these integrals as
-```
-∫ log(t)^k * (log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k)) * t dt
+G2_R_1(x) = sum(2:Inf) do n
+    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_1^2 log(t)^k * abs(h(n - k, t)) * t dt
+    end
+end
 ```
 and
 ```
-∫ log(t)^(k + 1) * (log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k)) * t dt
+G2_R_2(x) = sum(2:Inf) do n
+    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_2^(π / x) log(t)^k * abs(h(n - k, t)) * t dt
+    end
+end
+```
+With
+```
+h(k, t) = log(t - 1)^k + log(t + 1)^k - 2log(t)^k - k * (k - 1 - log(t)) * log(t)^(k - 2) / t
 ```
 
-#### Split integrand for `I1(n, x)` and `I2(n, x)` into main part and remainder
-Asymptotically as `t` goes to infinity we have that
-```
-log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k)
-```
-behaves like
-```
-(n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2 + O(1 / t^4)
-```
-If we let
-```
-h(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-    - l * log(t)^(l - 2) * (l - 1 - log(t)) / t^2
-```
-Then we have
-```
-log(t - 1)^(n - k) + log(t + 1)^(n - k) - 2log(t)^(n - k) =
-    (n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2
-    + h(n - k, t)
-```
+Bounds for the functions `G2_M(x)`, `G2_R_factor(x)`, `G2_R_1(x)` and
+`G2_R_2(x)` are computed individually.
 
-Inserting the main term into the integrals for `I1(n, x)` and `I2(n, x)`
-gives us
-```
-∫ log(t)^k * (n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2 * t dt
-= (n - k) * ∫ log(t)^(n - 2) * ((n - k - 1) - log(t)) / t dt
-= (n - k) * (n - k - 1) * ∫ log(t)^(n - 2) / t dt -
-    (n - k) * ∫ log(t)^(n - 1) / t dt
+Note that compared to the version in the paper we use the variable `c`
+instead of the explicit value `2ℯ`. In practice `c` will be equal to
+`2ℯ` but the code supports using different values as well. We avoid
+specifying the exact requirements on `c` for these bounds to hold
+though, since in the actual proof we only use `c = 2ℯ`.
 
-∫ log(t)^(k + 1) * (n - k) * log(t)^(n - k - 2) * ((n - k - 1) - log(t)) / t^2 * t dt
-= (n - k) * ∫ log(t)^(n - 1) * ((n - k - 1) - log(t)) / t dt
-= (n - k) * (n - k - 1) * ∫ log(t)^(n - 1) / t dt -
-    (n - k) * ∫ log(t)^n / t dt
+# Bounding `G2_M(x)`
+We have the following bound for `G2_M(x)`, from a lemma in the paper.
 ```
-The integrals can be computed exactly to be
+G2_M(x) <= (4 + 2α) / 3 * (2log(1 + cπ) / log(inv(x)) + 1)
 ```
-(n - k) * (n - k - 1) * ∫ log(t)^(n - 2) / t dt =
-    (n - k) * (n - k - 1) / (n - 1) * log(π / x)^(n - 1)
+Which holds for `x < inv(π^3)`.
 
-(n - k) * ∫ log(t)^(n - 1) / t dt =
-    (n - k) / n * log(π / x)^n
+# Enclosing `G2_R_factor(x)`
+We can enclose `(1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2))` using that
+it is increasing in `x`. It is equal to `1 + α` for `x = 0` and for `x
+> 0` we can handle the removable singularity.
 
-(n - k) * (n - k - 1) * ∫ log(t)^(n - 1) / t dt =
-    (n - k) * (n - k - 1) / n * log(π / x)^n
+# Bounding `G2_R_n1(x)`
+From a lemma in the paper we have that this is bounded by `1 / 2` for
+`x < 1`.
 
-(n - k) * ∫ log(t)^n / t dt =
-    (n - k) / (n + 1) * log(π / x)^(n + 1)
+# Bounding `G2_R_1(x)`
+We have the following bound for `G2_R_1(x)`, from a lemma in the
+paper.
 ```
-**FIXME:** The above integrals are only valid when the power of the
-logarithm is not `-1`. So the first one fails for `n = 1`, but in that
-case `k = 0` and the factor in front is zero. So it doesn't actually
-matter.
-
-For the `h(n - k, t)` term inserted into the integral we let
-```
-H1(n, k, x) = ∫ log(t)^k * h(n - k, t) * t dt
-H2(n, k, x) = ∫ log(t)^(k + 1) * h(n - k, t) * t dt
-```
-
-Inserting this into `I1(n, x)` and `I2(n, x)` gives us
-```
-I1(n, x) = sum(
-    binomial(n, k) * γ^k * (n - k) * log(π / x)^(n - 1) * ((n - k - 1) / (n - 1) - log(π / x) / n)
-    for k = 0:n-1
-) + sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-= log(π / x)^(n - 1) * (
-    1 / (n - 1) * sum(binomial(n, k) * γ^k * (n - k) * (n - k - 1)  for k = 0:n-1) -
-    log(π / x) / n * sum(binomial(n, k) * γ^k * (n - k) for k = 0:n-1)
-) + sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-
-I2(n, x) = sum(
-    binomial(n, k) * γ^k * (n - k) * log(π / x)^n * ((n - k - 1) / n - log(π / x) / (n + 1))
-    for k = 0:n-1
-) + sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-= log(π / x)^n * (
-    1 / n * sum(binomial(n, k) * γ^k * (n - k) * (n - k - 1)  for k = 0:n-1) -
-    log(π / x) / (n + 1) * sum(binomial(n, k) * γ^k * (n - k) for k = 0:n-1)
-) + sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-```
-
-The sums in `I1(n, x)` and `I2(n, x)` without `H1` and `H2` above are
-the same and they can be explicitly computed to be
-```
-sum(binomial(n, k) * γ^k * (n - k) * (n - k - 1)  for k = 0:n-1) =
-    (1 + γ)^(n - 2) * (n - 1) * n
-
-sum(binomial(n, k) * γ^k * (n - k) for k = 0:n-1) =
-    (1 + γ)^(n - 1) * n
-```
-Inserting this backs gives us
-```
-I1(n, x) = log(π / x)^(n - 1) * (1 + γ)^(n - 2) * (n - log(π / x) * (1 + γ))
-     + sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-
-I2(n, x) = log(π / x)^n * (1 + γ)^(n - 2) * ((n - 1) - n / (n + 1) * log(π / x) * (1 + γ))
-     + sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-```
-
-## Inserting `I(n, x)` back into the sum
-Recall that we are interested in computing
-```
-G2(x) = -1 / ((1 - x^p0) * log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I(n, x) for n = 1:Inf)
-```
-with
-```
-I(n, x) = (log(1 + c * π) - log(x)) * I1(n, x) - I2(n, x)
-```
-We can split `G2` into two sums as
-```
-G2(x) <= -1 / ((1 - x^p0) * log(x)) * (
-    + (log(1 + c * π) - log(x)) * sum((-1)^n * (1 + α)^n / factorial(n) * I1(n, x) for n = 1:Inf)
-    - sum((-1)^n * (1 + α)^n / factorial(n) * I2(n, x) for n = 1:Inf)
-)
-```
-We are now interested in computing these two sums.
-
-Using the above expressions of `I1(n, x)` and `I2(n, x)` we get for the
-sum with `I1(n, x)`
-```
-sum((-1)^n * (1 + α)^n / factorial(n) * I1(n, x) for n = 1:Inf)
-
-= sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    log(π / x)^(n - 1) * (1 + γ)^(n - 2) * (n - log(π / x) * (1 + γ))
-    for n = 1:Inf
-) + sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-)
-```
-Focusing on the first of these two sums we can write it as
-```
-sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    log(π / x)^(n - 1) * (1 + γ)^(n - 2) * (n - log(π / x) * (1 + γ))
-    for n = 1:Inf
-)
-
-= sum(
-    (-1)^n * (1 + α)^n / factorial(n - 1) * log(π / x)^(n - 1) * (1 + γ)^(n - 2)
-    for n = 1:Inf
-)
-- sum(
-    (-1)^n * (1 + α)^n / factorial(n) * log(π / x)^(n) * (1 + γ)^(n - 1)
-    for n = 1:Inf
-)
-
-= -(1 + α) / (1 + γ) * sum(
-    (-1)^(n - 1) * (1 + α)^(n - 1) / factorial(n - 1) * log(π / x)^(n - 1) * (1 + γ)^(n - 1)
-    for n = 1:Inf
-)
-- 1 / (1 + γ) * sum(
-    (-1)^n * (1 + α)^n / factorial(n) * log(π / x)^(n) * (1 + γ)^n
-    for n = 1:Inf
-)
-
-= -(1 + α) / (1 + γ) * (π / x)^(-(1 + α) * (1 + γ))
-- 1 / (1 + γ) * ((π / x)^(-(1 + α) * (1 + γ)) - 1)
-
-= (1 - (2 + α) * (π / x)^(-(1 + α) * (1 + γ))) / (1 + γ)
-```
-
-For the sum with `I2(n, x)` we get
-```
-sum((-1)^n * (1 + α)^n / factorial(n) * I2(n, x) for n = 1:Inf)
-
-= sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    log(π / x)^n * (1 + γ)^(n - 2) * ((n - 1) - n / (n + 1) * log(π / x) * (1 + γ))
-    for n = 1:Inf
-) + sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-)
-```
-Focusing on the first of these two sums we can write it as
-```
-sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    log(π / x)^n * (1 + γ)^(n - 2) * ((n - 1) - n / (n + 1) * log(π / x) * (1 + γ))
-    for n = 1:Inf
-)
-
-= sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    log(π / x)^n * (1 + γ)^(n - 2) * (n - 1)
-    for n = 1:Inf
-)
-- sum(
-    (-1)^n * (1 + α)^n / factorial(n) *
-    log(π / x)^n * (1 + γ)^(n - 2) * n / (n + 1) * log(π / x) * (1 + γ)
-    for n = 1:Inf
-)
-
-= 1 / (1 + γ)^2 * sum(
-    (-1)^n * (1 + α)^n / factorial(n) * log(π / x)^n * (1 + γ)^n * (n - 1) for n = 1:Inf
-)
-+ 1 / ((1 + α) * (1 + γ)^2) * sum(
-    (-1)^(n + 1) * (1 + α)^(n + 1) / factorial(n + 1) * log(π / x)^(n + 1) * (1 + γ)^(n + 1) * n
-    for n = 1:Inf
-)
-
-= 1 / (1 + γ)^2 * (1 - (π / x)^(-(1 + α) * (1 + γ)) * ((1 + α) * (1 + γ) * log(π / x) + 1))
-+ 1 / ((1 + α) * (1 + γ)^2) * (1 - (π / x)^(-(1 + α) * (1 + γ)) * ((1 + α) * (1 + γ) * log(π / x) + 1))
-
-= (2 + α) / ((1 + α) * (1 + γ)^2) *
-    (1 - (π / x)^(-(1 + α) * (1 + γ)) * ((1 + α) * (1 + γ) * log(π / x) + 1))
-
-= ((2 + α) * (1 - (π / x)^(-(1 + α) * (1 + γ)))) / ((1 + α) * (1 + γ)^2)
-- (2 + α) / (1 + γ) * (π / x)^(-(1 + α) * (1 + γ)) * log(π / x)
-```
-
-If we now let `s = (π / x)^(-(1 + α) * (1 + γ))` and use the
-above we can write `G2` as
-```
-G2(x) <= -1 / ((1 - x^p0) * log(x)) * (
-    (log(1 + c * π) - log(x)) * (1 - (2 + α) * s) / (1 + γ)
-    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ)^2)
-    + (2 + α) / (1 + γ) * s * (1 + α) * (1 + γ) * log(π / x)
-    + (log(1 + c * π) - log(x)) * sum(
-    (-1)^n * (1 + α)^n / factorial(n)
-    * sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-    )
-    - sum(
-    (-1)^n * (1 + α)^n / factorial(n)
-    * sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-    )
-)
-```
-We can split it into one part with the explicit terms and one part
-with the sums as
-```
-G21(x) = -1 / ((1 - x^p0) * log(x)) * (
-    (log(1 + c * π) - log(x)) * (1 - (2 + α) * s) / (1 + γ)
-    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ)^2)
-    + (2 + α) / (1 + γ) * s * (1 + α) * (1 + γ) * log(π / x)
-)
-
-G22(x) = -1 / ((1 - x^p0) * log(x)) * (
-    (log(1 + c * π) - log(x)) * sum(
-    (-1)^n * (1 + α)^n / factorial(n)
-    * sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-    )
-    - sum(
-    (-1)^n * (1 + α)^n / factorial(n)
-    * sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-    )
-)
-```
-with `G2(x) <= G21(x) + G22(x)`.
-
-## Bounding `G21(x)`
-We now compute a bound `G21(x)`.
-
-### Simplifying `G21(x)`
-Writing `log(π / x) = log(π) - log(x)` and putting the log-terms
-together, as well as factoring out `1 / (1 + γ)`, we get
-```
-G21(x) = -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    (log(1 + c * π) - log(x)) * (1 - (2 + α) * s)
-    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
-    + (2 + α) * (1 + α) * (1 + γ) * s * (log(π) - log(x))
-)
-
-= -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    log(1 + c * π) * (1 - (2 + α) * s)
-    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
-    + (2 + α) * (1 + α) * (1 + γ) * s * log(π)
-    - log(x) * (1 - (2 + α) * s)
-    - log(x) * (2 + α) * (1 + α) * (1 + γ) * s
-)
-
-= -1 / ((1 - x^p0) * log(x) * (1 + γ)) * (
-    log(1 + c * π) * (1 - (2 + α) * s)
-    - ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ))
-    + (2 + α) * (1 + α) * (1 + γ) * s * log(π)
-    - log(x) * (1 + (2 + α) * s * ((1 + α) * (1 + γ) - 1))
+G2_R_1(x) <= 2(
+    sqrt(ℯ) * (1 + α) / (-α)
+    + 4(exp(3(1 + α) - 3(1 + α) - 1)) / (3(1 + α))
+    + (2 + α) * exp(3 / 2 * (1 + α))
+    - 1
 )
 ```
 
-Next we cancel the `log(x)` explicitly and reorder the signs a bit
+# Bounding `G2_R_2(x)`
+We have the following bound for `G2_R_2(x)`, from a lemma in the
+paper.
 ```
-G21(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
-    - log(1 + c * π) * (1 - (2 + α) * s) / log(x)
-    + ((2 + α) * (1 - s)) / ((1 + α) * (1 + γ) * log(x))
-    - (2 + α) * (1 + α) * (1 + γ) * s * log(π) / log(x)
-    + (1 + (2 + α) * s * ((1 + α) * (1 + γ) - 1))
-)
+G2_R_2(x) <= 192log(2) * (1 + α) / (-α)
 ```
-Factoring out `(2 + α) / log(x)` from the first three terms gives
-```
-G21(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
-    (2 + α) / log(x) * (
-        - log(1 + c * π) * (1 / (2 + α) - s)
-        + (1 - s) / ((1 + α) * (1 + γ))
-        - (1 + α) * (1 + γ) * s * log(π)
-    )
-    + (1 + (2 + α) * s * ((1 + α) * (1 + γ) - 1))
-)
-```
-
-If we let `q0 = (1 + α) * (1 + γ)` we have `s = (x / π)^q0` and we can
-write this as
-```
-G21(x) = 1 / ((1 - x^p0) * (1 + γ)) * (
-    (2 + α) / log(x) * (
-        - log(1 + c * π) * (1 / (2 + α) - (x / π)^q0)
-        + (1 - (x / π)^q0) / q0
-        - q0 * (x / π)^q0 * log(π)
-    )
-    + (1 + (2 + α) * (x / π)^q0 * (q0 - 1))
-)
-```
-
-### Uniform bound for `G21(x)`
-We now show that `G21(x)` is bounded by a factor not depending on `x`.
-More precisely we want to show that
-```
-G21(x) <= 1 / (1 + γ) + ϵ
-```
-For some `ϵ` yet to be determined.
-
-Using the expression for `G21(x)` from the above section we can write
-the inequality as
-```
-1 / ((1 - x^p0) * (1 + γ)) * (
-    (2 + α) / log(x) * (
-        - log(1 + c * π) * (1 / (2 + α) - (x / π)^q0)
-        + (1 - (x / π)^q0) / q0
-        - q0 * (x / π)^q0 * log(π)
-    )
-    + (1 + (2 + α) * (x / π)^q0 * (q0 - 1))
-) <= 1 / (1 + γ) + ϵ
-```
-
-Multiplying with `(1 + γ) * (1 - x^p0) * log(x)` and moving everything
-to one side we get the inequality
-```
-(2 + α) * (
-    - log(1 + c * π) * (1 / (2 + α) - (x / π)^q0)
-    + (1 - (x / π)^q0) / q0
-    - q0 * (x / π)^q0 * log(π)
-) + (1 + (2 + α) * (x / π)^q0 * (q0 - 1)) * log(x)
-- (1 + ϵ) * (1 - x^p0) * log(x) >= 0
-```
-Which we can rewrite slightly as
-```
-(2 + α) * (
-    - log(1 + c * π) * (1 / (2 + α) - x^q0 / π^q0)
-    + (1 - x^q0 / π^q0) / q0
-    - q0 / π^q0 * x^q0 * log(π)
-) + (2 + α) / π^q0 * (q0 - 1) * x^q0 * log(x)
-+ (1 + ϵ) * x^p0 * log(x) - ϵ * log(x)
->= 0
-```
-Our goal is to show that the left hand side, `lhs(x)` is decreasing in
-`x`, so that it is enough to check the inequality for an upper bound
-of `x`.
-
-Differentiating the left hand side we get
-```
-lhs'(x) = (2 + α) * (
-    log(1 + c * π) * q0 * x^(q0 - 1) / π^q0
-    - x^(q0 - 1) / π^q0
-    - q0^2 / π^q0 * x^(q0 - 1) * log(π)
-)
-+ (2 + α) / π^q0 * (q0 - 1) * x^(q0 - 1) * (q0 * log(x) + 1)
-+ (1 + ϵ) * x^(p0 - 1) * (p0 * log(x) + 1)
-- ϵ / x
-```
-Which we can rewrite as
-```
-lhs'(x) = (2 + α) * x^(q0 - 1) / π^q0 * (
-        log(1 + c * π) * q0 - 1 - q0^2 * log(π)
-        + (q0 - 1) * (q0 * log(x) + 1)
-    )
-    + (1 + ϵ) * x^(p0 - 1) * (p0 * log(x) + 1)
-    - ϵ / x
-```
-and furthermore as
-```
-lhs'(x) = (2 + α) * x^(q0 - 1) / π^q0 * (
-        -2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)
-    )
-    + (1 + ϵ) * x^(p0 - 1) * (p0 * log(x) + 1)
-    - ϵ / x
-```
-
-Since we want to prove that `lhs(x)` is decreasing we have to prove
-that `lhs'(x)` is negative. Since the term `-ϵ / x` is always negative
-it is enough to prove that the remaining part also is. We are hence
-interested in looking at
-```
-(2 + α) * x^(q0 - 1) / π^q0 * (
-    -2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)
-)
-+ (1 + ϵ) * x^(p0 - 1) * (p0 * log(x) + 1)
-```
-Which we can rewrite as
-```
-x^(p0 - 1) * (
-    (2 + α) * x^(q0 - p0) / π^q0 * (
-        -2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)
-    )
-    + (1 + ϵ) * (p0 * log(x) + 1)
-)
-```
-Since `x^(p0 - 1)` is positive it is enough to check that the other
-factor is negative, we let
-```
-g(x) = (2 + α) * x^(q0 - p0) / π^q0 * (
-        -2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)
-    )
-    + (1 + ϵ) * (p0 * log(x) + 1)
-```
-denote the other factor.
-
-**FIXME:** The below is not correct. It is not increasing in `x` so we
-  can't just check the value at `x = 0`. Our goal is to prove that
-  `g(x)` is negative.
-
-As a first step we check that `g(1) < 0`, we have
-```
-g(1) = 1 + ϵ + (2 + α) / π^q0 * (
-        -2 + q0 * (1 + log(1 + c * π)) - q0^2 * log(π)
-    )
-```
-Which can be checked to be negative by a simple evaluation.
-
-Next we check that `g(x)` is increasing in `x` so that `g(1)` is an
-upper bound. We have
-```
-g'(x) = (2 + α) * (q0 - p0) * x^(q0 - p0 - 1) / π^q0 * (
-        -2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)
-    )
-    + (2 + α) * x^(q0 - p0) / π^q0 * (-q0 / x + q0^2 / x)
-    + (1 + ϵ) * p0 / x
-
-    = (2 + α) * x^(q0 - p0 - 1) / π^q0 * (
-        (q0 - p0) * (
-            -2 + q0 * (1 + log((1 + c * π) / x)) - q0^2 * log(π / x)
-        )
-        -q0 + q0^2
-    )
-    + (1 + ϵ) * p0 / x
-```
-We want to prove that this is positive
-
-**FIXME:** Recall that the above up until the other FIXME is wrong!
-
-## Bounding `G22(x)`
-We now compute a bound for `G22(x)`. Recall that it is given by
-```
-G22(x) = -1 / ((1 - x^p0) * log(x)) * (
-    (log(1 + c * π) - log(x)) * sum(
-    (-1)^n * (1 + α)^n / factorial(n)
-    * sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-    )
-    - sum(
-    (-1)^n * (1 + α)^n / factorial(n)
-    * sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-    )
-)
-```
-with
-```
-H1(n, k, x) = ∫ log(t)^k * h(n - k, t) * t dt
-H2(n, k, x) = ∫ log(t)^(k + 1) * h(n - k, t) * t dt
-```
-and
-```
-h(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-    - l * log(t)^(l - 2) * (l - 1 - log(t)) / t^2
-```
-
-Factoring out `1 + α` from the two sums we can rewrite this as
-```
-G22(x) = (1 + α) / (1 - x^p0) * (
-    (1 - log(1 + c * π) / log(x)) * S221(x)
-    + 1 / log(x) * S222(x)
-)
-```
-with
-```
-S221(x) = sum(
-    (-1)^n * (1 + α)^(n - 1) / factorial(n)
-    * sum(binomial(n, k) * γ^k * H1(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-)
-
-S222(x) = sum(
-    (-1)^n * (1 + α)^(n - 1) / factorial(n)
-    * sum(binomial(n, k) * γ^k * H2(n, k, x) for k = 0:n-1)
-    for n = 1:Inf
-)
-```
-
-In particular, since we are only interested in an upper bound we can
-consider
-```
-G22(x) <= (1 + α) / (1 - x^p0) * (
-    (1 - log(1 + c * π) / log(x)) * abs(S221(x))
-    - 1 / log(x) * abs(S222(x))
-)
-```
-and
-```
-abs(S221(x)) <= sum(
-    (1 + α)^(n - 1) / factorial(n)
-    * sum(binomial(n, k) * γ^k * abs(H1(n, k, x)) for k = 0:n-1)
-    for n = 1:Inf
-)
-
-abs(S222(x)) <= sum(
-    (1 + α)^(n - 1) / factorial(n)
-    * sum(binomial(n, k) * γ^k * abs(H2(n, k, x)) for k = 0:n-1)
-    for n = 1:Inf
-)
-```
-Our goal is to compute bounds for `abs(S221(x))` and `abs(S222(x))`.
-
-### Bounding `abs(S221(x))` and `abs(S222(x))`
-As a first step we are interested in bounding `abs(H1(n, k, x))` and
-`abs(H2(n, k, x))`. Recall that they are given by
-```
-H1(n, k, x) = ∫ log(t)^k * h(n - k, t) * t dt
-H2(n, k, x) = ∫ log(t)^(k + 1) * h(n - k, t) * t dt
-```
-integrated from `1` to `π / x`, where
-```
-h(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-    - l * log(t)^(l - 2) * (l - 1 - log(t)) / t^2
-```
-An upper bound is given by
-```
-abs(H1(n, k, x)) = ∫ log(t)^k * abs(h(n - k, t)) * t dt
-abs(H2(n, k, x)) = ∫ log(t)^(k + 1) * abs(h(n - k, t)) * t dt
-```
-
-Since `h(l, t)` has a singularity at `t = 1` we split the integration
-at `t = 2` to avoid having to deal with both the singularity and
-integrating to infinity. We then give upper bounds for `abs(h(l, t))`
-on the interval `1 < t < 2` and `2 < t < π / x` separately.
-
-#### Computing `H1(1, 0, x)` and `H2(1, 0, x)`
-Since `H1(1, 0, x)` and `H2(1, 0, x)` are the main contributors to
-`S221` and `S222` it makes sense to try and compute slightly more
-accurate bounds for them. We have
-```
-H1(1, 0, x) = ∫ h(1, t) * t dt
-H2(1, 0, x) = ∫ log(t) * h(1, t) * t dt
-```
-with
-```
-h(1, t) = log(t - 1) + log(t + 1) - 2log(t) + 1 / t^2
-```
-
-Note that `h(1, t)` is negative for `t > 1`. To see this write it as
-```
-h(1, t) = log(t - 1) + log(t + 1) - 2log(t) + 1 / t^2
-    = (log(t) + log(1 - 1 / t)) + (log(t) + log(1 + 1 / t)) - 2log(t) + 1 / t^2
-    = log(1 - 1 / t) + log(1 + 1 / t) + 1 / t^2
-    = (-1 / t - 1 / 2t^2 - 1 / 3t^3 - 1 / 4t^4 - ...)
-      + (1 / t - 1 / 2t^2 + 1 / 3t^3 - 1 / 4t^4 - ...)
-      - 1 / t^2
-    = -1 / 2t^4 - ...
-```
-Here all terms in the expansion that don't cancel are negative so the
-result is clearly negative.
-
-Since `h(1, t)` is negative an upper bound of `abs(H1(1, 0, x))` is
-given by integrating from `1` to `∞`. Which can be done explicitly to
-give us
-```
-abs(H1(1, 0, x)) = -∫ log(t - 1) * t + log(t + 1) * t - 2log(t) * t + 1 / t dt
-    <= 1 // 2
-```
-
-For `H2` we get, again integrating from `1` to `∞` to get an upper
-bound,
-```
-abs(H2(1, 0, x)) = -∫ log(t) * (log(t - 1) * t + log(t + 1) * t - 2log(t) * t + 1 / t) dt
-    <= (6 - π^2) / 24
-```
-
-**TODO:** Both above integrals were computed using Mathematica. Might
-  want to add some more details about it.
-
-#### Bounding `abs(h(l, t))` for `1 < t < 2`
-The only unbounded term is `log(t - 1)^l`, which we keep as it is.
-What remains is
-```
-log(t + 1)^l - 2log(t)^l - l * log(t)^(l - 2) * (l - 1 - log(t)) / t^2
-
-= log(t + 1)^l - 2log(t)^l - l * (l - 1) * log(t)^(l - 2) / t^2 + l * log(t)^(l - 1) / t^2
-```
-For which a bound for the absolute value is, using that `l >= 0`,
-```
-log(3)^l + 2log(2)^l + l * (l - 1) * log(2)^(l - 2) + l * log(2)^(l - 1)
-```
-
-Since `log(2) < 1` and `log(3) < 2` this is further bounded by
-```
-2^l + 2 + l * (l - 1) + l = 2^l + l^2 + 2
-```
-
-Summarizing we have the bound
-```
-abs(h(l, t)) <= abs(log(t - 1)^l) + 2^l + l^2 + 2
-```
-valid for `1 < t < 2`.
-
-#### Bounding `H1(n, k, x)` and `H2(n, k, x)` integrated from `1` to `2`
-For `H1(n, k, x)` we have
-```
-∫_1^2 log(t)^k * abs(h(n - k, t)) * t dt <=
-    2log(2)^k * ∫_1^2 abs(h(n - k, t)) dt <=
-    2log(2)^k * (2^(n - k) + (n - k)^2 + 2 + ∫_1^2 abs(log(t - 1)^(n - k)) dt) =
-    2log(2)^k * (2^(n - k) + (n - k)^2 + 2 + factorial(n - k))
-```
-and for `H2(n, k, x)` we similarly get
-```
-∫_1^2 log(t)^(k + 1) * abs(h(n - k, t)) * t dt <=
-    2log(2)^(k + 1) * (2^(n - k) + (n - k)^2 + 2 + factorial(n - k))
-```
-
-**IMPROVE:** We can get better bounds by keeping the `log(3)` and
-`log(2)` from `h(l, t)`. We'll see if this is needed or not.
-
-#### Bounding `abs(h(l, t))` for `2 < t`
-We are interested in bounding
-```
-h(l, t) = log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-    - l * log(t)^(l - 2) * (l - 1 - log(t)) / t^2
-```
-Focusing on `log(t - 1)^l + log(t + 1)^l - 2log(t)^l` and using that
-```
-log(t - 1) = log(t) + log(1 - 1 / t)
-log(t + 1) = log(t) + log(1 + 1 / t)
-```
-we can rewrite it as
-```
-log(t - 1)^l + log(t + 1)^l - 2log(t)^l
-= (log(t) + log(1 - 1 / t))^l + (log(t) + log(1 + 1 / t))^l - log(t)^l
-= sum(0:l-1) do j
-    binomial(l, j) * log(t)^j * (log(1 - 1 / t)^(l - j) + log(1 + 1 / t)^(l - j))
-  end
-```
-
-Expanding the logarithms we have
-```
-log(1 - 1 / t) = -1 / t - 1 / 2t^2 - 1 / 3t^3 + C1(t) / t^4
-log(1 + 1 / t) = 1 / t - 1 / 2t^2 + 1 / 3t^3 + C2(t) / t^4
-```
-where both `C1(t)` and `C2(t)` are bounded for `2 > t`.
-**TODO:** Give bounds for `C1(t)` and `C2(t)`
-
-**IN PROGRESS**
-
-Using the above we can write
-```
-log(1 - 1 / t)^(l - j) + log(1 + 1 / t)^(l - j) =
-```
-We have that `c(l, 1) = c(l, 3) = 0` and `c(l, 2) = `
-
-
-**NEXT:** Insert this into the above sum. Use the multinomial theorem
-  to expand. Reorder the sums to have `1 / t^k` as the common factor.
-  Ensure that the `1 / t` and `1 / t^3` terms both are zero and that
-  the `1 / t^2` term is cancelled by the subtracted term. Give a bound
-  in the form of `2^l * log(t)^l / t^4` or similar.
-
-#### Bounding `H1(n, k, x)` and `H2(n, k, x)` integrated from `2` to `π / x`
-**TODO**
-
-
-
-## Fixed `x`
-**FIXME: Not update**
-To begin with we consider the case when `x` is fixed and non-zero,
-then the only asymptotics we have to do is in `α`.
-
-By multiplying and dividing by `1 + α` we can write `G2(x)` as
-```
-G2(x) = (1 + α) / ((1 - x^p0) * (1 + γ)) * (
-    + (2 + α) / log(x) * (
-        (1 - s) / ((1 + α) * (1 + γ))
-        - log(π) * s
-    ) + 1
-    ) / (1 + α)
-```
-and then split it into the two factors
-```
-G21(x) = (1 + α) / ((1 - x^p0) * (1 + γ))
-
-G22(x) = ((2 + α) / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s) + 1) / (1 + α)
-```
-Our goal will be to enclose these two separately.
-
-### Enclosing `G21(x)`
-Expanding `1 - x^p0` as
-```
-1 - x^p0 = 1 - exp(p0 * log(x))
-= -sum(p0^n * log(x)^n / factorial(n) for n = 1:Inf)
-= -p0 * sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
-```
-we can write `G21(x)` as
-```
-G21(x) = -1 / (1 + γ) * (1 + α) / p0 * 1 / sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
-```
-Since `p0 = (1 + α) * (1 + (1 + α) / 2)` we get
-```
-G21(x) = -1 / ((1 + γ) * (1 + (1 + α) / 2)) * 1 / sum(p0^(n - 1) * log(x)^n / factorial(n) for n = 1:Inf)
-```
-and what remains is to enclose the sum. Since `log(x) < 0` the sum is
-alternating. For large enough `n` it is also decreasing, more
-precisely we have
-```
-abs(p0^(n - 1) * log(x)^n / factorial(n)) > abs(p0^n * log(x)^(n + 1) / factorial(n + 1))
-⟺
-1 > abs(p0 * log(x) / (n + 1))
-⟺
-n > p0 * abs(log(x)) - 1
-```
-So for every `n` greater than `p0 * abs(log(x)) - 1` the terms in the
-sum are decreasing. We can thus explicitly sum the first `n` and get
-an error which is bounded by the magnitude of the `n + 1`-th term. To
-get a slightly better enclosure we can explicitly sum a few extra
-terms after the `n`-th.
-
-### Enclosing `G22(x)`
-To be able to explicitly cancel the division by `1 + α` we rewrite
-`G22(x)` as.
-```
-G22(x) = (
-    (1 + α) / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s)
-    + 1 / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s)
-    + 1
-) / (1 + α)
-
-= ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s) / log(x)
-+ (1 / log(x) * ((1 - s) / ((1 + α) * (1 + γ)) - log(π) * s) + 1) / (1 + α)
-```
-Now, using that `s = (x / π)^((1 + α) * (1 + γ))` and letting `q0 = (1
-+ α) * (1 + γ)` we can write this as
-```
-G22(x) = ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) / log(x)
-+ (1 / log(x) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + 1) / (1 + α)
-```
-The second term we can rewrite as
-```
-(1 / log(x) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + 1) / (1 + α)
-
-= ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0 + log(x)) / ((1 + α) * log(x))
-
-= ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0 + log(x / π) + log(π)) / ((1 + α) * log(x))
-
-= ((1 + q0 * log(x / π) - (x / π)^q0) / q0 + log(π) * (1 - (x / π)^q0)) / ((1 + α) * log(x))
-```
-Giving us
-```
-G22(x) = ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) / log(x)
-+ ((1 + q0 * log(x / π) - (x / π)^q0) / q0 + log(π) * (1 - (x / π)^q0)) / ((1 + α) * log(x))
-
-= inv(log(x)) * (
-    (1 - (x / π)^q0) / q0
-    - log(π) * (x / π)^q0
-    + (1 + q0 * log(x / π) - (x / π)^q0) / (q0 * (1 + α))
-    + log(π) * (1 - (x / π)^q0) / (1 + α)
-)
-```
-We will now bound each of these four terms separately. The term
-`log(π) * (x / π)^q0` can be enclosed directly. For the other three
-terms we make use of the expansion
-```
-(x / π)^q0 = sum(q0^n * log(x / π)^n / factorial(n) for n = 0:Inf)
-```
-For the three terms this gives us
-```
-(1 - (x / π)^q0) / q0 = -sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 1:Inf)
-
-(1 + q0 * log(x / π) - (x / π)^q0) / (q0 * (1 + α)) =
-    -sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 2:Inf) / (1 + α) =
-    -(1 + γ) * sum(q0^(n - 2) * log(x / π)^n / factorial(n) for n = 2:Inf) =
-
-log(π) * (1 - (x / π)^q0) / (1 + α) =
-    -log(π) * sum(q0^n * log(x / π)^n / factorial(n) for n = 1:Inf) / (1 + α) =
-    -(1 + γ) * log(π) * sum(q0^(n - 1) * log(x / π)^n / factorial(n) for n = 1:Inf)
-```
-Note that the first and last sum are identical. Similar to the sum in
-`G21(x)` all of these sums are alternating and to compute enclosures
-it is enough to find when the terms start to decrease. In this case we
-get
-```
-abs(q0^(n - 1) * log(x / π)^n / factorial(n)) > abs(q0^n * log(x / π)^(n + 1) / factorial(n + 1))
-⟺
-1 > abs(q0 * log(x / π) / (n + 1))
-⟺
-n > q0 * abs(log(x / π)) - 1
-```
-for the first sum and a similar calculation gives the same for the
-second sum. So for every `n` greater than `q0 * abs(log(x / π)) - 1`
-the terms in both sums are decreasing. We can thus explicitly sum the
-first `n` and get an error which is bounded by the magnitude of the `n
-+ 1`-th term. To get a slightly better enclosure we can explicitly sum
-a few extra terms after the `n`-th.
-
-## Monotonicity in `x`
-Above we showed how to compute an enclosure of `G2(x)` for a fixed
-non-zero `x`. We will now show a certain type of monotonicity in `x`,
-so that it is enough to work with an upper bound of `x`. We want to
-show that
-```
-G2(x) < 1 / (1 + γ)
-```
-We can rewrite this as
-```
-(2 + α) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + log(x) >= (1 - x^p0) * log(x)
-```
-where we have multiplied both sides by `(1 + γ) * (1 - x^p0) *
-log(x)`, since this is negative we also reversed the inequality. If we
-move everything to one side we get
-```
-(2 + α) * ((1 - (x / π)^q0) / q0 - log(π) * (x / π)^q0) + x^p0 * log(x) >= 0
-```
-We now want to show that the left hand side is decreasing in `x`, so
-that it is enough to check the inequality for an upper bound of `x`.
-
-Differentiating the left hand side we get
-```
-(2 + α) * (-x^(q0 - 1) / π^q0 - q0 * log(π) * x^(q0 - 1) / π^q0) + x^(p0 - 1) * (p0 * log(x) + 1)
-```
-Grouping terms we have
-```
-x^(p0 - 1) * (
-    - (2 + α) * x^(q0 - p0) / π^q0
-    - (2 + α) * q0 * log(π) * x^(q0 - p0) / π^q0
-    + p0 * log(x)
-    + 1
-)
-```
-It is therefore enough to show that
-```
-(
-    - (2 + α) * x^(q0 - p0) / π^q0
-    - (2 + α) * q0 * log(π) * x^(q0 - p0) / π^q0
-    + p0 * log(x)
-    + 1
-)
-```
-is negative. We will prove that this is increasing in `x` and
-non-positive at `x = 1`. At `x = 1` we get
-```
-(
-    - (2 + α) / π^q0
-    - (2 + α) * q0 * log(π) / π^q0
-    + 1
-) =
-1 - (2 + α) * (1 + q0 * log(π)) / π^q0
-```
-which we want to prove is upper bounded by `0`. To prove move one of
-the terms to the other side and multiply both sides by `π^q0` and use
-the expansion `π^q0 = sum(q0^n * log(π)^n / factorial(n) for n =
-0:Inf)` to get
-```
-sum(q0^n * log(π)^n / factorial(n) for n = 0:Inf) <= (2 + α) * (1 + q0 * log(π))
-⟺
-sum(q0^n * log(π)^n / factorial(n) for n = 2:Inf) <= (1 + α) * (1 + q0 * log(π))
-⟺
-(1 + α) * (1 + γ) * log(π) * sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) <=
-    (1 + α) * (1 + q0 * log(π))
-⟺
-(1 + γ) * log(π) * sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) <=
-    1 + q0 * log(π)
-```
-It therefore suffices to show that
-```
-sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) <= 1 / (1 + γ) * log(π)
-```
-Since the sum is increasing in `q0` we only have to show this for an
-upper bound of `q0`. The sum can be computed explicitly to be
-```
-sum(q0^(n - 1) * log(π)^n / factorial(n) for n = 2:Inf) = (π^q0 - q0 * log(π) - 1) / q0
-```
-and since we now know that this is increasing in `q0` we check that
-```
-(π^q0 - q0 * log(π) - 1) / q0 <= 1 / (1 + γ) * log(π)
-```
-holds for an upper bound of `q0`.
-
-For the derivative we get
-```
-(
-    - (q0 - p0) * (2 + α) * x^(q0 - p0 - 1) / π^q0
-    - (q0 - p0) * (2 + α) * q0 * log(π) * x^(q0 - p0 - 1) / π^q0
-    + p0 / x
-)
-```
-Multiplying by `x`, which doesn't change the sign, and reordering we
-get
-```
-p0 - (q0 - p0) * (2 + α) * (1 + q0 * log(π)) / π^q0 * x^(q0 - p0)
-```
-Since `q0 - p0 > 0` and hence `0 <= x^(q0 - p0) <= 1`, it is enough to
-show
-```
-p0 - (q0 - p0) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
-```
-Factoring out `1 + α` and cancelling it we get
-```
-(1 + (1 + α) / 2) - ((1 + γ) - (1 + (1 + α) / 2)) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
-⟺
-1 + (1 + α) / 2 - (γ - (1 + α) / 2) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
-```
-Since `(1 + α) / 2` is positive we can remove it, giving us
-```
-1 - (γ - (1 + α) / 2) * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
-```
-Similarly we can replace `(γ - (1 + α) / 2)` with `γ` without losing
-anything.
-```
-1 - γ * (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
-```
-Finally `γ < 1` so it is enough to show
-```
-1 - (2 + α) * (1 + q0 * log(π)) / π^q0 >= 0
-```
-which is exactly what we already had above for the `x = 1` case.
 """
 function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
 
@@ -1442,11 +426,6 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
         x < 1 || throw(DomainError(x, "must have x < 1"))
 
         if Arblib.contains_zero(x)
-            # IMPROVE: This currently uses the version from the paper
-            # and the documentation for this method or the test
-            # methods below have not been fully updated to reflect
-            # that. More precisely it uses the version from commit
-            # ab0a451.
             @assert γ == 1 // 2 # The paper assumes this
 
             # Enclosure of inv(log(inv(x)))
@@ -1504,17 +483,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             return G2
         else
             # Enclosure of (1 + α) / (1 - x^p0)
-            αp1_div_1mxp0 = if iszero(x)
-                1 + α
-            elseif Arblib.contains_zero(x)
-                lower = 1 + α
-                upper = let xᵤ = ubound(Arb, x)
-                    inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), 1 + α, extra_degree = 2))
-                end
-                Arb((lower, upper))
-            else
-                inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
-            end
+            αp1_div_1mxp0 = inv(fx_div_x(s -> 1 - x^(s + s^2 / 2), 1 + α, extra_degree = 2))
 
             return αp1_div_1mxp0 * (f1(x) + f2(x))
         end
