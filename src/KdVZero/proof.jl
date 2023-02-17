@@ -52,12 +52,12 @@ function prove(
         )
         verbose && @info "Computed δ₀" δ₀ δ₀_time
 
-        # Compute required bound for D₀, adding a little bit of head room
-        D₀_goal = lbound(Arb, 1 - 2Arblib.sqrtpos!(zero(Arb), n₀ * δ₀)) - sqrt(eps())
+        # Bound that D₀ needs to satisfy
+        D = 1 - 2Arblib.sqrtpos!(zero(Arb), n₀ * δ₀)
 
-        verbose && @info "Required bound for D₀" D₀_goal
+        verbose && @info "Required bound for D₀" D
 
-        if !(D₀_estimate < D₀_goal)
+        if !(D₀_estimate < D)
             proved = false
             proved_estimate = false
             D₀ = indeterminate(Arb)
@@ -71,7 +71,7 @@ function prove(
             D₀_time = NaN
         else
             proved_estimate = true
-            D₀ = D₀_goal
+            D₀ = lbound(Arb, D) - sqrt(eps()) # Add a little bit of head room
             D₀_time = @elapsed proved = D0_bounded_by(
                 u02,
                 lbound(D₀),
