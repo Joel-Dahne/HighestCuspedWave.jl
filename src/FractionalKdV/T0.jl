@@ -220,7 +220,7 @@ function T0_p_one(
     C2, e2, P2, E2 = clausens_expansion(ϵ * (1 + r0), 1 - α, M)
 
     # Taylor expansion of clausenc(x + π, 2 - α) - clausenc(π, 2 - α) for x ∈ [0, ϵ]
-    P3 = taylor_with_remainder(
+    P3 = taylor_with_lagrange_remainder(
         x -> clausenc(x + π, 2 - α),
         Arb(0),
         Arb((0, ϵ)),

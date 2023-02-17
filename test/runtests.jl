@@ -2,10 +2,10 @@ using Arblib, HighestCuspedWave, OffsetArrays, SpecialFunctions, Test
 
 setprecision(Arb, 128) do
     @testset "HighestCuspedWave" verbose = true begin
+        include("series.jl")
         include("TaylorModel.jl")
 
         @testset "Special functions" verbose = true begin
-            include("arb.jl")
             include("clausenc.jl")
             include("clausens.jl")
             include("special-functions.jl")

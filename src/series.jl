@@ -59,11 +59,12 @@ function taylor_with_error(f, x0::Arb, interval::Arb, degree::Integer)
 end
 
 """
-    taylor_with_remainder(f, x0::T, interval::T; degree::Integer, enclosure_degree::Integer = 0) where {T<:Union{Arb,Acb}}
+    taylor_with_lagrange_remainder(f, x0::T, interval::T; degree::Integer, enclosure_degree::Integer = 0) where {T<:Union{Arb,Acb}}
 
-Compute the Taylor expansion of `f` at the point `x0` with the last
-term being a remainder term of degree `degree` which ensures that the
-truncated version gives an enclosure of `f(x)` for all `x ∈ interval`.
+Compute the Taylor expansion of `f` at the point `x0` of degree
+`degree` with the last term being the remainder term on Lagrange form,
+which ensures that the truncated version gives an enclosure of `f(x)`
+for all `x ∈ interval`.
 
 We require that `x0 ∈ interval`.
 
@@ -73,7 +74,7 @@ used for this can be set with `enclosure_degree`. Setting it to a
 negative number makes it compute it directly instead. This argument is
 only supported for `Arb` and not for `Acb`.
 """
-function taylor_with_remainder(
+function taylor_with_lagrange_remainder(
     f,
     x0::Arb,
     interval::Arb;
@@ -113,7 +114,7 @@ function taylor_with_remainder(
     return res
 end
 
-function taylor_with_remainder(
+function taylor_with_lagrange_remainder(
     f,
     x0::Acb,
     interval::Acb;
@@ -156,12 +157,16 @@ zero of the given order at zero.
 Setting `extra_degree` to a value higher than `0` makes it use a
 higher order expansion to enclose the value, this can give tighter
 bounds in many cases. The argument `enclosure_degree` is passed to
-[`taylor_with_remainder`](@ref).
+[`taylor_with_lagrange_remainder`](@ref).
 
 If `force = false` it requires that the enclosure of `f` at zero is
 exactly zero. If `f` is known to be exactly zero at zero but the
 enclosure might be wider it can be forced to be zero by setting `force
 = true`
+
+**IMPROVE:** For complex argument it would likely be better to compute
+a bound of the remainder term using Cauchy's integral formula instead
+of the Lagrange remainder.
 """
 function fx_div_x(
     f,
@@ -181,7 +186,7 @@ function fx_div_x(
         extra_degree = 0
     end
 
-    expansion = taylor_with_remainder(
+    expansion = taylor_with_lagrange_remainder(
         f,
         zero(x),
         x,
@@ -214,7 +219,7 @@ function fx_div_x(
     @assert order >= 1
     @assert extra_degree >= 0
 
-    expansion = taylor_with_remainder(
+    expansion = taylor_with_lagrange_remainder(
         f,
         zero(x0),
         x0,
