@@ -33,7 +33,7 @@ function delta0_bound(
     ubound_tol = Arb(5e-4),
     verbose = false,
 )
-    verbose && @info "Computing bound of δ0"
+    verbose && @info "Computing bound of δ₀"
 
     # Determine a good choice of ϵ. Take it as large as possible so
     # that the asymptotic version still satisfies the specified
@@ -138,9 +138,9 @@ function delta0_bound(
 
     verbose && @info "Maximum on [ϵ, π]" m3
 
-    δ0 = max(m1, m2, m3)
+    δ₀ = max(m1, m2, m3)
 
-    verbose && @info "Computed bound" δ0
+    verbose && @info "Computed bound" δ₀
 
-    return δ0
+    return δ₀
 end

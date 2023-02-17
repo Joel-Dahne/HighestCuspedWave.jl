@@ -45,7 +45,7 @@ function delta0_bound(
     return_subresults = false,
     verbose = false,
 )
-    verbose && @info "Computing bound of δ0"
+    verbose && @info "Computing bound of δ₀"
 
     ϵ = Arblib.midpoint(Arb("1e-1"))
 
@@ -159,13 +159,13 @@ function delta0_bound(
 
     verbose && @info "Enclosure on [ϵ, π]" m2
 
-    δ0 = max(m1, m2)
+    δ₀ = max(m1, m2)
 
-    verbose && @info "Computed bound" δ0
+    verbose && @info "Computed bound" δ₀
 
     if return_subresults
-        return δ0, m11, m12, m13, m14, m2
+        return δ₀, m11, m12, m13, m14, m2
     else
-        return δ0
+        return δ₀
     end
 end
