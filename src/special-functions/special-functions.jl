@@ -55,8 +55,8 @@ polylog(s::AcbSeries, z::Acb) = Arblib.polylog_series!(zero(s), s, z, length(s))
 """
     _sinc(x)
 
-The same as `sinc(x)` but for `x::ArbSeries` it allows evaluation
-around zero.
+The same as [`sinc`](@ref), but for `x::ArbSeries` it allows
+evaluation around zero.
 """
 _sinc(x) = sinc(x)
 
@@ -71,7 +71,7 @@ end
 """
     dzeta(s)
 
-Compute the Zeta function differentiated once with respect to `s`.
+Compute the zeta function differentiated once with respect to `s`.
 """
 dzeta(s::Arb) = zeta(ArbSeries((s, 1)))[1]
 dzeta(s) = convert(float(typeof(s)), dzeta(Arb(s)))
@@ -129,7 +129,7 @@ rgamma(x::ArbSeries) = Arblib.rgamma_series!(zero(x), x, length(x))
 """
     rising(x, n)
 
-Compute the rising factorial ``(x)_n``.
+Compute the rising factorial ``(x)ₙ``.
 """
 rising(x::Arb, n::Arb) = Arblib.rising!(zero(x), x, n)
 rising(x::Arb, n::Integer) = Arblib.rising!(zero(x), x, convert(UInt, n))
@@ -325,6 +325,11 @@ function lerch_phi(z::Arb, s::Arb, a::Arb)
     end
 end
 
+"""
+    abspow!(res, x, y)
+
+Inplace version of [`abspow`](@ref).
+"""
 function abspow!(res::Arb, x::Arblib.ArbOrRef, y::Arb)
     iszero(y) && return Arblib.one!(res)
 
@@ -377,58 +382,21 @@ function abspow!(res::ArbSeries, x::ArbSeries, y::Arb)
     return res
 end
 
-
 """
     abspow(x, y)
 
 Compute `abs(x)^y `in a way that works if `x` overlaps with zero.
 
-For complex `x` is complex it doesn't use `abs(x)` but `+x` in the
-right half plane and `-x` in the left half plane. For zero we are
-conservative and return an indeterminate result. This means that for
-non-zero `x` it represents an analytic continuation of `abs(x)^y` and
-can thus be used in [`Arblib.integrate`](@ref).
+For complex `x` it doesn't use `abs(x)` but `+x` in the right half
+plane and `-x` in the left half plane. For zero we are conservative
+and return an indeterminate result. This means that for non-zero `x`
+it represents an analytic continuation of `abs(x)^y` and can thus be
+used in [`Arblib.integrate`](@ref).
 """
-function abspow(x::Arb, y::Arb)
-    iszero(y) && return one(x)
-
-    if iszero(x)
-        Arblib.contains_negative(y) && return indeterminate(x)
-        Arblib.ispositive(y) && return zero(x)
-        return Arblib.unit_interval!(zero(x))
-    end
-
-    if Arblib.contains_zero(x)
-        Arblib.contains_negative(y) && return indeterminate(x)
-        x_upp = Arblib.abs_ubound(Arb, x)
-        return Arb((zero(x), x_upp^y))
-    end
-
-    res = abs(x)
-    return Arblib.pow!(res, res, y)
-end
-
-function abspow(x::ArbSeries, y::Arb)
-    if Arblib.contains_zero(Arblib.ref(x, 0))
-        # All non-constant terms are indeterminate, the constant term
-        # is given by abs(x[0])^y
-        res = indeterminate(x)
-        res[0] = abspow(x[0], y)
-        return res
-    end
-
-    res = abs(x)
-    return Arblib.pow_arb_series!(res, res, y, length(res))
-end
+abspow(x::Arb, y::Arb) = abspow!(zero(x), x, y)
+abspow(x::ArbSeries, y::Arb) = abspow!(zero(x), x, y)
 
 function abspow(x::Arb, y::ArbSeries)
-    # This function is only partially implemented. In the case when x
-    # overlaps zero it is currently based on differentiation and
-    # isolation of extrema done by hand. If we want to support much
-    # higher degrees we would need to do this algorithmically. In the
-    # current version it is also not optimized at all, so it could be
-    # much faster.
-
     iszero(y) && return one(y)
 
     if iszero(x)
@@ -445,15 +413,20 @@ function abspow(x::Arb, y::ArbSeries)
         # Differentiate with respect to the parameter of y manually
         # and enclose the terms
 
+        # This case is only implemented for degrees up to 2. In the
+        # case when x overlaps zero it is currently based on
+        # differentiation and isolation of extrema done by hand. If we
+        # want to support much higher degrees we would need to do this
+        # algorithmically.
         deg = Arblib.degree(y)
-
-        deg <= 3 || error("supports degree at most 3")
+        deg <= 2 || error("supports degree at most 2")
 
         y0 = y[0]
 
         res = zero(y)
 
         res[0] = abspow(x, y[0])
+
         if deg >= 1
             # res[1] = y[1] * log(x) * abspow(x, y[0])
 
@@ -475,8 +448,8 @@ function abspow(x::Arb, y::ArbSeries)
             res[1] = y[1] * term
         end
         if deg >= 2
-            # res[2] = (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0])
-            #        = 2y[2] * logabspow(x, 1, y[0]) + y[1]^2 * logabspow(x, 2, y[0])
+            # res[2] = (2y[2] * log(x) + (y[1] * log(x))^2) * abspow(x, y[0]) / 2
+            #        = (2y[2] * logabspow(x, 1, y[0]) + y[1]^2 * logabspow(x, 2, y[0])) / 2
             y1, y2 = y[1], y[2]
 
             f2(x) = 2y2 * logabspow(x, 1, y0) + y1^2 * logabspow(x, 2, y0)
@@ -581,7 +554,7 @@ function logabspow(x::Arb, i::Integer, y::Arb)
             # Monotone for 0 < x < 1, evaluate on endpoints
             return union(zero(x), log(xᵤ)^i)
         else
-            # Non-zero at x = 0
+            # Non-finite at x = 0
             return indeterminate(x)
         end
     end
@@ -658,16 +631,19 @@ function x_pow_s_x_pow_t_m1_div_t(x::Arblib.ArbOrRef, s::Arb, t::Arb)
             Arblib.log!(resₗ, resₗ)
             resᵤ = copy(resₗ)
 
+            # resₗ = (exp(log(abs(x)) * lbound(Arb, t)) - 1) / lbound(Arb, t)
             t0 = lbound(Arb, t)
             Arblib.mul!(resₗ, resₗ, t0)
             Arblib.expm1!(resₗ, resₗ)
             Arblib.div!(resₗ, resₗ, t0)
 
+            # resₗ = (exp(log(abs(x)) * ubound(Arb, t)) - 1) / ubound(Arb, t)
             Arblib.get_ubound!(Arblib.midref(t0), t)
             Arblib.mul!(resᵤ, resᵤ, t0)
             Arblib.expm1!(resᵤ, resᵤ)
             Arblib.div!(resᵤ, resᵤ, t0)
 
+            # return union(resₗ, resᵤ) * abspow(x, s)
             Arblib.union!(resₗ, resₗ, resᵤ)
             abspow!(resᵤ, x, s)
             return Arblib.mul!(resₗ, resₗ, resᵤ)
@@ -719,7 +695,7 @@ abs(x)^s * (abs(x)^t - 1) / t
 ```
 in a way that works well for `t` overlapping zero.
 
-In case `x` overlaps the constant term is computed using
+In case `x` contains zero the constant term is computed using
 `x_pow_t_div_t(x[0], s, t)` and all higher order terms are set to an
 indeterminate value, even if they in some cases could be finite.
 
@@ -753,7 +729,7 @@ function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
         end
 
         # Integrate
-        res = Arblib.integral!(absx, dres) # Reuse absx
+        Arblib.integral!(absx, dres) # Reuse absx
     end
 
     # Set the constant of integration correctly
