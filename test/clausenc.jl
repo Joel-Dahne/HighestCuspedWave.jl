@@ -54,7 +54,10 @@ end
                 for y in range(Arb(-10), Arb(10), length = 10)
                     z = Acb(x, y)
                     res1 =
-                        (polylog(Acb(s), exp(im * z)) + polylog(Acb(s), exp(-im * z))) / 2
+                        (
+                            HighestCuspedWave.polylog(Acb(s), exp(im * z)) +
+                            HighestCuspedWave.polylog(Acb(s), exp(-im * z))
+                        ) / 2
                     res2 = HighestCuspedWave._clausenc_zeta(z, s)
                     @test isfinite(res1)
                     @test isfinite(res2)
