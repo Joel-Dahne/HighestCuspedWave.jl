@@ -408,7 +408,8 @@ If `x` is a wide ball (not containing zero), as determined by
 `iswide(x)`, it computes a tighter enclosure by first checking if the
 derivative doesn't contains zero, if not it uses monotonicity to only
 evaluate at endpoints. If the derivative does contain zero it uses a
-zeroth order approximation instead.
+zeroth order approximation instead. If `s <= 1` then it is always
+monotone and we can evaluate on the endpoints directly.
 
 It accepts the keyword argument `deriv_x` which can be set to a
 precomputed value of the derivative, more precisely it should be an
@@ -449,19 +450,26 @@ function clausens(x::Arb, s::Arb; deriv_x::Union{Nothing,Arb} = nothing)
             res = union(-z, z)
         end
     elseif iswide(x) # We can now assume that 0 < x < 2π
-        # Compute derivative
-        if isnothing(deriv_x)
-            deriv_x = clausenc(x, s - 1)
-        end
-        if Arblib.contains_zero(deriv_x)
-            # Use a zero order approximation
-            mid = midpoint(Arb, x)
-            res = Arblib.add_error!(_clausens_zeta(mid, s), (x - mid) * deriv_x)
-        else
+        if s <= 1
             # Use that it's monotone
             xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
             res = _clausens_zeta(xₗ, s)
             Arblib.union!(res, res, _clausens_zeta(xᵤ, s))
+        else
+            # Compute derivative
+            if isnothing(deriv_x)
+                deriv_x = clausenc(x, s - 1)
+            end
+            if Arblib.contains_zero(deriv_x)
+                # Use a zero order approximation
+                mid = midpoint(Arb, x)
+                res = Arblib.add_error!(_clausens_zeta(mid, s), (x - mid) * deriv_x)
+            else
+                # Use that it's monotone
+                xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
+                res = _clausens_zeta(xₗ, s)
+                Arblib.union!(res, res, _clausens_zeta(xᵤ, s))
+            end
         end
     else
         res = _clausens_zeta(x, s)
