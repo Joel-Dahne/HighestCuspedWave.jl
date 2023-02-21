@@ -500,17 +500,19 @@ function clausens(x::ArbSeries, s)
 
     res = zero(x)
 
-    # Precompute clausenc functions for i = 1:2:Arblib.degree(x)+1.
-    # They are used both for the i-th coefficients and also in the
-    # computation of clausens for the (i-1)-th coefficient.
-    clausencs = [clausenc(x₀, s - i) for i = 1:2:Arblib.degree(x)+1]
-    for i = 0:Arblib.degree(x)
+    for i = Arblib.degree(x):-1:0
         if i % 2 == 0
-            res[i] =
-                (-1)^(i ÷ 2) * clausens(x₀, s - i, deriv_x = clausencs[i÷2+1]) /
-                factorial(i)
+            if s <= 1 + i || i == Arblib.degree(x)
+                cs = clausens(x₀, s - i)
+            else
+                # Use that the derivative of clausens(x₀, s - i) is
+                # determined from the res[i+1]
+                deriv_x = factorial(i + 1) * (-1)^((i + 1) ÷ 2) * res[i+1]
+                cs = clausens(x₀, s - i; deriv_x)
+            end
+            res[i] = (-1)^(i ÷ 2) * cs / factorial(i)
         else
-            res[i] = (-1)^(i ÷ 2) * clausencs[(i+1)÷2] / factorial(i)
+            res[i] = (-1)^(i ÷ 2) * clausenc(x₀, s - i) / factorial(i)
         end
     end
 
