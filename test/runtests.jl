@@ -1,4 +1,4 @@
-using Arblib, HighestCuspedWave, OffsetArrays, SpecialFunctions, Test
+using ArbExtras, Arblib, HighestCuspedWave, OffsetArrays, SpecialFunctions, Test
 
 setprecision(Arb, 128) do
     @testset "HighestCuspedWave" verbose = true begin

@@ -266,34 +266,78 @@ end
 end
 
 @testset "clausenc_expansion" begin
-    s = Arb(0.5)
-    for M in [3, 6]
-        for x in range(Arb(0), 2Arb(π), length = 100)[1:end-1]
-            C, e, P, E = HighestCuspedWave.clausenc_expansion(x, s, M)
-            @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^2M, clausenc(x, s))
+    xs = exp.(range(log(Arb("1e-5")), log(6), 10))
+    # Combination of integers and non-integers
+    ss = [range(Arb(0), Arb(4), 8); Arb.(1:3)]
+
+    @testset "clausenc_expansion" begin
+        for x in xs
+            for s in ss
+                for M = 3:6
+                    C, e, P, E = HighestCuspedWave.clausenc_expansion(x, s, M)
+                    @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^2M, clausenc(x, s))
+                    @test Arblib.overlaps(
+                        C * abs(x / 2)^e + P(x / 2) + E * (x / 2)^2M,
+                        clausenc(x / 2, s),
+                    )
+                end
+            end
+        end
+
+        # Wide s
+        for x in xs
+            for s in ss[2:end]
+                s = add_error(s, Mag(0.001))
+                for M = 3:6
+                    C, e, P, E = HighestCuspedWave.clausenc_expansion(x, s, M)
+                    @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^2M, clausenc(x, s))
+                    @test Arblib.overlaps(
+                        C * abs(x / 2)^e + P(x / 2) + E * (x / 2)^2M,
+                        clausenc(x / 2, s),
+                    )
+                end
+            end
         end
     end
 
-    # TODO: Add tests for wide s
+    @testset "clausenc_expansion_remainder" begin
+        for β in [1, 2, 3]
+            for x in xs
+                for s in ss
+                    for M = 3:6
+                        E1 = HighestCuspedWave.clausenc_expansion_remainder(x, s, β, M)
 
-    # TODO: Add tests for β
-end
+                        # Test that it seems to contain the tail of the sum
+                        E2 = sum(M:M+10) do m
+                            (-1)^m *
+                            ArbExtras.derivative_function(zeta, β)(s - 2m) *
+                            x^(2m - 2M) / factorial(big(2m))
+                        end
 
-@testset "clausenc_expansion_odd_s_singular_K1_K2" begin
-    for s in Arb[1.5, 2.9, 3.1]
-        for m in [1, 2, 3]
-            K1, K2 = HighestCuspedWave.clausenc_expansion_odd_s_singular_K1_K2(s, m)
-            K3 = HighestCuspedWave.clausenc_expansion_odd_s_singular_K3(m)
-            for x in (Arb(-0.5), Arb(0.1), ArbSeries((-0.5, 2, 3)), ArbSeries((0.1, 3, 2)))
-                r1 =
-                    K1 * abs(x)^(s - 1) +
-                    K2 * x^2m +
-                    K3 *
-                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, Arb(2m), s - (2m + 1))
-                r2 =
-                    gamma(1 - s) * sinpi(s / 2) * abs(x)^(s - 1) +
-                    (-1)^m * zeta(s - 2m) * x^2m / factorial(2m)
-                @test Arblib.overlaps(r1, r2)
+                        @test Arblib.overlaps(E1, E2)
+                    end
+                end
+            end
+        end
+    end
+
+    @testset "clausenc_expansion_odd_s_singular_K1_K2" begin
+        for s in ss
+            for m in [1, 2, 3]
+                K1, K2 = HighestCuspedWave.clausenc_expansion_odd_s_singular_K1_K2(s, m)
+                K3 = HighestCuspedWave.clausenc_expansion_odd_s_singular_K3(m)
+                for x in
+                    (Arb(-0.5), Arb(0.1), ArbSeries((-0.5, 2, 3)), ArbSeries((0.1, 3, 2)))
+                    r1 =
+                        K1 * abs(x)^(s - 1) +
+                        K2 * x^2m +
+                        K3 *
+                        HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, Arb(2m), s - (2m + 1))
+                    r2 =
+                        gamma(1 - s) * sinpi(s / 2) * abs(x)^(s - 1) +
+                        (-1)^m * zeta(s - 2m) * x^2m / factorial(2m)
+                    @test Arblib.overlaps(r1, r2)
+                end
             end
         end
     end

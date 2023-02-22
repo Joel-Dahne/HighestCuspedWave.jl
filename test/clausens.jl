@@ -181,11 +181,64 @@
 end
 
 @testset "clausens_expansion" begin
-    s = Arb(0.5)
-    for M in [3, 6]
-        for x in range(Arb(0), 2Arb(π), length = 100)[1:end-1]
-            C, e, P, E = HighestCuspedWave.clausens_expansion(x, s, M)
-            @test Arblib.overlaps(C * abs(x)^e + P(x) + E * x^(2M + 1), clausens(x, s))
+    xs = exp.(range(log(Arb("1e-5")), log(6), 10))
+    # Combination of integers and non-integers
+    ss = [range(Arb(0), Arb(4), 8); Arb.(1:3)]
+
+    @testset "clausens_expansion" begin
+        for x in xs
+            for s in ss
+                for M = 3:6
+                    C, e, P, E = HighestCuspedWave.clausens_expansion(x, s, M)
+                    @test Arblib.overlaps(
+                        C * abs(x)^e + P(x) + E * x^(2M + 1),
+                        clausens(x, s),
+                    )
+                    @test Arblib.overlaps(
+                        C * abs(x / 2)^e + P(x / 2) + E * (x / 2)^(2M + 1),
+                        clausens(x / 2, s),
+                    )
+                end
+            end
+        end
+
+        # Wide s
+        for x in xs
+            for s in ss[2:end]
+                s = add_error(s, Mag(0.001))
+                for M = 3:6
+                    C, e, P, E = HighestCuspedWave.clausens_expansion(x, s, M)
+                    @test Arblib.overlaps(
+                        C * abs(x)^e + P(x) + E * x^(2M + 1),
+                        clausens(x, s),
+                    )
+                    @test Arblib.overlaps(
+                        C * abs(x / 2)^e + P(x / 2) + E * (x / 2)^(2M + 1),
+                        clausens(x / 2, s),
+                    )
+                end
+            end
+        end
+    end
+
+    @testset "clausens_expansion_remainder" begin
+        for β in [1, 2, 3]
+            for x in xs
+                for s in ss
+                    for M = 3:6
+                        E1 = HighestCuspedWave.clausens_expansion_remainder(x, s, β, M)
+
+                        # Test that it seems to contain the tail of the sum
+                        E2 = sum(M:M+10) do m
+                            (-1)^m *
+                            ArbExtras.derivative_function(zeta, β)(s - 2m - 1) *
+                            x^(2m - 2M) / factorial(big(2m + 1))
+                        end
+
+                        @test Arblib.overlaps(E1, E2)
+                    end
+                end
+            end
         end
     end
 end
