@@ -1,144 +1,182 @@
 @testset "clausens" begin
+    xs = range(Arb(0), 2Arb(π), 12)
+    # Combination of integers and non-integers
+    ss = [range(Arb(-4), Arb(4), 8); Arb.(-3:3)]
     @testset "clausens(x, s)" begin
-        # Check that the evaluation with polylog and zeta agree on (0, 2π)
-        for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
-            for x in range(Arb(0), 2Arb(π), length = 100)[2:end-1]
-                res1 = HighestCuspedWave._clausens_polylog(x, s)
-                res2 = HighestCuspedWave._clausens_zeta(x, s)
-                @test isfinite(res1)
-                @test isfinite(res2)
-                @test Arblib.overlaps(res1, res2)
-            end
-        end
-
-        # Check that _clausen_zeta throws an error outside of the domain
-        @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(-1), Arb(2.5))
-        @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(7), Arb(2.5))
-
-        # Check evaluation with integer s
-        for s in Arb.(-4:4)
-            @test Arblib.overlaps(
-                HighestCuspedWave._clausens_polylog(one(s), s),
-                HighestCuspedWave._clausens_zeta(one(s), s),
-            )
-            @test isfinite(clausenc(zero(s), s)) == (s > 1)
-            @test isfinite(clausenc(one(s), s))
-        end
-
-        # Check evaluation on wide intervals
-        for s in Arb[-2.5, 2.5]
-            for lower in range(Arb(-10), 8, length = 10)
-                for upper in range(lower + 1, 10, length = 10)
-                    interval = Arb((lower, upper))
-                    y = clausens(interval, s)
-                    for x in range(lower, upper, length = 10)
-                        @test Arblib.overlaps(clausens(x, s), y)
-                    end
-                end
-            end
-        end
-
-        # Check evaluation with other types
-        @test clausens(1.5, 2) == Float64(clausens(Arb(1.5), 2))
-        @test clausens(2, 2) == Float64(clausens(Arb(2), 2))
-
-        # Test s overlapping integers
-        for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
-            for s in Arb.(-1:4)
-                s_interval = Arblib.add_error!(copy(s), Arb(0.0001))
-                y1 = clausens(x, s_interval)
-                @test isfinite(y1)
-                for ss in [s; range(getinterval(Arb, s_interval)..., length = 10)]
-                    y2 = clausens(x, ss)
-                    @test isfinite(y2)
-                    @test Arblib.overlaps(y1, y2)
-                end
-            end
-        end
-
-        # x::ArbSeries
-        # Very simple tests - just check that it runs and is finite
-        @test isfinite(clausens(ArbSeries((2, 1, 0)), Arb(2)))
-        @test isfinite(clausens(ArbSeries((2, 1, 0)), Arb(2.5)))
-
-        # s::ArbSeries
-        # Check that the evaluation with polylog and zeta agree on (0, 2π)
-        for s in [range(Arb(-4), Arb(4), length = 6); Arb.(-3:3)]
-            s_series = ArbSeries((s, 1), degree = 2)
-            for x in range(Arb(0), 2Arb(π), length = 20)[2:end-1]
-                res1 = HighestCuspedWave._clausens_polylog(x, s_series)
-                res2 = HighestCuspedWave._clausens_zeta(x, s_series)
-                @test isfinite(res1)
-                @test isfinite(res2)
-                @test Arblib.overlaps(res1, res2)
-            end
-        end
-
-        # Wide s around integer
-        for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
-            for s0 in Arb.(-1:4)
-                s0_interval = Arblib.add_error!(copy(s0), Arb(1e-10))
-                s = ArbSeries((s0_interval, 1), degree = 2)
-                y1 = clausens(x, s)
-                @test isfinite(y1)
-                for ss in [s0; range(getinterval(Arb, s0_interval)..., length = 10)]
-                    y2 = clausens(x, ArbSeries((ss, 1), degree = 2))
-                    @test isfinite(y2)
-                    @test Arblib.overlaps(y1, y2)
-                end
-            end
-        end
-    end
-
-    @testset "clausens(x, s, β)" begin
-        # Check that the evaluation with polylog and zeta agree on (0, 2π)
-        for β in [1, 2]
-            for s in [range(Arb(-4), Arb(4), length = 10); Arb.(-3:3)]
-                for x in range(Arb(0), 2Arb(π), length = 10)[2:end-1]
-                    res1 = HighestCuspedWave._clausens_polylog(x, s, β)
-                    res2 = HighestCuspedWave._clausens_zeta(x, s, β)
+        @testset "x::Arb, s::Arb" begin
+            # Check that different evaluations agree
+            for x in xs[2:end-1]
+                for s in ss
+                    res1 = HighestCuspedWave._clausens_polylog(x, s)
+                    res2 = HighestCuspedWave._clausens_zeta(x, s)
+                    res3 = clausens(x, s)
                     @test isfinite(res1)
                     @test isfinite(res2)
+                    @test isfinite(res3)
                     @test Arblib.overlaps(res1, res2)
+                    @test Arblib.overlaps(res1, res3)
+                    @test Arblib.overlaps(res2, res3)
                 end
             end
-        end
 
-        # Check evaluation on wide intervals
-        for β in [1, 2]
-            for s in Arb[-2.5, 2.5]
-                for lower in range(Arb(-10), 8, length = 10)
-                    for upper in range(lower + 0.01, 10, length = 10)
-                        interval = Arb((lower, upper))
-                        y = clausens(interval, s, β)
+            # Wide x
+            for lower in range(Arb(-10), 8, 10)
+                for upper in range(lower + 0.01, 10, 10)
+                    x_interval = Arb((lower, upper))
+                    for s in ss
+                        y = clausens(x_interval, s)
                         @test isfinite(y) || !(s > 1)
-                        for x in range(lower, upper, length = 10)
-                            @test Arblib.overlaps(clausens(x, s, β), y)
+                        for x in range(lower, upper, length = 5)
+                            @test Arblib.overlaps(clausens(x, s), y)
                         end
                     end
                 end
             end
+
+            # Wide s
+            for x in xs[2:end-1]
+                for s in ss
+                    s_interval = add_error(s, Arb(0.0001))
+                    y1 = clausens(x, s_interval)
+                    @test isfinite(y1)
+                    for t in [s; range(getinterval(Arb, s_interval)..., 4)]
+                        y2 = clausens(x, t)
+                        @test isfinite(y2)
+                        @test Arblib.overlaps(y1, y2)
+                    end
+                end
+            end
+
+            # Check that _clausen_zeta throws an error outside of the domain
+            @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(-1), Arb(2.5))
+            @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(7), Arb(2.5))
         end
 
-        # Check that _clausen_zeta throws an error outside of the domain
-        @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(-1), Arb(2.5), 1)
-        @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(7), Arb(2.5), 1)
+        @testset "x::ArbSeries, s::Arb" begin
+            for s in ss
+                # Check that it agrees with clausens
+                @test Arblib.overlaps(
+                    clausens(ArbSeries((2, 1, 0)), s),
+                    Arblib.derivative(-clausenc(ArbSeries((2, 1, 0, 0)), s + 1)),
+                )
 
-        # Check evaluation with integer s
-        for β in [1, 2]
-            for s in Arb.(-4:4)
-                @test isfinite(clausens(zero(s), s, β)) == (s > 1)
-                @test isfinite(clausens(one(s), s, β))
+                # Check that it works as Taylor expansion for clausens(sin(x), s)
+                for degree = 1:4
+                    x0 = Arb(1)
+                    x = Arb((0.9, 1.1))
+                    p = clausens(sin(ArbSeries((x0, 1); degree)), s)
+                    R =
+                        (x - x0)^(degree + 1) *
+                        clausens(sin(ArbSeries((x, 1), degree = degree + 1)), s)[degree+1]
+                    @test Arblib.overlaps(p(0.9 - x0) + R, clausens(sin(Arb(0.9)), s))
+                    @test Arblib.overlaps(p(1.1 - x0) + R, clausens(sin(Arb(1.1)), s))
+                end
             end
         end
 
-        # Check evaluation with other types
-        @test clausens(1.5, 2) == Float64(clausens(Arb(1.5), 2))
-        @test clausens(2, 2) == Float64(clausens(Arb(2), 2))
+        @testset "x::Arb, s::ArbSeries" begin
+            # Check that different evaluations agree
+            for x in xs[2:end-1]
+                for s in ss
+                    s_series = ArbSeries((s, 1), degree = 2)
+                    res1 = HighestCuspedWave._clausens_polylog(x, s_series)
+                    res2 = HighestCuspedWave._clausens_zeta(x, s_series)
+                    res3 = clausens(x, s_series)
+                    @test isfinite(res1)
+                    @test isfinite(res2)
+                    @test isfinite(res3)
+                    @test Arblib.overlaps(res1, res2)
+                    @test Arblib.overlaps(res1, res3)
+                    @test Arblib.overlaps(res2, res3)
+                end
+            end
 
-        # TODO: Add tests for wide values of s
+            # Wide s
+            for x in xs[2:end-1]
+                for s0 in ss
+                    s0_interval = add_error(s0, Arb(0.0001))
+                    s = ArbSeries((s0_interval, 1), degree = 2)
+                    y1 = clausens(x, s)
+                    @test isfinite(y1)
+                    for t in [s0; range(getinterval(Arb, s0_interval)..., 4)]
+                        y2 = clausens(x, ArbSeries((t, 1), degree = 2))
+                        @test isfinite(y2)
+                        @test Arblib.overlaps(y1, y2)
+                    end
+                end
+            end
+        end
 
-        # TODO: Add tests for x::ArbSeries
+        @testset "x::Any, s::Any" begin
+            @test clausens(1.5, 2.4) ≈ Float64(clausens(Arb(1.5), 2.4))
+            @test clausens(1.5, 2) == Float64(clausens(Arb(1.5), 2))
+            @test clausens(2, 2.4) ≈ Float64(clausens(Arb(2), 2.4))
+            @test clausens(2, 2) == Float64(clausens(Arb(2), 2))
+        end
+    end
+
+    @testset "clausens(x, s, β)" begin
+        @testset "x::Arb, s::Arb" begin
+            # Check that different evaluations agree
+            for β in [1, 2]
+                for x in xs[2:end-1]
+                    for s in ss
+                        res1 = HighestCuspedWave._clausens_polylog(x, s, β)
+                        res2 = HighestCuspedWave._clausens_zeta(x, s, β)
+                        res3 = clausens(x, s, β)
+                        @test isfinite(res1)
+                        @test isfinite(res2)
+                        @test isfinite(res3)
+                        @test Arblib.overlaps(res1, res2)
+                        @test Arblib.overlaps(res1, res3)
+                        @test Arblib.overlaps(res2, res3)
+                    end
+                end
+            end
+
+            # Wide x
+            for β in [1, 2]
+                for lower in range(Arb(-10), 8, 10)
+                    for upper in range(lower + 0.01, 10, 10)
+                        x_interval = Arb((lower, upper))
+                        for s in ss
+                            y = clausens(x_interval, s, β)
+                            @test isfinite(y) || !(s > 1)
+                            for x in range(lower, upper, length = 5)
+                                @test Arblib.overlaps(clausens(x, s, β), y)
+                            end
+                        end
+                    end
+                end
+            end
+
+            # Wide s
+            for x in xs[2:end-1]
+                for s in ss
+                    s_interval = add_error(s, Arb(0.0001))
+                    y1 = clausens(x, s_interval)
+                    @test isfinite(y1)
+                    for t in [s; range(getinterval(Arb, s_interval)..., 4)]
+                        y2 = clausens(x, t)
+                        @test isfinite(y2)
+                        @test Arblib.overlaps(y1, y2)
+                    end
+                end
+            end
+
+            # Check that _clausen_zeta throws an error outside of the domain
+            @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(-1), Arb(2.5))
+            @test_throws DomainError HighestCuspedWave._clausens_zeta(Arb(7), Arb(2.5))
+        end
+
+        @testset "x::Any, s::Any" begin
+            for β in [1, 2]
+                @test clausens(1.5, 2.4, β) ≈ Float64(clausens(Arb(1.5), 2.4, β))
+                @test clausens(1.5, 2, β) == Float64(clausens(Arb(1.5), 2, β))
+                @test clausens(2, 2.4, β) ≈ Float64(clausens(Arb(2), 2.4, β))
+                @test clausens(2, 2, β) == Float64(clausens(Arb(2), 2, β))
+            end
+        end
     end
 end
 
