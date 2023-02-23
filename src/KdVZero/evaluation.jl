@@ -155,7 +155,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             # inv(2π)^α * cospi(α / 2) * (zeta(α, x / 2π) + zeta(α, 1 - x / 2π)) / α
             clausen_term_part1 = let π = Arb(π)
                 clausen_term_part1_expansion =
-                    let α = ArbSeries((u0.α0, 1), degree = u0.degree)
+                    let α = ArbSeries((u0.α0, 1), degree = u0.degree + 1)
                         if iswide(x) && 0 < x < π
                             z = ArbSeries(
                                 union.(
@@ -186,8 +186,8 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 
                 # Extend expansion to include remainder term
                 clausen_term_part1_expansion =
-                    ArbSeries(clausen_term_part1_expansion, degree = u0.degree + 1)
-                clausen_term_part1_expansion[u0.degree+1] = clausen_term_part1_remainder
+                    ArbSeries(clausen_term_part1_expansion, degree = u0.degree + 2)
+                clausen_term_part1_expansion[u0.degree+2] = clausen_term_part1_remainder
 
                 # Construct Taylor model and divide by α
                 TaylorModel(clausen_term_part1_expansion, u0.α, u0.α0) << 1
@@ -200,7 +200,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
                         rgamma,
                         u0.α,
                         u0.α0,
-                        degree = u0.degree,
+                        degree = u0.degree + 1,
                         enclosure_degree = 1,
                     ) << 1
                 )
@@ -225,24 +225,24 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
                 # interval symmetric by widening it. It doesn't seem
                 # to affect the computed bounds much.
                 f1 = TaylorModel(
-                    TaylorModel(zeta, union(u0.α, -u0.α), u0.α0, degree = u0.degree + 2).p,
+                    TaylorModel(zeta, union(u0.α, -u0.α), u0.α0, degree = u0.degree + 3).p,
                     u0.α,
                     u0.α0,
                 )
 
                 # sinpi(α / 2) / α
                 f2 =
-                    TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = u0.degree + 3) << 1
+                    TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = u0.degree + 4) << 1
 
                 # 2^α * π^(α - 1) * gamma(1 - α)
                 f3 = TaylorModel(
                     α -> 2^α * Arb(π)^(α - 1) * gamma(1 - α),
                     u0.α,
                     u0.α0,
-                    degree = u0.degree + 2,
+                    degree = u0.degree + 3,
                 )
 
-                truncate(f1 / (f2 * f3), degree = u0.degree - 1)
+                truncate(f1 / (f2 * f3); u0.degree)
             end
 
             # The constant term is exactly -1
@@ -252,14 +252,14 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
             # Taylor model of a[0] * zeta(1 - α)
             a0zeta_term = (u0.a[0] << 1) * zetamulα
 
-            truncate(a0_clausen_term, degree = u0.degree - 1) - a0zeta_term
+            truncate(a0_clausen_term; u0.degree) - a0zeta_term
         end
     else
-        res = TaylorModel(ArbSeries(; u0.degree), u0.α, u0.α0)
+        res = zero(u0.p0)
     end
 
     # Taylor model of α
-    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
+    Mα = TaylorModel(identity, u0.α, u0.α0; u0.degree)
 
     # If u0.α0 is non-zero we handle the case j = 0 here
     j_start = ifelse(iszero(u0.α0), 1, 0)
@@ -268,7 +268,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::Ball)
 
         if j == 0
             # u0.a[0] has a higher degree to we truncate it first
-            res += truncate(u0.a[j], degree = u0.degree - 1) * term
+            res += truncate(u0.a[j]; u0.degree) * term
         else
             res += u0.a[j] * term
         end
@@ -304,13 +304,13 @@ where we can handle `gamma(2α) / gamma(α) = rgamma(α) / rgamma(2α)`
 similarly to how it is done in [`expansion_as`](@ref).
 """
 function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
-    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
+    Mα = TaylorModel(identity, u0.α, u0.α0; u0.degree)
 
     expansion = OrderedDict{NTuple{3,Int},TaylorModel}()
 
     # Initiate even powers of x
     for m = 1:M
-        expansion[(0, 0, 2m)] = TaylorModel(ArbSeries(; u0.degree), u0.α, u0.α0)
+        expansion[(0, 0, 2m)] = zero(Mα)
     end
 
     # Handle main term
@@ -325,14 +325,14 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
                     rgamma,
                     u0.α,
                     u0.α0,
-                    degree = u0.degree + 3,
+                    degree = u0.degree + 4,
                     enclosure_degree = 1,
                 ),
                 TaylorModel(
                     α -> rgamma(2α),
                     u0.α,
                     u0.α0,
-                    degree = u0.degree + 3,
+                    degree = u0.degree + 4,
                     enclosure_degree = 1,
                 ),
             )
@@ -342,15 +342,14 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
                     α -> 2cospi(α) / cospi(α / 2),
                     u0.α,
                     u0.α0,
-                    degree = u0.degree + 2,
+                    degree = u0.degree + 3,
                 )
 
-            truncate(a0singular_term, degree = u0.degree - 1)
+            truncate(a0singular_term; u0.degree)
         end
     else
         a0singular_term =
-            truncate(u0.a[0], degree = u0.degree - 1) *
-            compose(α -> gamma(α) * cospi(α / 2), Mα)
+            truncate(u0.a[0]; u0.degree) * compose(α -> gamma(α) * cospi(α / 2), Mα)
     end
 
     expansion[(1, 0, 0)] = a0singular_term
@@ -359,12 +358,12 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
     for m = 1:M-1
         term = (-1)^m * compose(α -> zeta(1 - α - 2m), Mα) / factorial(2m)
 
-        expansion[(0, 0, 2m)] += truncate(u0.a[0], degree = u0.degree - 1) * term
+        expansion[(0, 0, 2m)] += truncate(u0.a[0]; u0.degree) * term
     end
 
     # Add remainder term (in x)
     remainder_term = compose(α -> clausenc_expansion_remainder(x, 1 - α, M), Mα)
-    expansion[(0, 0, 2M)] += truncate(u0.a[0], degree = u0.degree - 1) * remainder_term
+    expansion[(0, 0, 2M)] += truncate(u0.a[0]; u0.degree) * remainder_term
 
     # Handle tail terms
     for j = 1:2
