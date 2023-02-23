@@ -883,20 +883,21 @@ function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
 end
 
 """
-    F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
+    F0_direct(u0::KdVZeroAnsatz, ::Asymptotic; ϵ)
 
-Return a function such that `F02(u0)(x)` computes an enclosure of
+Return a function such that `F0_direct(u0)(x)` computes an enclosure,
+**not** a Taylor model, of
 ```
 (u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
 ```
 It uses an evaluation strategy that works asymptotically in `x`.
 
-Note that this methods doesn't compute a Taylor model in `α` like most
-methods for `KdVZeroansatz`. It only computes an enclosure. For this
-reason it doesn't make sense to use for `u0.α0 = 0`
+Note that this methods doesn't return a Taylor model, like
+[`F0`](@ref) does. It only computes an enclosure. For this reason it
+doesn't make sense to use for `u0.α0 = 0`
 """
-function F02(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
-    iszero(u0.α0) && @warn "F02 doesn't make sense for u0.α0 = 0"
+function F0_direct(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
+    iszero(u0.α0) && error("F0_direct doesn't make sense for u0.α0 = 0")
 
     # Compute the expansions and evaluate their terms in α
     D_expansion = let expansion = D(u0, AsymptoticExpansion(); M)(ϵ)

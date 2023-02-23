@@ -184,6 +184,16 @@
                     @test Arblib.overlaps(p1, p2, require_compatible = false)
                 end
             end
+
+            if !iszero(u0.α0)
+                @testset "F0_direct" begin
+                    f = F0(u0, Asymptotic())
+                    g = HighestCuspedWave.F0_direct(u0, Asymptotic())
+                    for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
+                        @test Arblib.overlaps(f(x)(u0.α), g(x))
+                    end
+                end
+            end
         end
     end
 end

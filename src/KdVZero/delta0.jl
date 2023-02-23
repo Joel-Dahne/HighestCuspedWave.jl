@@ -95,7 +95,7 @@ function delta0_bound(
         verbose && @info "Determined ϵ" ϵ
 
         # Function for computing F0(u0) for x ∈ [0, ϵ]
-        f = F02(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
+        f = F0_direct(u0, Asymptotic(), ϵ = Arb(1.1ϵ))
 
         # Function for computing F0(u0) for x ∈ [ϵ, π]
         F0_nonasymptotic = F0(u0, Ball())
