@@ -429,7 +429,7 @@ function F0(
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
     Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
 
-    # Divide the expansion by x * log(x) and x^2 * log(x)
+    # Divide the expansions by x * log(x) and x^2 * log(x)
     # respectively, also precompute the exponents.
     u0_expansion_div_xlogx = Vector{Tuple{Int,Arb,Arb}}(undef, length(u0_expansion))
     Du0_expansion_div_x2logx = Vector{Tuple{Int,Arb,Arb}}(undef, length(Du0_expansion))
@@ -521,7 +521,7 @@ function F0(
             elseif Arblib.contains_zero(x)
                 w!(res, ubound(Arb, x))
                 Arblib.inv!(res, res)
-                return Arblib.union!(res, res, zero(res))
+                Arblib.union!(res, res, zero(res))
             else
                 w!(res, x)
                 Arblib.inv!(res, res)
