@@ -363,7 +363,7 @@ function eval_expansion(
             if !iszero(y) && !(iszero(p) && iszero(q))
                 # We don't implement any other cases since they are
                 # handled specially by F0.
-                isone(p) ||
+                iszero(p) || isone(p) ||
                     throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
                 iszero(q) || throw(ArgumentError("only q == 0 supported, got q = $q"))
 
@@ -965,11 +965,8 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
     end
 end
 
-function H(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_singular_j_until = 0)
-    f = H(u0, AsymptoticExpansion(); M, skip_singular_j_until)
-
-    return x -> eval_expansion(u0, f(x), x)
-end
+# H(u0, Asymptotic()) doesn't exist because eval_expansion doesn't
+# implement evaluation of the main term of H directly.
 
 """
     H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_singular_j_until::Integer = 0,)
