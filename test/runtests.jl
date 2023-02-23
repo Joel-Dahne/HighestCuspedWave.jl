@@ -26,5 +26,10 @@ setprecision(Arb, 128) do
             include("KdVZero/evaluation.jl")
             include("KdVZero/T0.jl")
         end
+
+        @testset "BHKdV" verbose = true begin
+            include("BHKdV/evaluation.jl")
+            include("BHKdV/T0.jl")
+        end
     end
 end
