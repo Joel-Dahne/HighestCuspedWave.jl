@@ -1,24 +1,26 @@
 export KdVZeroAnsatz
 
 """
-    KdVZeroAnsatz(α::Arb, α0::Arb; degree::Integer = 2) <: AbstractAnsatz{Arb}
+    KdVZeroAnsatz(α::Arb, α0::Arb; degree::Integer = 1) <: AbstractAnsatz{Arb}
 
-Represents an ansatz for an approximate solution for the fractional
-KdV equations as an expansion centered at `α0` and valid on `α`.
+Represents an approximate solution for the fractional KdV equations as
+an expansion centered at `α0` and valid on `α`.
 
 The ansatz is given by
 ```
 a[0] * clausencmzeta(x, 1 - α) + a[1] * clausencmzeta(x, 1 - α + p0) + a[2] * clausencmzeta(x, 1 - α + 2p0)
 ```
-where `a0`, `a1`, `a2` and `p0` are given by expansions around `α0`.
+where `a[0]`, `a[1]`, `a[2]` and `p0` are given by expansions in `α`
+centered at `α0`.
 
 The value of `α` is assumed to be non-positive. However the enclosure
 for `α` might contain spurious positive parts. We explicitly remove
 these so that the right endpoint of the enclosure is non-negative.
 
-The expansions are handled using Taylor models through the
+The expansions are represented by Taylor models through the
 [`TaylorModel`](@ref) type. In general the models are computed to the
-given degree, though in some cases lower or higher degrees are used.
+degree `degree`, though in some cases lower or higher degrees are
+used.
 
 It stores precomputed Taylor models for `a` and `p0`. The Taylor
 models for `a` and `p0` are computed to the degree `degree` with the
@@ -38,14 +40,14 @@ struct KdVZeroAnsatz <: AbstractAnsatz{Arb}
     p0::TaylorModel
     degree::Int
 
-    function KdVZeroAnsatz(α::Arb, α0::Arb = Arb(0); degree::Integer = 2)
+    function KdVZeroAnsatz(α::Arb, α0::Arb = Arb(0); degree::Integer = 1)
         contains(α, α0) || throw(ArgumentError("expected α0 to be contained in α"))
 
         # α is non-positive, this removes any spurious positive parts
         α = -Arblib.nonnegative_part!(zero(α), -α)
 
-        p0 = expansion_p0(KdVZeroAnsatz, α0, α, degree = degree - 1)
-        a = expansion_as(KdVZeroAnsatz, α0, α, degree = degree - 1; p0)
+        p0 = expansion_p0(KdVZeroAnsatz, α0, α; degree)
+        a = expansion_as(KdVZeroAnsatz, α0, α; p0, degree)
 
         u0 = new(α, α0, a, p0, degree)
 
