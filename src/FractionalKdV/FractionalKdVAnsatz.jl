@@ -61,51 +61,28 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
 end
 
 """
-    FractionalKdVAnsatz(α::T, N0, N1, p = one(α); kwargs...)
+    FractionalKdVAnsatz(α::T, N0, N1, p = one(α), use_midpoint = true, use_bhkdv = false)
 
-Construct a `FractionalKdVAnsatz` with the given `α` value and `N0`
-aⱼ's and `N1` bₙ's. It sets the weight to be used to `|x|^p`.
+Construct a `FractionalKdVAnsatz` such to `u0.N0 == N0` and `u0.N1 ==
+N1` and with the given `p`.
 
 If `use_midpoint` is true and `T` is `Arb` then use only the midpoint
 values of `p0`, `a`, `b` and `p` with the exception of `a[0]` for
 which the proper enclosure is used.
-
-If `auto_N0_bound` is set to a positive value then don't use the given
-`N0` value but instead find the value which gives the smallest defect
-using [`find_good_as`](@ref). The maximum `N0` value considered is
-then given by `auto_N0_bound`.
-
-If `initial_a` or `initial_b` is given then use these as initial
-values for `a` and `b` when solving the system giving the
-coefficients. For `a` you should have `initial_a = [a1, a2, …]` and
-skip the first `a0`. For `b` you give all of them. It still respects
-the values of `N0` and `N1` so it either uses only some of the
-coefficients or fills up with zeros.
-
-The argument `use_D2` decides if [`D`](@ref) or [`D2`](@ref) is used
-when computing the values for `a`. In theory they are equivalent and
-`D2` slightly faster. In practice they have slightly different
-rounding errors and therefore give different results in some cases.
 """
 function FractionalKdVAnsatz(
     α::T,
-    N0,
-    N1,
+    N0::Integer,
+    N1::Integer,
     p = one(α);
     use_midpoint = true,
-    N0s::StepRange{Int,Int} = 0:1:-1,
-    try_all_combinations = false,
     use_bhkdv = false,
-    initial_a::Vector{T} = T[],
-    initial_b::Vector{T} = T[],
-    threaded = true,
-    verbose = false,
 ) where {T}
     # Using the midpoint only makes sense for T == Arb
     use_midpoint = use_midpoint && T == Arb
 
     if use_midpoint
-        p = Arblib.midpoint(Arb, p)
+        p = midpoint(Arb, p)
     end
 
     if use_midpoint
@@ -125,24 +102,10 @@ function FractionalKdVAnsatz(
     u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, false)
 
     # Compute values for u0.a[1:end]
-    if !isempty(N0s)
-        as = find_good_as(u0, N0s; try_all_combinations, threaded, verbose)
-        resize!(u0.a, length(as) + 1)
-        u0.a[1:end] .= as
-    elseif N0 == 1 && α < -0.9
-        # If we are close to α = -1 and we only have one Clausen
-        # function we take a[1] = -a[0], so that the sum of the first
-        # and second term converge towards the leading Clausian for α
-        # = -1. This is mostly for testing.
+    if N0 >= 1
+        # Make room for coefficients and set them to zero
         resize!(u0.a, N0 + 1)
-        u0.a[1] = -u0.a[0]
-    elseif N0 >= 1
-        # Make room for coefficients and set initial values according
-        # to initial_a
-        resize!(u0.a, N0 + 1)
-        u0.a[1:end] .= zero(T)
-        u0.a[1:min(N0, length(initial_a))] .= initial_a[1:min(N0, length(initial_a))]
-
+        u0.a[1:end] .= 0
         u0.a[1:end] .= findas(u0)
     end
 
@@ -150,17 +113,88 @@ function FractionalKdVAnsatz(
         u0.a[1:end] .= midpoint.(Arb, u0.a[1:end])
     end
 
-    # Make room for coefficients and set initial values according
-    # to initial_b
+    # Make room for coefficients and set them to zero
     resize!(u0.b, N1)
-    u0.b[1:end] .= zero(T)
-    b[1:min(N1, length(initial_b))] .= initial_a[1:min(N1, length(initial_b))]
-
+    u0.b[:] .= 0
     u0.b .= findbs(u0)
 
     if use_bhkdv
         # Recreate ansatz with use_bhkdv set to true and update
-        # u0.a[1] appropriately
+        # u0.a[1] accordingly
+        u0 = FractionalKdVAnsatz{T}(u0.α, u0.p0, u0.a, u0.b, u0.p, true)
+        u0.a[1] += finda0(midpoint(Arb, u0.α))
+    end
+
+    return u0
+end
+
+
+"""
+    FractionalKdVAnsatz(α::T, N0s, N1, p = one(α); , use_midpoint = true, use_bhkdv = false, kwargs...)
+
+Construct a `FractionalKdVAnsatz` such to `u0.N1 == N1` and with the
+given `p`. The value of `u0.N0` is determined using
+[`find_good_as`](@ref), which is given `N0s` as argument.
+
+If `use_midpoint` is true and `T` is `Arb` then use only the midpoint
+values of `p0`, `a`, `b` and `p` with the exception of `a[0]` for
+which the proper enclosure is used.
+
+It also takes the keyword arguments `try_all_combinations = false`,
+`threaded = true` and `verbose = false`, which are given to
+[`find_good_as`](@ref).
+"""
+function FractionalKdVAnsatz(
+    α::T,
+    N0s::StepRange{Int,Int},
+    N1::Integer,
+    p = one(α);
+    use_midpoint = true,
+    try_all_combinations = false,
+    use_bhkdv = false,
+    threaded = true,
+    verbose = false,
+) where {T}
+    # Using the midpoint only makes sense for T == Arb
+    use_midpoint = use_midpoint && T == Arb
+
+    if use_midpoint
+        p = midpoint(Arb, p)
+    end
+
+    if use_midpoint
+        p0 = midpoint(Arb, findp0(midpoint(Arb, α)))
+    else
+        p0 = findp0(α)
+    end
+
+    # Initiate the a vector with only a[0] = finda0(α)
+    a = OffsetVector([finda0(α)], 0:0)
+
+    # Initiate the b to be empty
+    b = zeros(T, 0)
+
+    # Create the ansatz
+    # use_bhkdv is always false at this stage
+    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, false)
+
+    # Compute values for u0.a[1:end]
+    as = find_good_as(u0, N0s; try_all_combinations, threaded, verbose)
+    resize!(u0.a, length(as) + 1)
+    u0.a[1:end] .= as
+
+    if use_midpoint
+        u0.a[1:end] .= midpoint.(Arb, u0.a[1:end])
+    end
+
+    # Make room for coefficients and set them to zero
+    resize!(u0.b, N1)
+    u0.b[:] .= 0
+    u0.b .= findbs(u0)
+
+    if use_bhkdv
+        # Recreate ansatz with use_bhkdv set to true and update
+        # u0.a[1] accordingly
         u0 = FractionalKdVAnsatz{T}(u0.α, u0.p0, u0.a, u0.b, u0.p, true)
         u0.a[1] += finda0(midpoint(Arb, u0.α))
     end
@@ -173,31 +207,9 @@ end
 
 Helper function to choose parameters for construction a
 `FractionalKdVAnsatz{T}` depending on `α`. It returns `N0s, N1, p,
-try_all_combinations use_bhkdv`, which are the parameters to use.
+try_all_combinations, use_bhkdv`, which are the parameters to use.
 """
 function pick_parameters(::Type{FractionalKdVAnsatz{T}}, α::T;) where {T}
-    # Old version of parameters:
-    # Store heuristic parameters, they are stored as (upper, N0, N1,
-    # p) where upper is an upper bound for the α to use these values
-    # for and N0, N1 and p are the corresponding parameters for the
-    # ansatz.
-    #parameters = [
-    #    (-0.885, 6, 32, (1 - α) / 2),
-    #    (-0.87, 5, 32, (1 - α) / 2),
-    #    (-0.848, 9, 32, (1 - α) / 2),
-    #    (-0.825, 8, 32, (1 - α) / 2),
-    #    (-0.78, 7, 32, (1 - α) / 2),
-    #    (-0.75, 6, 32, (1 - α) / 2),
-    #    (-0.61, 5, 32, (1 - α) / 2),
-    #    (-0.50, 4, 16, (1 - α) / 2),
-    #    (-0.36, 4, 16, T(3 // 4)),
-    #    (-1 // 3, 3, 8, T(3 // 4)),
-    #    (-0.2, 3, 8, one(α)),
-    #    (-0.1, 3, 8, one(α)),
-    #    (-0.01, 2, 8, one(α)),
-    #    (-0.0, 2, 0, one(α)),
-    #]
-
     # Store heuristic parameters, they are stored as (upper, N0s,
     # N1, p) where upper is an upper bound for the α to use these
     # values for. N0s is the values of N0 to consider and N1 and p
@@ -279,20 +291,17 @@ function FractionalKdVAnsatz(
         use_bhkdv = use_bhkdv_default
     end
 
-    u0 = FractionalKdVAnsatz(
+    return FractionalKdVAnsatz(
         α,
-        0,
+        N0s,
         N1,
         p,
         use_midpoint = true;
-        N0s,
         try_all_combinations,
         use_bhkdv,
         threaded,
         verbose,
     )
-
-    return u0
 end
 
 """
