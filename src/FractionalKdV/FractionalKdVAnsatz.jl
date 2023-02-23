@@ -7,27 +7,23 @@ Represents an ansatz for a an approximate solution for the fractional
 KdV equations with `α ∈ (-1, 0)`. It has the following parameters
 
 - `α`: the parameter defining the equation.
-- `p0`: a numerical approximation of ``p_0``.
+- `p0`: a numerical approximation of ``p_α``.
 - `a`: vector with the coefficients in front of the Clausen functions,
-  corresponding to ``a_j`` in the paper. Notice that this vector is
+  corresponding to ``a_{α,j}`` in the paper. Notice that this vector is
   indexed starting from `0` and not `1`.
-- `b`: vector with the Fourier coefficients, corresponding to ``b_n``
-  in the paper.
+- `b`: vector with the Fourier coefficients, corresponding to
+  ``b_{α,n}`` in the paper.
 - `p`: exponent for the weight, which is given by `abs(x)^p`.
-- `zeroterms`: list of terms in the asymptotic expansion of `D(u0)`
-  which guaranteed to be identically equal to zero. It is a set of
-  tuples on the form `(i, j, m)`, see [`eval_expansion`](@ref) for
-  more information.
-- `use_bhkdv`: In some cases we want to use a slightly different
-  approach for the evaluation when `α` is very close to `-1`. This
-  value is set to true if we want to use the different approach.
-  **IMPROVE:** Document this more.
+- `use_bhkdv`: When `α` is close to `-1` we it is beneficial to use a
+  slightly different version for the approximation. This is
+  essentially a mix of the standard version and some parts from
+  [`BHKdVAnsatz`](@ref). It corresponds to the hybrid case near `α =
+  -1` discussed in the paper. Setting this value to true means that
+  this different version should be used. Some methods have special
+  implementations in this case.
 
-There are requirements on the parameters needed to give the correct
-asymptotic values. These are
-- `a[0]` which needs to be that given by `finda0(α)`
-- `zeroterms` needs to contain at least the element `(2, 0, 0)` to
-  ensure that the defect is finite at zero.
+The code assumes that `a[0]` is given by `finda0(α)`. This is required
+for the leading term in the expansion of `D(u0)` to be exactly zero.
 """
 struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     α::T
@@ -35,7 +31,6 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     a::OffsetVector{T,Vector{T}}
     b::Vector{T}
     p::T
-    zeroterms::Set{NTuple{3,Int}}
     use_bhkdv::Bool
 
     function FractionalKdVAnsatz{T}(
@@ -44,23 +39,21 @@ struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
         a::OffsetVector{T,Vector{T}},
         b::Vector{T},
         p::T,
-        zeroterms::Set{NTuple{3,Int}},
         use_bhkdv::Bool = false,
     ) where {T}
-        u0 = new(α, p0, a, b, p, zeroterms, use_bhkdv)
+        u0 = new(α, p0, a, b, p, use_bhkdv)
 
         if T == Arb
             # Check requirements that we use in the code. We only do
             # this if T == Arb since that's the only case for which we
             # need rigorous values.
 
-            # We don't warn for a[0] = 0, this is used in BHKdVansatz
-            # and is unlikely to be a mistake.
+            # We don't throw an error for a[0] = 0, this is used in
+            # BHKdVansatz and is unlikely to be a mistake.
             iszero(a[0]) ||
                 Arblib.overlaps(a[0], finda0(α)) ||
-                @warn "a[0] doesn't overlap finda0(α)"
+                error("expected a[0] to overlap finda0(α)")
 
-            (2, 0, 0) ∈ zeroterms || @warn "zeroterms doesn't contain the key (2, 0, 0)"
         end
 
         return u0
@@ -127,13 +120,9 @@ function FractionalKdVAnsatz(
     # Initiate the b to be empty
     b = zeros(T, 0)
 
-    # To begin with the only guaranteed zero term is (2, 0, 0), coming
-    # from the value of a[0]
-    zeroterms = Set{NTuple{3,Int}}([(2, 0, 0)])
-
     # Create the ansatz
     # use_bhkdv is always false at this stage
-    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms, false)
+    u0 = FractionalKdVAnsatz{T}(α, p0, a, b, p, false)
 
     # Compute values for u0.a[1:end]
     if !isempty(N0s)
@@ -172,7 +161,7 @@ function FractionalKdVAnsatz(
     if use_bhkdv
         # Recreate ansatz with use_bhkdv set to true and update
         # u0.a[1] appropriately
-        u0 = FractionalKdVAnsatz{T}(u0.α, u0.p0, u0.a, u0.b, u0.p, u0.zeroterms, true)
+        u0 = FractionalKdVAnsatz{T}(u0.α, u0.p0, u0.a, u0.b, u0.p, true)
         u0.a[1] += finda0(midpoint(Arb, u0.α))
     end
 
@@ -412,16 +401,12 @@ function update_alpha(u0::FractionalKdVAnsatz{T}, α::T) where {T}
     b = copy(u0.b)
     p = u0.p
 
-    # We can no longer guarantee that any terms are zero
-    zeroterms = Set{NTuple{3,Int}}()
-
     # We have to update a[0] to make the term (2, 0, 0) zero
     if !isempty(a)
         a[0] = finda0(α)
-        push!(zeroterms, (2, 0, 0))
     end
 
-    return FractionalKdVAnsatz{T}(α, p0, a, b, p, zeroterms, u0.use_bhkdv)
+    return FractionalKdVAnsatz{T}(α, p0, a, b, p, u0.use_bhkdv)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", u0::FractionalKdVAnsatz{T}) where {T}
@@ -436,7 +421,6 @@ function Base.convert(::Type{FractionalKdVAnsatz{T}}, u0::FractionalKdVAnsatz) w
         convert.(T, u0.a),
         convert(Vector{T}, u0.b),
         convert(T, u0.p),
-        copy(u0.zeroterms),
         u0.use_bhkdv,
     )
 end

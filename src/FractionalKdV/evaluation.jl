@@ -538,11 +538,10 @@ function D(
         # H term
         merge!(+, expansion, expansion2)
 
-        # Terms in u0.zeroterms are supposed to be identically equal
-        # to zero
-        for (i, j, m) in u0.zeroterms
-            expansion[(i, j, m)] = zero(u0.α)
-        end
+        # The term (2, 0, 0) is identically equal to zero when a[0] =
+        # finda0(α), which is always the case.
+        @assert Arblib.contains_zero(expansion[(2, 0, 0)])
+        expansion[(2, 0, 0)] = 0
 
         return expansion
     end
