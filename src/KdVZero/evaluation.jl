@@ -771,8 +771,7 @@ end
 """
     F0(u0::KdVZeroAnsatz, ::Ball)
 
-Return a function such that `F0(u0)(x)` computes a Taylor model in `α`
-around `u0.α0` of
+Return a function such that `F0(u0)(x)` computes a Taylor model of
 ```
 (u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
 ```
@@ -825,12 +824,12 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
 
         if iszero(u0.α0)
             # This ensures that the constant term is zero
-            @assert isone(Arblib.ref(p.p, 0))
-            @assert Arblib.ref(q.p, 0) == Arb(-1 // 2)
-            @assert iszero(Arblib.ref(res.p, 0)) || !isfinite(Arblib.ref(res.p, 0))
+            @assert isone(p.p[0])
+            @assert q.p[0] == Arb(-1 // 2)
+            @assert iszero(res.p[0]) || !isfinite(res.p[0])
 
             # The linear term should be zero
-            @assert Arblib.contains_zero(Arblib.ref(res.p, 1))
+            @assert Arblib.contains_zero(res.p[1])
             res.p[1] = 0
         end
 
@@ -874,8 +873,8 @@ function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
         if iszero(u0.α0)
-            @assert iszero(Arblib.ref(num.p, 0))
-            @assert Arblib.contains_zero(Arblib.ref(num.p, 1))
+            @assert iszero(num.p[0])
+            @assert Arblib.contains_zero(num.p[1])
             num.p[1] = 0
         end
 
