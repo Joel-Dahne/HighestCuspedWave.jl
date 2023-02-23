@@ -52,7 +52,10 @@
             f1 = F0(u0, Asymptotic())
             f2 = F0(u0, Asymptotic(), exponent_limit = Arb(1 // 4))
             f3 = F0(u0, Asymptotic(), exponent_limit = Arb("1e-2"))
-            for x in [Arb((0, Arb("1e-10000"))); exp.(range(log(Arb("1e-1000")), log(Arb("1e-10")), 100))]
+            for x in [
+                Arb((0, Arb("1e-10000")))
+                exp.(range(log(Arb("1e-1000")), log(Arb("1e-10")), 100))
+            ]
                 y1 = f1(x)
                 y2 = f2(x)
                 y3 = f3(x)

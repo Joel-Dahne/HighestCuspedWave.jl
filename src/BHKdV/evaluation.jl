@@ -363,7 +363,8 @@ function eval_expansion(
             if !iszero(y) && !(iszero(p) && iszero(q))
                 # We don't implement any other cases since they are
                 # handled specially by F0.
-                iszero(p) || isone(p) ||
+                iszero(p) ||
+                    isone(p) ||
                     throw(ArgumentError("only p == 0 or p == 1 supported, got p = $p"))
                 iszero(q) || throw(ArgumentError("only q == 0 supported, got q = $q"))
 
