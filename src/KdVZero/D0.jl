@@ -1,17 +1,21 @@
 """
     D0_bound(u0::KdVZeroAnsatz; verbose = false)
 
-Compute a Taylor model in `α` of `D₀`. The constant term in the
-expansion is `1`.
+Compute a Taylor model in `α` of `D₀`, which is the supremum of
+```
+T0(u0)(x)
+```
+for `0 < x < π. The constant term in the expansion is `1`.
 
 For a given value of `x` [`T0`](@ref) gives us a Taylor model in `α`
 of the form
 ```
 1 + ΔD(x) * α
 ```
-that gives an enclosure of `T0(u0)(x)` for every `α ∈ u0.α`. We are
-then interested in computing the minimum value of `ΔD(x)` for `x ∈ [0,
-π]`, we take the minimum value since `α` is negative.
+, where `ΔD(x)` is the remainder term of the Taylor model, that gives
+an enclosure of `T0(u0)(x)` for every `α ∈ u0.α`. We are then
+interested in computing the minimum value of `ΔD(x)` for `x ∈ [0, π]`,
+we take the minimum value since `α` is negative.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use the asymptotic version of `T0(u0)` whereas on ´[ϵ,
@@ -34,7 +38,7 @@ function D0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose 
 
     verbose && @info "ΔD(0) = $ΔD_zero"
 
-    # Function for computing Δ(x) for x ∈ [0, ϵ]
+    # Function for computing ΔD(x) for x ∈ [0, ϵ]
     T0_asymptotic = T0(u0, Asymptotic(), ϵ = Arb(ϵ + 0.1))
     f(x) = T0_asymptotic(x).p[1]
 
@@ -54,13 +58,13 @@ function D0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose 
 
     # To prove that the value on [ϵ, π] is lower bounded by Δ we use
     # ArbExtras.bounded_by. This only works for upper bounds so we
-    # instead prove that -Δ(x) < -Δ
+    # instead prove that -Δ(x) <= -Δ
 
     # Function for computing -Δ(x) for x ∈ [ϵ, π]
     T0_nonasymptotic = T0(u0, Ball())
     g(x) = -T0_nonasymptotic(x).p[1]
 
-    # Prove that on the interval [ϵ, π] it is bounded by p1
+    # Prove that on the interval [ϵ, π] it is bounded by ΔD
     check_bound = ArbExtras.bounded_by(
         g,
         ϵ,
@@ -73,58 +77,13 @@ function D0_bound(u0::KdVZeroAnsatz; rtol = Arb(1e-2), threaded = true, verbose 
     )
 
     if !check_bound
-        @error "Could not prove ΔD on [ϵ, π] bounded by $ΔD"
+        @error "Could not prove ΔD(x) on [ϵ, π] bounded by $ΔD"
         return TaylorModel(ArbSeries((1, NaN), degree = 1), u0.α, u0.α0)
     end
 
-    verbose && @info "Proved ΔD on [ϵ, π] bounded by $ΔD"
+    verbose && @info "Proved ΔD(x) on [ϵ, π] bounded by $ΔD"
 
     verbose && @info "Computed enclosure" ΔD
 
     return TaylorModel(ArbSeries((1, ΔD), degree = 1), u0.α, u0.α0)
-end
-
-"""
-    D0_estimate(u0::KdVZeroAnsatz)
-
-Compute a Taylor model in `α` estimating `D0(u0)`. The constant term
-in the expansion is always `1`.
-
-It uses the same approach as [`D0_bound`](@ref) but doesn't enclose
-the minimum value of `Δ(x)`, only estimates it.
-"""
-function D0_estimate(
-    u0::KdVZeroAnsatz;
-    n::Integer = 100,
-    return_values = false,
-    include_zero = false,
-    threaded = true,
-)
-    xs = collect(range(zero(Arb), π, length = n + 1)[2:end])
-
-    ys = similar(xs)
-
-    g = T0(u0, Ball())
-    f(x) = g(x).p[1]
-    if threaded
-        Threads.@threads for i in eachindex(xs)
-            ys[i] = f(xs[i])
-        end
-    else
-        for i in eachindex(xs)
-            ys[i] = f(xs[i])
-        end
-    end
-
-    if include_zero
-        pushfirst!(xs, zero(Arb))
-        pushfirst!(ys, T0(u0, Asymptotic())(zero(Arb)).p[1])
-    end
-
-    Δ = minimum(ys)
-
-    res = TaylorModel(ArbSeries((1, Δ), degree = 1), u0.α, u0.α0)
-
-    return_values && return res, xs, ys
-    return res
 end
