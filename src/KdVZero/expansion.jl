@@ -4,6 +4,11 @@
 Compute a Taylor model of `p0` at the point `α0` valid on the interval
 `I` of the given degree.
 
+The Taylor model is always computed to degree `2` and then truncated
+to the given degree, which can be at most `2`. The reason to compute
+it to a higher degree is to get a better enclosure of the remainder
+term.
+
 We are interested in finding `p0` solving
 ```
 gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
@@ -73,6 +78,10 @@ f_2(α, p0) =
     π * (gamma(2α - p0) * cospi((2α - p0) / 2) * tanpi((α - p0) / 2)) /
     (2gamma(α - p0) * cospi((α - p0) / 2))
 ```
+
+Note that the above is not exactly the same as the version presented
+in the paper since we opt to solve `f(α, p0) = g(α)` instead of `f(α,
+p0) = 0`. The idea is still the same.
 
 # `α0 = 0`
 Recall that we are interested in solving
@@ -222,9 +231,9 @@ p02 = (
 ```
 
 # Remainder term
-To enclose the remainder term we want to find `R` such that
+To enclose the remainder term we want to find `Δ` such that
 ```
-p00 + p01 * (α - α0) + p02 * (α - α0)^2 + R * (α - α0)^3
+p00 + p01 * (α - α0) + p02 * (α - α0)^2 + Δ * (α - α0)^3
 ```
 gives an enclosure of
 ```
@@ -232,42 +241,41 @@ p0(α) = p00 + p01 * (α - α0) + p02 * (α - α0)^2 + ...
 ```
 for all `α ∈ I`.
 
-This is equivalent to saying that for all `α ∈ I` there is `r ∈ R`
+This is equivalent to saying that for all `α ∈ I` there is `δ ∈ Δ`
 such that
 ```
-f(α, p00 + p01 * (α - α0) + p02 * (α - α0)^2 + r * (α - α0)^3) = 0
+f(α, p00 + p01 * (α - α0) + p02 * (α - α0)^2 + δ * (α - α0)^3) = 0
 ```
-We denote the left hand side as a function of `α` and `R` by `g(α,
-R)`. Since we expand to degree `degree` we expect the zero to be of
-order `degree + 1`, we therefore solve
+We denote the left hand side as a function of `α` and `Δ` by `g(α,
+Δ)`. Since we expand to degree `2` we expect the zero to be of order
+`3`, we therefore solve
 ```
-g(α, R) / (α - α0)^(degree + 1) = 0
+g(α, Δ) / (α - α0)^3 = 0
 ```
-If `α0 = 0` the zero is instead of degree `degree + 2`, giving us
-`g(α, R) / (α - α0)^(degree + 2) = 0`.
+If `α0 = 0` the zero is instead of degree `4`, giving us `g(α, Δ) / (α
+- α0)^4 = 0`.
 
-Let `g_div_α(α, R) = g(α, R) / (α - α0)^k` where `k` is the degree of
-the zero. Given a guess for `R` we can verify it by checking that
+Let `g_div_α(α, Δ) = g(α, Δ) / (α - α0)^k` where `k` is the degree of
+the zero. Given a guess for `Δ` we can verify that it works by
+checking that
 ```
-g_div_α(I, lbound(R)) < 0 < g_div_α(I, ubound(R))
+g_div_α(I, lbound(Δ)) < 0 < g_div_α(I, ubound(Δ))
 ```
 Or possibly reversing the inequalities.
 
-We can get a guess for `R` by computing the zeros of
-`g_div_α(lbound(I), R)` and `g_div_α(ubound(α), R)` and taking
-the convex hull of them. When computing these zeros we don't have
-access to derivatives w.r.t. `R` since we have to use `ArbSeries` to
-compute the derivatives w.r.t. `α`, we therefore use
+We can get a guess for `Δ` by computing the zeros of
+`g_div_α(lbound(I), Δ)` and `g_div_α(ubound(α), Δ)` and taking the
+convex hull of them. When computing these zeros we don't have access
+to derivatives w.r.t. `Δ` since we have to use `ArbSeries` to compute
+the derivatives w.r.t. `α`, we therefore use
 [`ArbExtras.refine_root_bisection`](@ref), which doesn't need access
 to the derivative.
 
-For `α0 != 0` we can evaluate `g(α, R)` directly using `ArbSeries`.
+For `α0 != 0` we can evaluate `g(α, Δ)` directly using `ArbSeries`.
 For `α0 = 0` we have to handle the removable singularity from
 `gamma(2α) / gamma(α)`.
 """
 function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer = 1)
-    degree <= 1 || throw(ArgumentError("only supports degree up to 1"))
-
     if iszero(α0)
         p00 = let π = Arb(π), γ = Arb(Irrational{:γ}())
             f(p00) = digamma(-p00) + π / 2 * tan(p00 * π / 2) + γ
@@ -316,7 +324,7 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
     else
         p00 = findp0(α0)
 
-        rhs = let α = ArbSeries((α0, 1), degree = degree + 1)
+        rhs = let α = ArbSeries((α0, 1), degree = 2)
             2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
         end
 
@@ -361,23 +369,23 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
         # only to catch potential bugs.
 
         # Expansion without remainder term
-        p0_thin = ArbSeries((p00, p01, p02), degree = degree + 1)
+        p0_thin = ArbSeries((p00, p01, p02), degree = 2)
 
-        lhs = let α = ArbSeries((α0, 1), degree = degree + 1)
+        lhs = let α = ArbSeries((α0, 1), degree = 2)
             gamma(2α - p0_thin) * cospi((2α - p0_thin) / 2) /
             (gamma(α - p0_thin) * cospi((α - p0_thin) / 2))
         end
-        rhs = let α = ArbSeries((α0, 1), degree = degree + 1)
+        rhs = let α = ArbSeries((α0, 1), degree = 2)
             2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
         end
 
         @assert Arblib.overlaps(lhs, rhs)
     end
 
-    R = if !iszero(radius(I))
+    Δ = if !iszero(radius(I))
         # Function we want to find zero of
-        g(α::ArbSeries, R::Arb) =
-            let p0 = p00 + p01 * (α - α0) + p02 * (α - α0)^2 + R * (α - α0)^3
+        g(α::ArbSeries, Δ::Arb) =
+            let p0 = p00 + p01 * (α - α0) + p02 * (α - α0)^2 + Δ * (α - α0)^3
                 if Arblib.contains_zero(α[0])
                     # Enclosure of rgamma(α) / α
                     rgamma1_div_v = fx_div_x(α -> rgamma(α), α, extra_degree = 2)
@@ -404,79 +412,79 @@ function expansion_p0(::Type{KdVZeroAnsatz}, α0::Arb, I::Arb; degree::Integer =
             end
 
         # Degree of zero we are finding
-        g_degree = ifelse(iszero(α0), degree + 3, degree + 2)
+        g_degree = ifelse(iszero(α0), 4, 3)
 
         # The function g dividing away (α - α0)^g_degree
-        g_div_α(α::Union{Arb,ArbSeries}, R::Arb) =
+        g_div_α(α::Union{Arb,ArbSeries}, Δ::Arb) =
             if (α isa Arb && Arblib.overlaps(α, α0)) ||
                (α isa ArbSeries && Arblib.overlaps(α[0], α0))
-                fx_div_x(α -> g(α0 + α, R), α - α0, g_degree, force = true)
+                fx_div_x(α -> g(α0 + α, Δ), α - α0, g_degree, force = true)
             else
-                g(ArbSeries(α), R)[0] / (α - α0)^g_degree
+                g(ArbSeries(α), Δ)[0] / (α - α0)^g_degree
             end
 
-        # Guess of lower and upper bounds for R
-        R_low, R_upp = Arb(-10), Arb(10)
+        # Guess of lower and upper bounds for Δ
+        Δ_low, Δ_upp = Arb(-10), Arb(10)
 
         # Check that the signs at the lower and upper bound differ
         sign_low = Arblib.sgn_nonzero(
-            ArbExtras.enclosure_series(α -> g_div_α(α, R_low), I, degree = 8),
+            ArbExtras.enclosure_series(α -> g_div_α(α, Δ_low), I, degree = 8),
         )
         sign_upp = Arblib.sgn_nonzero(
-            ArbExtras.enclosure_series(α -> g_div_α(α, R_upp), I, degree = 8),
+            ArbExtras.enclosure_series(α -> g_div_α(α, Δ_upp), I, degree = 8),
         )
         if !(sign_low * sign_upp < 0)
-            a = ArbExtras.enclosure_series(α -> g_div_α(α, R_low), I, degree = 8)
-            b = ArbExtras.enclosure_series(α -> g_div_α(α, R_upp), I, degree = 8)
+            a = ArbExtras.enclosure_series(α -> g_div_α(α, Δ_low), I, degree = 8)
+            b = ArbExtras.enclosure_series(α -> g_div_α(α, Δ_upp), I, degree = 8)
             throw(ErrorException("Sign of endpoints don't differ: $a $b $I"))
         end
 
-        # Compute root in R for a fixed α
+        # Compute root in Δ for a fixed α
         g_div_α_root(α::Arb) = Arb(
             ArbExtras.refine_root_bisection(
-                R -> g_div_α(α, R),
-                lbound(R_low),
-                ubound(R_upp),
+                Δ -> g_div_α(α, Δ),
+                lbound(Δ_low),
+                ubound(Δ_upp),
             ),
         )
 
-        # Compute a guess of R by evaluating on endpoints in α
-        R1 = g_div_α_root(lbound(Arb, I))
-        R2 = g_div_α_root(ubound(Arb, I))
+        # Compute a guess of Δ by evaluating on endpoints in α
+        Δ1 = g_div_α_root(lbound(Arb, I))
+        Δ2 = g_div_α_root(ubound(Arb, I))
 
         # To make it easier to prove the zero we take a slightly
         # larger interval
-        R_low, R_upp = let R_tmp = union(R1, R2)
-            Arblib.mul!(Arblib.radref(R_tmp), Arblib.radref(R_tmp), Mag(1.01))
-            getinterval(Arb, R_tmp)
+        Δ_low, Δ_upp = let Δ_tmp = union(Δ1, Δ2)
+            Arblib.mul!(Arblib.radref(Δ_tmp), Arblib.radref(Δ_tmp), Mag(1.01))
+            getinterval(Arb, Δ_tmp)
         end
 
         # Prove that the function has a constant sign on a lower bound
-        # of R for all values of α
+        # of Δ for all values of α
         check_sign_low = ArbExtras.bounded_by(
-            α -> -sign_low * g_div_α(α, R_low),
+            α -> -sign_low * g_div_α(α, Δ_low),
             getinterval(I)...,
             Arf(0),
         )
         check_sign_low ||
-            throw(ErrorException("could not determine sign on lower bound of R $I"))
+            throw(ErrorException("could not determine sign on lower bound of Δ $I"))
         # Prove that the function has a constant sign (opposite of the
-        # above) on an upper bound of R for all values of α
+        # above) on an upper bound of Δ for all values of α
         check_sign_upp = ArbExtras.bounded_by(
-            α -> -sign_upp * g_div_α(α, R_upp),
+            α -> -sign_upp * g_div_α(α, Δ_upp),
             getinterval(I)...,
             Arf(0),
         )
         check_sign_upp ||
-            throw(ErrorException("could not determine sign on upper bound of R $I"))
+            throw(ErrorException("could not determine sign on upper bound of Δ $I"))
 
-        R = Arb((R_low, R_upp))
+        Δ = Arb((Δ_low, Δ_upp))
     else
         zero(α0)
     end
 
-    # Expansion with remainder
-    p0 = truncate(TaylorModel(ArbSeries((p00, p01, p02, R)), I, α0); degree)
+    # Create expansion with remainder and truncate
+    p0 = truncate(TaylorModel(ArbSeries((p00, p01, p02, Δ)), I, α0); degree)
 
     return p0
 end
@@ -497,11 +505,11 @@ We have
 ```
 a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
-For `α0 < 0` we can compute the expansion directly. At `α = 0` both
-gamma functions have a pole and direct evaluation fails. Instead we
-proceeds as follows.
+For `α0 < 0` we can compute the expansion directly.
 
-We can rewrite it in terms of the reciprocal gamma function as
+At `α = 0` both gamma functions have a pole and direct evaluation
+fails. Instead we rewrite it in terms of the reciprocal gamma function
+as
 ```
 a[0] = 2rgamma(α)^2 * cospi(α) / (rgamma(2α) * cospi(α / 2)^2)
 ```
@@ -513,8 +521,8 @@ singularity by writing it as `(rgamma(α) / α) / (rgamma(2α) / α)`.
 We can get the values for `a[1]` and `a[2]` in terms of a linear
 system depending on `α`, `a[0]` and `p0`.
 
-Computing the asymptotic expansion of `D(u0)` we have that the four
-leading terms have the `x`-factors, in order,
+Computing the asymptotic expansion of `H(u0) + u0^2 / 2` we have that
+the four leading terms have the `x`-factors, in order,
 - `x^(-2α)`
 - `x^(-2α + p0)`
 - `x^2`
@@ -540,106 +548,38 @@ simplify to get the two equations
 a[0] * zeta(-1 - 2α) + a[1] * zeta(-1 - 2α + p0) + a[2] * zeta(-1 - 2α + 2p0) = 0
 a[0] * zeta(-1 - α) + a[1] * zeta(-1 - α + p0) + a[2] * zeta(-1 - α + 2p0) = 0
 ```
-
-If we let
+This is a linear system and solving for `a[1]` and `a[2]` we get
 ```
-A1 = zeta(-1 - 2α + p0)
-A2 = zeta(-1 - 2α + 2p0)
-C1 = a[0] * zeta(-1 - 2α)
-
-B1 = zeta(-1 - α + p0)
-B2 = zeta(-1 - α + 2p0)
-C2 = a[0] * zeta(-1 - α)
+a[1] = a[0] * (zeta(-1 - α) * zeta(-1 - 2α + 2p0) - zeta(-1 - 2α) * zeta(-1 - α + 2p0)) /
+    (zeta(-1 - 2α + p0) * zeta(-1 - α + 2p0) - zeta(-1 - 2α + 2p0) * zeta(-1 - α + p0))
+a[2] = a[0] * (zeta(-1 - α) * zeta(-1 - 2α + p0) - zeta(-1 - 2α) * zeta(-1 - α + p0)) /
+    (zeta(-1 - 2α + p0) * zeta(-1 - α + 2p0) - zeta(-1 - 2α + 2p0) * zeta(-1 - α + p0))
 ```
-we can write this as the linear system
-```
-A1 * a[1] + A2 * a[2] = -C1
-B1 * a[1] + B2 * a[2] = -C2
-```
-Solving for `a[1]` and `a[2]` we get
-```
-a[1] = (-B2 * C1 + A2 * C2) / (A1 * B2 - A2 * B1)
-a[2] = (B1 * C1 - A1 * C2) / (A1 * B2 - A2 * B1)
-```
-Or if we let
-```
-v1 = -B2 * C1 + A2 * C2
-v2 = B1 * C1 - A1 * C2
-d = A1 * B2 - A2 * B1
-```
-we can write it as
-```
-a[1] = v1 / d
-a[2] = v2 / d
-```
-
-# Simplifying `d`, `v1` and `v2`
-To make the linear system easier to evaluate we begin by simplifying
-some of the expressions.
-
-We have
-```
-d = A1 * B2 - A2 * B1 =
-    zeta(-1 - 2α + p0) * zeta(-1 - α + 2p0) - zeta(-1 - 2α + 2p0) * zeta(-1 - α + p0) =
-```
-```
-v1 = -B2 * C1 + A2 * C2 =
-    a[0] * (-zeta(-1 - α + 2p0) * zeta(-1 - 2α) + zeta(-1 - 2α + 2p0) * zeta(-1 - α))
-```
-and
-```
-v2 = B1 * C1 - A1 * C2 =
-    a[0] * (zeta(-1 - 2α + p0) * zeta(-1 - α) - zeta(-1 - α + p0) * zeta(-1 - 2α))
-```
-
 If we let
 ```
 z(i, j) = zeta(-1 - i * α + j * p0)
 
-z1 = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
+z1 = z(1, 0) * z(2, 2) - z(2, 0) * z(1, 2)
 
-z2 = z(2, 2) * z(1, 0) - z(1, 2) * z(2, 0)
+z2 = z(1, 0) * z(2, 1) - z(2, 0) * z(1, 1)
 
-z3 = z(2, 1) * z(1, 0) - z(1, 1) * z(2, 0)
+d = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
 ```
-we can write this as
+we get
 ```
-d = z1
-v1 = a[0] * z2
-v2 = -a[0] * z3
+a[1] = a[0] * z1 / d
+a[2] = -a[1] * z2 / d
 ```
 
-# Evaluating the linear system
-For `α0 < 0` we can directly evaluate `d`, `v1` and `v2`. For `α0 = 0`
-we have to handle several removable singularities. We describe the
-procedure for doing so below.
+# Evaluating `v1`, `v2` and `d`
+For `α0 < 0` we can directly evaluate `v1`, `v2` and `d`. For `α0 = 0`
+we have to handle several removable singularities.
 
-## Handling `z(i, j)`s
-The constant term in the expansion of `z(i, j)` doesn't depend on the
-value of `i`. This means that the constant terms of
-```
-z1 = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
-
-z2 = z(2, 2) * z(1, 0) - z(1, 2) * z(2, 0)
-
-z3 = z(2, 1) * z(1, 0) - z(1, 1) * z(2, 0)
-```
-all are zero since they exactly cancel out.
-
-## Computing `d`, `v1` and `v2`
-Recall that
-```
-a[1] = v1 / d
-a[2] = v2 / d
-```
-with
-```
-d = z1
-v1 = a[0] * z2
-v2 = -a[0] * z3
-```
-For `α0 != 0` it can be computed directly. For `α0 = 0` the division
-by `d` has a removable singularity.
+To begin with we note that for `α = 0` the constant term in the
+expansion of `z(i, j)` doesn't depend on the value of `i`. This means
+that the constant terms of `z1`, `z2` and `d` all are zero since they
+exactly cancel out. This means that `z1 / d` and `z2 / d` both have
+removable singularities that can be handled.
 """
 function expansion_as(
     T::Type{KdVZeroAnsatz},
@@ -677,24 +617,24 @@ function expansion_as(
     Mα = TaylorModel(identity, I, α0; degree)
     z(i, j) = compose(zeta, -1 - i * Mα + j * p0)
 
-    z1 = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
-    z2 = z(2, 2) * z(1, 0) - z(1, 2) * z(2, 0)
-    z3 = z(2, 1) * z(1, 0) - z(1, 1) * z(2, 0)
+    z1 = z(1, 0) * z(2, 2) - z(2, 0) * z(1, 2)
+    z2 = z(1, 0) * z(2, 1) - z(2, 0) * z(1, 1)
+    d = z(2, 1) * z(1, 2) - z(2, 2) * z(1, 1)
 
     if iszero(α0)
-        # The constant coefficients for z1, z2 and z3 are all exactly
+        # The constant coefficients for z1, z2 and d are all exactly
         # equal to zero.
-        @assert all(Arblib.contains_zero(z.p[0]) for z in (z1, z2, z3))
-        z1.p[0] = z2.p[0] = z3.p[0] = 0
+        @assert all(Arblib.contains_zero(z.p[0]) for z in (z1, z2, d))
+        z1.p[0] = z2.p[0] = d.p[0] = 0
 
         # Factor out α from a0 to make the degrees agree and then
         # multiply it back afterwards
-        a1 = div_removable((a0 << 1) * z2, z1) >> 1
-        a2 = -div_removable((a0 << 1) * z3, z1) >> 1
+        a1 = div_removable((a0 << 1) * z1, d) >> 1
+        a2 = -div_removable((a0 << 1) * z2, d) >> 1
     else
         # Since a0 is computed to a higher degree we truncate it
-        a1 = truncate(a0; degree) * z2 / z1
-        a2 = -truncate(a0; degree) * z3 / z1
+        a1 = truncate(a0; degree) * z1 / d
+        a2 = -truncate(a0; degree) * z2 / d
     end
 
     return OffsetVector([a0, a1, a2], 0:2)
