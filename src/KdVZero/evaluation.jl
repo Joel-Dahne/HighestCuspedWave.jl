@@ -3,7 +3,7 @@
 
 Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
 ```
-y*abs(x)^(-i * α + j * p0 + m)
+y * abs(x)^(-i * α + j * p0 + m)
 ```
 """
 function eval_expansion(
@@ -13,7 +13,7 @@ function eval_expansion(
     offset_i::Integer = 0,
     offset_m::Integer = 0,
 )
-    Mα = TaylorModel(identity, u0.α, u0.α0, degree = u0.degree - 1)
+    Mα = TaylorModel(identity, u0.α, u0.α0; u0.degree)
 
     res = zero(Mα)
 
@@ -38,13 +38,13 @@ end
 
 Evaluate the given expansion. The term `((i, j, m), y)` corresponds to
 ```
-y*abs(x)^(-i * α + j * p0 + m)
+y * abs(x)^(-i * α + j * p0 + m)
 ```
 
 Note that this takes a dictionary where the values are of type `Arb`
-and not `ArbSeries`. This methods doesn't compute an expansion in `α`
-like most methods for `KdVZeroansatz`. The benefit is that it allows
-evaluation with `x::ArbSeries`.
+and not `TaylorModel`. This methods doesn't compute a Taylor model in
+`α` like most methods for `KdVZeroansatz`. The benefit is that it
+allows evaluation with `x::ArbSeries`.
 """
 function eval_expansion(
     u0::KdVZeroAnsatz,
@@ -64,7 +64,6 @@ function eval_expansion(
             term = abspow(x, exponent)
 
             res += y * term
-
         end
     end
 
