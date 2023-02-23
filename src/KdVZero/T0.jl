@@ -76,8 +76,6 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
     # Compute root for α = 0 at a given x
     compute_root0(x::Arb) =
         let
-            # If degree < 0 compute with an enclosure of α instead of
-            # for α = 0.
             f =
                 t ->
                     clausenc(x * (1 - t), Arb(0), 1) + clausenc(x * (1 + t), Arb(0), 1) -
@@ -129,7 +127,7 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
 
             dfdα = ArbExtras.enclosure_series(α, degree = 4) do α
                 if α isa Arb && abs(α) < 1e-10
-                    α = union(α, zero(α))
+                    α = union(α, zero(α)) # Avoid using very small non-zero α
                 end
 
                 if α isa ArbSeries && Arblib.contains_zero(α[0]) ||
@@ -144,7 +142,7 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
         end
 
     # Compute an enclosure of the root for α = 0 as well as a lower
-    # bound of the root for the root on the interval [αₗ, 0].
+    # bound of the root on the interval [αₗ, 0].
 
     xₗ, xᵤ = getinterval(Arb, x)
     xᵤ = min(Arb(π), xᵤ) # We assume that xᵤ <= π
@@ -199,8 +197,12 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
 
-Return a Taylor model of the integral ``T_0`` in `α` around `α = 0` of
-degree `1`.
+Return a function such that `T0(u0)(x)` computes a Taylor model of
+```
+inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
+```
+, where the integration is taken from `0` to `π`, in `α` around `α =
+0` of degree `1`.
 
 This method is similar to [`T0_p_one`](@ref) in that it explicitly
 computes the integral. It computes an expansion in `α` around `α = 0`
@@ -208,19 +210,13 @@ and treats the zero of the integrand differently, otherwise they are
 very similar.
 
 # Computing the integral
-The integral is given by
-```
-inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
-```
-where we have used that the weight `u0.w(x)` is given by `x` and the
-integral is taken from `0` to `π`.
-
 The switch of variables to `t = y / x` gives us
 ```
 x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt
 ```
 from `0` to `π / x`. Call the integral, without the factors in front,
-`I`.
+`I` and let `I1` be the integral from `0` to `1` and `I2` the integral
+from `1` to `π / x`.
 
 If we ignore the absolute value the integral can be computed
 explicitly using that
@@ -239,7 +235,8 @@ as one of the endpoints.
 
 On the interval `[1, π / x]` the expression inside the absolute value
 is positive, due to lemma [`lemma_integrand_2`](@ref) and we can just
-remove it. This gives us the integral ```
+remove it. This gives us the integral
+```
 I2 = primitive(π / x) - primitive(1)
 ```
 
@@ -300,9 +297,9 @@ clausenc(x, 2) = π^2 / 6 - π * x / 2 + x^2 / 4
 clausens(x, 1) = π / 2 - x / 2
 ```
 when `0 <= x <= 2π`. We can use this to get the value of
-`primitive_mul_x(t)` for `α = 0`, for the case when `0 <= t <= 1` (so
+`primitive_mul_x(t)` for `α = 0`. For the case when `0 <= t <= 1` (so
 that the argument is always on the interval `[0, 2π]`) we get for the
-`clausenc` terms
+`clausenc` terms in `primitive_mul_x(t)`
 ```
 (clausenc(x * (1 - t), 2) + clausenc(x * (1 + t), 2) - 2clausenc(x * t, 2)) / x =
 
@@ -376,7 +373,8 @@ Letting `α = 0` gives us
     - π * (x + π) / 2 + (x + π)^2 / 4
     + π^2 / 2 - π^2 / 4
 ) / x =
-2(x^2 / 4) / x = x / 2
+2(x^2 / 4) / x =
+x / 2
 ```
 Combining this with the above gives us that the constant function of
 the integral is given by
@@ -415,12 +413,12 @@ with opposite sign that cancel out. We also have the factor
 clausenc(x * (1 - t(α)), -α) + clausenc(x * (1 + t(α)), -α) - 2clausenc(x * t(α), -α)
 ```
 which is the function that we found the root of, so this will be zero
-for that root. What remains is
+for that root. If we let `t(α) = root` what remains is therefore
 ```
 - (
-    clausenc(x * (1 - t(α)), 2 - α, 1) + clausenc(x * (1 + t(α)), 2 - α, 1) - 2clausenc(x * t(α), 2 - α, 1)
+    clausenc(x * (1 - root), 2 - α, 1) + clausenc(x * (1 + root), 2 - α, 1) - 2clausenc(x * root, 2 - α, 1)
 ) / x -  t(α) * (
-    -clausens(x * (1 - t(α)), 1 - α, 1) + clausens(x * (1 + t(α)), 1 - α, 1) - 2clausens(x * t(α), 1 - α, 1)
+    -clausens(x * (1 - root), 1 - α, 1) + clausens(x * (1 + root), 1 - α, 1) - 2clausens(x * root, 1 - α, 1)
 )
 ```
 We get an enclosure of the derivative by enclosing this in `α`. An
@@ -470,43 +468,46 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         end
 
         # primitive_mul_x(π / x)
-        # If x overlaps with π this gives an indeterminate result
-        # which we handle specially
-        if Arblib.overlaps(x, Arb(π))
-            # Use periodicity of 2π to evaluate at x - π which is
-            # close to zero. Use the asymptotic expansion at x = 0 to
-            # evaluate it.
-            # To compute the expansion around x = 0 it uses the same
-            # approach as the asymptotic version of T0 does.
-            clausenc_x_plus_pi = let y = abs(x - π), Ms = 2 - Mα, M = 2
-                # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α
-                # / 2) / α) / (rgamma(α - 1) / α).
-                gamma_sin = truncate(
-                    div_removable(
-                        TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = 3),
-                        TaylorModel(α -> rgamma(α - 1), u0.α, u0.α0, degree = 3),
-                    ),
-                    degree = 0,
-                )
+        primitive_mul_x_pi_div_x = let
+            # If x overlaps with π this gives an indeterminate result
+            # which we handle specially
+            if Arblib.overlaps(x, Arb(π))
+                # Use periodicity of 2π to evaluate at x - π which is
+                # close to zero. Use the asymptotic expansion at x = 0 to
+                # evaluate it.
+                # To compute the expansion around x = 0 it uses the same
+                # approach as the asymptotic version of T0 does.
+                clausenc_x_plus_pi = let y = abs(x - π), Ms = 2 - Mα, M = 2
+                    # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α
+                    # / 2) / α) / (rgamma(α - 1) / α).
+                    gamma_sin = truncate(
+                        div_removable(
+                            TaylorModel(α -> sinpi(α / 2), u0.α, u0.α0, degree = 3),
+                            TaylorModel(α -> rgamma(α - 1), u0.α, u0.α0, degree = 3),
+                        ),
+                        degree = 0,
+                    )
 
-                # Singular term
-                res = gamma_sin * compose(e -> abspow(y, e), 1 - Mα)
+                    # Singular term
+                    clausenc_x_plus_pi = gamma_sin * compose(e -> abspow(y, e), 1 - Mα)
 
-                # Analytic terms
-                res += sum(
-                    (-1)^m * compose(zeta, Ms - 2m) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
-                )
-                # Remainder term
-                res +=
-                    abspow(y, 2M) * compose(s -> clausenc_expansion_remainder(y, s, M), Ms)
+                    # Analytic terms
+                    clausenc_x_plus_pi += sum(
+                        (-1)^m * compose(zeta, Ms - 2m) * abspow(y, 2m) / factorial(2m) for m = 0:M-1
+                    )
+                    # Remainder term
+                    clausenc_x_plus_pi +=
+                        abspow(y, 2M) *
+                        compose(s -> clausenc_expansion_remainder(y, s, M), Ms)
 
-                res
+                    clausenc_x_plus_pi
+                end
+            else
+                clausenc_x_plus_pi = clausenc(x + π, 2 - Mα)
             end
-        else
-            clausenc_x_plus_pi = clausenc(x + π, 2 - Mα)
-        end
 
-        primitive_mul_x_pi_div_x = 2(clausenc_x_plus_pi - clausenc(Arb(π), 2 - Mα)) / x
+            2(clausenc_x_plus_pi - clausenc(Arb(π), 2 - Mα)) / x
+        end
 
         I_mul_x =
             primitive_mul_x_zero - 2primitive_mul_x_root + primitive_mul_x_pi_div_x
@@ -528,8 +529,12 @@ end
 """
     T0(u0::KdVZeroAnsatz, ::Asymptotic)
 
-Return a Taylor model of the integral ``T_0`` in `α` around `α = 0` of
-degree `1`. Computed in a way that works for `x` close to zero.
+Return a function such that `T0(u0)(x)` computes a Taylor model of
+```
+inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
+```
+, where the integration is taken from `0` to `π`, in `α` around `α =
+0` of degree `1`. Computed in a way that works for `x` close to zero.
 
 The method is similar to the non-asymptotic version but it evaluates
 the terms that depend on `x` in an asymptotic way. From the
@@ -537,9 +542,8 @@ non-asymptotic version we get that we want to compute
 ```
 (primitive_mul_x(0) - 2primitive_mul_x(root) + primitive_mul_x(π / x)) / (π * u0(x))
 ```
-The leading term in `u0(x)` behaves like `x^-α` (see
-[`u0_div_xmα`](@ref)) and we want to explicitly cancel this term. We
-therefore rewrite the above as
+The leading term in `u0(x)` behaves like `x^-α`and we want to
+explicitly cancel this term. We therefore rewrite the above as
 ```
 (primitive_mul_x(0) * x^α - 2primitive_mul_x(root) * x^α + primitive_mul_x(π / x) * x^α) / (π * u0(x) * x^α)
 ```
@@ -729,7 +733,8 @@ function T0(
             2res
         end
 
-        # primitive_mul_x(root) * x^α
+        # Compute primitive_mul_x(root) * x^α
+        # This requires a significant amount of work
         primitive_mul_x_onepα_root = let
             r0, r = _integrand_compute_root(typeof(u0), x, lbound(Arb, u0.α))
 
