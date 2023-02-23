@@ -1,6 +1,6 @@
 using ArbExtras, Arblib, HighestCuspedWave, OffsetArrays, SpecialFunctions, Test
 
-setprecision(Arb, 128) do
+setprecision(Arb, 100) do
     @testset "HighestCuspedWave" verbose = true begin
         include("series.jl")
         include("TaylorModel.jl")
@@ -21,10 +21,12 @@ setprecision(Arb, 128) do
             include("BurgersHilbert/T0.jl")
         end
 
-        @testset "KdVZero" verbose = true begin
-            include("KdVZero/expansion.jl")
-            include("KdVZero/evaluation.jl")
-            include("KdVZero/T0.jl")
+        setprecision(Arb, 128) do # This needs slightly higher precision
+            @testset "KdVZero" verbose = true begin
+                include("KdVZero/expansion.jl")
+                include("KdVZero/evaluation.jl")
+                include("KdVZero/T0.jl")
+            end
         end
 
         @testset "BHKdV" verbose = true begin
