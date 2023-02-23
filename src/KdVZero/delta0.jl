@@ -1,7 +1,11 @@
 """
     delta0_bound(u0::KdVZeroAnsatz; rtol, atol, maxevals, threaded, verbose)
 
-Compute an upper bound of `abs(F0(u0)(x))`.
+Upper bound the value of `δ₀`. This is the supremum of
+```
+abs(F0(u0)(x))
+```
+for `0 < x < π.
 
 This method works differently depending on if `u0.α0 = 0` or not. In
 the case that `u0.α0 = 0` any enclosure of the defect will contain
@@ -10,24 +14,24 @@ defect in that case.
 
 # `u0.α0 = 0`
 In this case we compute a Taylor model in `α` such that it gives an
-enclosure of `abs(F0(u0)(x))` for all `α ∈ u0.α`.
+upper bound of `δ₀` for all `α ∈ u0.α`.
 
 For a given value of `x` [`F0`](@ref) gives us a Taylor model in `α`.
-We truncate this expansion to degree `2`, giving us a polynomial of
-the form
+We truncate this Taylor model to degree `1`. The first two terms in
+this Taylor model are always zero and we thus get a polynomial of the
+form
 ```
 0 + 0 * α + Δδ(x) * α^2
 ```
-that gives an enclosure of `F0(u0)(x)` for every `α ∈ u0.α`. We are
-then interested in computing the maximum value of `abs(Δδ(x))` for `x
-∈ [0, π]`.
+, where `Δδ` is the remainder term in the Taylor model, that gives an
+enclosure of `F0(u0)(x)` for every `α ∈ u0.α`. We are then interested
+in computing the maximum value of `abs(Δδ(x))` for `x ∈ [0, π]`.
 
 It uses the asymptotic version of `F0(u0)` on the entire interval `[0,
 π]`.
 
 # `u0.α0 < 0`
-In this case we compute an enclosure of an upper bound of
-`abs(F0(u0))` for `x ∈ [0, π]`.
+In this case we directly compute an upper bound of `abs(F0(u0))`.
 """
 function delta0_bound(
     u0::KdVZeroAnsatz;
@@ -40,12 +44,12 @@ function delta0_bound(
     if iszero(u0.α0)
         verbose && @info "Computing enclosure of Δδ"
 
-        # Function for computing Δ(x)
+        # Function for computing Δδ(x)
         F0_asymptotic = F0(u0, Asymptotic(), ϵ = Arb(3.2))
         f = x -> let
             res = F0_asymptotic(x)
             @assert Arblib.valuation(res.p) == 2 # Check that p[0] and p[1] are zero
-            truncate(res, degree = 1).p[2]
+            truncate(res, degree = 1).p[2] # Get the remainder term
         end
 
         # Compute an enclosure on [0, ϵ]
@@ -70,8 +74,8 @@ function delta0_bound(
         # so that the asymptotic version still satisfies the required
         # tolerance when evaluated at ϵ or gives a better bound than
         # the non-asymptotic version.
-        ϵ = let ϵ = Arb(π), f = F0(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
-            y = f(ϵ)(u0.α)
+        ϵ = let ϵ = Arb(π), f = F0_direct(u0, Asymptotic(), ϵ = ubound(Arb, ϵ)), g = F0(u0)
+            y = f(ϵ)
             z = g(ϵ)(u0.α)
 
             # Reduce ϵ until the value we get either satisfies the
@@ -84,7 +88,7 @@ function delta0_bound(
                     ϵ /= 1.2
                 end
 
-                y = f(ϵ)(u0.α)
+                y = f(ϵ)
                 z = g(ϵ)(u0.α)
                 ϵ > 0.1 ||
                     error("could not determine working ϵ, last tried value was $ϵ")
