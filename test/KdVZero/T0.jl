@@ -31,7 +31,6 @@
         p = T0(u0)(x)
         for (i, α) in enumerate(αs)
             @test Arblib.overlaps(p(α), T0(u0s[i])(x))
-            #@show p(α) - T0(u0s[i])(x)
         end
     end
 
@@ -40,7 +39,6 @@
         p = T0(u0, Asymptotic())(x)
         for (i, α) in enumerate(αs)
             @test Arblib.overlaps(p(α), T0(u0s[i], Asymptotic())(x))
-            #@show p(α) - T0(u0s[i], Asymptotic())(x)
         end
     end
 
@@ -52,7 +50,6 @@
             p1 = f(x)
             p2 = g(x)
             @test Arblib.overlaps(p1, p2)
-            #@show p1 - p2
         end
     end
 end
