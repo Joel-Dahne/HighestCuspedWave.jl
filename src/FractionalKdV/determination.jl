@@ -52,11 +52,7 @@ function findp0(α)
 end
 
 function findp0(α::Arb)
-    if iswide(α)
-        @warn "findp0 doesn't handle wide α values well" α
-        #α_low, α_upp = getinterval(Arb, α)
-        #return Arb((findp0(α_low), findp0(α_upp)))
-    end
+    iswide(α) && @warn "findp0 doesn't handle wide α values well" α
 
     # We do the computations at a higher precision
     α = setprecision(α, 2precision(α))
@@ -103,10 +99,13 @@ end
 """
     finda0(α)
 
-Compute `a0` such that `a0(u0, 0)^2/2 - A0(u0, 0)` is zero. That is,
-compute
+Compute `a0` such that the leading term in the asymptotic expansion of
 ```
-a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
+H(u0) + u0^2 / 2
+```
+is zero. That is, compute
+```
+a0 = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
 
 We can handle the removable singularity at `α = -1 / 2` using the same
@@ -118,7 +117,7 @@ gamma(2α) * cospi(α)
 ```
 giving us
 ```
-a[0] = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
+a0 = π * sinc(α + 1 / 2) * gamma(2α + 2) / (2α * gamma(α)^2 * cospi(α / 2)^2)
 ```
 
 For wide values of `α` it is important to compute tight enclosures. In
@@ -188,8 +187,9 @@ end
 """
     findas(u0)
 
-Find values for `u0.a[j]` for `j > 0` that makes the coefficients of
-the leading terms in the asymptotic expansion of the defect zero.
+Find values for `u0.a[j]` for `j = 1:u0.N0` that makes the
+coefficients of the leading terms in the asymptotic expansion of the
+defect approximately zero.
 
 This is done by solving the corresponding non-linear system.
 
@@ -239,20 +239,24 @@ function findas(u0::FractionalKdVAnsatz{Arb}; use_D2 = true, verbose = true)
 end
 
 """
-    _find_good_as!(u0::FractionalKdVAnsatz, N0s::StepRange{Int,Int} = 0:30; iter_use_best_as, return_defects, threaded, verbose)
+    _find_good_as!(u0::FractionalKdVAnsatz, N0s::StepRange{Int,Int} = 0:30; iter_use_best_as, use_D2, return_defects, threaded, verbose)
 
 Find `N0` and `u0.a` such that the defect is minimized. Returns the
 vector `a` and the estimated defect, `N0` is implicitly given by the
 length.
 
 It checks the values of `N0` in `N0s`. For each `N0` it computes
-`u0.a` with [`_findas`](@ref). It then takes the `N0` which gave the
-smallest defect.
+`u0.a` with [`_findas`](@ref). It then computes an estimate of the
+global defect using [`delta0_estimate`](@ref) and takes the `N0` which
+gave the smallest defect.
 
 If `iter_use_best_as` is true then use the coefficients from the best
 previous iteration as starting point for the zero finding, otherwise
 it uses the iteration just before. In general this gives slightly
 better results, but not always.
+
+If `use_D2` is true then use [`D2`](@ref) instead of [`D`](@ref) for
+computing the coefficients in the asymptotic expansion.
 
 If `return_defects` is true it returns `N0s, defects`, where `defects`
 is a vector of defects for the different values of `N0`. If the
@@ -292,9 +296,8 @@ function _find_good_as!(
     ass = typeof(u0.a)[]
 
     for N0 in N0s
-        # Compute ansatz
+        # Compute approximation
         resize_with_zero!(u0.a, N0 + 1)
-
         as, converged = _findas(u0, verbose = false; use_D2, threaded)
         u0.a[1:end] .= as
         push!(ass, as)
@@ -339,8 +342,12 @@ end
 """
     find_good_as(u0::FractionalKdVAnsatz, N0s = StepRange{Int,Int} = 0:1:30; kwargs)
 
-Find `N0` and `u0.a` such that the defect is minimized. Returns the
-vector `a`, `N0` is implicitly given by the length.
+This function is similar to [`findas`](@ref) in that it tries to find
+values for `u0.a[j]` with `j = 1:u0.N0` that makes the coefficients of
+the leading terms in the asymptotic expansion of the defect
+approximately zero. It is different in that it doesn't take a fixed
+value for `N0` but a range `N0s`. It then tries to find the `N0` in
+this range that gives the smallest global defect.
 
 # Arguments
 See [`_find_good_as`](@ref) for the implementation and the possible
@@ -436,6 +443,8 @@ should not include `a3` or higher. It is mainly intended for testing
 when `α -> 0`.
 
 For explanation of the procedure see [`expansion_as`](@ref).
+
+This function is mostly used for testing.
 """
 function _finda1a2(α)
     a0 = finda0(α)
