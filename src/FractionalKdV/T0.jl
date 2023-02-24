@@ -1,8 +1,21 @@
 """
-    T0(u0::FractionalKdVAnsatz{Arb}, ::Ball)
+    T0(u0::FractionalKdVAnsatz{Arb}, ::Ball, δ1, δ2, ϵ, skip_div_u0 = false)
 
-**IMPROVE:** Tune the values for `δ1, δ2` depending on `u0.α` and
-`u0.p`.
+Return a function such that `T0(u0)(x)` computes the integral
+```
+inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
+```
+where the integration is taken from `0` to `π`.
+
+If the weight is given by `u0.w(x) = abs(x)` the compute the value
+using [`T0_p_one`](@ref). Otherwise the integral is split into two
+parts and computed using [`T01`](@ref) and [`T02`](@ref).
+
+Th argument `δ1` is given to [`T01`](@ref) and `δ2` and `ϵ` are given
+to [`T02`](@ref).
+
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
 """
 function T0(
     u0::FractionalKdVAnsatz{Arb},
@@ -12,21 +25,19 @@ function T0(
     ϵ::Arb = Arb(0.1),
     skip_div_u0 = false,
 )
-    # Use specialised implementation in the case the weight is x
+    # Use specialised implementation in the case the weight is abs(x)
     weightisx(u0) && return T0_p_one(u0, evaltype; skip_div_u0)
 
     f = T01(u0, evaltype, skip_div_u0 = true; δ1)
     g = T02(u0, evaltype, skip_div_u0 = true; δ2, ϵ)
 
     return x -> begin
-        ## Integral on [0, x]
-        part1 = f(x)
+        part1 = f(x) ## Integral on [0, x]
 
         # Short circuit on a non-finite result
         isfinite(part1) || return part1
 
-        ## Integral on [x, π]
-        part2 = g(x)
+        part2 = g(x) ## Integral on [x, π]
 
         isfinite(part2) || return part2
 
@@ -38,6 +49,27 @@ function T0(
     end
 end
 
+"""
+    T0(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic, M, ϵ, return_enclosure = false)
+
+Return a function such that `T0(u0, Asymptotic())(x)` computes the
+integral `T0(u0)(x)` using an evaluating strategy that works
+asymptotically as `x` goes to zero.
+
+In general it only computes an **upper bound** of the integral. If
+`return_enclosure` is true then it returns an enclosure instead of an
+upper bound by returning the interval between zero and the computed
+upper bound.
+
+If the weight is given by `u0.w(x) = abs(x)` the compute the value
+using [`T0_p_one`](@ref). If `u0.use_bhkdv` is true then it uses
+[`T0_bhkdv`](@ref). Otherwise the integral is split into two parts and
+computed using [`T01`](@ref) and [`T02`](@ref).
+
+The argument `M` gives the number of terms to use in the asymptotic
+expansion of `u0` and `ϵ` determines the interval ``[0, ϵ]`` on which
+the expansion is valid.
+"""
 function T0(
     u0::FractionalKdVAnsatz{Arb},
     ::Asymptotic;
@@ -58,7 +90,8 @@ end
 """
     T0_p_one(u0, Ball())
 
-Compute the integral ``T_0`` for `u0` with the weight `x`.
+Return a function such that `T0_p_one(u0)(x)` computes `T0(u0)(x)` for
+`u0` with the weight `x`.
 
 In this case the integral is given by
 ```
@@ -177,8 +210,9 @@ end
 """
     T0_p_one(u0, Asymptotic())
 
-Compute the integral ``T_0`` for `u0` with the weight `x` using an
-asymptotic approach that works for small values of `x`.
+Return a function such that `T0_p_one(u0, Asymptotic)(x)` computes
+`T0(u0)(x)` for `u0` with the weight `x` using an evaluating strategy
+that works asymptotically as `x` goes to zero.
 
 # Implementation
 It first splits the function as
@@ -196,8 +230,6 @@ enclosing the `U0 / x^(-α + 1)` factor.
 For enclosing `U0 / x^(-α + 1)` it uses the primitive function given
 in the non-asymptotic version of this method. It expands all functions
 at `x = 0` and explicitly cancels the division by `x^(-α + 1)`.
-
-**IMPROVE:** Better explain what it does.
 """
 function T0_p_one(
     u0::FractionalKdVAnsatz{Arb},
@@ -245,7 +277,6 @@ function T0_p_one(
         end
 
     return x::Arb -> begin
-        x <= ϵ || @show x ϵ
         @assert x <= ϵ
 
         r = _integrand_compute_root(typeof(u0), x, u0.α)
@@ -257,24 +288,20 @@ function T0_p_one(
         term2(x) = eval_poly(P3, x, one(α), α - 1)
 
         # (clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) / x^(-α + 1)
-        term3(x) = begin
-            (
-                C1 * (1 - r)^e1 +
-                eval_poly(P1, x, 1 - r, α - 1) +
-                E1 * abspow(x, 2M + α - 1) * (1 - r)^2M +
-                C1 * (1 + r)^e1 +
-                eval_poly(P1, x, 1 + r, α - 1) +
-                E1 * abspow(x, 2M + α - 1) * (1 + r)^2M -
-                2 * (
-                    C1 * r^e1 +
-                    eval_poly(P1, x, r, α - 1) +
-                    E1 * abspow(x, 2M + α - 1) * r^2M
-                )
+        term3(x) = (
+            C1 * (1 - r)^e1 +
+            eval_poly(P1, x, 1 - r, α - 1) +
+            E1 * abspow(x, 2M + α - 1) * (1 - r)^2M +
+            C1 * (1 + r)^e1 +
+            eval_poly(P1, x, 1 + r, α - 1) +
+            E1 * abspow(x, 2M + α - 1) * (1 + r)^2M -
+            2 * (
+                C1 * r^e1 + eval_poly(P1, x, r, α - 1) + E1 * abspow(x, 2M + α - 1) * r^2M
             )
-        end
+        )
 
         # r * (clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α)) / x^-α
-        term4(x) = begin
+        term4(x) =
             r * (
                 -(
                     C2 * (1 - r)^e2 +
@@ -288,7 +315,6 @@ function T0_p_one(
                     C2 * r^e2 + eval_poly(P2, x, r, α) + E2 * abspow(x, 2M + 1 + α) * r^2M
                 )
             )
-        end
 
         terms(x) = 2(term1(x) + term2(x) - term3(x) - term4(x))
 
