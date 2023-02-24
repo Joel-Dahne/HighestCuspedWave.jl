@@ -2,7 +2,10 @@
     delta0_bound(u0::FractionalKdVAnsatz; ϵ, M, degree, rtol, threaded, verbose)
 
 Enclose the value of `δ₀` from the paper. This is the supremum of
-`F0(u0)` for `0 < x < π`.
+```
+abs(F0(u0))
+```
+for `0 < x < π`.
 
 Uses an asymptotic expansion with `M` terms close to zero and ball
 arithmetic on the remaining.
@@ -92,7 +95,6 @@ function delta0_bound(
     ϵ1 = ϵ2
     fϵ1 = abs(f(Arb((0, ϵ1))))
     while !ArbExtras.check_tolerance(fϵ1; rtol, atol) && !(fϵ1 < ubound_tol)
-
         ϵ1 = ϵ1 < 0.5 ? ϵ1^2 : ϵ1 / 2
         fϵ1 = abs(f(Arb((0, ϵ1))))
 

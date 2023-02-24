@@ -20,8 +20,8 @@ ball arithmetic compute an enclosure of the maximum.
 The values for `ϵ1` and `ϵ2` are determined automatically. The value
 of `ϵ1` is taken such that the interval ``[0, ϵ1]`` can be handled in
 one evaluation. The value for `ϵ2` is taken such that the value at `x
-= ϵ2` is less than the value at `x = π`, the interval ``[ϵ1, ϵ2]`` is
-the handled with bisection.
+= ϵ2` is less than the value at `x = π` when using the asymptotic
+version, the interval ``[ϵ1, ϵ2]`` is the handled with bisection.
 
 On the interval `[ϵ, π]` we bound it using ball arithmetic with
 [`ArbExtras.maximum_enclosure`](@ref). Notice that we do not have to
@@ -43,8 +43,9 @@ function n0_bound(
     # For non-asymptotic evaluation
     f = x -> u0.w(x) / (2u0(x))
     # For asymptotic evaluation
-    inv_u0 = inv_u0_normalised(u0; M, ϵ = Arb(π))
-    g = x -> u0.wmulpow(x, u0.α) * inv_u0(x) / 2
+    g = let inv_u0 = inv_u0_normalised(u0; M, ϵ = Arb(π))
+        x -> u0.wmulpow(x, u0.α) * inv_u0(x) / 2
+    end
 
     # The maximum is in practice attained at x = π
     m1 = f(Arb(π))
