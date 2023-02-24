@@ -7,12 +7,9 @@
 Evaluate the given expansion. The term `((i, j,  m), y)` is evaluated
 to
 ```
-y*abs(x)^(-i * u0.α + j * u0.p0 + m)
+y * abs(x)^(-i * u0.α + j * u0.p0 + m)
 ```
 and then they are all summed.
-
-In general `x` needs to be given both when computing the expansion and
-when evaluating it.
 
 The arguments `offset_i` and `offset` can be set to adjust the
 exponent, in that case the exponent will be given by
@@ -171,7 +168,7 @@ end
     (u0::FractionalKdVAnsatz{Arb})(x::Arb, ::AsymptoticExpansion; M, skip_main)
 
 Compute an expansion of `u0` around zero with remainder terms valid
-on the interval ``[0, x]``.
+on the interval ``[-abs(x), abs(x)]``.
 
 # Arguments
 - `M::Integer = 5`: Determines the order of the expansion. The
@@ -191,7 +188,7 @@ function (u0::FractionalKdVAnsatz{Arb})(
 )
     res = OrderedDict{NTuple{3,Int},Arb}()
 
-    # Initiate even powers of x
+    # Initiate the coefficients
     for m = 1:M
         res[(0, 0, 2m)] = 0
     end
@@ -232,17 +229,15 @@ function (u0::FractionalKdVAnsatz{Arb})(
         # integer. When s is close to an odd integer we have very
         # large cancellations between two of the terms in the
         # expansion and it turns out to be beneficial to use the same
-        # method as when s overlaps an odd integer to compute an
+        # method as when s contains an odd integer to compute an
         # enclosure.
-        tol = s < 4 ? 0.01 : 0.001 # For large s it is worse to be close to integer
+        tol = s < 4 ? 0.01 : 0.001 # For large s it is worse to be close to an integer
         if is_approx_integer(s; tol) && isodd(round(Float64(s)))
             s = union(s, Arb(round(Float64(s))))
         end
 
-        # Check for the special case when s overlaps with an odd
-        # integer. Notice that we don't need to do anything special if
-        # s happens to overlap with two integers, we will just get NaN
-        # as a result.
+        # Check for the special case when s contains an odd integer.
+        # This requires extra work to get a finite result.
         contains_int, n = unique_integer(s)
         if contains_int && isodd(n)
             # The term corresponding to C and p[2((n - 1) ÷ 2)]
@@ -271,7 +266,8 @@ function (u0::FractionalKdVAnsatz{Arb})(
             # as large as possible but so that we still have -i *
             # u0.α + 1 < s - 1, and enclose the rest.
             i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:100) - 1
-            # Enclosure of x^(2m + i * u0.α - 1) * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
+            # Enclosure of
+            # x^(2m + i * u0.α - 1) * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
             # on the interval [0, x].
             D = x_pow_s_x_pow_t_m1_div_t(Arb((0, x)), 2m + i * u0.α - 1, s - (2m + 1))
             res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - K3 * D * u0.a[j]
@@ -344,8 +340,8 @@ end
     H(u0::FractionalKdVAnsatz{Arb}, ::AsymptoticExpansion; M, skip_main, skip_singular_j_until)
 
 Return a function such that `H(u0)(x)` computes an expansion of
-`H(u0)` around zero with remainder terms valid on the interval ``[0,
-x]``.
+`H(u0)` around zero with remainder terms valid on the interval
+``[-abs(x), abs(x)]``.
 
 # Arguments
 - `M::Integer = 5`: Determines the order of the expansion. The
@@ -384,7 +380,7 @@ function H(
     return x -> begin
         res = OrderedDict{NTuple{3,Int},Arb}()
 
-        # Initiate even powers of x
+        # Initiate the coefficients
         for m = 1:M
             res[(0, 0, 2m)] = 0
         end
@@ -425,15 +421,15 @@ function H(
             # integer. When s is close to an odd integer we have very
             # large cancellations between two of the terms in the
             # expansion and it turns out to be beneficial to use the same
-            # method as when s overlaps an odd integer to compute an
+            # method as when s contains an odd integer to compute an
             # enclosure.
             tol = s < 4 ? 0.01 : 0.001 # For large s it is worse to be close to integer
             if is_approx_integer(s) && isodd(round(Float64(s)))
                 s = union(s, Arb(round(Float64(s))))
             end
 
-            # Check for the special case when s overlaps with an odd
-            # integer.
+            # Check for the special case when s contains an odd integer.
+            # This requires extra work to get a finite result.
             contains_int, n = unique_integer(s)
             if contains_int && isodd(n) && j > skip_singular_j_until
                 # The term corresponding to C and p[2((n - 1) ÷ 2)]
@@ -462,7 +458,8 @@ function H(
                 # as large as possible but so that we still have -i *
                 # u0.α + 1 < s - 1, and enclose the rest.
                 i = findfirst(i -> !(-i * u0.α + 1 < s - 1), 1:100) - 1
-                # Enclosure of x^(2m + i * u0.α - 1) * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
+                # Enclosure of
+                # x^(2m + i * u0.α - 1) * (abs(x)^(s - (2m + 1)) - 1) / (s - (2m + 1)).
                 # on the interval [0, x].
                 D = x_pow_s_x_pow_t_m1_div_t(Arb((0, x)), 2m + i * u0.α - 1, s - (2m + 1))
                 res[(i, 0, 1)] = get(res, (i, 0, 1), zero(x)) - K3 * D * u0.a[j]
@@ -518,7 +515,7 @@ function D(
 
         expansion = empty(expansion1)
 
-        # u0^2/2 term
+        # u0^2 / 2 term
         let expansion1 = collect(expansion1)
             z = zero(u0.α) # Avoid allocating zero multiple times
             for (i, (key1, a1)) in enumerate(expansion1)
@@ -534,8 +531,8 @@ function D(
         # H term
         merge!(+, expansion, expansion2)
 
-        # The term (2, 0, 0) is identically equal to zero when a[0] =
-        # finda0(α), which is always the case.
+        # The term (2, 0, 0) is identically equal to zero since a[0] =
+        # finda0(α)
         @assert Arblib.contains_zero(expansion[(2, 0, 0)])
         expansion[(2, 0, 0)] = 0
 
@@ -579,6 +576,7 @@ function F0(
     ϵ::Arb = Arb(1),
     skip_singular_j_until = nothing,
 )
+    # This case as a separate implementation
     u0.use_bhkdv && return _F0_bhkdv(u0, Asymptotic(); M, ϵ, skip_singular_j_until)
 
     if isnothing(skip_singular_j_until)
@@ -984,9 +982,13 @@ end
 
 """
     D(u0::FractionalKdVAnsatz, xs::AbstractVector)
-Returns a function such that D(u0, xs)(a, b) computes D(u0)(x) on the
-points x ∈ xs with u0.a and u0.b set to the given values. Does this in
-an efficient way by precomputing as much as possible.
+
+Return a function such that D(u0, xs)(a, b) computes D(u0)(x) on the
+points x ∈ xs with u0.a and u0.b set to `a` and `b` respectively. Does
+this in an efficient way by precomputing as much as possible.
+
+This is used in [`_findbs`](@ref) for numerically finding values for
+`b`.
 """
 function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
     u0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
@@ -1022,7 +1024,7 @@ coefficients in the asymptotic expansion with indices `3` to `u0.N0 +
 1` using the values from `a`.
 
 This is used in [`_findas`](@ref) for numerically finding values for
-`a`.
+`a`. An alternative implementation is given by [`D2`](@ref).
 """
 function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
     # Given a key get its exponent
@@ -1141,7 +1143,10 @@ Return a function such that `D2(u0, evaltype, N)(a)` computes the
 coefficients in the asymptotic expansion with indices `3` to `N0 + 2`
 using the values from `a`.
 
-This is an alternative implementation to [`D`](@ref).
+This is an alternative implementation to [`D`](@ref). In principle
+they give the same result but this one is more optimized. In practice
+they give slightly different results due to rounding errors and this
+is sometimes important.
 
 # Implementation
 The terms in the expansion have exponents of the form
