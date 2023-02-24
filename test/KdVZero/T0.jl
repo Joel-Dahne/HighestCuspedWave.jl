@@ -16,14 +16,7 @@
     # Construct FractionalKdvansatz for each α
     u0s = map(αs) do α
         a = OffsetVector([HighestCuspedWave.finda0(α), HighestCuspedWave._finda1a2(α)...], 0:2)
-        FractionalKdVAnsatz{Arb}(
-            α,
-            HighestCuspedWave.findp0(α),
-            a,
-            Arb[],
-            one(Arb),
-            Set{NTuple{3,Int}}([(2, 0, 0)]),
-        )
+        FractionalKdVAnsatz{Arb}(α, HighestCuspedWave.findp0(α), a, Arb[], one(Arb))
     end
 
     @testset "Ball" begin
