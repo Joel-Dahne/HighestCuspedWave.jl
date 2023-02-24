@@ -127,11 +127,7 @@ function clausencmzeta_diff(x::ArbSeries, s::Arb, ϵ::Arb)
         end
     end
 
-    # Compose the Taylor series for the result with that of the input
-    x_tmp = copy(x)
-    x_tmp[0] = 0
-
-    return res
+    return ArbExtras.compose_zero!(res, res, x)
 end
 
 
