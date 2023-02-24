@@ -19,11 +19,40 @@ KdV equations with `α ∈ (-1, 0)`. It has the following parameters
   essentially a mix of the standard version and some parts from
   [`BHKdVAnsatz`](@ref). It corresponds to the hybrid case near `α =
   -1` discussed in the paper. Setting this value to true means that
-  this different version should be used. Some methods have special
-  implementations in this case.
+  this different version should be used. See below for details about
+  what this changes.
 
 The code assumes that `a[0]` is given by `finda0(α)`. This is required
 for the leading term in the expansion of `D(u0)` to be exactly zero.
+
+# Details about `use_bhkdv`
+This flag changes two things in particular, the leading term and the
+weight.
+
+With `use_bhkdv = true` the leading term is given by
+```
+a[0] * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 1 - α + p0))
+```
+Compared to
+```
+a[0] * clausencmzeta(x, 1 - α)
+```
+when the flag is not used. In practice this means that the coefficient
+`a[1]` needs to take different values depending on if the flag is set
+or not.
+
+With `use_bhkdv = true` the weight is given by
+```
+w(x) = abs(x)^p * log(2ℯ + inv(abs(x)))
+```
+compared to
+```
+w(x) = abs(x)^p
+```
+otherwise. One big difference with the modified weight is that it
+doesn't satisfy `w(x * y) = w(x) * w(y)`. This means that a number of
+simplifications are not supported for that version of the weight, see
+also [`weightfactors`](@ref).
 """
 struct FractionalKdVAnsatz{T} <: AbstractAnsatz{T}
     α::T
