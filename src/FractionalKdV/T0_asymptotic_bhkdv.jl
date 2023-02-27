@@ -1,7 +1,9 @@
 """
     T0_bhkdv(u0::FractionalKdVAnsatz{Arb}, ::Asymptotic)
 
-Compute `T0(x)` when `u0.use_bhkdv` is true.
+Return a function such that `T0_bhkdv(u0, Asymptotic)(x)` computes
+`T0(u0)(x)` for `u0` with `u0.use_bhkdv` true, using an evaluating
+strategy that works asymptotically as `x` goes to zero.
 
 It uses that the weight is given by `x^u0.p * log(2ℯ + inv(x)).
 
@@ -235,6 +237,10 @@ function _T0_bhkdv_I1(α, p, ϵ)
                 end
             end
 
+            # Since the integrand is positive the integral is lower
+            # bounded by the value we get by integrating to lbound(π /
+            # x) and upper bounded by the value we get by integrating
+            # to ubound(π / x).
             part22_lower = real(
                 Arblib.integrate(
                     integrand,
@@ -369,36 +375,13 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
         d1
     end
 
-    d2 = let N = 30, d2 = zero(α)
-        d2 += ArbExtras.enclosure_series(α) do α
-            -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) /
-            (Arb(π)^(2 + α - p))
-        end
-
-        # Sum first N - 1 terms
-        d2 +=
-            2Arb(π)^(p - 1) * sum(1:N-1) do m
-                (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) * sum(
-                    binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1
-                )
-            end
-
-        # Enclose remainder
-        d2 +=
-            6Arb(π)^(p - 1) *
-            (3Arb(π) / 2)^(2N) *
-            clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
-
-        d2
-    end
-
     d2_part1_modified = ArbExtras.enclosure_series(α) do α
         -(1 + α) * (2 + α) / (2 + α - p) / (Arb(π)^(2 + α - p))
     end
 
-    d2_part2 = let N = 30, d2 = zero(α)
+    d2_part2 = let N = 30, d2_part2 = zero(α)
         # Sum first N - 1 terms
-        d2 +=
+        d2_part2 +=
             2Arb(π)^(p - 1) * sum(1:N-1) do m
                 (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) * sum(
                     binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1
@@ -406,12 +389,12 @@ function _T0_bhkdv_I2(α, p, ϵ; return_parts = false)
             end
 
         # Enclose remainder
-        d2 +=
+        d2_part2 +=
             6Arb(π)^(p - 1) *
             (3Arb(π) / 2)^(2N) *
             clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
 
-        d2
+        d2_part2
     end
 
     return x::Arb -> begin
@@ -663,16 +646,16 @@ explicitly. For this we use that the primitive function is given by
 ```
 We define
 ```
-primitive_inv(a, b) = -inv(α - p) * (
-    b^(α - p) * (
-        hypgeom_2f1(1 + α, α - p, 1 + α - p, b) +
-        hypgeom_2f1(1 + α, α - p, 1 + α - p, -b) -
+primitive_inv(c, d) = -inv(α - p) * (
+    d^(α - p) * (
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, d) +
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, -d) -
         2
     )
 ) * (
-    a^(α - p) * (
-        hypgeom_2f1(1 + α, α - p, 1 + α - p, a) +
-        hypgeom_2f1(1 + α, α - p, 1 + α - p, -a) -
+    c^(α - p) * (
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, c) +
+        hypgeom_2f1(1 + α, α - p, 1 + α - p, -c) -
         2
     )
 )
@@ -785,43 +768,43 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
         end
 
     # Compute
-    # b^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, b) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -b) - 2) -
-    # a^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, a) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -a) - 2)
-    # Handling cancellations for small values of a and b
-    hypgeom_2f1_helper(a, b) =
-        if min(a, b) > 0.1
+    # d^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, d) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -d) - 2) -
+    # c^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, c) + hypgeom_2f1(1 + α, α - p, 1 + α - p, -c) - 2)
+    # Handling cancellations for small values of c and d
+    hypgeom_2f1_helper(c, d) =
+        if min(c, d) > 0.1
             # No need to do anything fancy
-            b^(α - p) * (
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, b) +
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, -b) - 2
+            d^(α - p) * (
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, d) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -d) - 2
             ) -
-            a^(α - p) * (
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, a) +
-                hypgeom_2f1(1 + α, α - p, 1 + α - p, -a) - 2
+            c^(α - p) * (
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, c) +
+                hypgeom_2f1(1 + α, α - p, 1 + α - p, -c) - 2
             )
         else
             let N = 10
                 main =
                     2(α - p) * sum(1:N-1) do k
                         rising(1 + α, 2k) / (2k + α - p) / factorial(2k) *
-                        (b^(2k + α - p) - a^(2k + α - p))
+                        (d^(2k + α - p) - c^(2k + α - p))
                     end
 
                 tail_lower = begin
-                    @assert Arblib.isnonnegative(a) && Arblib.isnonnegative(b)
+                    @assert Arblib.isnonnegative(c) && Arblib.isnonnegative(d)
                     D = Arblib.Arblib.hypgeom_pfq_bound_factor!(
                         zero(Mag),
                         AcbVector([1 + α, α - p]),
                         2,
                         AcbVector([1 + α - p, 1]),
                         2,
-                        Acb(max(a, b)),
+                        Acb(max(c, d)),
                         UInt(2N),
                     )
 
                     -abs(
                         D * rising(1 + α, 2N) * rising(α - p, 2N) / rising(1 + α - p, 2N) / factorial(2N) *
-                        (b^(2N + α - p) - a^(2N + α - p)),
+                        (d^(2N + α - p) - c^(2N + α - p)),
                     )
                 end
 
@@ -832,7 +815,7 @@ function _T0_bhkdv_I3_M2(α, p, ϵ)
             end
         end
 
-    primitive_inv(a, b) = -inv(α - p) * hypgeom_2f1_helper(a, b)
+    primitive_inv(c, d) = -inv(α - p) * hypgeom_2f1_helper(c, d)
 
     return x::Arb -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -908,7 +891,6 @@ I3_R(x) = 2x^(1 + α) / log(inv(x)) * sum((-1)^m * zeta(-α - 2m) * x^2m / facto
 ```
 Similar simplifications as for when the weight is `x^p` allows us to
 write it as
-**IMPROVE**: Explain better
 ```
 I3_R(x) = 2x^(2 + α - p) * π^(p - 1) / log(inv(x)) * sum((-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(binomial(2m, 2k) * (1 - (2k + 1 + p) * log(π / x)) / (2k + 1 + p)^2 * (x / π)^((2(m - 1 - k))) for k = 0:m-1) for m = 1:Inf)
 ```
@@ -970,15 +952,6 @@ function _T0_bhkdv_I3_R(α, p, ϵ)
             -inv(log(x))
         end
 
-        # Enclosure of log(π / x) / log(inv(x)) = -inv(log(x))
-        invloginvx = if iszero(x)
-            zero(x)
-        elseif Arblib.contains_zero(x)
-            -Arb((inv(log(ubound(Arb, x))), 0))
-        else
-            -inv(log(x))
-        end
-
         N = 20
 
         # Sum in I3_R1 for m in 1:N-1
@@ -1019,7 +992,6 @@ function _T0_bhkdv_I3_R(α, p, ϵ)
             Arb(π)^(p - 1) *
             (1 + log(Arb(π)) * invloginvx) *
             (I3_R2_sum + I3_R2_sum_tail_lower)
-
 
         return I3_R1 + I3_R2
     end
