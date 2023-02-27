@@ -4,10 +4,10 @@
 Compute the exponent used in [`eval_expansion`](@ref) using inplace
 computations. It computes
 ```
-i * α + j * p0 - k*u0.v0.α + l*u0.v0.p0 + m
+i * α + j * p0 - k * u0.v0.α + l * u0.v0.p0 + m
 ```
 
-The variables `α_upper` and `p0_upper` should be global upper bounds
+The variables `α_upper` and `p0_upper` should be "global" upper bounds
 of `α` and `p0` respectively. Global in the sense that it should hold
 for `α = Arb((-1, -1 + u0.ϵ))` and not for the `α` argument given to
 the function, which might be a subset of those.
@@ -156,7 +156,7 @@ The method currently only support `q = 0` and `p == 0` or `p == 1`.
 The other cases are handled specially in [`F0`](@ref) and for that
 reason we don't bother implementing them here.
 
-For `x != 0` the factor
+For `x > 0` the factor
 ```
 a0 * (c(α) - c(α - p0) * x^p0)
 ```
@@ -165,12 +165,12 @@ as
 ```
 a0 * (α + 1) * (c(α) - c(α - p0) * x^p0) / (α + 1)
 ```
-and use [`finda0αp1`](@ref) to compute `a0 * (α + 1)`. For non-zero
-`x` we can evaluate `(c(α) - c(α - p0) * x^p0) / (α + 1)` using
+and use [`finda0αp1`](@ref) to compute `a0 * (α + 1)`. For `x > 0` we
+can evaluate `(c(α) - c(α - p0) * x^p0) / (α + 1)` using
 [`fx_div_x`](@ref).
 
-To better handle `x` overlapping zero we add and subtract `c(α)^x^p0`
-to the numerator, giving us
+To better handle `x` overlapping zero we in this case add and subtract
+`c(α)^x^p0` to the numerator, giving us
 ```
 (c(α) - c(α - p0) * x^p0) / (α + 1) =
     c(α) * (1 - x^p0) / (α + 1) + x^p0 * (c(α) - c(α - p0)) / (1 + α)
@@ -216,7 +216,7 @@ get the enclosure `[0, x^s]`.
 # Terms not depending on `p` or `q`
 The terms for which `p == q == 0` we take out and handle in a separate
 sum. We compute an expansion in `α` to get a better enclosure, in most
-cases this picks up the monotonicity.
+cases this picks up the monotonicity in `α`.
 """
 function eval_expansion(
     u0::BHKdVAnsatz{Arb},
@@ -239,7 +239,7 @@ function eval_expansion(
     α_upper = -1 + u0.ϵ
     p0_upper = u0.ϵ + u0.ϵ^2 / 2
 
-    # Function for computing sum of terms with p and q zero for a given α
+    # Function for computing sum of terms with p = q = 0 for a given α
     # It is only called with α::ArbSeries if x is non-zero
     logx = log(x)
     f(α) =
@@ -275,13 +275,9 @@ function eval_expansion(
         end
 
     # Sum of terms with p and q zero
-    res1 = if Arblib.contains_zero(x)
-        f(α)
-    else
-        ArbExtras.enclosure_series(f, α)
-    end
+    res1 = Arblib.contains_zero(x) ? f(α) : ArbExtras.enclosure_series(f, α)
 
-    # c(s) = gamma(s) * cospi(s / 2)
+    # c(s) = gamma(s) * cospi(s / 2) = π * gamma(s + 2) * sinc(s + 2) / 2s
     c(s) = begin
         sinc_sp2 = _sinc((1 + s) / 2)
 
@@ -470,7 +466,8 @@ We want to prove that `S_L(x) + S_M(x)` is positive for all `x` in
 ``(0, ϵ]``.
 
 To begin with we compute a lower bound of `S_L`. If `a[l]` is negative
-then a lower bound for the corresponding term is given by
+then a lower bound for the corresponding term is given by taking `l =
+1` in the exponent, i.e.
 ```
 a[l] * x^(-u0.v0.α + u0.v0.p0)
 ```
@@ -797,7 +794,7 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
         # (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (α + 1)
         # = (zeta(2 - s - 2m) - zeta(2 + s^2 / 2 - 2m)) / s
         # with s = α + 1
-        zeta_div_α = if m == 1
+        zeta_div_αp1 = if m == 1
             # zeta(x::ArbSeries) doesn't handle balls containing
             # zero but centered at a negative number well. For
             # that reason we take a symmetric interval in this
@@ -812,7 +809,7 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
             fx_div_x(s -> zeta(2 - s - 2m) - zeta(2 + s^2 / 2 - 2m), αp1, extra_degree = 2)
         end
 
-        coefficient = a0αp1 * (-1)^m * zeta_div_α / factorial(2m)
+        coefficient = a0αp1 * (-1)^m * zeta_div_αp1 / factorial(2m)
 
         res[(0, 0, 0, 0, 0, 0, 2m)] += coefficient
     end
@@ -944,12 +941,6 @@ function H(u0::BHKdVAnsatz{Arb}, ::Ball)
         # Tail term
 
         let α = Arb((-1, -1 + u0.ϵ)) # Ball containing the range of α
-            # IMPROVE: We might be able to compute better enclosures
-            # in α, allowing us to work with larger values of u0.ϵ, by
-            # expanding in s. This would require a fair amount of work
-            # though, we would probably have to extract the formula
-            # from _clausenc_zeta.
-
             # Clausen terms
             for j = 1:u0.v0.N0
                 s = 1 - α - u0.v0.α + j * u0.v0.p0
@@ -1104,19 +1095,12 @@ If `skip_singular_j_until` is greater than zero then skip the two
 above terms for all Clausen functions in the tail from `j = 1` to
 `skip_singular_j_until`. This is used in [`F0`](@ref) where these
 terms are handled separately.
-
-If `approximate_singular_j_until` is greater than zero then
-approximate the two above terms for all Clausen functions in the tail
-from `j = 1` to `approximate_singular_j_until`. This is only for
-testing. Terms skipped by `skip_singular_j_until` are not
-approximated.
 """
 function H(
     u0::BHKdVAnsatz{Arb},
     ::AsymptoticExpansion;
     M::Integer = 3,
     skip_singular_j_until::Integer = 0,
-    approximate_singular_j_until::Integer = 0,
 )
     @assert M >= 3
 
@@ -1176,16 +1160,8 @@ function H(
             C, _, p, E = clausenc_expansion(x, s, M, skip_constant = true)
 
             if j > skip_singular_j_until
-                if j <= approximate_singular_j_until
-                    C2, _, p2, _ = let s = 1 - (-1 + u0.ϵ) - u0.v0.α + j * u0.v0.p0
-                        clausenc_expansion(x, s, M, skip_constant = true)
-                    end
-                    res[(0, 0, -1, 0, 1, j, 0)] = -C2 * u0.v0.a[j]
-                    res[(0, 0, 0, 0, 0, 0, 2)] -= p2[2] * u0.v0.a[j]
-                else
-                    res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.a[j]
-                    res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.a[j]
-                end
+                res[(0, 0, -1, 0, 1, j, 0)] = -C * u0.v0.a[j]
+                res[(0, 0, 0, 0, 0, 0, 2)] -= p[2] * u0.v0.a[j]
             end
 
             for m = 2:M-1
@@ -1231,7 +1207,7 @@ function D(
         expansion2 = g(x)
         expansion = empty(expansion1)
 
-        # u0^2/2 term
+        # u0^2 / 2 term
         let expansion1 = collect(expansion1)
             z = zero(x) # Avoid allocating zero multiple times
             for (i, (key1, a1)) in enumerate(expansion1)
@@ -1254,8 +1230,9 @@ end
 """
     F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
 
-Return a function `f` such that the absolute value of `f(x)` is an
-upper bound of the absolute value of `F0(u0)(x)`.
+Return a function that computes a value that is larger than
+`F0(u0)(x)` in magnitude and has the same sign. The absolute value of
+this then gives an upper bound of `abs(F0(u0)(x))`.
 
 More precisely this computes
 ```
@@ -1297,8 +1274,9 @@ end
 """
     F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
 
-Returns a function such that an **upper bound** of `F0(u0)(x)` is
-computed accurately for small values of `x`.
+Returns a function that computes a value which absolute value is an
+**upper bound** of `abs(F0(u0)(x))`. It is computed in a way that is
+works well for small values of `x`.
 
 It requires that `0 <= x < 1`, any negative parts of `x` are ignored.
 
@@ -1313,8 +1291,7 @@ u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
 
 # Split into three factors
 As a first step we split the expression into three factors which are
-all bounded as `x -> 0` that we bound separately.
-We write it as
+all bounded as `x -> 0` that we bound separately. We write it as
 ```
 (gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x))
 * (log(inv(x)) / log(u0.c + inv(x)))
@@ -1396,17 +1373,18 @@ T111 = x^(-α + p0 - 1) / log(x)
 T112 = (1 + α) / (1 - x^p0)
 T113 = (c(2α - p0) - a0 * c(α) * c(α - p0)) / (1 + α)
 ```
-For the first one we can directly get an enclosure using that
+
+For `T111` one we can directly get an enclosure using that
 ```
 -α + p0 - 1 = -α + (1 + α + (1 + α)^2 / 2) - 1 = (1 + α)^2 / 2
 ```
 
-For the second one we use that it is non-decreasing in both `x` and
-`α`. For `x` is immediate. For `α` we let `t = 1 + α`, giving us
+For `T112` we use that it is non-decreasing in both `x` and `α`. For
+`x` this is immediate. For `α` we let `t = 1 + α`, giving us
 ```
 T112 = t / (1 - x^(t + t^2 / 2))
 ```
-Differentiation gives
+Differentiation w.r.t. `t` gives
 ```
 (1 - x^(t + t^2 / 2) + t * (1 + t) * log(x) * x^(t + t^2 / 2)) / (1 - x^(t + t^2 / 2))^2
 ```
@@ -1429,7 +1407,8 @@ where we get `0`. It follows that the derivative of `T112` w.r.t. `α`
 is non-negative and hence it is non-decreasing in `α`. A lower bound
 for `T112` is thus given by `(1 + α) / (1 - x^p0)` evaluated at `α =
 -1`, where it can be seen to be equal to `-inv(log(x))`. We get an
-upper bound by evaluating at an upper bound for `x` and `α`.
+upper bound by evaluating at an upper bound for `x` and `α`. See also
+[`x_pow_s_x_pow_t_m1_div_t`](@ref).
 
 For the third term, `T113`, we note that `a0` can be written as
 ```
@@ -1587,7 +1566,9 @@ and can split `T22` as
 zeta_deflated(-α + r) * (x^r - x^(1 + α)) / 2log(x) + (x^r - x^(1 + α)) / (-α + r - 1) / 2log(x)
 = T221 + T222
 ```
-The term `T221` can be enclosed directly. For `T222` we rewrite it as
+The term `T221` can be enclosed directly.
+
+For `T222` we rewrite it as
 ```
 inv(2log(x)) * (x^r - x^(1 + α)) / (r - (1 + α))
 ```
@@ -1642,13 +1623,13 @@ more sophisticated way.
 
 Recall that all terms are supposed to be divided by `(gamma(1 + α) *
 log(x) * x^(1 - α) * (1 - x^p0))`. The `x^(1 - α)` factor will be
-cancelled explicitly. For the remaining part we compute an enclosure.
-We are therefore interested in computing an enclosure of
+cancelled explicitly. Giving `div_logx = true` to `eval_expansion`
+handles the division by `log(x)`. For the remaining part we compute an
+enclosure. We are therefore interested in computing an enclosure of
 ```
-inv(log(x)) * inv(gamma(1 + α) * (1 - x^p0))
+inv(gamma(1 + α) * (1 - x^p0))
 ```
-The `inv(log(x))` is easily handled using monotonicity in `x` and the
-other factor is the same as in the above section.
+which is done in the same way as is the same as in the above section.
 """
 function F0(
     u0::BHKdVAnsatz{Arb},
@@ -1974,7 +1955,7 @@ end
 """
     inv_u0_bound(u0::BHKdVAnsatz{Arb})
 
-Return a function `f` such that `f(x)` gives an upper bound of
+Return a function that computes an upper bound of
 ```
 gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
 ```
@@ -2145,7 +2126,7 @@ function inv_u0_bound(u0::BHKdVAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(0.5))
             Arblib.ispositive(F) || return indeterminate(x)
         else
             # Compute an enclosure of inv((1 + α) / (1 - x^p0))
-            inv_αp1_div_onemxp0 = if x < exp(Arb(-1)) # Use monotonicity on α and x
+            inv_αp1_div_onemxp0 = if x < exp(Arb(-1)) # Use monotonicity in α and x
                 # The lower and upper bounds refer to
                 # (1 + α) / (1 - x^p0)
                 # Since we want the inverse we invert them and switch
