@@ -4,7 +4,7 @@ export BHKdVAnsatz
     BHKdVAnsatz{T}(ϵ::T, v0::BHAnsatz{T})
     BHKdVAnsatz(ϵ::T, v0::BHAnsatz{T})
 
-Represents an ansatz used for the interval `α ∈ (-1, -1 + ϵ]`. The
+Represents an ansatz used for the interval ``α ∈ (-1, -1 + ϵ]``. The
 ansatz is similar to that given by `v0` but uses a different main term
 and a different weight.
 
@@ -20,10 +20,10 @@ p0 = 1 + α + (1 + α)^2 / 2
 Note that `1 - α + p0 > 2`.
 
 The tail, which is fixed with respect to `α`, is the same as that used
-for `BHAnsatz`. It consists of a sum of Clausen functions together
-with a sum of Fourier terms. The Clausen functions used are determined
-by `v0.a` and the Fourier terms by the vector `v0.b`. For more
-details see `BHAnsatz`.
+for [`BHAnsatz`](@ref). It consists of a sum of Clausen functions
+together with a sum of Fourier terms. The Clausen functions used are
+determined by `v0.a` and the Fourier terms by the vector `v0.b`. For
+more details see [`BHAnsatz`](@ref).
 
 It assumes that `v0` uses the correct coefficient in front of the
 leading Clausen function, i.e. `v0.a0 = 2 / π^2`.
