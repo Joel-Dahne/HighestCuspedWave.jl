@@ -22,8 +22,8 @@ Compute
 ```
 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-which is part of the integrand of `T01`, by expanding the Clausen
-functions at zero.
+which is part of the integrand of `T01`, by using the series expansion
+of the Clausen functions at zero.
 
 It only supports `t > 0`.
 
@@ -54,10 +54,7 @@ end
 function _integrand_I_hat_series(x::Arb, t::Arb, α::Arb, C::Arb, P::ArbSeries, E::Arb)
     M = Arblib.degree(P) ÷ 2 + 1
 
-    # t1 = abs(1 - t)
-    t1 = 1 - t
-    Arblib.abs!(t1, t1)
-    # t2 = 1 + t
+    t1 = abs(1 - t)
     t2 = 1 + t
 
     res = C * ArbExtras.enclosure_series(-α - 1, degree = 2) do e
@@ -148,13 +145,13 @@ _integrand_I_hat(x, rₗ, α)
 ```
 is positive then, since `_integrand_I_hat(x, rₗ, αᵤ) = 0`, we have
 that `_integrand_I_hat(x, rₗ, α) <= 0`. Since the function is
-increasing in `t` this ensures that the root is at `rₗ` or to the left
-of it. Similarly we have that if the derivative of
+increasing in `t` this ensures that the root is lower bounded by `rₗ`.
+Similarly we have that if the derivative of
 ```
 _integrand_I_hat(x, rᵤ, α)
 ```
-is positive then `_integrand_I_hat(x, rₗ, α) >= 0` and the root must
-lie at or to the right of `rᵤ`.
+is positive then `_integrand_I_hat(x, rₗ, α) >= 0` and the root is
+upper bounded by `rᵤ`.
 
 If the lower bound of `x` is zero or close to zero (smaller than
 `eps(Arb)`) it computes an upper bound of the root by considering the
@@ -673,12 +670,26 @@ computed explicitly. It is given by
     2clausens(x * (1 - δ1), 1 - α)
 )
 ```
+This gives us the result
+```
+inv(π * u0(x)) * u0.w(x * Arb((1 - δ1, 1))) / u0.w(x) * (
+    clausens(2x, 1 - α) -
+    2clausens(x, 1 - α) +
+    clausens(x * δ1, 1 - α) -
+    clausens(x * (2 - δ1), 1 - α) +
+    2clausens(x * (1 - δ1), 1 - α)
+)
+```
 
 Since the root is decreasing in `x` it is enough to check that `1 -
 δ1` is larger than the root for `x = 0`.
 
+
 If `weightfactors(u0)` is true then `u0.w(x * t) = u0.w(x) * u0.w(t)`
-and we can simplify the result to
+and we have
+```
+u0.w(x * Arb((1 - δ1, 1))) / u0.w(x) = u0.w(Arb((1 - δ1, 1)))
+```
 ```
 inv(π * u0(x)) * u0.w(Arb((1 - δ1, 1))) * (
     clausens(2x, 1 - α) -

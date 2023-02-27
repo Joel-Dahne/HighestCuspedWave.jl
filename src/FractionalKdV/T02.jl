@@ -8,29 +8,19 @@ inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2
 where the integration is taken from `x` to `π`.
 
 The interval of integration is split into two parts, one from `x` to
-`x + a` and one from `x + a` to `π`. The first part is handled using
-[`T021`](@ref) and the second one using [`T022`](@ref). The
-computation is done two times with different values of `a` and the
+`a` and one from `a` to `π`, for some choice of `a`. The first part is
+handled using [`T021`](@ref) and the second one using [`T022`](@ref).
+The computation is done two times with different values of `a` and the
 intersection of the results is taken.
 
-The result is first computed using `a = π`, in which case only the
-first interval is used. It is then done using `a = ubound(x + δ2)`. If
-`x` is close to `π`, as determined by `π - x < ϵ`, or if `ubound(x +
-δ2)` is larger than `π` then only a = π` is used.
+The result is first computed using `a = π`, in which case only
+[`T021`](@ref) is used. Afterwards it is computed using `a = ubound(x
++ δ2)`. If `x` is close to `π`, as determined by `π - x < ϵ`, or if
+`ubound(x + δ2)` is larger than `π` then only the first case is
+considered.
 
 If `skip_div_u0` is true then skip the division by `u0(x)` in the
 result.
-
-**IMPROVE:** The choice of both `δ2` and `ϵ` can be tuned. For `δ2` it
-depends on both `x` and `α`, whereas for `ϵ` it only depends on `α`.
-For `δ2` it should be larger when both `x` and `α` are larger. In
-theory we could compute with several values and take the best result,
-but that would likely be to costly. For `ϵ` it's mainly a question of
-cost, we don't want to compute the expensive integral when we believe
-the asymptotic expansion will be the best anyway, larger values of `α`
-should give a lower value of `ϵ`. The choice of `ϵ` is partially based
-on [/figures/optimal-epsilon-choice.png], but can likely be tuned
-further.
 """
 function T02(
     u0::FractionalKdVAnsatz{Arb},
@@ -43,10 +33,10 @@ function T02(
     g = T022(u0, Ball(), skip_div_u0 = true)
 
     return x -> begin
-        a = ubound(Arb, x + δ2)
-
-        # Compute with T021 on the whole interval
+        # Compute with a = π, i.e. suing T021 on the whole interval
         res = f(x, Arb(π))
+
+        a = ubound(Arb, x + δ2)
 
         if !(π < a || π - x < ϵ)
             part1 = f(x, a)
@@ -224,18 +214,22 @@ and compute the integral explicitly.
     2clausens(x, 1 - α)
 )
 ```
-
-If `weightfactors(u0)` is true then `u0.w(x * y) = u0.w(x) * u0.w(y)`
-and using that `Arb((x, a)) = x * Arb((1, a / x))` we can simplify the
-result to
+This gives us the result
 ```
-inv(π * u0(x)) * u0.w(Arb((1, a / x))) * (
+inv(π * u0(x)) * u0.w(Arb((x, a))) / u0.w(x) * (
     -clausens(x - a, 1 - α) +
     clausens(x + a, 1 - α) -
     2clausens(a, 1 - α) -
     clausens(2x, 1 - α) +
     2clausens(x, 1 - α)
 )
+```
+
+If `weightfactors(u0)` is true then `u0.w(x * y) = u0.w(x) * u0.w(y)`
+and using that `Arb((x, a)) = x * Arb((1, a / x))` we can simplify the
+result using that
+```
+u0.w(Arb((x, a))) / u0.w(x)
 ```
 
 If `skip_div_u0` is true then skip the division by `u0(x)` in the
