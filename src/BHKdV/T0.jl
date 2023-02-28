@@ -15,25 +15,26 @@ function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = 
 
         isfinite(part1) || return part1
 
-        # We want to take the b, lower integration limit in T022,
+        # We want to take b, lower integration limit in T022,
         # independent of x in the variables used by T022. We take it
         # to be ubound((1 + δ) * x)
-        b_y = ubound(Arb, (1 + δ) * x) # Upper bound in the variable y
-        # We check (b_y / x) * x < π instead of b_y < π to make sure
-        # that the inequality b_t * x < π holds even when x is a ball.
-        if (b_y / x) * x < π
+        b = ubound(Arb, (1 + δ) * x) # Upper bound in the variable y
+        # We check (b / x) * x < π instead of b < π to make sure that
+        # the inequality b_t * x < π holds even when x is a ball.
+        if (b / x) * x < π
             # Compute upper bound of b in the variable t = y / x
-            b_t = b_y / x
+            b_t = b / x
             part2 = f2(x, 1 - δ, b_t)
 
             isfinite(part2) || return part2
 
-            part3 = f3(x, b_y; tol)
+            part3 = f3(x, b; tol)
         else
             # In this case use b = π. This means that f3 is zero and
             # we want to integrate f2 all the way to the endpoint.
 
-            # The value 1 + δ is not important
+            # The valueargument 1 + δ is not important since it is not
+            # used
             part2 = f2(x, 1 - δ, 1 + δ, to_endpoint = true)
 
             part3 = zero(x)
@@ -283,13 +284,19 @@ integrating the rest explicitly.
 More precisely, since `t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))`
 is well behaved as long as `x` is not very close to zero we can
 compute an enclosure of it for all `t` in the interval and factor this
-out. This leaves us with the integral
+out. This gives us
+```
+x / (π * u0(x) * log(u0.c + inv(x))) *
+    Arb((a, b))^(-u0.γ * (1 + α)) * log(u0.c + inv(x * Arb((a, b)))) * I
+```
+where `I` is the integral
 ```
 I = ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt
 ```
 taken from `a` to `b` (or `π / x` if `to_endpoint` is true).
 
-We can integrate this explicitly, see [`T0_p_one`](@ref), giving us
+# Computing `I`
+We can integrate `I` explicitly, see [`T0_p_one`](@ref), giving us
 ```
 ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt =
     (clausenc(x * (1 - t), 2 - α) / x^2 - t * clausens(x * (1 - t), 1 - α) / x) +
@@ -298,7 +305,7 @@ We can integrate this explicitly, see [`T0_p_one`](@ref), giving us
 ```
 Call this function `primitive(t)`. We then have
 ```
-I = primitive(1 + δ) - primitive(1 - δ)
+I = primitive(b) - primitive(a)
 ```
 
 By reorganising the terms we can rewrite `primitive(t)` as
@@ -348,8 +355,8 @@ them and we therefore enclose them separately. We compute a tighter
 enclosure using [`enclosure_series`](@ref) which typically picks up
 the monotonicity.
 
-# Value at `t = π / x`
-In the special case that `t = π / x` this simplifies to
+## Value at `t = π / x`
+In the special case that `t = π / x` things simplify, we get
 ```
 primitive_mul_x(π / x) = 2(clausencmzeta(x + π, 2 - α) - clausencmzeta(Arb(π), 2 - α)) / x
     = 2(clausenc(x + π, 2 - α) - clausenc(Arb(π), 2 - α)) / x
@@ -365,9 +372,6 @@ If either `a` or `b` is a wide ball we can compute a tighter enclosure
 by using that `primitive_mul_x(t)` is increasing in `t`. That it is
 increasing is an easy consequence of being the primitive function of a
 positive integrand.
-
-**IMPROVE:** We can use `ArbSeries` to expand in `x` and compute a
-tighter enclosure for most of it.
 """
 function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0 = false)
     #Enclosure of Arb((2 - u0.ϵ, 3)) computed in a way so that the
@@ -392,34 +396,22 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             ) || throw(ArgumentError("integrand not positive at t = a = $a"))
         end
 
-        primitive(t) =
-            (
-                clausencmzeta(x * (1 - t), s2) + clausencmzeta(x * (1 + t), s2) -
-                2clausencmzeta(x * t, s2)
-            ) / x^2 -
-            t * (
-                clausens(x * (1 - t), s1) - clausens(x * (1 + t), s1) +
-                2clausens(x * t, s1)
-            ) / x
-
         primitive_mul_x(t) =
             let
-                # Compute enclosure of all clausenc terms using ArbSeries
-                term1_f(x) =
+                # Compute enclosure of all clausenc terms
+                term1 = ArbExtras.enclosure_series(x) do x
                     (
                         clausencmzeta(x * (1 - t), s2) + clausencmzeta(x * (1 + t), s2) - 2clausencmzeta(x * t, s2)
                     ) / x
+                end
 
-                term1 = ArbExtras.enclosure_series(term1_f, x)
-
-                # Compute enclosure of all clausens terms using ArbSeries
-                term2_f(x) =
+                # Compute enclosure of all clausens terms
+                term2 = ArbExtras.enclosure_series(x) do x
                     t * (
                         clausens(x * (1 - t), s1) - clausens(x * (1 + t), s1) +
                         2clausens(x * t, s1)
                     )
-
-                term2 = ArbExtras.enclosure_series(term2_f, x)
+                end
 
                 return term1 - term2
             end
@@ -427,31 +419,34 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
         # primitive_mul_x(b) - primitive_mul_x(a)
         primitive_bma_mul_x(a, b) =
             let
-                # Compute enclosure of all clausenc terms using ArbSeries
-                term1_f(x) =
+                # Compute enclosure of all clausenc terms
+                term1 = ArbExtras.enclosure_series(x) do x
                     (
                         (
                             clausencmzeta(x * (1 - b), s2) +
-                            clausencmzeta(x * (1 + b), s2) - 2clausencmzeta(x * b, s2)
+                            clausencmzeta(x * (1 + b), s2) -
+                            2clausencmzeta(x * b, s2)
                         ) - (
                             clausencmzeta(x * (1 - a), s2) +
-                            clausencmzeta(x * (1 + a), s2) - 2clausencmzeta(x * a, s2)
+                            clausencmzeta(x * (1 + a), s2) -
+                            2clausencmzeta(x * a, s2)
                         )
                     ) / x
-                term1 = ArbExtras.enclosure_series(term1_f, x)
+                end
 
-                # Compute enclosure of all clausens terms using ArbSeries
-                term2_f(x) = (
-                    b * (
-                        clausens(x * (1 - b), s1) - clausens(x * (1 + b), s1) +
-                        2clausens(x * b, s1)
-                    ) -
-                    a * (
-                        clausens(x * (1 - a), s1) - clausens(x * (1 + a), s1) +
-                        2clausens(x * a, s1)
+                # Compute enclosure of all clausens terms
+                term2 = ArbExtras.enclosure_series(x) do x
+                    (
+                        b * (
+                            clausens(x * (1 - b), s1) - clausens(x * (1 + b), s1) +
+                            2clausens(x * b, s1)
+                        ) -
+                        a * (
+                            clausens(x * (1 - a), s1) - clausens(x * (1 + a), s1) +
+                            2clausens(x * a, s1)
+                        )
                     )
-                )
-                term2 = ArbExtras.enclosure_series(term2_f, x)
+                end
 
                 return term1 - term2
             end
@@ -465,6 +460,7 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
             end
 
             I_mul_x = if iswide(b)
+                # Use that the integral is monotone in b
                 union(
                     primitive_bma_mul_x(a, lbound(Arb, b)),
                     primitive_bma_mul_x(a, ubound(Arb, b)),

@@ -1,7 +1,7 @@
 """
     T012(u0::BHKdVAnsatz; δ, skip_div_u0)
 
-Return a functions `f` such that `f(x)` computes the integral
+Return a functions such that `T012(u0; δ)(x)` computes the integral
 ```
 inv(π * u0(x) * u0.w(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * u0.w(x * t) dt
 ```
@@ -58,7 +58,7 @@ function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0
     @assert Arblib.overlaps(u0.c, 2Arb(ℯ))
 
     return (x::Arb; tol = Arb(1e-5)) -> begin
-        # Compute  t0
+        # Compute t0
         t0 = begin
             a = TaylorModel(α, Arb(-1), degree = 2) do α
                 num = -2gamma(2 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 // 2)
@@ -76,24 +76,20 @@ function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0
                 # If t is a ArbSeries only the constant term in the
                 # result will be finite. We therefore only compute
                 # with the constant part.
-                if t isa ArbSeries
-                    tt = t[0]
-                else
-                    tt = t
-                end
+                t₀ = t isa ArbSeries ? t[0] : t
 
                 # Check that clausenc(x * t, -α) * t * u0.wdivx(x * t)
                 # is increasing
-                if tt < t0
-                    tᵤ = ubound(Arb, tt)
+                if t₀ < t0
+                    tᵤ = ubound(Arb, t₀)
 
                     # Use that t * u0.wdivx(x * t) is increasing in t.
                     # This follows from that the derivative has the
                     # same sign as x * t * u0.wdivx(x * t) = u0.w(x *
                     # t) and u0.w is increasing.
                     part1 =
-                        clausenc(x * (1 - tt), -α) +
-                        clausenc(x * (1 + tt), -α) * Arb((0, tᵤ * u0.wdivx(x * tᵤ)))
+                        clausenc(x * (1 - t₀), -α) +
+                        clausenc(x * (1 + t₀), -α) * Arb((0, tᵤ * u0.wdivx(x * tᵤ)))
 
                     # Use that this term is increasing in t.
                     part2 = Arb((0, clausenc(x * tᵤ, -α) * tᵤ * u0.wdivx(x * tᵤ)))
