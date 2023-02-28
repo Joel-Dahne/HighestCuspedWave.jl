@@ -1,7 +1,12 @@
 """
     delta0_bound(u0::BHKdVAnsatz{Arb}; atol = 0, rtol = 1e-1, ubound_tol = 5e-4, verbose = false)
 
-Compute an upper bound of the value of `δ₀` from the paper.
+Compute an upper bound of the value of `δ₀` from the paper. This is
+the supremum of
+```
+abs(F0(u0))
+```
+for `0 < x < π`.
 
 The interval `[0, π]` is split into three intervals, `[0, ϵ1]`, `[ϵ1,
 ϵ]` and `[ϵ, π]`.
@@ -48,7 +53,7 @@ function delta0_bound(
         while !ArbExtras.check_tolerance(y; atol, rtol) &&
                   !(y < ubound_tol) &&
                   radius(y) > radius(z)
-            ϵ /= 1.2
+            ϵ *= 0.8
             y = f(ϵ)
             z = g(ϵ)
             ϵ > 1e-2 || error("could not determine working ϵ, last tried value was $ϵ")

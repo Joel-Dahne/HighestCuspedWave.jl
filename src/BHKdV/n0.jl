@@ -11,13 +11,14 @@ It splits the interval `[0, π]` into two parts, `[0, ϵ]` and `[ϵ, π]`
 with `ϵ < 1`.
 
 # The interval `[0, ϵ]`
-As a first step we split this into three factors by multiplying and
-dividing by `gamma(1 + α) * x^(-α) * (1 - x^p0)`, giving us.
+As a first step we split this into two factors by multiplying and
+dividing by `gamma(1 + α) * x^(-α) * (1 - x^p0)`, giving us
 ```
-u0.w(x) / 2u0(x) =  gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x) *
-    u0.w(x) / (2gamma(1 + α) * x^(-α) * (1 - x^p0))
+u0.w(x) / 2u0(x) =  (gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)) *
+    (u0.w(x) / (2gamma(1 + α) * x^(-α) * (1 - x^p0)))
+    = F(x) * G(x)
 ```
-Let
+with
 ```
 F(x) = gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
 G(x) = u0.w(x) / (2gamma(1 + α) * x^(-α) * (1 - x^p0))
@@ -43,9 +44,8 @@ G1 = inv(gamma(2 + α))
 G2(x) = log(u0.c + inv(x)) / 2log(inv(x)) = -log(u0.c + inv(x)) / 2log(x)
 G3(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (gamma(1 + α) * (1 - x^p0))
 ```
-We can enclose `G1(x)` directly and `G2(x)` using that it is
-increasing in `x` for `0 < x < 1` and that the limit as `x -> 0` is `1
-/ 2`.
+We can enclose `G1` directly and `G2(x)` using that it is increasing
+in `x` for `0 < x < 1` and that the limit as `x -> 0` is `1 / 2`.
 
 The function `G3(x)` occurs in
 [`lemma_bhkdv_weight_div_asymptotic_enclosure`](@ref) and we can get
@@ -70,19 +70,9 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
 
     # Function for asymptotic evaluation
 
-    # This uses a hard coded version of the weight so just as an extra
-    # precaution we check that it seems to be the same as the one
-    # used.
-    let x = Arb(0.5)
-        @assert Arblib.overlaps(
-            u0.w(x),
-            x^(1 - u0.γ * (1 + Arb((-1, -1 + u0.ϵ)))) * log(u0.c + inv(x)),
-        )
-    end
     F = inv_u0_bound(u0, ϵ = Arb(1 // 2))
 
-    # inv(gamma(2 + α)) = rgamma(1 + u0.ϵ)
-    G1 = rgamma(1 + u0.ϵ)
+    G1 = rgamma(1 + u0.ϵ) # inv(gamma(2 + α)) = rgamma(1 + u0.ϵ)
 
     G2(x) =
         if Arblib.contains_zero(x)
@@ -106,7 +96,6 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
     # We expect the maximum to be attained at x = π. We therefore
     # first evaluate g at this point. We then find ϵ such that
     # f(Arb((0, ϵ))) is bounded by this value.
-
     gπ = g(Arb(π))
 
     # Check that the value at π is positive, so that u0.w(x) / 2u0(x)
@@ -119,8 +108,6 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
 
     ϵ = Arf(0.45)
     while !(f(Arb((0, ϵ))) < gπ)
-        # We use the factor 0.8 instead of, say, 0.5 to get
-        # slightly better (higher) values for ϵ.
         ϵ *= 0.8
 
         # We use the non-asymptotic version on [ϵ, π] so we don't want
@@ -136,9 +123,9 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
         g,
         ϵ,
         ubound(Arb(π)),
-        degree = 0, # Enough to make use of monotonicity
+        degree = 0,
         abs_value = true,
-        point_value_max = abs(g(Arb(π))), # Maximum is in practice attained here
+        point_value_max = gπ, # Maximum is in practice attained here
         depth_start = 4,
         threaded = true;
         rtol,

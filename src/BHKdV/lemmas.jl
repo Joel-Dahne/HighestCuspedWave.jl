@@ -148,11 +148,11 @@ p0 = (1 + α) + (1 + α)^2 / 2
 ```
 then the function
 ```
--x^((1 + α) / 2) * log(x) * (1 + α) / (1 - x^p0)
+x^((1 + α) / 2) * log(inv(x)) * (1 + α) / (1 - x^p0)
 ```
 satisfies the inequality
 ```
-0 < -x^((1 + α) / 2) * log(x) * (1 + α) / (1 - x^p0) < 1
+0 < x^((1 + α) / 2) * log(inv(x)) * (1 + α) / (1 - x^p0) < 1
 ```
 
 # Proof
