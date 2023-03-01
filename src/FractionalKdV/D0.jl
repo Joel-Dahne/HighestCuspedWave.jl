@@ -30,7 +30,6 @@ practice is increasing in `x`. We therefore try to prove that it is
 increasing on the interval ``[ϵ, b]``, with `b` slightly smaller than
 `π`, by proving that the derivative is non-negative. This allows us to
 only evaluate it on the endpoints if `x` lies in this interval.
-
 """
 function D0_bounded_by(
     u0::FractionalKdVAnsatz{Arb},
