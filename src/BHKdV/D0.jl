@@ -1,7 +1,11 @@
 """
     D0_bound(u0::BHAnsatz; atol, verbose = false)
 
-Compute an upper bound of `D₀` from the paper.
+Compute an upper bound of `D₀` from the paper. This is the supremum of
+```
+abs(T0(u0)(x))
+```
+for `0 < x < π`.
 
 The interval `[0, π]` is split into two parts, `[0, ϵ]` and ´[ϵ, π]`.
 On `[0 ϵ]` we use an asymptotic expansion of `T0(u0)` whereas on ´[ϵ,
@@ -11,39 +15,30 @@ In practice the maximum is attained on `[ϵ, π]` and for that reason we
 compute the maximum on this part first and then only prove that the
 value on `[0, ϵ]` is bounded by this value.
 
-This method uses the fact that `u0.v0(x)` gives a **lower** bound for
-`u0(x)`. This is the statement of
+For the interval ``[ϵ, π]`` we compute `T0(u0)` using the argument
+`skip_div_u0 = true` We then use the fact that `u0.v0(x)` gives a
+**lower** bound for `u0(x)`. This is the statement of
 [`lemma_bhkdv_monotonicity_alpha`](@ref). This means that as long as
-`u0.v0(x) > 0` we have that `inv(u0(x))` is **upper** bounded by
-`inv(u0.v0(x))`. To prove that `u0.v0(x)` is positive it is enough to
-ensure that `u0.v0(π)` is positive and that the final bound is finite,
-in this case `u0.v0(x)` can never be zero.
+`u0.v0(x) > 0` division by `u0.v0(x)` instead of `u0(x)` gives an
+upper bound of the value. To prove that `u0.v0(x)` is positive it is
+enough to ensure that `u0.v0(π)` is positive and that the final bound
+is finite, in this case `u0.v0(x)` can never be zero.
 
-For the non-asymptotic version we do a number of optimizations for
-performance reasons.
+To efficiently compute a tight enclosure of `u0.v0(x)` we use that it
+in practice is increasing in `x`. We therefore try to prove that it is
+increasing on the interval ``[ϵ, b]``, with `b` slightly smaller than
+`π`, by proving that the derivative is non-negative. This allows us to
+only evaluate it on the endpoints if `x` lies in this interval.
 
-The first optimization is to notice that even though `T0(u0)` doesn't
-support evaluation on `ArbSeries`, and hence we can't use higher order
-methods, `u0.v0` does. We can thus get a much tighter enclosure of
-`u0.v0` by enclosing it with [`ArbExtras.enclosure_series`](@ref).
-
-The second optimization comes from noticing that the enclosure for
-`u0.v0` that we get using the above strategy means that we get a much
-tighter enclosure for `u0` than for `T0(u0)`. This means that we have
-to split a lot to get good bounds for `T0(u0)` but not nearly as much
-to get good bounds for `u0`. We therefore [`mince`](@ref) the interval
-into several smaller pieces on which we evaluate `T0(u0)` and then put
-the result together. While this doesn't decrease the number of times
-we have to evaluate `T0(u0)` (in fact it probably increases it), it
-does decrease the number of times we have to evaluate `u0`, which
-turns out to be the more costly part of the procedure.
-
-One problem we have to deal with is that `T0(u0)` currently doesn't
-fully allow evaluation on `x` values strictly larger than `π`. To
-handle this we use [`ArbExtras.extrema_enclosure`](@ref) on the
-interval `[ϵ, lbound(Arb(π))]`, which is strictly less than `π`, and
-then evaluate on the remaining endpoint `[lbound(Arb(π)), π]`
-separately.
+In general we can get much better enclosures of `u0.v0(x)` than of
+`T0(u0)(x)`. This means that we have to split a lot to get good bounds
+for the latter but not as much to get good bounds for the former. We
+therefore [`mince`](@ref) the interval into several smaller pieces on
+which we evaluate `T0(u0)` and then put the result together. While
+this doesn't decrease the number of times we have to evaluate `T0(u0)`
+(in fact it probably increases it), it does decrease the number of
+times we have to evaluate `u0.v0`, which turns out to be the more
+costly part of the procedure.
 """
 function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
     verbose && @info "Computing bound of D0"
@@ -58,18 +53,42 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
     # Check that u0.v0 is positive at x = π
     Arblib.ispositive(u0.v0(Arb(π))) || error("u0.v0(π) not positive")
 
-    # The evaluation of T0 doesn't support ArbSeries, but the
-    # evaluation of u0 does. We can use ArbSeries to get a tighter
-    # enclosure for u0.
+    # In practice u0.v0 is increasing on [0, π]. Try to prove that
+    # this is the case on the interval [ϵ, b] with b < π.
+    b = Arf(3.14)
+
+    verbose && @info "Trying to prove that u0 is increasing on [ϵ, b]" b
+
+    # Try to prove that minus the derivative of u0 is non-positive,
+    # meaning the derivative is non-negative, on [ϵ, b].
+    u0v0_is_increasing = ArbExtras.bounded_by(
+        ArbExtras.derivative_function(x -> -u0.v0(x)),
+        ϵ,
+        b,
+        Arf(0),
+        degree = 0,
+        depth_start = 2,
+        depth = 5,
+        threaded = true;
+        verbose,
+    )
+
+    if verbose
+        if u0v0_is_increasing
+            @info "Succeeded with proving that it is increasing"
+        else
+            # This means we fall back to using enclosure_series
+            @info "Failed with proving that it is increasing"
+        end
+    end
+
     f = T0(u0, skip_div_u0 = true)
 
-    minces = 5
-
-    g(x) =
+    g(x; minces = 5) =
         let
             if iswide(x)
-                # Split x into several smaller intervals and evaluate f on
-                # each, then put them together.
+                # Split x into several smaller intervals and evaluate
+                # f on each, then put them together.
                 x_minced = HighestCuspedWave.mince(x, minces)
                 res = f(x_minced[1])
                 for i = 2:length(x_minced)
@@ -82,30 +101,30 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
 
             isfinite(res) || return res
 
-            return res / ArbExtras.enclosure_series(u0.v0, x)
+            u0v0x = if iswide(x)
+                if u0v0_is_increasing && ϵ < x < b
+                    xₗ, xᵤ = ArbExtras.enclosure_getinterval(x)
+                    u0v0xₗ = u0.v0(xₗ)
+                    u0v0xᵤ = u0.v0(xᵤ)
+                    Arb((u0v0xₗ, u0v0xᵤ))
+                else
+                    ArbExtras.enclosure_series(u0.v0, x)
+                end
+            else
+                u0.v0(x)
+            end
+
+            return res / u0v0x
         end
 
     # Bound it on [ϵ, π]
-    a = ϵ
-    b = ubound(Arb(π))
-
-    xs = range(Arb(a), Arb(b), length = 20)
-    ys = similar(xs)
-    Threads.@threads for i in eachindex(xs)
-        ys[i] = g(xs[i])
-    end
-
-    D0_approx = maximum(abs.(ys))
-
-    verbose && @info "Approximate maximum" D0_approx
-
     D0 = ArbExtras.maximum_enclosure(
         g,
-        a,
-        b,
+        ϵ,
+        ubound(Arb(π)),
         degree = -1,
         abs_value = true,
-        point_value_max = D0_approx,
+        point_value_max = g(Arb(1.4)), # Maximum is near x = 1.4
         depth_start = 8,
         threaded = true;
         atol,
@@ -134,6 +153,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
         ϵ,
         lbound(D0),
         degree = -1,
+        abs_value = true,
         log_bisection = true,
         threaded = true;
         verbose,
