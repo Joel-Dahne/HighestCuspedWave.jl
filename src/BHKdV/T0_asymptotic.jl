@@ -317,8 +317,8 @@ G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *
 ```
 
 If `x` does not overlap zero it uses [`_T0_asymptotic_main_2_1`](@ref)
-and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral.
-Factoring out `1 + α` from the integral we get
+and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral. In that
+case we factor out `1 + α` from the integral to get
 ```
 G2(x) = (1 + α) / (1 - x^p0) * 1 / log(inv(x)) *
             ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α)*
@@ -529,43 +529,23 @@ we are left with
 ```
 ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t dt
 ```
-If we let `s = -(α + 1)` a primitive function is given by
+Which can be explicitly computed to be
 ```
-(
-    - t^2 * ((t - 1)^s + (t + 1)^s - 2t^s) / s
-    + ((t - 1)^s + (t + 1)^s - 2) / s
-    - t * ((t - 1)^(1 + s) + (t + 1)^(1 + s) - 2t^(1 + s))
-) / ((1 + s) * (2 + s))
+(1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α * (α + 1))
 ```
-where the constant is chosen to make it finite as `s` goes to zero.
-For `t = 1` this simplifies to
-```
--(2^-α - 2) / (α * (1 - α))
-```
-This allows us to compute the integral
-
-**IMPROVE:** This uses slightly different notation compared to the
-paper. Partially because it handles general `γ`.
 """
 function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
-    # Primitive function of
-    # ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t
-    primitive = let s = -(1 + α)
-        t -> begin
-            t1 = fx_div_x(v -> (t - 1)^v + (t + 1)^v - 2t^v, s)
-            t2 = fx_div_x(v -> (t - 1)^v + (t + 1)^v - 2, s)
-            #t1 = ((t - 1)^s + (t + 1)^s - 2t^s) / s
-            #t2 = ((t - 1)^s + (t + 1)^s - 2) / s
-            (-t^2 * t1 + t2 - t * ((t - 1)^(1 + s) + (t + 1)^(1 + s) - 2t^(1 + s))) / ((1 + s) * (2 + s))
+    # Enclosure of
+    # ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t dt
+    I = fx_div_x(α + 1) do αp1
+        let α = αp1 - 1
+            (1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α)
         end
     end
 
-    # primitive(1)
-    primitive_one = (2^-α - 2) / (α * (1 - α))
-
     # Enclosure of
     # ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
-    I = Arb((1, 2))^(-γ * (1 + α)) * (primitive(Arb(2)) - primitive_one)
+    K = Arb((1, 2))^(-γ * (1 + α)) * I
 
     return x::Arb -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -583,7 +563,7 @@ function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
         logfactor_upper = 1 + log1p(c * x) * invloginvx
         logfactor = Arb((logfactor_lower, logfactor_upper))
 
-        return logfactor * I
+        return logfactor * K
     end
 end
 
