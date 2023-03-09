@@ -7,8 +7,8 @@ G1(x) = inv((1 - x^p0) * log(inv(x))) *
             ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
                 t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
-where the integration is taken from `0` to `1`, defined in
-[`T0_asymptotic`](@ref).
+where the integration is taken from `0` to `1`, defined in the
+asymptotic version of [`T0`](@ref).
 
 Using that `1 - t >= 0` the problem reduces to computing an upper
 bound of
@@ -32,7 +32,7 @@ G1(x) = (1 + α) / (1 - x^p0) * 1 / log(inv(x))
 ```
 For the factor `(1 + α) / (1 - x^p0)` we note that it is increasing in
 `x` and given by `1 + α` at `x = 0`, for non-zero `x` we can handle
-the removable singularity. What remains to handle is to handle
+the removable singularity. What remains to handle is
 ```
 inv(log(inv(x))) * ∫ abs((1 - t)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
     t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt =
@@ -151,7 +151,7 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
                 t = real(t)
                 @assert !analytic
                 if Arblib.contains_zero(t)
-                    # Note that t is always positive in this case
+                    # Note that t should always be nonnegative in this case
                     let a = Arb(1 // 2)
                         return abs(
                             fx_div_x(
@@ -178,7 +178,8 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
 
         # Check that expression inside absolute value is positive on
         # [b, 1]
-        @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
+        Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1)) ||
+        error("integrand must be positive on [b, 1]")
 
         # Compute for the interval [0, b]
         part1 = real(
@@ -202,8 +203,10 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
                 t = real(t)
                 @assert !analytic
                 if Arblib.contains_zero(t)
-                    # Note that t is always positive in this case
+                    # Note that t should always be nonnegative in this case
                     let a = Arb(1 // 2), tᵤ = ubound(Arb, t)
+                        # Check for monotonicity and return an
+                        # indeterminate result otherwise
                         if t < exp(inv(1 - γ * αp1 - a))
                             return abs(
                                 fx_div_x(
@@ -237,7 +240,8 @@ function _T0_asymptotic_main_1(α::Arb, γ::Arb, c::Arb)
 
         # Check that expression inside absolute value is positive on
         # [b, 1]
-        @assert Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1))
+        Arblib.ispositive(fx_div_x(s -> (1 - b)^-s + (1 + b)^-s - 2b^-s, -αp1)) ||
+        error("integrand must be positive on [b, 1]")
 
         # Compute for the interval [0, b]
         part1 = real(
