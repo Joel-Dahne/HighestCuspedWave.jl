@@ -51,19 +51,19 @@ function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = 
 end
 
 """
-    T0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; ϵ::Arb = 0.5, non_asymptotic_u0 = false)
+    T0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; ϵ::Arb = 0.5)
 
-Returns a function `f` such that `f(x)` computes an **upper bound** of
+Return a function such that `T0(u0, Asymptotic())(x)` computes the
+integral `T0(u0)(x)` using an evaluating strategy that works
+asymptotically as `x` goes to zero. In general it only computes an
+**upper bound** of it.
+
+More precisely it computes
 ```
 1 / (π * u0.w(x) * u0(x)) *
     ∫ abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
 ```
-with the integration going from `0` to `π`. It uses an evaluation
-strategy that works asymptotically as `x` goes to `0`.
-
-If `non_asymptotic_u0 = true` it uses a non-asymptotic approach for
-evaluating `gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x))` which
-occurs in the calculations.
+with the integration going from `0` to `π`.
 
 Then change of variables `t = y / x` gives us
 ```
@@ -88,7 +88,8 @@ Similarly to in the asymptotic version of [`F0`](@ref) we split the
 expression into three factors which we bound separately. We write it
 as
 ```
-(gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x)))
+inv(π)
+* (gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x)))
 * (log(inv(x)) / log(u0.c + inv(x)))
 * (
     x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x))) *
@@ -96,9 +97,9 @@ as
         t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 )
 ```
-Except for the addition of `1 / π` the first two factors are the same
-as in [`F0`](@ref) and we handle them in the same way. For the third
-factor we use the notation
+The first two factors, after `inv(π)`, are the same as in [`F0`](@ref)
+and we handle them in the same way. For the third factor we use the
+notation
 ```
 W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x)))
 I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
@@ -163,28 +164,14 @@ inv(gamma(2 + α) / (1 + α) * (1 - x^p0)) = inv(gamma(2 + α)) * inv((1 - x^p0)
 ```
 and handle the removable singularity with [`fx_div_x`](@ref).
 """
-function T0(
-    u0::BHKdVAnsatz{Arb},
-    ::Asymptotic;
-    ϵ::Arb = Arb(0.5),
-    non_asymptotic_u0 = false,
-)
+function T0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; ϵ::Arb = Arb(0.5))
     # Enclosure of α
     α = Arb((-1, -1 + u0.ϵ))
     # Enclosure of α + 1, avoiding spurious negative parts
     αp1 = Arblib.nonnegative_part!(zero(α), Arb((0, u0.ϵ)))
 
     # Function for bounding gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
-    f1 = if non_asymptotic_u0
-        # We use that gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 -
-        # x^p0) / (1 + α)
-        x ->
-            x^-α *
-            gamma(2 + α) *
-            fx_div_x(ϵ -> 1 - x^(ϵ + ϵ^2 / 2), αp1, extra_degree = 2) / u0(x)
-    else
-        inv_u0_bound(u0, M = 3; ϵ)
-    end
+    f1 = inv_u0_bound(u0, M = 3; ϵ)
 
     # Function for enclosing log(inv(x)) / log(u0.c + inv(x))
     f2 = x -> if iszero(x)
