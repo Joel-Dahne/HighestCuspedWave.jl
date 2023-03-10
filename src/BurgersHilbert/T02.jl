@@ -146,27 +146,20 @@ For the integrals we have
 ```
 ∫ sqrt(log(inv(x * t))) / t dt = 2 // 3 * log(inv(2x))^(3 // 2)
 
-∫ sqrt(log(inv(x * t))) / t^3 dt = (sqrt(log(inv(2x))) - sqrt(2π) * x^2 * erfi(sqrt(log(inv(4x^2))))) / 8
+∫ sqrt(log(inv(x * t))) / t^3 dt = sqrt(log(inv(2x))) / 8 - sqrt(2π) * x^2 * erfi(sqrt(log(inv(4x^2)))) / 8
 
 ∫ 1 / t dt = log(inv(x)) - log(2)
 
 ∫ 1 / t^3 dt = (1 - 4x^2) / 8
 ```
-To avoid having to use the `erfi` function we use [DLMF
-7.8.7]([https://dlmf.nist.gov/7.8.E7) to get
-```
-x^2 * erfi(sqrt(log(inv(4x^2))))
-= 2 / sqrt(π) * x^2 * ∫_0^sqrt(log(inv(4x^2))) exp(t^2) dt
-<= 2 / sqrt(π) * x^2 (exp(sqrt(log(inv(4x^2)))^2) - 1) / sqrt(log(inv(4x^2)))
-= 2 / sqrt(π) * x^2 (inv(4x^2) - 1) / sqrt(2log(inv(2x)))
-= 1 / 2sqrt(2π) * (1 - 4x^2) / sqrt(log(inv(2x)))
-```
-This gives us the following upper bound for `U2_m2`
+The `erfi` function is lower bounded by zero, this is easily seen from
+the integral representation, and we thus get an upper bound by simply
+removing the term with `erfi` in it. This gives us the following upper
+bound for `U2_m2`
 ```
 U2_m2 <=
     2 / 3 * log(inv(2x))^(3 // 2)
     + R2 * sqrt(log(inv(2x))) / 8
-    - R2 * (1 - 4x^2) / 16sqrt(log(inv(2x)))
     + sqrt(log(2)) * log(inv(x))
     - log(2)^(3 // 2)
     + R2 * sqrt(log(2)) * (1 - 4x^2) / 8
@@ -189,7 +182,7 @@ log((π^2 - x^2) / (1 - x^2)) + log(1 - x^2) / 2x^2 - π^2 * log(1 - x^2 / π^2)
 ```
 and hence
 ```
-U3_m3(x) <= sqrt(log(2)) * x^2 * (log((π^2 - x^2) / (1 - x^2)) + log(1 - x^2) / 2x^2 - π^2 * log(1 - x^2 / π^2))
+U2_m3(x) <= sqrt(log(2)) * x^2 * (log((π^2 - x^2) / (1 - x^2)) + log(1 - x^2) / 2x^2 - π^2 * log(1 - x^2 / π^2) / 2x^2)
 ```
 
 ## Putting `U2_m1`, `U2_m2` and `U2_m3` together
@@ -200,7 +193,6 @@ U2_m(x) <= x^2 * (
     + (
         2 / 3 * log(inv(2x))^(3 // 2)
         + R2 * sqrt(log(inv(2x))) / 8
-        - R2 * (1 - 4x^2) / 16sqrt(log(inv(2x)))
         + sqrt(log(2)) * log(inv(x))
         - log(2)^(3 // 2)
         + R2 * sqrt(log(2)) * (1 - 4x^2) / 8
@@ -383,21 +375,8 @@ function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Ar
 
                 # Terms for which we don't have to cancel things
 
-                # Enclosure of inv(sqrt(log(inv(2x))))
-                invsqrtloginv2x = if iszero(x)
-                    zero(x)
-                elseif Arblib.contains_zero(x)
-                    lower = zero(x)
-                    upper = inv(sqrt(log(inv(2ubound(Arb, x)))))
-                else
-                    inv(sqrt(log(inv(2x))))
-                end
-
                 remaining =
-                    (
-                        -R2 * (1 - 4x^2) * invsqrtloginv2x / 16 - log(Arb(2))^(3 // 2) +
-                        R2 * sqrt(log(Arb(2))) * (1 - 4x^2) / 8
-                    ) * weight_factor(x)
+                    (-log(Arb(2))^(3 // 2) + R2 * sqrt(log(Arb(2))) * (1 - 4x^2) / 8) * weight_factor(x)
 
                 (term1 + term2 + term3) + remaining
             end

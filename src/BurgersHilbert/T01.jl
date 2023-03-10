@@ -199,8 +199,8 @@ f3(t) = log(t) * t * sqrt(log(inv(t)))
 ```
 The integrand is then given by `t * f1(t) + t * f2(t) - 2f3(t)`. We
 are thus interested in bounding `f1`, `f2` and `f3` near `t = 0` and
-`t = 1`. They are all zero and `t = 0` and `t = 1`, our goal will be
-to isolate the parts of the interval ``(0, 1)`` where they are not
+`t = 1`. They are all zero at `t = 0` and `t = 1`, our goal will be to
+isolate the parts of the interval ``(0, 1)`` where they are not
 monotone. We can then use monotonicity near the endpoints.
 
 For `f3` we can differentiate to get
@@ -541,7 +541,7 @@ function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div
 
                 Arblib.set!(
                     res,
-                    log(sin((1 - t) * xdiv2) * sin((1 + t) * xdiv2)) * tsqrt + logsin_tsqrt,
+                    log(sin((1 - t) * xdiv2) * sin((1 + t) * xdiv2)) * tsqrt - logsin_tsqrt,
                 )
                 return
             else
