@@ -578,8 +578,7 @@ G22(x) = 1 / log(inv(x)) *
 ```
 where the integration is taken from `2` to `π / x`.
 
-This method is meant for non-zero `x`. The integral is computed by
-integrating numerically.
+The integral is computed by integrating numerically.
 
 To compute better enclosures in the numerical integration we compute a
 lower bound by integrating to the lower bound of `π / x` and an upper
@@ -603,27 +602,38 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
         extra_degree = 2
         xₗ, xᵤ = getinterval(Arb, x)
 
+        # Compute ((t - 1)^-(α + 1) + (t + 1)^-(α + 1) - 2t^-(α + 1)) / (α + 1).
+        # It only handles the types of α and t that actually occurs in
+        # the integration.
+        integrand_part =
+            (α, t) -> let
+                if α isa ArbSeries && contains(α[0], -1)
+                    return fx_div_x(α + 1; extra_degree) do αp1
+                        (t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1
+                    end
+                elseif α isa Arb && contains(α, -1)
+                    return fx_div_x(oftype(t, 1 + α)) do αp1
+                        (t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1
+                    end
+                else
+                    # Large cancellations so do the computations at a
+                    # higher precision
+                    let αp1 = setprecision(α + 1, 2precision(α))
+                        ((t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1) / αp1
+                    end
+                end
+            end
+
         I_lower =
             Arblib.integrate(2, lbound(Arb, π / x), warn_on_no_convergence = false) do t
                 if isreal(t)
                     t = real(t)
 
                     return ArbExtras.enclosure_series(α, degree = 4) do α
-                        if α isa ArbSeries && contains(α[0], -1)
-                            fx_div_x(α + 1; extra_degree) do αp1
-                                (t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1
-                            end * t^(1 - γ * (α + 1))
-                        else
-                            # Large cancellations so do the
-                            # computations at a higher precision
-                            let αp1 = setprecision(α + 1, 2precision(α))
-                                ((t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1) / αp1 *
-                                t^(1 - γ * αp1)
-                            end
-                        end
+                        integrand_part(α, t) * t^(1 - γ * (α + 1))
                     end * log(c + inv(xᵤ * t))
                 else
-                    return fx_div_x(s -> (t - 1)^-s + (t + 1)^-s - 2t^-s, Acb(1 + α)) *
+                    return integrand_part(α, Acb(t)) *
                            t^(1 - γ * (α + 1)) *
                            log(c + inv(xᵤ * t))
                 end
@@ -635,21 +645,10 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
                     t = real(t)
 
                     return ArbExtras.enclosure_series(α, degree = 4) do α
-                        if α isa ArbSeries && contains(α[0], -1)
-                            fx_div_x(α + 1; extra_degree) do αp1
-                                (t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1
-                            end * t^(1 - γ * (α + 1))
-                        else
-                            # Large cancellations so do the
-                            # computations at a higher precision
-                            let αp1 = setprecision(α + 1, 2precision(α))
-                                ((t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1) / αp1 *
-                                t^(1 - γ * αp1)
-                            end
-                        end
+                        integrand_part(α, t) * t^(1 - γ * (α + 1))
                     end * log(c + inv(xₗ * t))
                 else
-                    return fx_div_x(s -> (t - 1)^-s + (t + 1)^-s - 2t^-s, Acb(1 + α)) *
+                    return integrand_part(α, Acb(t)) *
                            t^(1 - γ * (α + 1)) *
                            log(c + inv(xₗ * t))
                 end
