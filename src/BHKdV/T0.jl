@@ -110,12 +110,12 @@ I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clause
 As a first step we expand the integrand. We have the following
 expansions for the Clausen functions in the integrand
 ```
-clausenc(x * (1 - t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + R(x * abs(1 - t))
-clausenc(x * (1 + t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + R(x * (1 + t))
-clausenc(x * t, -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * t^(-α - 1) + R(x * t)
+clausenc(x * (1 - t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + P(x * abs(1 - t))
+clausenc(x * (1 + t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + P(x * (1 + t))
+clausenc(x * t, -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * t^(-α - 1) + P(x * t)
 ```
-where the error term `R` contains one constant term and `R(x * abs(1 -
-t)) + R(x * (1 + t)) - 2R(x * t)` behaves like `O(x^2)`.
+where the remainder term `P` contains one constant term and `P(x *
+abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)` behaves like `O(x^2)`.
 
 Inserting this into the integral allows us to split it into one main
 integral
@@ -128,7 +128,7 @@ I_M(x) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) *
 is positive to allow us to move it outside of the absolute value, and
 one remainder integral
 ```
-I_R(x) = x^(1 + α) * ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+I_R(x) = x^(1 + α) * ∫ abs(P(x * abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)) *
     t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 They satisfy `I(x) <= I_M(x) + I_R(x)`.
@@ -143,7 +143,7 @@ G2(x) = inv((1 - x^p0) * log(inv(x))) *
             ∫_1^(π / x) abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
                 t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 
-R(x) = ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+R(x) = ∫ abs(P(x * abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)) *
             t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 We have

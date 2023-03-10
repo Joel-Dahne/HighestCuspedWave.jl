@@ -665,14 +665,14 @@ end
 
 Compute an upper bound of
 ```
-R(x) = ∫ abs(R(x * abs(1 - t)) + R(x * (1 + t)) - 2R(x * t)) *
+R(x) = ∫ abs(P(x * abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)) *
             t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
-defined in [`T0_asymptotic`](@ref).
+defined in the asymptotic version of [`T0`](@ref).
 
 From the expansion of the Clausen functions we have
 ```
-R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t) = sum(
+P(x * (t - 1)) + P(x * (1 + t)) - 2P(x * t) = sum(
     zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
 )
 ```
@@ -685,17 +685,18 @@ powers are even. We have that
 ```
 Giving us
 ```
-R(x * (t - 1)) + R(x * (1 + t)) - 2R(x * t) = 2sum(
+P(x * (t - 1)) + P(x * (1 + t)) - 2P(x * t) = 2sum(
     zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * sum(binomial(2m, 2k) * t^2k for k = 0:m-1) for m = 1:Inf
 )
 ```
 The factor `zeta(-α - 2m) * (-1)^m` is positive since `0 < -α < 1` and
-`m >= 1`. All terms are therefore positive and adding the integrating
+`m >= 1`. All terms are therefore positive and adding the integration
 we can write it as
 ```
 R(x) = 2sum(
     zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m *
-        sum(binomial(2m, 2k) * ∫ t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt for k = 0:m-1) for m = 1:Inf
+    sum(binomial(2m, 2k) * ∫ t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt for k = 0:m-1)
+    for m = 1:Inf
 )
 ```
 where the integration is taken from `0` to `π / x`. For the integral
@@ -725,7 +726,7 @@ integrating explicitly gives us
 And hence
 ```
 ∫ t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt <=
-    log(c + inv(π)) * (π / x)^(2(k + 1)) / (2(k + 1) - γ * (1 + α))
+    log(c + inv(π)) / (2(k + 1) - γ * (1 + α)) * (π / x)^(2(k + 1))
 ```
 Inserting this back into `R(x)` and factoring out `(π / x)^2m` we get
 ```
@@ -757,7 +758,7 @@ This sum is exactly the same as in the remainder for `clausenc` in
 inv(π))`, and we can get a bound from that function.
 """
 function _T0_asymptotic_remainder(α::Arb, γ::Arb, c::Arb; M = 20)
-    # Precompute the factor
+    # Precompute the factors
     # (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m))
     # in the finite sum
     factors = [(-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) for m = 1:M-1]
@@ -769,13 +770,13 @@ function _T0_asymptotic_remainder(α::Arb, γ::Arb, c::Arb; M = 20)
     end
 
     return x::Arb -> begin
-        x < 1 || throw(DomainError(x, "x must be less than 1"))
+        x < 1 || throw(DomainError(x, "must have x < 1"))
 
         # Sum directly for m = 1:M-1
         main = sum(1:M-1, init = zero(x)) do m
-            factors[m] * sum(
-                binomial(2m, 2k) * abspow(x / π, 2(m - 1 - k)) / (2(k + 1) - γ * (1 + α)) for k = 0:m-1
-            )
+            factors[m] * sum(0:m-1) do k
+                binomial(2m, 2k) * abspow(x / π, 2(m - 1 - k)) / (2(k + 1) - γ * (1 + α))
+            end
         end
 
         return 2log(c + inv(Arb(π))) * (main + tail)
