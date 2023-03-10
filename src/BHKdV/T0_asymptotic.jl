@@ -300,8 +300,8 @@ G2(x) = inv((1 - x^p0) * log(inv(x))) *
             ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
                 t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
-where the integration is taken from `1` to `π / x`, defined in
-[`T0_asymptotic`](@ref).
+where the integration is taken from `1` to `π / x`, defined in the
+asymptotic version of [`T0`](@ref).
 
 Using that `1 - t <= 0` and that
 ```
@@ -333,7 +333,10 @@ is not too small, in practice it is only used for `x > 1e-10`.
 
 When `x` overlaps zero significantly more work is required to get a
 bound. The details are given in the corresponding section of the
-paper. We here give an overview of the approach used.
+paper. We here give an overview of the approach used. Note that the
+paper fixes `γ = 1 / 2` and below we also use that assumption. The
+paper also fixes `c = 2ℯ` but it is straight forward to adapt the
+results to a general `c` and that is the version we give below.
 
 # Split into `G2_M`, `G2_R_1` and `G2_R_2`
 We have
@@ -348,14 +351,12 @@ G2_M(x) = inv(1 - x^(1 + α + (1 + α)^2 / 2)) * inv(log(inv(x))) * (4 + 2α) / 
         + log(π / x) * (x / π)^(3 / 2 * (1 + α))
     )
 ```
-with `D = Arb((-log(1 + cπ), log(1 + cπ)))`.
+with `D = Arb((-log(1 + c * π), log(1 + c * π)))`.
 ```
 G2_R_factor(x) = (1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2)) * (1 + log(1 + c * x) / log(1 / x))
 ```
 ```
-G2_R_n1 = (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
-        binomial(n, k) / 2^k * ∫_1^(π / x) log(t)^k * abs(h(n - k, t)) * t dt
-    end
+G2_R_n1 = ∫_1^(π / x) abs(h(1, t)) * t dt
 ```
 ```
 G2_R_1(x) = sum(2:Inf) do n
@@ -380,18 +381,16 @@ h(k, t) = log(t - 1)^k + log(t + 1)^k - 2log(t)^k - k * (k - 1 - log(t)) * log(t
 Bounds for the functions `G2_M(x)`, `G2_R_factor(x)`, `G2_R_1(x)` and
 `G2_R_2(x)` are computed individually.
 
-Note that compared to the version in the paper we use the variable `c`
-instead of the explicit value `2ℯ`. In practice `c` will be equal to
-`2ℯ` but the code supports using different values as well. We avoid
-specifying the exact requirements on `c` for these bounds to hold
-though, since in the actual proof we only use `c = 2ℯ`.
-
 # Bounding `G2_M(x)`
 We have the following bound for `G2_M(x)`, from a lemma in the paper.
 ```
-G2_M(x) <= (4 + 2α) / 3 * (2log(1 + cπ) / log(inv(x)) + 1)
+G2_M(x) <= (4 + 2α) / 3 * (2log(1 + c * π) / log(inv(x)) + 1)
 ```
-Which holds for `x < inv(π^3)`.
+Which holds for `x < inv(π^3)`. The factor `log(1 + c * π)` comes from
+the upper bound of `D = Arb((-log(1 + c * π), log(1 + c * π)))`. In
+the paper we only give the upper bound but for the code we instead opt
+to use the full enclosure of `D`, this makes it easier to track how
+good of an approximation the result is.
 
 # Enclosing `G2_R_factor(x)`
 We can enclose `(1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2))` using that
@@ -408,7 +407,7 @@ paper.
 ```
 G2_R_1(x) <= 2(
     sqrt(ℯ) * (1 + α) / (-α)
-    + 4(exp(3(1 + α) - 3(1 + α) - 1)) / (3(1 + α))
+    + 4(exp(3(1 + α)) - 3(1 + α) - 1) / 3(1 + α)
     + (2 + α) * exp(3 / 2 * (1 + α))
     - 1
 )
@@ -453,11 +452,11 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             end
 
             # First factor of remainder term.
-            # Given by (1 + α) / ((1 - x^p0)) * (1 + log(1 + c * x) / log(1 / x))
+            # Given by (1 + α) / ((1 - x^(1 + α + (1 + α)^2 / 2))) * (1 + log(1 + c * x) / log(1 / x))
             G2_R_factor = begin
-                lower = α + 1
+                lower = 1 + α
                 upper = let xᵤ = ubound(Arb, x)
-                    inv(fx_div_x(s -> 1 - xᵤ^(s + s^2 / 2), α + 1, extra_degree = 2))
+                    inv(fx_div_x(αp1 -> 1 - xᵤ^(αp1 + αp1^2 / 2), α + 1, extra_degree = 2))
                 end
                 Arb((lower, upper)) * (1 + log(1 + c * x) * invloginvx)
             end
@@ -468,6 +467,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
             # Remaining terms in second factor of remainder terms
             # integrated from 1 to 2
             G2_R_1 = begin
+                # s = (exp(3(1 + α)) - 3(1 + α) - 1) / 3(1 + α)
                 s = fx_div_x(3(1 + α)) do t
                     exp(t) - t - 1
                 end
