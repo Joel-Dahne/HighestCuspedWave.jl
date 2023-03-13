@@ -339,14 +339,15 @@ end
 
 Evaluation of the `clausenc` function through the zeta function.
 
-It uses the formula
+It is based on [`equation_clausenc_zeta`](@ref), which we can also
+write as
 ```
 clausenc(x, s) = let v = 1 - s
     gamma(v) * inv(2π)^v * cospi(v / 2) * (zeta(v, x / 2π) + zeta(v, 1 - x / 2π))
 end
 ```
-Based on formula [25.13.2](https://dlmf.nist.gov/25.13) for the
-periodic zeta function and then taking the real part.
+It comes from the formula [25.13.2](https://dlmf.nist.gov/25.13) for
+the periodic zeta function and then taking the real part.
 
 The formula is well defined as long as `v` doesn't overlap with any
 integer `<= 1` (meaning `s` doesn't overlap with any non-negative
@@ -558,7 +559,7 @@ end
 Evaluation of the `clausenc` function through the zeta function.
 
 This uses the same formula as the method with `x::Arb`. But it doesn't
-any special handling when `s` is an integer, it will return `NaN`.
+have any special handling when `s` is an integer, it will return `NaN`.
 """
 function _clausenc_zeta(x::Float64, s::Float64)
     x = mod2pi(x)
@@ -602,6 +603,10 @@ Compute the Clausen function ``C_s(x)``.
 It first performs an argument reduction of `x`, using that the
 function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 
+To compute an good enclosure when `x` is a wide ball it uses that the
+function is monotone for `0 < x < π` and even around `x = π`. The
+monotonicity is a consequence of [`lemma_clausenc_monotone`](@ref).
+
 If `x` contains zero and we don't have `s > 1` it returns an
 indeterminate result.
 - **IMPROVE:** Use that for even negative integers it is exactly zero.
@@ -611,13 +616,9 @@ the extrema is attained at `x = 0`, `abs_ubound(x)` or `π`, where we
 have `clausenc(0, s) = zeta(s)` and `clausenc(π, s) = -eta(s)`.
 
 If `x` doesn't contain zero we are assured by
-[`_reduce_argument_clausen`](@ref) that `0 < x < 2π`.
-
-If `x` is a wide ball (not containing zero), as determined by
-`iswide(x)`, it computes a tighter enclosure by using that the
-function is `2π`-periodic, monotone for `x ∈ [0, π]` and even, so that
-it's enough to evaluate on the endpoints and possibly at `π` if it is
-contained in `x`.
+[`_reduce_argument_clausen`](@ref) that `0 < x < 2π`. If `x` is a wide
+ball, as determined by `iswide(x)`, it uses that the extrema is
+attained at `lbound(x)`, `ubound(x)` or `π`.
 """
 function clausenc(x::Arb, s::Arb)
     # The function is even and this avoids issues with very small
@@ -773,7 +774,8 @@ function is `2π` periodic, with [`_reduce_argument_clausen`](@ref).
 If `x` contains zero and we don't have `s > 1` it returns an
 indeterminate result. If `s > 1` and `x` is not exactly zero it
 computes an extremely naive enclosure using that `abs(clausenc(x, s,
-β)) < abs(clausenc(0, s, β))`
+β)) < abs(clausenc(0, s, β))`, that this is the case is easily seen
+from the Fourier series.
 - **IMPROVE:** Compute a tighter enclosure in this case. Either
   checking the derivative at the endpoint, similarly to
   [`clausens`](@ref), or expanding at `x = 0`.
@@ -877,7 +879,7 @@ Compute
 gamma(1 - s) * sinpi(s / 2)
 ```
 Which is the coefficient for the non-analytic term in the expansion of
-`clausenc(x, s)` at zero.
+`clausenc(x, s)` at `x = 0`.
 
 In general the value is computed directly using the formula above. The
 exception is when `s` is close to a positive even integer, in which
@@ -938,17 +940,20 @@ end
 """
     clausenc_expansion(x, s, M::Integer)
 
-Compute the asymptotic expansion of `clausenc(x, s)` at zero up to
+Compute the asymptotic expansion of `clausenc(x, s)` at `x = 0` up to
 order `2M - 2`, meaning that the error term is of order `2M`.
+
+This is the expansion given in [`equation_clausenc_expansion`](@ref).
+The remainder term is bounded using
+[`clausenc_expansion_remainder`](@ref).
 
 It returns four things, the coefficient `C` and exponent `e` for the
 non-analytic term, the analytic terms as a `ArbSeries` `P` and the
-remainder term `E`. The `M` is the same as in Lemma 2.1 in
-arXiv:1810.10935.
+remainder term `E`.
 
 It satisfies that
 ```
-clausenc(y, s) ∈ C*abs(y)^e + P(y) + E*y^(2M)
+clausenc(y, s) ∈ C * abs(y)^e + P(y) + E*y^(2M)
 ```
 for all `abs(y) <= abs(x)`.
 
@@ -1082,19 +1087,10 @@ Compute an enclosure of the remainder term in the asymptotic expansion
 of `clausenc(x, s)` at zero up to order `2M - 2`, meaning that the
 remainder is of order `2M`.
 
-This is the `E` occurring in [`clausenc_expansion`](@ref) and is given
-by
-```
-sum((-1)^m * zeta(s - 2m) * x^2m / factorial(2m) for m = M:Inf) / x^2M
-```
-
-It requires that `abs(x) < 2π`, `s >= 0` and `2M >= s + 1`. In this
-case an upper bound for the absolute value of the remainder is given
-by
-```
-2(2π)^(1 + s - 2M) * abs(sinpi(s / 2)) * zeta(2M + 1 - s) / (4π^2 - x^2)
-```
-and this functions returns a ball centered at zero with this radius.
+It is based on the bound given in [`lemma_clausen_remainder`](@ref).
+It returns a ball centered at zero with this bound as the radius. Note
+that since the bound is increasing in `x` it is valid for all `y`
+satisfying `abs(y) <= abs(x)`.
 """
 function clausenc_expansion_remainder(x::Arb, s::Arb, M::Integer)
     pi = Arb(π)
@@ -1116,21 +1112,14 @@ Compute an enclosure of the remainder term in the asymptotic expansion
 of `clausenc(x, s, β)` at zero up to order `2M - 2`, meaning that the
 remainder is of order `2M`.
 
-This is the tail in the expansion at `x = 0` and is given by
-```
-sum((-1)^m * dzeta(s - 2m, β) * x^2m / factorial(2m) for m = M:Inf) / x^2M
-```
-where we by `dzeta(s - 2m, β)` mean the zeta-function differentiated
-`β` times.
+It is based on the bound given in
+[`lemma_clausen_derivative_remainder`](@ref). It returns a ball
+centered at zero with this bound as the radius. Note that since the
+bound is increasing in `x` it is valid for all `y` satisfying `abs(y)
+<= abs(x)`.
 
-It requires that `abs(x) < 2π`, `s >= 0` and `2M >= s + 1`.
-
-The upper bound of the absolute value of the remainder is given by a
-somewhat awkward expression involving a multitude of special
-functions. See the paper for details.
-
-This functions returns a ball centered at zero with the upper bound as
-radius.
+It uses [`_clausen_expansion_remainder_ps`](@ref) for computing an
+expression for `p[0], ..., p[β]`.
 """
 function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
     β == 0 && return clausenc_expansion_remainder(x, s, M)
@@ -1155,7 +1144,7 @@ function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
     zeta_expansion = zeta(ArbSeries((1 + 2M - s, 1), degree = β))
     zeta_bounds(j3) = abs(zeta_expansion[j3]) * factorial(j3)
 
-    # p_k for 0 <= k <= β
+    # p[k] for 0 <= k <= β
     ps = _clausen_expansion_remainder_ps(β)
 
     res = zero(x)
@@ -1198,7 +1187,7 @@ function clausenc_expansion_remainder(x::Arb, s::Arb, β::Integer, M::Integer)
         end
     end
 
-    return Arblib.add_error!(zero(res), res)
+    return Arblib.add_error!(zero(x), res)
 end
 
 """
@@ -1212,12 +1201,12 @@ The remainder term is given by
 ```
 x^2M * sum((-1)^m * zeta(s - 2m) * x^(2(m - M)) / factorial(2m) for m = M:Inf)
 ```
-
 We want to compute an enclosure of each term in the expansion in `s`.
 
 We use that `clausenc_expansion_remainder(x, s[0], β, M)` gives an
 enclosure of the `β` derivative of the sum. The term in the expansion
-is thus given by dividing this by `factorial(β)`.
+is thus given by dividing these by `factorial(β)` and then composing
+with `s`.
 """
 function clausenc_expansion_remainder(x::Arb, s::ArbSeries, M::Integer)
     res = zero(s)
@@ -1244,6 +1233,9 @@ gamma(1 - s) * sinpi(s / 2) * abs(x)^(s - 1) + (-1)^m * zeta(s - 2m) * x^2m / fa
 ```
 for any `x`. It is done in a way that works well for `s` overlapping
 the removable singularity at `2m + 1` and wide `s` close to `2m + 1`.
+
+This corresponds to `K1` and `K2` in
+[`lemma_clausenc_expansion_odd_integer`](@ref).
 
 The factor
 ```
@@ -1330,6 +1322,9 @@ end
 
 Compute `K3 = -(-1)^m / factorial(2m)` converted to `Arb`, as
 described in [`clausenc_expansion_odd_s_singular_K1_K2`](@ref).
+
+This corresponds to `K3` in
+[`lemma_clausenc_expansion_odd_integer`](@ref).
 """
 clausenc_expansion_odd_s_singular_K3(m::Integer) = convert(Arb, -(-1)^m // factorial(2m))
 
@@ -1349,10 +1344,8 @@ directly and gives no direct benefit. However, if `s > 1` and is a
 wide ball it can better handle the cancellations between the two terms
 by computing them together.
 
-For `s > 1` it uses that the function is non-decreasing in `s`. That
-this is the case can be checked by looking at the Fourier series of
-the `clausenc` and the series for `zeta` and check that all terms in
-their difference are non-negative.
+For `s > 1` it uses [`lemma_clausencmzeta_monotone`](@ref), stating
+that the function is non-decreasing in `s`.
 
 We could compute a better enclosure for `s <= 1` by treating the terms
 together and expanding in `s`. However this is not relevant for our
