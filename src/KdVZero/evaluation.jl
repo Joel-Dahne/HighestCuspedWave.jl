@@ -699,7 +699,7 @@ function H(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer = 10)
     end
 end
 
-function D(u0::KdVZeroAnsatz, evaltype::Ball)
+function defect(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
     return x -> begin
         p = u0(x, evaltype)
@@ -708,10 +708,10 @@ function D(u0::KdVZeroAnsatz, evaltype::Ball)
 end
 
 """
-    D(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer)
+    defect(u0::KdVZeroAnsatz, ::AsymptoticExpansion; M::Integer)
 
-Return a function such that `D(u0)(x)` computes an expansion in `x`
-around zero of
+Return a function such that `defect(u0)(x)` computes an expansion in
+`x` around zero of
 ```
 u0(x)^2 / 2 + H(u0)(x)
 ```
@@ -732,7 +732,7 @@ equal to zero due to the choice of `a[0]`, `a[1]`, `a[2]` and `p0`.
 These are the terms with keys `(2, 0, 0), (2, 1, 0), (0, 0, 2), (1, 0,
 2)`.
 """
-function D(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 10)
+function defect(u0::KdVZeroAnsatz, evaltype::AsymptoticExpansion; M::Integer = 10)
     f = H(u0, evaltype; M)
     return x::Arb -> begin
         expansion1 = u0(x, evaltype; M)
@@ -848,28 +848,29 @@ It uses an evaluation strategy that works asymptotically in `x`.
 
 It first computes an expansion of
 ```
-D(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
+defect(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
 ```
 and `u0(x)` in `x`.
 
 When computing
 ```
-D(u0)(x) / (x * u0(x))
+defect(u0)(x) / (x * u0(x))
 ```
-we then explicitly cancel `x^(1 - α)` in `D(u0)` and `x^-α` in `u0`.
+we then explicitly cancel `x^(1 - α)` in `defect(u0)` and `x^-α` in
+`u0`.
 
 Similarly to the non-asymptotic version both the constant and linear
 terms in the expansion are supposed to be zero when `u0.α0 = 0`, which
 we enforce.
 """
 function F0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer = 10)
-    D_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    defect_u0_expansion = defect(u0, AsymptoticExpansion(); M)(ϵ)
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
 
     return x::Arb -> begin
         x <= ϵ || throw(ArgumentError("need x <= ϵ, got x = $x with ϵ = $ϵ"))
 
-        num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
+        num = eval_expansion(u0, defect_u0_expansion, x, offset_i = -1, offset_m = -1)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
         if iszero(u0.α0)
@@ -900,7 +901,7 @@ function F0_direct(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer
     iszero(u0.α0) && error("F0_direct doesn't make sense for u0.α0 = 0")
 
     # Compute the expansions and evaluate their terms in α
-    D_expansion = let expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    defect_u0_expansion = let expansion = defect(u0, AsymptoticExpansion(); M)(ϵ)
         res = empty(expansion, Arb)
         for (key, value) in expansion
             res[key] = value(u0.α)
@@ -922,7 +923,7 @@ function F0_direct(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer
             x[0] <= ϵ || throw(ArgumentError("need x[0] <= ϵ, got x = $x with ϵ = $ϵ"))
         end
 
-        num = eval_expansion(u0, D_expansion, x, offset_i = -1, offset_m = -1)
+        num = eval_expansion(u0, defect_u0_expansion, x, offset_i = -1, offset_m = -1)
         den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
 
         return num / den

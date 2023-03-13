@@ -111,21 +111,21 @@
             end
         end
 
-        @testset "D" begin
+        @testset "defect" begin
             @testset "Ball" begin
                 for x in xs
-                    p = D(u0)(x)
+                    p = defect(u0)(x)
                     for (i, α) in enumerate(αs)
-                        @test Arblib.overlaps(p(α), D(u0s[i])(x))
+                        @test Arblib.overlaps(p(α), defect(u0s[i])(x))
                     end
                 end
             end
 
             @testset "Asymptotic" begin
                 for x in xs_asym
-                    p = eval_expansion(u0, D(u0, AsymptoticExpansion())(x), x)
+                    p = eval_expansion(u0, defect(u0, AsymptoticExpansion())(x), x)
                     for (i, α) in enumerate(αs)
-                        @test Arblib.overlaps(p(α), D(u0s[i], Asymptotic())(x))
+                        @test Arblib.overlaps(p(α), defect(u0s[i], Asymptotic())(x))
                     end
                 end
             end
@@ -135,8 +135,8 @@
                 (u0_narrow, "narrow"),
                 (u0_tight, "tight"),
             )
-                f = D(u0)
-                expansion = D(u0, AsymptoticExpansion())(Arb(1))
+                f = defect(u0)
+                expansion = defect(u0, AsymptoticExpansion())(Arb(1))
                 g = x -> eval_expansion(u0, expansion, x)
                 for x in exp.(range(log(Arb("1e-5")), log(Arb("5e-1")), length = 100))
                     p1 = f(x)

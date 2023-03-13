@@ -348,13 +348,13 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     end
 end
 
-function D(u0::BHAnsatz, ::Asymptotic; M::Integer = 3)
-    f = D(u0, AsymptoticExpansion(); M)
+function defect(u0::BHAnsatz, ::Asymptotic; M::Integer = 3)
+    f = defect(u0, AsymptoticExpansion(); M)
 
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function D(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
+function defect(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
     f = x -> u0(x, evaltype; M)
     g = H(u0, evaltype; M)
 
@@ -398,9 +398,9 @@ This method is one of the bottlenecks of [`delta0_bound`](@ref) and
 for this reasons it is heavily optimized. The method assumes that `x
 >= 0` and any negative parts of the ball `x` are ignored.
 
-It precomputes the expansions of `u0` and `D(u0)` and for that reason
-a number `ϵ` has to be given, the resulting expansion will be valid
-for all `x < ϵ`. The value of `ϵ` has to be less than `1`.
+It precomputes the expansions of `u0` and `defect(u0)` and for that
+reason a number `ϵ` has to be given, the resulting expansion will be
+valid for all `x < ϵ`. The value of `ϵ` has to be less than `1`.
 
 If `exponent_limit` is set to some number then all terms in the
 expansions with an exponent equal to or greater than this limit will
@@ -427,17 +427,19 @@ function F0(
     @assert ϵ < 1
 
     u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
-    Du0_expansion = D(u0, AsymptoticExpansion(); M)(ϵ)
+    defect_u0_expansion = defect(u0, AsymptoticExpansion(); M)(ϵ)
 
     # Divide the expansions by x * log(x) and x^2 * log(x)
     # respectively, also precompute the exponents.
     u0_expansion_div_xlogx = Vector{Tuple{Int,Arb,Arb}}(undef, length(u0_expansion))
-    Du0_expansion_div_x2logx = Vector{Tuple{Int,Arb,Arb}}(undef, length(Du0_expansion))
+    defect_u0_expansion_div_x2logx =
+        Vector{Tuple{Int,Arb,Arb}}(undef, length(defect_u0_expansion))
     for (index, ((i, m, k, l), value)) in enumerate(u0_expansion)
         u0_expansion_div_xlogx[index] = (i - 1, -k * u0.α + l * u0.p0 + m - 1, value)
     end
-    for (index, ((i, m, k, l), value)) in enumerate(Du0_expansion)
-        Du0_expansion_div_x2logx[index] = (i - 1, -k * u0.α + l * u0.p0 + m - 2, value)
+    for (index, ((i, m, k, l), value)) in enumerate(defect_u0_expansion)
+        defect_u0_expansion_div_x2logx[index] =
+            (i - 1, -k * u0.α + l * u0.p0 + m - 2, value)
     end
 
     # If an exponent limit is given, collapse all terms with an
@@ -467,24 +469,24 @@ function F0(
         # Add error term to expansion
         push!(u0_expansion_div_xlogx, (0, exponent_limit, coeff_u0))
 
-        # Compute the coefficient in front of the error term for Du0
-        coeff_Du0 = zero(Arb)
-        for (i, exponent, y) in Du0_expansion_div_x2logx
+        # Compute the coefficient in front of the error term for defect_u0
+        coeff_defect_u0 = zero(Arb)
+        for (i, exponent, y) in defect_u0_expansion_div_x2logx
             if exponent >= exponent_limit && (i == 0 || i == -1)
                 z = y * unit_interval
                 if i == -1
                     z *= invlog_interval
                 end
-                coeff_Du0 += z
+                coeff_defect_u0 += z
             end
         end
-        # Filter out the terms included in the error term for Du0
+        # Filter out the terms included in the error term for defect_u0
         filter!(
             ((i, exponent, _),) -> !(exponent >= exponent_limit && (i == 0 || i == -1)),
-            Du0_expansion_div_x2logx,
+            defect_u0_expansion_div_x2logx,
         )
         # Add error term to expansion
-        push!(Du0_expansion_div_x2logx, (0, exponent_limit, coeff_Du0))
+        push!(defect_u0_expansion_div_x2logx, (0, exponent_limit, coeff_defect_u0))
     end
 
     # The function sqrt(log(1 + inv(x)))
@@ -535,7 +537,14 @@ function F0(
             Arblib.mul!(
                 res,
                 res,
-                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx, buffer),
+                _eval_expansion!(
+                    tmp,
+                    u0,
+                    defect_u0_expansion_div_x2logx,
+                    x,
+                    invlogx,
+                    buffer,
+                ),
             )
         elseif x isa ArbSeries
             len = length(x)
@@ -555,7 +564,14 @@ function F0(
             )
             Arblib.div_series!(
                 res,
-                _eval_expansion!(tmp, u0, Du0_expansion_div_x2logx, x, invlogx, buffer),
+                _eval_expansion!(
+                    tmp,
+                    u0,
+                    defect_u0_expansion_div_x2logx,
+                    x,
+                    invlogx,
+                    buffer,
+                ),
                 res,
                 len,
             )
@@ -600,14 +616,15 @@ function inv_u0_normalised(u0::BHAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(1 //
 end
 
 """
-    D(u0::BHAnsatz, xs::AbstractVector)
-Returns a function such that `D(u0, xs)(b)` computes `D(u0)(x)` on the
-points `x ∈ xs` with `u0.b` set to the given values. Does this in an
-efficient way by precomputing as much as possible.
+    defect(u0::BHAnsatz, xs::AbstractVector)
+Returns a function such that `defect(u0, xs)(b)` computes
+`defect(u0)(x)` on the points `x ∈ xs` with `u0.b` set to the given
+values. Does this in an efficient way by precomputing as much as
+possible.
 
 NOTE: This is **not** rigorous!
 """
-function D(u0::BHAnsatz, xs::AbstractVector)
+function defect(u0::BHAnsatz, xs::AbstractVector)
     b = copy(u0.b)
     u0.b .= 0
 

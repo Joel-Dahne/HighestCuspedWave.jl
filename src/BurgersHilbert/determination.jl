@@ -1,9 +1,9 @@
 """
     findbs(u0::BHAnsatz)
-Find values of `b[n]` to minimize the defect `D(u0)`.
+Find values of `b[n]` to minimize `defect(u0)`.
 
 This is done by solving the non-linear system given by requiring that
-`D(u0)` evaluates to zero on `N` collocation points.
+`defect(u0)` evaluates to zero on `N` collocation points.
 
 For performance reasons this is always done in `Float64`
 """
@@ -13,9 +13,9 @@ function findbs(u0::BHAnsatz{Float64})
     n = u0.N1
     xs = π * (1:2:2n-1) / 2n
 
-    # Function for computing D(u0) on the points xs. It takes the
+    # Function for computing defect(u0) on the points xs. It takes the
     # coefficients b[n] as an argument
-    f = D(u0, xs)
+    f = defect(u0, xs)
 
     # The initial value we use depends on if u0.v0 is set or not
     if iszero(u0.N0)

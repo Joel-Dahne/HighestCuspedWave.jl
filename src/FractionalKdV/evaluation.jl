@@ -497,12 +497,12 @@ function H(
     end
 end
 
-function D(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
-    f = D(u0, AsymptoticExpansion(); M)
+function defect(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
+    f = defect(u0, AsymptoticExpansion(); M)
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function D(
+function defect(
     u0::FractionalKdVAnsatz{T},
     evaltype::AsymptoticExpansion;
     M::Integer = 5,
@@ -551,22 +551,22 @@ values of `x`.
   expansions.
 - `ϵ::Arb = 1`: Determines the interval ``[-ϵ, ϵ]`` on which the expansion
   is valid.
-- `skip_singular_j_until = nothing`: Argument given to `D(u0)` when
-  computing the expansion to skip some of the terms, they are then
-  added back separately. If set to `nothing` a default value is used.
-  The default value is to non-zero if `1 - 2α + p0 > 2.8` and is then
-  set to the largest `j` such that `1 - 2α + j * p0 < 3.2`. The
+- `skip_singular_j_until = nothing`: Argument given to `defect(u0)`
+  when computing the expansion to skip some of the terms, they are
+  then added back separately. If set to `nothing` a default value is
+  used. The default value is to non-zero if `1 - 2α + p0 > 2.8` and is
+  then set to the largest `j` such that `1 - 2α + j * p0 < 3.2`. The
   motivation for this is that we mainly want to avoid the singularity
   at `s = 3` for the expansions of the Clausen functions.
 
 # Implementation
 It splits `F0(u0)` as
 ```
-inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (D(u0)(x) / x^(u0.p - u0.α))
+inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (defect(u0)(x) / x^(u0.p - u0.α))
 ```
 It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref)
 and `x^u0.p / u0.w(x)` using `w.xpdivw`. For the third factor it
-computes the expansion of `D(u0)(x)` and explicitly cancels the
+computes the expansion of `defect(u0)(x)` and explicitly cancels the
 division by `x^(u0.p - u0.α)`.
 """
 function F0(
@@ -587,14 +587,14 @@ function F0(
         end
     end
 
-    Du0_expansion = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
+    defect_u0_expansion = defect(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
 
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
     return x::Union{Arb,ArbSeries} -> begin
         @assert (x isa Arb && x <= ϵ) || (x isa ArbSeries && Arblib.ref(x, 0) <= ϵ)
 
-        res = eval_expansion(u0, Du0_expansion, x, offset = -u0.p, offset_i = -1)
+        res = eval_expansion(u0, defect_u0_expansion, x, offset = -u0.p, offset_i = -1)
 
         if skip_singular_j_until > 0
             # Add skipped terms
@@ -631,7 +631,7 @@ Implementation of [`F0`](@ref) when `u0.use_bhkdv` is true.
 # Implementation
 Similarly to the default version it splits `F0(u0)` as
 ```
-inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (D(u0)(x) / x^(u0.p - u0.α))
+inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (defect(u0)(x) / x^(u0.p - u0.α))
 ```
 It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref)
 and `x^u0.p / u0.w(x)` using `w.xpdivw`. The difference is in how the
@@ -639,7 +639,7 @@ third factor is handled.
 
 We have that
 ```
-D(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
+defect(u0)(x) = u0(x)^2 / 2 + H(u0)(x)
 ```
 To compute it we split `u0` into two parts and `H(u0)` into three
 parts.
@@ -688,9 +688,9 @@ end
 ```
 
 ## Putting the parts together
-With the above split of `u0` and `H(u0)` we can write `D(u0)` as
+With the above split of `u0` and `H(u0)` we can write `defect(u0)` as
 ```
-D(u0)(x) = u0_part1(x)^2 / 2 + u0_part1(x) * u0_part2(x) + u0_part2(x)^2 / 2 +
+defect(u0)(x) = u0_part1(x)^2 / 2 + u0_part1(x) * u0_part2(x) + u0_part2(x)^2 / 2 +
     Hu0_part1(x) + Hu0_part2(x) + Hu0_part3(x)
 ```
 We group the terms into two parts
@@ -981,16 +981,17 @@ function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb
 end
 
 """
-    D(u0::FractionalKdVAnsatz, xs::AbstractVector)
+    defect(u0::FractionalKdVAnsatz, xs::AbstractVector)
 
-Return a function such that D(u0, xs)(a, b) computes D(u0)(x) on the
-points x ∈ xs with u0.a and u0.b set to `a` and `b` respectively. Does
-this in an efficient way by precomputing as much as possible.
+Return a function such that defect(u0, xs)(a, b) computes
+defect(u0)(x) on the points x ∈ xs with u0.a and u0.b set to `a` and
+`b` respectively. Does this in an efficient way by precomputing as
+much as possible.
 
 This is used in [`_findbs`](@ref) for numerically finding values for
 `b`.
 """
-function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
+function defect(u0::FractionalKdVAnsatz, xs::AbstractVector)
     u0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
     u0_xs_b_precomputed = zeros(length(xs), u0.N1)
     Hu0_xs_a_precomputed = zeros(length(xs), u0.N0 + 1)
@@ -1017,16 +1018,16 @@ function D(u0::FractionalKdVAnsatz, xs::AbstractVector)
 end
 
 """
-    D(u0::FractionalKdVAnsatz, evaltype::Symbolic; M::Integer = 5)
+    defect(u0::FractionalKdVAnsatz, evaltype::Symbolic; M::Integer = 5)
 
-Return a function such that `D(u0, evaltype, N)(a)` computes the
+Return a function such that `defect(u0, evaltype, N)(a)` computes the
 coefficients in the asymptotic expansion with indices `3` to `u0.N0 +
 1` using the values from `a`.
 
 This is used in [`_findas`](@ref) for numerically finding values for
-`a`. An alternative implementation is given by [`D2`](@ref).
+`a`. An alternative implementation is given by [`defect2`](@ref).
 """
-function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
+function defect(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
     # Given a key get its exponent
     key_exponent = ((i, j, m),) -> -i * u0.α + j * u0.p0 + m
 
@@ -1137,16 +1138,16 @@ function D(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T}
 end
 
 """
-    D2(u0::FractionalKdVAnsatz, evaltype::Symbolic; M::Integer = 5)
+    defect2(u0::FractionalKdVAnsatz, evaltype::Symbolic; M::Integer = 5)
 
-Return a function such that `D2(u0, evaltype, N)(a)` computes the
+Return a function such that `defect2(u0, evaltype, N)(a)` computes the
 coefficients in the asymptotic expansion with indices `3` to `N0 + 2`
 using the values from `a`.
 
-This is an alternative implementation to [`D`](@ref). In principle
-they give the same result but this one is more optimized. In practice
-they give slightly different results due to rounding errors and this
-is sometimes important.
+This is an alternative implementation to [`defect`](@ref). In
+principle they give the same result but this one is more optimized. In
+practice they give slightly different results due to rounding errors
+and this is sometimes important.
 
 # Implementation
 The terms in the expansion have exponents of the form
@@ -1168,7 +1169,7 @@ terms are those with an exponent of the form `2m`. Since we square
 `u0` we also need to take into account products of singular and
 analytic ones.
 """
-function D2(
+function defect2(
     u0::FractionalKdVAnsatz{T},
     ::Symbolic;
     M::Integer = 5,

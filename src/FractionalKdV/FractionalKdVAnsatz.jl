@@ -23,7 +23,8 @@ KdV equations with `α ∈ (-1, 0)`. It has the following parameters
   what this changes.
 
 The code assumes that `a[0]` is given by `finda0(α)`. This is required
-for the leading term in the expansion of `D(u0)` to be exactly zero.
+for the leading term in the expansion of `defect(u0)` to be exactly
+zero.
 
 # Details about `use_bhkdv`
 This flag changes two things in particular, the leading term and the

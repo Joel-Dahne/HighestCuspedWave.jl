@@ -1187,13 +1187,13 @@ function H(
     end
 end
 
-function D(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_singular_j_until = 0)
-    f = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)
+function defect(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_singular_j_until = 0)
+    f = defect(u0, AsymptoticExpansion(); M, skip_singular_j_until)
 
     return x -> eval_expansion(u0, f(x), x)
 end
 
-function D(
+function defect(
     u0::BHKdVAnsatz,
     evaltype::AsymptoticExpansion;
     M::Integer = 3,
@@ -1236,7 +1236,7 @@ this then gives an upper bound of `abs(F0(u0)(x))`.
 
 More precisely this computes
 ```
-D(u0)(x) / (u0.w(x) * u0.v0(x))
+defect(u0)(x) / (u0.w(x) * u0.v0(x))
 ```
 Since `u0.v0(x)` gives a lower bound of `u0(x)`, this follows from
 [`lemma_bhkdv_main_term_limit`](@ref), this gives a value which has
@@ -1250,7 +1250,7 @@ function F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
     # Assert that the lemma holds
     @assert lemma_bhkdv_main_term_limit(u0)
 
-    g = D(u0, evaltype)
+    g = defect(u0, evaltype)
 
     return x::Union{Arb,ArbSeries} -> begin
         invweight = inv(u0.w(x))
@@ -1656,17 +1656,17 @@ function F0(
         log(inv(x)) / log(u0.c + inv(x))
     end
 
-    # Compute the expansion of D(u0), skipping the two leading terms
-    # in the expansion of the Clausen term in the tail for j =
+    # Compute the expansion of defect(u0), skipping the two leading
+    # terms in the expansion of the Clausen term in the tail for j =
     # 1:skip_j_until, which are handled separately
-    Du0_expansion = D(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
-    delete!(Du0_expansion, (2, 0, 0, 0, 0, 0, 0))
-    delete!(Du0_expansion, (0, 1, 0, 0, 0, 0, 0))
+    defect_u0_expansion = defect(u0, AsymptoticExpansion(); M, skip_singular_j_until)(ϵ)
+    delete!(defect_u0_expansion, (2, 0, 0, 0, 0, 0, 0))
+    delete!(defect_u0_expansion, (0, 1, 0, 0, 0, 0, 0))
 
-    # Divide the expansion of D(u0) by x^(1 - α)
-    Du0_expansion_div_x_onemα = empty(Du0_expansion)
-    for ((p, q, i, j, k, l, m), y) in Du0_expansion
-        Du0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
+    # Divide the expansion of defect(u0) by x^(1 - α)
+    defect_u0_expansion_div_x_onemα = empty(defect_u0_expansion)
+    for ((p, q, i, j, k, l, m), y) in defect_u0_expansion
+        defect_u0_expansion_div_x_onemα[(p, q, i + 1, j, k, l, m - 1)] = y
     end
 
     # Compute enclosures of several values depending only on α, many
@@ -1942,7 +1942,7 @@ function F0(
 
         # Enclosure of the remaining terms in the expansion
         T3 =
-            eval_expansion(u0, Du0_expansion_div_x_onemα, x, div_logx = true) *
+            eval_expansion(u0, defect_u0_expansion_div_x_onemα, x, div_logx = true) *
             invgamma1mxp0
 
         # (u0(x)^2 / 2 + Hu0x) / (log(x) * gamma(1 + α) * x^(1 - α) * (1 - x^p0))

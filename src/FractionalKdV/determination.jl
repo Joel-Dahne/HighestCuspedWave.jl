@@ -157,16 +157,16 @@ end
 
 function _findas(
     u0::FractionalKdVAnsatz{T};
-    use_D2 = true,
+    use_defect2 = true,
     threaded = true,
     verbose = true,
 ) where {T}
     iszero(u0.N0) && return T[], true
 
-    if use_D2
-        f = D2(u0, Symbolic(); threaded)
+    if use_defect2
+        f = defect2(u0, Symbolic(); threaded)
     else
-        f = D(u0, Symbolic())
+        f = defect(u0, Symbolic())
     end
     g(a) = f(OffsetVector([u0.a[0]; a], 0:u0.N0))
 
@@ -201,7 +201,7 @@ until we reach `u0.N0`.
 function findas(
     u0::FractionalKdVAnsatz{T};
     minstart = 16,
-    use_D2 = true,
+    use_defect2 = true,
     threaded = true,
     verbose = true,
 ) where {T}
@@ -209,7 +209,7 @@ function findas(
         return T[]
     end
     if u0.N0 <= minstart
-        return _findas(u0; use_D2, threaded, verbose)[1]
+        return _findas(u0; use_defect2, threaded, verbose)[1]
     end
 
     u0 = deepcopy(u0)
@@ -222,24 +222,24 @@ function findas(
         resize!(u0.a, N0s[i] + 1)
         u0.a[N0s[i-1]:end] .= zero(T)
 
-        u0.a[1:end] .= _findas(u0; use_D2, threaded, verbose)[1]
+        u0.a[1:end] .= _findas(u0; use_defect2, threaded, verbose)[1]
     end
 
     return u0.a[1:end]
 end
 
-function findas(u0::FractionalKdVAnsatz{Arb}; use_D2 = true, verbose = true)
+function findas(u0::FractionalKdVAnsatz{Arb}; use_defect2 = true, verbose = true)
     u0_float = convert(FractionalKdVAnsatz{Float64}, u0)
 
     # Compute an accurate value of a[0]. The conversion from a
     # wide ball gives large errors
     u0_float.a[0] = Float64(finda0(Arb(u0_float.α)))
 
-    return convert(Vector{Arb}, findas(u0_float; use_D2, verbose))
+    return convert(Vector{Arb}, findas(u0_float; use_defect2, verbose))
 end
 
 """
-    _find_good_as!(u0::FractionalKdVAnsatz, N0s::StepRange{Int,Int} = 0:30; iter_use_best_as, use_D2, return_defects, threaded, verbose)
+    _find_good_as!(u0::FractionalKdVAnsatz, N0s::StepRange{Int,Int} = 0:30; iter_use_best_as, use_defect2, return_defects, threaded, verbose)
 
 Find `N0` and `u0.a` such that the defect is minimized. Returns the
 vector `a` and the estimated defect, `N0` is implicitly given by the
@@ -255,8 +255,9 @@ previous iteration as starting point for the zero finding, otherwise
 it uses the iteration just before. In general this gives slightly
 better results, but not always.
 
-If `use_D2` is true then use [`D2`](@ref) instead of [`D`](@ref) for
-computing the coefficients in the asymptotic expansion.
+If `use_defect2` is true then use [`defect2`](@ref) instead of
+[`defect`](@ref) for computing the coefficients in the asymptotic
+expansion.
 
 If `return_defects` is true it returns `N0s, defects`, where `defects`
 is a vector of defects for the different values of `N0`. If the
@@ -266,7 +267,7 @@ function _find_good_as!(
     u0::FractionalKdVAnsatz{T},
     N0s::StepRange{Int,Int} = 0:1:30;
     iter_use_best_as = true,
-    use_D2 = true,
+    use_defect2 = true,
     return_defects = false,
     threaded = false,
     verbose = false,
@@ -287,7 +288,7 @@ function _find_good_as!(
     # findas which is faster than directly using _findas
     if N0s.start >= 256
         resize_with_zero!(u0.a, N0s.start + 1)
-        as = findas(u0, verbose = false; use_D2, threaded)
+        as = findas(u0, verbose = false; use_defect2, threaded)
         u0.a[1:end] .= as
     end
 
@@ -298,7 +299,7 @@ function _find_good_as!(
     for N0 in N0s
         # Compute approximation
         resize_with_zero!(u0.a, N0 + 1)
-        as, converged = _findas(u0, verbose = false; use_D2, threaded)
+        as, converged = _findas(u0, verbose = false; use_defect2, threaded)
         u0.a[1:end] .= as
         push!(ass, as)
 
@@ -358,11 +359,11 @@ accepts the argument `try_all_combinations`. If this argument is set
 to true then it runs [`_find_good_as`](@ref) several times with
 different combinations of arguments and then take the best result.
 More precisely it tries the four combinations of setting
-`iter_use_best_as` and `use_D2` to either true or false. If
+`iter_use_best_as` and `use_defect2` to either true or false. If
 `try_all_combinations` is set then the values of the arguments
-`iter_use_best_as` and `use_D2` are ignored and `return_defects` is
-assumed to be false. This argument is useful in particular near `α =
--0.9` where the zero finding problem has turned out to be very
+`iter_use_best_as` and `use_defect2` are ignored and `return_defects`
+is assumed to be false. This argument is useful in particular near `α
+= -0.9` where the zero finding problem has turned out to be very
 unstable and it is hard to find one combination of arguments that work
 in all cases. It should be avoided near `α = -1` since it would take a
 long time to compute the result.
@@ -371,7 +372,7 @@ function find_good_as(
     u0::FractionalKdVAnsatz{T},
     N0s::StepRange{Int,Int} = 0:1:30;
     iter_use_best_as = true,
-    use_D2 = true,
+    use_defect2 = true,
     try_all_combinations = false,
     return_defects = false,
     threaded = false,
@@ -393,13 +394,14 @@ function find_good_as(
         res_as = Matrix{Vector{T}}(undef, 2, 2)
         res_defect = Matrix{T}(undef, 2, 2)
         for (i, iter_use_best_as) in enumerate((false, true))
-            for (j, use_D2) in enumerate((false, true))
-                verbose && @info "iter_use_best_as = $iter_use_best_as, use_D2 = $use_D2"
+            for (j, use_defect2) in enumerate((false, true))
+                verbose &&
+                    @info "iter_use_best_as = $iter_use_best_as, use_defect2 = $use_defect2"
                 res_as[i, j], res_defect[i, j] = _find_good_as!(
                     u0_float,
                     N0s;
                     iter_use_best_as,
-                    use_D2,
+                    use_defect2,
                     threaded,
                     verbose,
                 )
@@ -417,7 +419,7 @@ function find_good_as(
             u0_float,
             N0s;
             iter_use_best_as,
-            use_D2,
+            use_defect2,
             return_defects,
             threaded,
             verbose,
@@ -469,10 +471,10 @@ end
 """
     _findbs(u0::FractionalKdVAnsatz{T}; verbose = true)
 
-Find values of `u0.b[n]` to minimize the defect `D(u0)`.
+Find values of `u0.b[n]` to minimize `defect(u0)`.
 
 This is done by solving the non-linear system given by requiring that
-`D(u0)` evaluates to zero on `u0.N1` collocation points.
+`defect(u0)` evaluates to zero on `u0.N1` collocation points.
 
 It uses [`nlsolve`](@ref) to find the zero. It returns the zero
 together with information about the convergence. If `verbose` is true
@@ -486,7 +488,7 @@ function _findbs(u0::FractionalKdVAnsatz{T}; verbose = true) where {T}
     n = u0.N1
     xs = π * (1:2:2n-1) / 2n
 
-    f = D(u0, xs)
+    f = defect(u0, xs)
     g(b) = f(u0.a.parent, b)
 
     initial = u0.b
@@ -503,7 +505,7 @@ end
 """
     findbs(u0::FractionalKdVAnsatz; verbose = false)
 
-Find values of `u0.b[n]` to minimize the defect `D(u0)`.
+Find values of `u0.b[n]` to minimize `defect(u0)`.
 
 See [`_findbs`](@ref) for the implementation. The underscore method
 doesn't support `Arb` so it converts `u0` to use `Float64` in that
