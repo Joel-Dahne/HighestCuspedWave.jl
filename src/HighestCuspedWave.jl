@@ -25,7 +25,6 @@ include("evaluation.jl")
 include("bounds.jl")
 include("estimates.jl")
 include("T0.jl")
-include("lemmas.jl")
 include("proof.jl")
 include("data-handling.jl")
 
@@ -60,7 +59,6 @@ include("BHKdV/T0_asymptotic.jl")
 include("BHKdV/T01.jl")
 include("BHKdV/T02.jl")
 include("BHKdV/D0.jl")
-include("BHKdV/lemmas.jl")
 
 include("KdVZero/KdVZeroAnsatz.jl")
 include("KdVZero/expansion.jl")
@@ -71,4 +69,5 @@ include("KdVZero/T0.jl")
 include("KdVZero/D0.jl")
 include("KdVZero/proof.jl")
 
+include("lemmas.jl")
 end # module

@@ -234,7 +234,7 @@ We can then integrate explicitly using `primitive(t)` with this zero
 as one of the endpoints.
 
 On the interval `[1, π / x]` the expression inside the absolute value
-is positive, due to lemma [`lemma_integrand_2`](@ref) and we can just
+is positive, due to lemma [`lemma_I_positive`](@ref) and we can just
 remove it. This gives us the integral
 ```
 I2 = primitive(π / x) - primitive(1)

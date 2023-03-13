@@ -308,7 +308,7 @@ Using that `1 - t <= 0` and that
 (t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
 ```
 is positive on the interval ``[1, ∞]`` (see
-[`lemma_integrand_2`](@ref)), the problem reduces to computing an upper
+[`lemma_I_positive`](@ref)), the problem reduces to computing an upper
 bound of
 ```
 G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *

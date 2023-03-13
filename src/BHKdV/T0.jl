@@ -258,7 +258,7 @@ compute the integral from `a` to `π / x`, i.e. `f(x, a, b, to_endpoint
 If `to_endpoint = false` then we require that `b * x < π`.
 
 The value of `a` should be larger than the unique root of the
-integrand on ``[0, 1]`` (see [`lemma_integrand_1`](@ref)). This allows
+integrand on ``[0, 1]`` (see [`lemma_I_hat_root`](@ref)). This allows
 us to remove the absolute value in the integral. To ensure that this
 is the case we check that the integrand is positive at `t = a`. Since
 the location of the zero on ``[0, 1]`` is decreasing in `x` it is

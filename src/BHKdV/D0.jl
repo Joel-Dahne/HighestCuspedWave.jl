@@ -17,8 +17,8 @@ value on `[0, ϵ]` is bounded by this value.
 
 For the interval ``[ϵ, π]`` we compute `T0(u0)` using the argument
 `skip_div_u0 = true` We then use the fact that `u0.v0(x)` gives a
-**lower** bound for `u0(x)`. This is the statement of
-[`lemma_bhkdv_monotonicity_alpha`](@ref). This means that as long as
+**lower** bound for `u0(x)`. This follows from
+[`lemma_bhkdv_main_term_limit`](@ref). This means that as long as
 `u0.v0(x) > 0` division by `u0.v0(x)` instead of `u0(x)` gives an
 upper bound of the value. To prove that `u0.v0(x)` is positive it is
 enough to ensure that `u0.v0(π)` is positive and that the final bound
@@ -48,7 +48,7 @@ function D0_bound(u0::BHKdVAnsatz{Arb}; atol = Arb(1.5e-2), verbose = false)
     # Bound the value on [ϵ, π]
 
     # Assert that the lemma holds
-    @assert lemma_bhkdv_monotonicity_alpha(u0)
+    @assert lemma_bhkdv_main_term_limit(u0)
 
     # Check that u0.v0 is positive at x = π
     Arblib.ispositive(u0.v0(Arb(π))) || error("u0.v0(π) not positive")

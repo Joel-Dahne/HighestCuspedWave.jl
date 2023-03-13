@@ -1238,8 +1238,8 @@ More precisely this computes
 ```
 D(u0)(x) / (u0.w(x) * u0.v0(x))
 ```
-Since `u0.v0(x)` gives a lower bound of `u0(x)`, by
-[`lemma_bhkdv_monotonicity_alpha`](@ref), this gives a value which has
+Since `u0.v0(x)` gives a lower bound of `u0(x)`, this follows from
+[`lemma_bhkdv_main_term_limit`](@ref), this gives a value which has
 the same sign as `F0(x)` but is larger in magnitude. This holds as
 long as `u0.v0(x)` is positive at least, which is easily checked.
 
@@ -1248,7 +1248,7 @@ calculations in common. We could improve performance by using this.
 """
 function F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
     # Assert that the lemma holds
-    @assert lemma_bhkdv_monotonicity_alpha(u0)
+    @assert lemma_bhkdv_main_term_limit(u0)
 
     g = D(u0, evaltype)
 

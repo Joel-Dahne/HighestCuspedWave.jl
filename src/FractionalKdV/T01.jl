@@ -125,8 +125,8 @@ clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
 in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
 
-The existence and uniqueness of the root is based on lemma
-[`lemma_integrand_1`](@ref).
+This is the root occurring in [`lemma_I_hat_root`](@ref) and we make
+use of several properties of the root from that lemma.
 
 It uses that the root is decreasing in `x` to better handle wide input
 intervals.

@@ -47,13 +47,13 @@ G3(x) = x^((1 - u0.γ) * (1 + α)) * log(inv(x)) / (gamma(1 + α) * (1 - x^p0))
 We can enclose `G1` directly and `G2(x)` using that it is increasing
 in `x` for `0 < x < 1` and that the limit as `x -> 0` is `1 / 2`.
 
-The function `G3(x)` occurs in
-[`lemma_bhkdv_weight_div_asymptotic_enclosure`](@ref) and we can get
-an enclosure from that.
+By [`lemma_bhkdv_weight_factor_enclosure`](@ref) the function `G3(x)`
+satisfies the inequality `0 < G3(x) < 1 when `u0.γ = 1 / 2` and `0 < x
+< 1`.
 
 # The interval `[ϵ, π]`
 Here we use that `u0.v0(x)` gives a **lower** bound for `u0(x)`. This
-is the statement of [`lemma_bhkdv_monotonicity_alpha`](@ref).
+follows from [`lemma_bhkdv_main_term_limit`](@ref).
 
 If `u0.v0(x)` is positive we then get that `u0.w(x) / 2u0(x)` is
 **upper** bounded by `u0.w(x) / 2u0.v0(x)`. The approach is therefore
@@ -82,14 +82,17 @@ function n0_bound(u0::BHKdVAnsatz{Arb}; rtol = Arb("1e-2"), verbose = false)
             -log(u0.c + inv(x)) / 2log(x)
         end
 
-    G3(x) = lemma_bhkdv_weight_div_asymptotic_enclosure(u0)
+    G3(x) = begin
+        @assert u0.γ == 1 // 2
+        Arblib.unit_interval!(zero(x))
+    end
 
     f(x) = F(x) * G1 * G2(x) * G3(x)
 
     # Function for non-asymptotic evaluation
 
     # Assert that the lemma holds
-    @assert lemma_bhkdv_monotonicity_alpha(u0)
+    @assert lemma_bhkdv_main_term_limit(u0)
 
     g(x) = u0.w(x) / 2u0.v0(x)
 
