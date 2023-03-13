@@ -69,5 +69,6 @@ include("KdVZero/T0.jl")
 include("KdVZero/D0.jl")
 include("KdVZero/proof.jl")
 
+include("equations.jl")
 include("lemmas.jl")
 end # module
