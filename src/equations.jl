@@ -1,4 +1,46 @@
 """
+    equation_kdv_u0
+
+Corresponds to Equation 12 in the paper.
+
+# Equation
+```
+u0(x) = sum(a[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:N0) +
+    sum(b[n] * (cos(n * x) - 1) for n = 1:N1)
+```
+The following notation is used
+```
+p0 = u0.p0
+N0 = u0.N0
+N1 = u0.N1
+a[j] = u0.a[j]
+b[n] = u0.b[n]
+```
+"""
+function equation_kdv_u0 end
+
+"""
+    equation_kdv_Hu0
+
+Corresponds to Equation 14 in the paper.
+
+# Equation
+```
+H(u0)(x) = -sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:N0) -
+    sum(b[n] * n^α * (cos(n * x) - 1) for n = 1:N1)
+```
+The following notation is used
+```
+p0 = u0.p0
+N0 = u0.N0
+N1 = u0.N1
+a[j] = u0.a[j]
+b[n] = u0.b[n]
+```
+"""
+function equation_kdv_Hu0 end
+
+"""
     equation_clausenc_zeta
 
 Corresponds to Equation 43 in the paper.

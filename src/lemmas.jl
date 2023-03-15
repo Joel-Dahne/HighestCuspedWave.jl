@@ -5,7 +5,38 @@ Corresponds to Lemma 4.2 in the paper.
 
 # Statement
 
-TODO
+Let `u0` be as in [`equation_kdv_u0`](@ref). Then the following
+asymptotic expansions hold near `x = 0`
+```
+u0(x) = sum(a⁰[j] * abspow(x, -α + j * p0) for j = 0:N0) +
+    sum(m = 1:Inf) do m
+        (-1)^m / factorial(2m) * (
+            sum(a[j] * zeta(1 - α + j * p0 - 2m) for j = 0:N0)
+            + sum(b[n] * n^2m for n = 1:N1)
+        ) * x^2m
+    end
+```
+and
+```
+H(u0)(x) = -sum(A⁰[j] * abspow(x, 1 - α + j * p0) for j = 0:N0) -
+    sum(m = 1:Inf) do m
+        (-1)^m / factorial(2m) * (
+            sum(a[j] * zeta(2 - α + j * p0 - 2m) for j = 0:N0)
+            + sum(b[n] * n^(2m - 1) for n = 1:N1)
+        ) * x^2m
+    end
+```
+valid for `abs(x) < 2π`. The following notation is used
+```
+p0 = u0.p0
+N0 = u0.N0
+N1 = u0.N1
+a[j] = u0.a[j]
+b[n] = u0.b[n]
+
+a⁰[j] = gamma(α - j * p0) * cospi((α - j * p0) / 2) * a[j]
+A⁰[j] = gamma(α - 1 - j * p0) * cospi((α - 1 - j * p0) / 2) * a[j]
+```
 """
 function lemma_kdv_asymptotic_expansion end
 
@@ -16,7 +47,15 @@ Corresponds to Lemma 4.3 in the paper.
 
 # Statement
 
-TODO
+Let `u0` be as in [`equation_kdv_u0`](@ref). Then the following
+asymptotic expansions hold near `x = 0`
+```
+H(u0)(x) + u0(x)^2 / 2 = ... # Not written out, see paper
+```
+The code doesn't use the expression of the expansion given in the
+paper directly and we therefore don't write it out above. See the
+asymptotic version of [`defect`](@ref) for [`BHAnsatz`](@ref) for how
+the expansion is computed.
 """
 function lemma_kdv_asymptotic_expansion_defect end
 
@@ -121,7 +160,11 @@ Corresponds to Lemma 8.1 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` the function
+```
+abs(x)^-α / u0(x)
+```
+is non-zero and bounded at `x = 0`.
 """
 function lemma_inv_u0_normalised end
 

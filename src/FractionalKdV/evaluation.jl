@@ -127,7 +127,11 @@ function clausencmzeta_diff(x::ArbSeries, s::Arb, ϵ::Arb)
     return ArbExtras.compose_zero!(res, res, x)
 end
 
+"""
+    (u0::FractionalKdVAnsatz{Arb})(x::Arb, ::Ball)
 
+Compute `u0(x)` as given in [`equation_kdv_u0`](@ref).
+"""
 function (u0::FractionalKdVAnsatz)(x, ::Ball)
     s = 1 - u0.α
     if u0.use_bhkdv
@@ -169,6 +173,21 @@ end
 
 Compute an expansion of `u0` around zero with remainder terms valid
 on the interval ``[-abs(x), abs(x)]``.
+
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is based on [`lemma_kdv_asymptotic_expansion`](@ref). In
+the lemma expansions from all different parts of `u0` are combined.
+For the computation we compute the expansions for the different terms
+separately and then combine them. First the expansions for the Clausen
+functions are computed using [`clausenc_expansion`](@ref) and then the
+expansions for the Fourier terms are added. If `u0.use_bhkdv = true`
+then the computation of the expansion for the first Clausen term has
+to be adjusted accordingly.
+
+The infinite sum in the Lemma is truncated and the tail is combined
+into one remainder term with the coefficient `x^2M`.
 
 # Arguments
 - `M::Integer = 5`: Determines the order of the expansion. The
@@ -296,6 +315,12 @@ function (u0::FractionalKdVAnsatz{Arb})(
     return res
 end
 
+"""
+    H(u0::FractionalKdVAnsatz{Arb}, ::Ball)
+
+Return a function for computing `H(u0)(x)` as given in
+[`equation_kdv_Hu0`](@ref).
+"""
 function H(u0::FractionalKdVAnsatz, ::Ball)
     return x -> begin
         s = 1 - 2u0.α
@@ -342,6 +367,18 @@ end
 Return a function such that `H(u0)(x)` computes an expansion of
 `H(u0)` around zero with remainder terms valid on the interval
 ``[-abs(x), abs(x)]``.
+
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is based on [`lemma_kdv_asymptotic_expansion`](@ref). In
+the lemma expansions from all different parts of `u0` are combined.
+For the computation we compute the expansions for the different terms
+separately and then combine them. First the expansions for the Clausen
+functions are computed using [`clausenc_expansion`](@ref) and then the
+expansions for the Fourier terms are added. If `u0.use_bhkdv = true`
+then the computation of the expansion for the first Clausen term has
+to be adjusted accordingly.
 
 # Arguments
 - `M::Integer = 5`: Determines the order of the expansion. The
@@ -502,6 +539,30 @@ function defect(u0::FractionalKdVAnsatz, ::Asymptotic; M::Integer = 5)
     return x -> eval_expansion(u0, f(x), x)
 end
 
+"""
+    defect(u0::FractionalKdVAnsatz{Arb}, ::AsymptoticExpansion; M = 5, skip_singular_j_until = 0)
+
+Return a function such that `defect(u0, AsymptoticExpansion())(x)`
+compute an expansion of
+```
+H(u0)(x) + u0(x)^2 / 2
+```
+around zero with a remainder term valid on the interval `[-abs(x),
+abs(x)]`.
+
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is the same as in
+[`lemma_kdv_asymptotic_expansion_defect`](@ref) but computed in a
+different way.
+
+The expansion is computed by first computing the expansions of `u0(x)`
+and `H(u0)(x)`. The expansion for `u0(x)^2 / 2` is then computed from
+the expansion of `u0(x)` by computing the products between all terms.
+Finally the expansion of `H(u0)(x) + u0(x)^2 / 2` is given by simply
+adding the two expansions together.
+"""
 function defect(
     u0::FractionalKdVAnsatz{T},
     evaltype::AsymptoticExpansion;
@@ -546,6 +607,15 @@ end
 Return a function for evaluating `F0(u0)(x)` accurately for small
 values of `x`.
 
+If `u0.use_bhkdv = true` it uses [`_F0_bhkdv`](@ref). Otherwise It
+splits `F0(u0)` as
+```
+inv(u0(x) / x^-u0.α) * (defect(u0)(x) / x^(u0.p - u0.α))
+```
+It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref).
+For the second factor it computes the expansion of `defect(u0)(x)` and
+explicitly cancels the division by `x^(u0.p - u0.α)`.
+
 # Arguments
 - `M::Integer = 5`: Determines the number of terms in the asymptotic
   expansions.
@@ -558,16 +628,6 @@ values of `x`.
   then set to the largest `j` such that `1 - 2α + j * p0 < 3.2`. The
   motivation for this is that we mainly want to avoid the singularity
   at `s = 3` for the expansions of the Clausen functions.
-
-# Implementation
-It splits `F0(u0)` as
-```
-inv(u0(x) / x^-u0.α) * (x^u0.p / u0.w(x)) * (defect(u0)(x) / x^(u0.p - u0.α))
-```
-It computes `inv(u0(x) / x^-u0.α)` using [`inv_u0_normalised`](@ref)
-and `x^u0.p / u0.w(x)` using `w.xpdivw`. For the third factor it
-computes the expansion of `defect(u0)(x)` and explicitly cancels the
-division by `x^(u0.p - u0.α)`.
 """
 function F0(
     u0::FractionalKdVAnsatz{Arb},
@@ -576,7 +636,7 @@ function F0(
     ϵ::Arb = Arb(1),
     skip_singular_j_until = nothing,
 )
-    # This case as a separate implementation
+    # This case has a separate implementation
     u0.use_bhkdv && return _F0_bhkdv(u0, Asymptotic(); M, ϵ, skip_singular_j_until)
 
     if isnothing(skip_singular_j_until)
@@ -606,7 +666,10 @@ function F0(
             end
         end
 
-        return res * inv_u0(x) * u0.xpdivw(x)
+        # Note that if we have u0.use_bhkdv = true we would have to
+        # also multiply with u0.xpdivw(x). But that case is always
+        # handled by _F0_bhkdv.
+        return inv_u0(x) * res
     end
 end
 
@@ -930,8 +993,10 @@ end
 """
     inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M = 5, ϵ = one(Arb))
 
-Return a function for evaluation `x^-u0.α / u0(x)` for `x` close to
+Return a function for evaluation `abs(x)^-u0.α / u0(x)` for `x` close to
 zero.
+
+It is based on [`lemma_inv_u0_normalised`](@ref).
 
 # Arguments
 - `M::Integer` determines the number of terms in the asymptotic
