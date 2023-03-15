@@ -164,6 +164,8 @@ exactly zero. If `f` is known to be exactly zero at zero but the
 enclosure might be wider it can be forced to be zero by setting `force
 = true`
 
+This function is based on [`lemma_removable_singularities`](@ref).
+
 **IMPROVE:** For complex argument it would likely be better to compute
 a bound of the remainder term using Cauchy's integral formula instead
 of the Lagrange remainder.

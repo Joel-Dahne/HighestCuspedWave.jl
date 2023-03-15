@@ -264,7 +264,26 @@ Corresponds to Lemma A.1 in the paper.
 
 # Statement
 
-TODO
+Let `d(f, k)(x)` denote the `k`th derivative of `f` evaluated at `x`.
+
+Let `m` be a non-negative integer and let `I` be an interval
+containing zero. Consider a function `f(x)` with a zero of order `n`
+at `x = 0` and such that `d(f, m + n)` is absolutely continuous on
+`I`. Then for all `x ∈ I` we have
+```
+f(x) / x^n = sum(f[k + n](0) * x^k for k = 0:m) + f[m + n + 1](ξ) * x^(m + 1)
+```
+for some `ξ` between `0` and `x`. Here we use `f[k](x) = d(f, k)(x) /
+factorial(k)`.
+
+Furthermore, if `d(f, m + n + p)` is absolutely continuous for some
+non-negative integer `p` we have
+```
+d(x -> f(x) / x^n, p)(x) =
+    sum(factorial(k + p) / factorial(k) * f[k + n + p](0) * x^k for k = 0:m) +
+    factorial(m + p + 1) / factorial(m + 1) * f[m + n + p + 1](ξ) * x^(m + 1)
+```
+for some `ξ` between `0` and `x`.
 """
 function lemma_removable_singularities end
 
@@ -321,7 +340,12 @@ Corresponds to Lemma C.5 in the paper.
 
 # Statement
 
-TODO
+For `x != 0` the function
+```
+(abs(x)^t - 1) / t
+```
+is non-decreasing in `t`. In the limit as `t` goes to zero it is equal
+to `log(abs(x))`.
 """
 function lemma_absxt_m1_div_t end
 

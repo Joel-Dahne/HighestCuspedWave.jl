@@ -228,7 +228,7 @@ function _zeta_deflated(s::ArbSeries, a::Arb)
         # t = 1/(N+a)^(s+x); take one extra term for deflation
         _acb_poly_acb_invpow_cpx!(t, Na, s0, d + 1, prec)
 
-        # This is the updated part compared to Arb
+        # THIS IS THE UPDATED PART COMPARED TO ARB
         begin
             # Compute coefficients of ((N + a) * t - 1) / (s - 1)
             w = let s = ArbSeries((s[0], 1), degree = d - 1)
@@ -236,6 +236,7 @@ function _zeta_deflated(s::ArbSeries, a::Arb)
                 num(v) = inv(real(Na))^v - 1
 
                 if contains(real(s0), 1)
+                    # This is the key change compare to Arb
                     w = fx_div_x(num, s - 1)
                 else
                     w = num(s - 1) / (s - 1)
@@ -585,16 +586,12 @@ abs(x)^s * (abs(x)^t - 1) / t
 ```
 in a way that works well for `t` overlapping zero.
 
-To get a good enclosure it uses monotonicity in `t`. The derivative in
-`t` can be written as
-```
-abs(x)^s * (1 + (log(abs(x)) * t - 1) * exp(log(abs(x)) * t)) / t^2
-```
-This is either zero or the sign depends only on `1 + (log(abs(x)) * t
-- 1) * exp(log(abs(x)) * t)´. If we let `v = log(abs(x)) * t` we have
-to study `1 + (v - 1) * exp(v)` which has the unique root `v = 0` and
-is positive for all other values of `v`. It is hence non-decreasing in
-`t` and we can evaluate on the endpoints.
+To get a good enclosure it uses monotonicity in `t`. By
+[`lemma_absxt_m1_div_t`](@ref) the function `(abs(x)^t - 1) / t` is
+non-decreasing in `t` for `x != 0` and we can thus evaluate on the
+endpoints. For `x = 0` the lemma doesn't apply directly but the factor
+`abs(x)^s` makes it so that it is non-decreasing in `t` also for `x =
+0`, which is easily proved in the same way the lemma is proved.
 
 For `t = 0` it reduces to `abs(x)^s * log(abs(x))`
 
