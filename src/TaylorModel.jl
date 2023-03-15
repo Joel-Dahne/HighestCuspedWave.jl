@@ -5,6 +5,15 @@ export TaylorModel
 
 Struct representing a Taylor model. The remainder term `Δ` is stored
 as the last term in `p`.
+
+The type and most of the methods are based on
+- Joldes, M. M. (2011). Rigorous polynomial approximations and
+  applications (Doctoral dissertation). Ecole normale supérieure
+  de lyon - ENS LYON.
+More precisely we implement what in that thesis is referred to as
+Taylor models with relative remainder. Most of the methods we define
+on Taylor models are straight forward adaptions of the algorithms
+given by Joldes.
 """
 struct TaylorModel
     p::ArbSeries
@@ -73,8 +82,8 @@ Return `true` if `M1` and `M2` have the same degree, center and
 interval.
 
 **IMPROVE:** At the moment the midpoints have to be exactly equal,
-meaning that only point-intervals are allowed. This might be enough
-for what we need but possibly it has to be changed.
+meaning that only point-intervals are allowed. This seems to be enough
+for what we need.
 """
 checkcompatible(::Type{Bool}, M1::TaylorModel, M2::TaylorModel) =
     Arblib.degree(M1) == Arblib.degree(M2) && isequal(M1.I, M2.I) && M1.x0 == M2.x0
@@ -82,7 +91,7 @@ checkcompatible(::Type{Bool}, M1::TaylorModel, M2::TaylorModel) =
 """
     checkcompatible(::Type{Bool}, M1::TaylorModel, M2::TaylorModel)
 
-Throw an error if `M1` and `M2` and not compatible according to
+Throw an error if `M1` and `M2` are not compatible according to
 `checkcompatible(Bool, M1, M2)`.
 
 **IMPROVE:** Add info about what failed.
