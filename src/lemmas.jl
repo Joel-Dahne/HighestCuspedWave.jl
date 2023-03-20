@@ -241,7 +241,10 @@ Corresponds to Lemma 9.1 in the paper.
 
 # Statement
 
-TODO
+Let `-1 < α < 0` and `0 < x < 1`, then
+```
+0 < x^(1 + α) / 2 * log(1 / x) * (1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2)) < 1
+```
 """
 function lemma_bhkdv_weight_factor_enclosure end
 
