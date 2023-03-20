@@ -9,7 +9,7 @@ Let `u0` be as in [`equation_kdv_u0`](@ref). Then the following
 asymptotic expansions hold near `x = 0`
 ```
 u0(x) = sum(a⁰[j] * abspow(x, -α + j * p0) for j = 0:N0) +
-    sum(m = 1:Inf) do m
+    sum(1:Inf) do m
         (-1)^m / factorial(2m) * (
             sum(a[j] * zeta(1 - α + j * p0 - 2m) for j = 0:N0)
             + sum(b[n] * n^2m for n = 1:N1)
@@ -18,11 +18,11 @@ u0(x) = sum(a⁰[j] * abspow(x, -α + j * p0) for j = 0:N0) +
 ```
 and
 ```
-H(u0)(x) = -sum(A⁰[j] * abspow(x, 1 - α + j * p0) for j = 0:N0) -
-    sum(m = 1:Inf) do m
+H(u0)(x) = -sum(A⁰[j] * abspow(x, -2α + j * p0) for j = 0:N0) -
+    sum(1:Inf) do m
         (-1)^m / factorial(2m) * (
-            sum(a[j] * zeta(2 - α + j * p0 - 2m) for j = 0:N0)
-            + sum(b[n] * n^(2m - 1) for n = 1:N1)
+            sum(a[j] * zeta(1 - 2α + j * p0 - 2m) for j = 0:N0)
+            + sum(b[n] * n^(2m + α) for n = 1:N1)
         ) * x^2m
     end
 ```
@@ -127,7 +127,58 @@ Corresponds to Lemma 4.6 in the paper.
 
 # Statement
 
-TODO
+The approximation for `α` in `I₁`, with `u0` as in
+[`equation_bhkdv_u0`](@ref) and `H(u0)` as in
+[`equation_bhkdv_Hu0`](@ref) has the asymptotic expansion
+```
+u0(x) = a0 * (
+        gamma(α) * cospi(α / 2)
+        - gamma(-1 - (1 + α)^2 / 2) * cospi((1 + (1 + α)^2 / 2) / 2) * abspow(x, 1 + α + (1 + α)^2 / 2)
+    ) * abspow(x, -α) +
+    a0 * sum(1:Inf) do m
+        (-1)^m / factorial(2m) *
+        (zeta(1 - α - 2m) - zeta(2 + (1 + α)^2 / 2 - 2m)) * x^2m
+    end +
+    sum(a⁰[j] * abspow(x, -α_hat + j * p0) for j = 1:N0) +
+    sum(1:Inf) do m
+        (-1)^m / factorial(2m) * (
+            sum(a[j] * zeta(1 - α_hat + j * p0 - 2m) for j = 1:N0)
+            + sum(b[n] * n^2m for n = 1:N1)
+        ) * x^2m
+    end
+```
+and
+```
+H(u0)(x) = -a0 * (
+        gamma(2α) * cospi(α)
+        - gamma(-1 + α - (1 + α)^2 / 2) * cospi((1 - α + (1 + α)^2 / 2) / 2) * abspow(x, 1 + α + (1 + α)^2 / 2)
+    ) * abspow(x, -2α) -
+    a0 * sum(
+        (-1)^m / factorial(2m) *
+        (zeta(1 - 2α - 2m) - zeta(2 - α + (1 + α)^2 / 2 - 2m)) * x^2m
+        for m = 1:Inf
+    ) -
+    sum(A⁰[j] * abspow(x, -α - α_hat + j * p0) for j = 0:N0) -
+    sum(m = 1:Inf) do m
+        (-1)^m / factorial(2m) * (
+            sum(a[j] * zeta(2 - α - α_hat + j * p0 - 2m) for j = 0:N0)
+            + sum(b[n] * n^(2m + α) for n = 1:N1)
+        ) * x^2m
+    end
+```
+valid for `abs(x) < 2π`. The following notation is used
+```
+a0 = finda0(α)
+α_hat = u0.v0.α
+p0 = u0.p0
+N0 = u0.N0
+N1 = u0.N1
+a[j] = u0.a[j]
+b[n] = u0.b[n]
+
+a⁰[j] = gamma(α_hat - j * p0) * cospi((α_hat - j * p0) / 2) * a[j]
+A⁰[j] = gamma(α_hat - 1 - j * p0) * cospi((α_hat - 1 - j * p0) / 2) * a[j]
+```
 """
 function lemma_bhkdv_asymptotic_expansion end
 
@@ -175,7 +226,11 @@ Corresponds to Lemma 8.2 in the paper.
 
 # Statement
 
-TODO
+For `α ∈ I1` the function
+```
+gamma(1 + α) * abspow(x, -α) * (1 - abspow(x, 1 + α + (1 + α)^2 / 2)) / u0(x)
+```
+is non-zero and uniformly bounded in `α` at `x = 0`.
 """
 function lemma_bhkdv_inv_u0_normalised end
 
@@ -418,12 +473,10 @@ function lemma_clausen_remainder end
 Corresponds to Lemma C.7 in the paper.
 
 # Statement
-**TODO:** Check that this corresponds to the version in the paper.
-
 Let `d(f, k)(x)` denote the `k`th derivative of `f` evaluated at `x`.
 
 Let `β >= 1, s >= 0, 2M >= s + 1` and `abs(x) < 2π`, we then have the
-following bounds for the tails in ... and ...
+following bounds:
 ```
 abs(sum((-1)^m * d(zeta, β)(s - 2m) * x^2m / factorial(2m) for m = M:Inf)) <=
     sum(j1 + j2 + j3 = β) do j1, j2, j3
@@ -471,13 +524,95 @@ sum(
 function lemma_clausen_derivative_remainder end
 
 """
+    lemma_clausen_remainder_bhkdv
+
+Corresponds to Lemma C.8 in the paper.
+
+# Statement
+
+For `-1 < α < 0` and `M1 >= 1` we have
+```
+abs(
+    sum(M1:Inf) do m
+        (-1)^m / factorial(2m) *
+        (zeta(1 - α - 2m) - zeta(2 + (1 + α)^2 / 2 - 2m)) / (1 + α) * x^2m
+    end
+) <=
+abs(sum((-1)^m / factorial(2m) * dzeta(s1[m] - 2m) * x^2m for m = M1:Inf)) +
+(1 + α) / 2 * abs(sum((-1)^m / factorial(2m) * dzeta(s2[m] - 2m) * x^2m for m = M1:Inf))
+```
+with `1 - α < s1[m] < 2` and `2 < s2[m] < 2 + (1 + α)^2 / 2`.
+Similarly, for `M2 >= 2`,
+```
+abs(
+    sum(M2:Inf) do m
+        (-1)^m / factorial(2m) *
+        (zeta(1 - 2α - 2m) - zeta(2 - α +  (1 + α)^2 / 2 - 2m)) / (1 + α) * x^2m
+    end
+) <=
+2abs(sum((-1)^m / factorial(2m) * dzeta(s3[m] - 2m) * x^2m for m = M2:Inf)) +
+(1 - (1 + α) / 2) * abs(sum((-1)^m / factorial(2m) * dzeta(s4[m] - 2m) * x^2m for m = M2:Inf))
+```
+with `1 - 2α < s3[m] < 3` and `2 - α + (1 + α)^2 / 2 < s4[m] < 3`.
+"""
+function lemma_clausen_remainder_bhkdv end
+
+"""
     lemma_clausen_derivative_remainder_interval
 
 Corresponds to Lemma C.9 in the paper.
 
 # Statement
 
-TODO
+Let `d(f, k)(x)` denote the `k`th derivative of `f` evaluated at `x`.
+
+Let `β >= 1`, `s` be the interval ``[sₗ, sᵤ]`` with `sₗ >= 0`, 2M >=
+sᵤ + 1`, `s[m] ∈ s` for `m >= M` and `abs(x) < 2π`, we then have the
+following bounds
+```
+abs(sum((-1)^m * d(zeta, β)(s[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)) <=
+    sum(j1 + j2 + j3 = β) do j1, j2, j3
+        binomial(β, (j1, j2, j3)) *
+        2(log(2π) + π / 2)^j1 *
+        (2π)^(sᵤ - 1) *
+        abs(d(zeta, j3)(1 + 2M - sᵤ)) *
+        sum(p[j2](1 + 2m - s[m]) * (x / 2π)^2m for m = M:Inf)
+    end
+
+abs(sum((-1)^m * d(zeta, β)(s[m] - 2m - 1) * x^(2m + 1) / factorial(2m + 1) for m = M:Inf)) <=
+    sum(j1 + j2 + j3 = β) do j1, j2, j3
+        binomial(β, (j1, j2, j3)) *
+        2(log(2π) + π / 2)^j1 *
+        (2π)^(sᵤ - 1) *
+        abs(d(zeta, j3)(2 + 2M - sᵤ)) *
+        sum(p[j2](2 + 2m - s[m]) * (x / 2π)^(2m + 1) for m = M:Inf)
+    end
+```
+
+Here `p[j2]` is the same as in
+[`lemma_clausen_derivative_remainder`](@ref) and given recursively by
+```
+p[k + 1](s) = polygamma(0, s) * p[k](s) + d(p[k], 1)(s)
+p[0] = 1
+```
+It is given by a linear combination of terms of the form
+```
+polygamma(0, s)^q[0] * polygamma(1, s)^q[1] * ⋯ * polygamma(j2 - 1, s)^q[j2 - 1]
+```
+We have the following bounds
+```
+sum(
+    polygamma(0, 1 + 2m - s[m])^q[0] * ⋯ * polygamma(j2 - 1, 1 + 2m - s[m])^q[j2 - 1] (x / 2π)^2m
+    for m = M:Inf
+) <= abs(polygamma(1, 1 + 2M - sᵤ)^q[1] * ⋯ * polygamma(j2 - 1, 1 + 2M - sᵤ)^q[j2 - 1]) *
+    1 / 2^(q[0] / 2) * (2π)^(-2M) * lerch_phi(x^2 / 4π^2, -q[0] / 2, M + 1) * x^2M
+
+sum(
+    polygamma(0, 2 + 2m - s[m])^q[0] * ⋯ * polygamma(j2 - 1, 2 + 2m - s[m])^q[j2 - 1] (x / 2π)^(2m + 1)
+    for m = M:Inf
+) <= abs(polygamma(1, 2 + 2M - sᵤ)^q[1] * ⋯ * polygamma(j2 - 1, 2 + 2M - sᵤ)^q[j2 - 1]) *
+    1 / 2^(q[0] / 2) * (2π)^(-2M - 1) * lerch_phi(x^2 / 4π^2, -q[0] / 2, M + 1) * x^(2M + 1)
+```
 """
 function lemma_clausen_derivative_remainder_interval end
 
@@ -491,6 +626,36 @@ Corresponds to Lemma D.1 in the paper.
 TODO
 """
 function lemma_bhkdv_integrand_enclosure_zero end
+
+"""
+    lemma_bhkdv_F0_P_factor
+
+Corresponds to Lemma E.1 in the paper.
+
+# Statement
+
+The factor
+```
+a0 * (c(α) - c(α - p0) * x^p0)
+```
+can be written as
+```
+C1 * x^p0 - C2 * (x^p0 - 1) / x^p0
+```
+with
+```
+C1 = a0 * (c(α) - c(α - p0))
+C2 = a0 * c(α) * p0
+```
+
+Here
+```
+a0 = finda0(α)
+c(s) = gamma(1 + s) * cospi(s  2)
+p0 = 1 + α + (1 + α)^2 / 2
+```
+"""
+function lemma_bhkdv_F0_P_factor end
 
 """
     lemma_bhkdv_U0_G1

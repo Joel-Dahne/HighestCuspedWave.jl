@@ -41,6 +41,73 @@ b[n] = u0.b[n]
 function equation_kdv_Hu0 end
 
 """
+    equation_bhkdv_u0
+
+Corresponds to Equation 20 in the paper.
+
+# Equation
+```
+u0(x) = a0 * (clausencmzeta(x, 1 - α) - clausencmzeta(x, 2 + (1 + α)^2 / 2)) +
+    sum(a[j] * clausencmzeta(x, 1 - α_hat + j * p0) for j = 1:N0) +
+    sum(b[n] * (cos(n * x) - 1) for n = 1:N1)
+```
+Note that the notation is slightly different than in the paper. In the
+paper there are two terms of `clausecmzeta(x, 1 - α + p0)`, here we
+have merged them into one term with the corresponding value for
+`a[1]`. The notation used is
+```
+a0 = finda0(α)
+α_hat = u0.v0.α
+p0 = u0.v0.p0
+N0 = u0.v0.N0
+N1 = u0.v0.N1
+a[j] = u0.v0.a[j]
+b[n] = u0.v0.b[n]
+```
+"""
+function equation_bhkdv_u0 end
+
+"""
+    equation_bhkdv_Hu0
+
+Corresponds to Equation 22 in the paper.
+
+# Equation
+```
+H(u0)(x) = -a0 * (clausencmzeta(x, 1 - 2α) - clausecmzeta(x, 2 - α + (1 + α)^2 / 2))
+    -sum(a[j] * clausencmzeta(x, 1 - α - α_hat + j * p0) for j = 1:N0) -
+    sum(b[n] * n^α * (cos(n * x) - 1) for n = 1:N1)
+```
+Note that as in [`equation_bhkdv_u0`](@ref) the notation is slightly
+different than in the paper. In the paper there are two terms of
+`clausecmzeta(x, 1 - α + p0)`, here we have merged them into one term
+with the corresponding value for `a[1]`. The notation used is
+```
+a0 = finda0(α)
+α_hat = u0.v0.α
+p0 = u0.v0.p0
+N0 = u0.v0.N0
+N1 = u0.v0.N1
+a[j] = u0.v0.a[j]
+b[n] = u0.v0.b[n]
+```
+"""
+function equation_bhkdv_Hu0 end
+
+"""
+    equation_bhkdv_F0_factor
+
+Corresponds to Equation 28 in the paper.
+
+# Equation
+```
+(H(u0)(x) + u0(x)^2 / 2) /
+    (gamma(1 + α) * log(inv(x)) * (1 - x^(1 + α + (1 + α)^2 / 2)) * x^(1 - α))
+```
+"""
+function equation_bhkdv_F0_factor end
+
+"""
     equation_clausenc_zeta
 
 Corresponds to Equation 43 in the paper.

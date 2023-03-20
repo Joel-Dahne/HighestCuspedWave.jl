@@ -169,8 +169,9 @@ and use [`finda0αp1`](@ref) to compute `a0 * (α + 1)`. For `x > 0` we
 can evaluate `(c(α) - c(α - p0) * x^p0) / (α + 1)` using
 [`fx_div_x`](@ref).
 
-To better handle `x` overlapping zero we in this case add and subtract
-`c(α)^x^p0` to the numerator, giving us
+To better handle `x` overlapping zero we follow in this case
+[`lemma_bhkdv_F0_P_factor`](@ref) and add and subtract `c(α) * x^p0`
+to the numerator, giving us
 ```
 (c(α) - c(α - p0) * x^p0) / (α + 1) =
     c(α) * (1 - x^p0) / (α + 1) + x^p0 * (c(α) - c(α - p0)) / (1 + α)
@@ -435,7 +436,8 @@ end
 
 Attempt to prove that the given expansion is positive on the interval
 ``(0, ϵ]``. Returns true on success and false on failure. It requires
-that `0 < ϵ < 1`
+that `0 < ϵ < 1`. This is used in [`inv_u0_normalised`](@ref) for
+computing an enclosure.
 
 The method can only handle expansions on certain simple forms. More
 precisely it requires that all terms have a key of the form
@@ -573,9 +575,10 @@ finda0αp1(α::ArbSeries) =
 """
     (u0::BHKdVAnsatz)(x, ::Ball)
 
-Evaluate the ansatz `u0` at the point `x`.
+Compute `u0(x)`. It is based on [`equation_bhkdv_u0`](@ref) but some
+care has to be taken when evaluating it.
 
-The tail term is evaluated directly.
+The two sums are evaluated directly.
 
 The main term is given by
 ```
@@ -669,18 +672,24 @@ end
 """
     (u0::BHKdVAnsatz)(x, ::AsymptoticExpansion; M = 3)
 
-Return a dictionary containing the terms in the asymptotic expansion
-of `u0` which can then be evaluated with [`eval_expansion`](@ref).
+Compute an expansion of `u0` around zero with remainder terms valid
+on the interval ``[-abs(x), abs(x)]``.
 
-The highest term, `x^2M`, is an error term is which makes sure that
-evaluation of the expansion gives an enclosure of the result when
-evaluated at `|y| < |x|`.
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref). See [`eval_expansion`](@ref) for more
+details about how the coefficients are stored.
 
-See [`eval_expansion`](@ref) for more details about how the
-coefficients are stored.
+The expansion is based on [`lemma_bhkdv_asymptotic_expansion`](@ref).
+In the lemma expansions from the sum of Clausen terms and the sum of
+Fourier terms are combined. For the computation we compute the
+expansions for these two sums separately and then combine them.
 
-For the tail term the expansions are easily computed exactly like for
-`BHAnsatz`. For the main term we have to be a bit more careful.
+The infinite sum in the Lemma is truncated and the tail is combined
+into one remainder term with the coefficient `x^2M`.
+
+For the terms coming from `u0.v0` the expansions are easily computed
+exactly like for `BHAnsatz`. For the main term we have to be a bit
+more careful.
 
 # Main term
 
@@ -710,7 +719,7 @@ The remainder term is given by
 ```
 a0 * sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) * x^2m / factorial(2m) for m = M:Inf) / x^2M
 ```
-We want to bound the absolute value of this. We can rewrite it as
+We can rewrite it as
 ```
 a0 * (1 + α) * sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α) * x^2m / factorial(2m) for m = M:Inf) / x^2M
 ```
@@ -719,54 +728,23 @@ is to bound the absolute value of
 ```
 S = sum((-1)^m * (zeta(1 - α - 2m) - zeta(1 - α + p0 - 2m)) / (1 + α) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
 ```
-
-If we let `t = α + 1` we can write the factor with the removable
-singularity as
+From [`lemma_clausen_remainder_bhkdv`](@ref) we get
 ```
-(zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t
-= (zeta(2 - 2m - t) - zeta(2 - 2m)) / t - (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
-```
-
-We can write the first term as
-```
--(zeta(2 - 2m + (-t)) - zeta(2 - 2m)) / (-t)
-```
-which is on the form `(f(s) - f(0)) / s` and hence given by
-`f'(ξ1[m])` for some `ξ1[m]` between `0` and `-t`.
-
-For the second term we write it as
-```
-(zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / t
-= t / 2 * (zeta(2 - 2m + t^2 / 2) - zeta(2 - 2m)) / (t^2 / 2)
-```
-which is given by `t / 2 * f'(ξ2[m])` for some `ξ2[m]` between `0` and
-`t^2 / 2`.
-
-Combining this gives us that
-```
-(zeta(2 - 2m - t) - zeta(2 - 2m + t^2 / 2)) / t = -dzeta(2 - 2m + ξ1[m]) + t / 2 * dzeta(2 - 2m + ξ2[m])
-```
-with `ξ1[m]` between `0` and `-t` and `ξ2[m]` between `0` and `t^2 /
-2`. Hence
-```
-abs(S) <= abs(S1) + (α + 1) / 2 * abs(S2)
+abs(S) <= abs(S1) + (1 + α) / 2 * abs(S2)
 ```
 with
-```
-S1 = sum((-1)^m * dzeta(2 + ξ1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
-S2 = sum((-1)^m * dzeta(2 + ξ2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
-```
-Which we can also write as
 ```
 S1 = sum((-1)^m * dzeta(s1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 S2 = sum((-1)^m * dzeta(s2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
 with `1 - α <= s1[m] <= 2` and `2 <= s2[m] <= 2 + (1 + α)^2 / 2`.
-These sums are on the same form as the ones bounded by
-[`clausenc_expansion_remainder`](@ref). The only difference is that
-the argument `s` depends on `m`. This can however be shown to not
-affect the bound, see the lemma in the paper, and we can thus use
-[`clausenc_expansion_remainder`](@ref) to bound them.
+
+From [`lemma_clausen_derivative_remainder_bhkdv`](@ref) we get that
+`S1` and `S2` can be bounded in the same way as the sums bounded by
+[`clausenc_expansion_remainder`](@ref). The only difference being that
+we have to give interval arguments for `s` that enclose `s1[m]` and
+`s2[m]` respectively. This is straight forward since we have uniform
+bounds for `s1[m]` and `s2[m]`.
 """
 function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     @assert M >= 3
@@ -815,11 +793,13 @@ function (u0::BHKdVAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     end
 
     # Remainder term for main term
-    remainder =
+    # s1 and s2 are enclosures of s1[m] and s2[m] for all m >= M.
+    remainder = let s1 = 2 - αp1, s2 = 2 + αp1^2 / 2
         a0αp1 * (
-            clausenc_expansion_remainder(x, 2 - αp1, 1, M) +
-            αp1 / 2 * clausenc_expansion_remainder(x, 2 + αp1^2 / 2, 1, M)
+            clausenc_expansion_remainder(x, s1, 1, M) +
+            αp1 / 2 * clausenc_expansion_remainder(x, s2, 1, M)
         )
+    end
     res[(0, 0, 0, 0, 0, 0, 2M)] += remainder
 
     # Tail term
@@ -853,8 +833,8 @@ end
 """
     H(u0::BHKdVAnsatz, ::Ball)
 
-Returns a function such that `H(u0, Ball())(x)` evaluates
-``H^α[u0](x)``.
+Return a function for computing `H(u0)(x)` as given in
+[`equation_bhkdv_Hu0`](@ref).
 
 # Main term
 The transform of the main term is given by
@@ -963,15 +943,21 @@ end
 """
     H(u0::BHKdVAnsatz, ::AsymptoticExpansion; M = 3, skip_singular_j_until::Integer = 0,)
 
-Return a dictionary containing the terms in the asymptotic expansion
-of `H(u0)` which can then be evaluated with [`eval_expansion`](@ref).
+Return a function such that `H(u0)(x)` computes an expansion of
+`H(u0)` around zero with remainder terms valid on the interval
+``[-abs(x), abs(x)]``.
 
-The highest term, `x^2M`, is an error term is which makes sure that
-evaluation of the expansion gives an enclosure of the result when
-evaluated at `|y| < |x|`.
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref). See [`eval_expansion`](@ref) for more
+details about how the coefficients are stored.
 
-See [`eval_expansion`](@ref) for more details about how the
-coefficients are stored.
+The expansion is based on [`lemma_bhkdv_asymptotic_expansion`](@ref).
+In the lemma expansions from the sum of Clausen terms and the sum of
+Fourier terms are combined. For the computation we compute the
+expansions for these two sums separately and then combine them.
+
+The infinite sum in the Lemma is truncated and the tail is combined
+into one remainder term with the coefficient `x^2M`.
 
 # Main term
 For the main term we want the expansion of
@@ -1017,7 +1003,7 @@ The remainder term is given by
 ```
 -a0 * sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) * x^2m / factorial(2m) for m = M:Inf) / x^2M
 ```
-We want to bound the absolute value of this. We can rewrite it as
+We can rewrite it as
 ```
 a0 * (1 + α) * sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (1 + α) * x^2m / factorial(2m) for m = M:Inf) / x^2M
 ```
@@ -1026,57 +1012,25 @@ is to bound the absolute value of
 ```
 S = sum((-1)^m * (zeta(1 - 2α - 2m) - zeta(1 - 2α + p0 - 2m)) / (1 + α) * x^(2m - 2M) / factorial(2m) for m = M:Inf)
 ```
-
-If we let `t = α + 1` we can write the factor with the removable
-singularity as
-```
-(zeta(3 - 2m - 2t) - zeta(3 - 2m - t + t^2 / 2)) / t
-= (zeta(3 - 2m - 2t) - zeta(2 - 2m)) / t - (zeta(3 - 2m - t + t^2 / 2) - zeta(2 - 2m)) / t
-```
-
-We can write the first term as
-```
--2(zeta(3 - 2m + (-2t)) - zeta(3 - 2m)) / (-2t)
-```
-which is on the form `(f(s) - f(0)) / s` and hence given by
-`f'(ξ1[m])` for some `ξ1[m]` between `0` and `-2t`.
-
-For the second term we write it as
-```
-(zeta(3 - 2m - t + t^2 / 2) - zeta(3 - 2m)) / t
-= (-1 + t / 2) * (zeta(3 - 2m + t^2 / 2) - zeta(3 - 2m)) / (-t + t^2 / 2)
-```
-which is given by `(-1 + t / 2) * f'(ξ2[m])` for some `ξ2[m]` between
-`0` and `-t + t^2 / 2`.
-
-Combining this gives us that
-```
-(zeta(3 - 2m - 2t) - zeta(3 - 2m -t + t^2 / 2)) / t
-= -2dzeta(3 - 2m + ξ1[m]) + (-1 + t / 2) * dzeta(3 - 2m + ξ2[m])
-```
-with `ξ1[m]` between `0` and `-2t` and `ξ2[m]` between `0` and `-t +
-t^2 / 2`. Hence
+From [`lemma_clausen_remainder_bhkdv`](@ref) we get
 ```
 abs(S) <= 2abs(S1) + (1 - (1 + α) / 2) * abs(S2)
 ```
 with
 ```
-S1 = sum((-1)^m * dzeta(3 + ξ1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
-S2 = sum((-1)^m * dzeta(3 + ξ2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
-```
-Which we can also write as
-```
-S1 = sum((-1)^m * dzeta(s1[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
-S2 = sum((-1)^m * dzeta(s2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S1 = sum((-1)^m * dzeta(s3[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
+S2 = sum((-1)^m * dzeta(s4[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
 with `1 - 2α <= s1[m] <= 3` and `2 - α + (1 + α)^2 / 2 <= s2[m] <= 3`.
-These sums are on the same form as the ones bounded by
-[`clausenc_expansion_remainder`](@ref). The only difference is that
-the argument `s` depends on `m`. This can however be shown to not
-affect the bound, see the lemma in the paper, and we can thus use
-[`clausenc_expansion_remainder`](@ref) to bound them.
 
-# Tail
+From [`lemma_clausen_derivative_remainder_bhkdv`](@ref) we get that
+`S1` and `S2` can be bounded in the same way as the sums bounded by
+[`clausenc_expansion_remainder`](@ref). The only difference being that
+we have to give interval arguments for `s` that enclose `s3[m]` and
+`s4[m]` respectively. This is straight forward since we have uniform
+bounds for `s3[m]` and `s4[m]`.
+
+# Terms from `u0.v0`
 For both the Clausen terms and the Fourier terms we let `α` be a ball.
 This gives good enclosures for the Fourier terms. For the Clausen
 terms it give good enclosures unless `j` is small. For small values of
@@ -1145,11 +1099,13 @@ function H(
         end
 
         # Remainder term for main term
-        remainder =
+        # s3 and s4 are enclosures of s3[m] and s4[m] for all m >= M.
+        remainder = let s3 = 3 - 2αp1, s4 = 3 - αp1 + αp1^2
             a0αp1 * (
-                2clausenc_expansion_remainder(x, 3 - 2αp1, 1, M) +
-                (1 - αp1 / 2) * clausenc_expansion_remainder(x, 3 - αp1 + αp1^2 / 2, 1, M)
+                2clausenc_expansion_remainder(x, s3, 1, M) +
+                (1 - αp1 / 2) * clausenc_expansion_remainder(x, s4, 1, M)
             )
+        end
         res[(0, 0, 0, 0, 0, 0, 2M)] += remainder
 
         # Tail term
@@ -1187,12 +1143,29 @@ function H(
     end
 end
 
-function defect(u0::BHKdVAnsatz, ::Asymptotic; M::Integer = 3, skip_singular_j_until = 0)
-    f = defect(u0, AsymptoticExpansion(); M, skip_singular_j_until)
+# defect(u0, Asymptotic()) doesn't exist because eval_expansion
+# doesn't implement evaluation of the main term of H directly.
 
-    return x -> eval_expansion(u0, f(x), x)
-end
+"""
+    defect(u0::FractionalKdVAnsatz{Arb}, ::AsymptoticExpansion; M = 5, skip_singular_j_until = 0)
 
+Return a function such that `defect(u0, AsymptoticExpansion())(x)`
+compute an expansion of
+```
+H(u0)(x) + u0(x)^2 / 2
+```
+around zero with a remainder term valid on the interval `[-abs(x),
+abs(x)]`.
+
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is computed by first computing the expansions of `u0(x)`
+and `H(u0)(x)`. The expansion for `u0(x)^2 / 2` is then computed from
+the expansion of `u0(x)` by computing the products between all terms.
+Finally the expansion of `H(u0)(x) + u0(x)^2 / 2` is given by simply
+adding the two expansions together.
+"""
 function defect(
     u0::BHKdVAnsatz,
     evaltype::AsymptoticExpansion;
@@ -1234,14 +1207,14 @@ Return a function that computes a value that is larger than
 `F0(u0)(x)` in magnitude and has the same sign. The absolute value of
 this then gives an upper bound of `abs(F0(u0)(x))`.
 
-More precisely this computes
+It uses [`lemma_bhkdv_main_term_limit`](@ref) which implies that
+`u0.v0(x)` gives a lower bound of `u0(x)`. Hence
 ```
 defect(u0)(x) / (u0.w(x) * u0.v0(x))
 ```
-Since `u0.v0(x)` gives a lower bound of `u0(x)`, this follows from
-[`lemma_bhkdv_main_term_limit`](@ref), this gives a value which has
-the same sign as `F0(x)` but is larger in magnitude. This holds as
-long as `u0.v0(x)` is positive at least, which is easily checked.
+this gives a value which has the same sign as `F0(x)` but is larger in
+magnitude. This holds as long as `u0.v0(x)` is positive at least,
+which is easily checked.
 
 **IMPROVE:** The computation of `u0.v0(x)` and `u0(x)` have many
 calculations in common. We could improve performance by using this.
@@ -1269,7 +1242,6 @@ function F0_bound(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball())
         return g(x) * invu0v0 * invweight
     end
 end
-
 
 """
     F0(u0::BHKdVAnsatz{Arb}, ::Asymptotic)
@@ -1306,7 +1278,8 @@ taking `γ = 0`, giving us
 ```
 F = (u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0) * x^(1 - α))
 ```
-We now explain how to bound `F`
+See [`equation_bhkdv_defect`](@ref) where the factor is introduced in
+the paper. We now explain how to bound `F`.
 
 # Bounding `F`
 Getting an accurate bound for `F` requires more work.
@@ -1612,24 +1585,16 @@ inv(2log(x)) * (x^r - 1) / r
 which is increasing in `x`.
 
 ## Handling `T3`: the remaining terms
-Once the terms `P` and `Q` have been taken out from the expansion it
-is possible to enclose the remaining ones directly. However the
-expansion for the first Clausen function in the tail has very large
-cancellations between the first two terms in the expansion and they
-are therefore handled separately. The rest of the terms we enclose
-directly by using [`eval_expansion`](@ref). If `u0.ϵ` is small this
-gives good enough enclosures so that we don't have to handle it in any
-more sophisticated way.
+For the remaining terms we factor out `inv(gamma(1 + α) * (1 - x^p0))`
+and enclose it separately, in the same way as for `T2` above.
 
-Recall that all terms are supposed to be divided by `(gamma(1 + α) *
-log(x) * x^(1 - α) * (1 - x^p0))`. The `x^(1 - α)` factor will be
-cancelled explicitly. Giving `div_logx = true` to `eval_expansion`
-handles the division by `log(x)`. For the remaining part we compute an
-enclosure. We are therefore interested in computing an enclosure of
-```
-inv(gamma(1 + α) * (1 - x^p0))
-```
-which is done in the same way as is the same as in the above section.
+For the terms in the expansion we note that they all have an exponent
+greater than `1 - α` and we can therefore explicitly cancel the
+division by `x^(1 - α)`. The remaining part of the denominator is
+`log(1 / x)`, which is handled internally by [`eval_expansion`](@ref)
+by giving it the argument `div_logx = true`. This makes use of
+[`lemma_bhkdv_F0_P_factor`](@ref) for improving the computed
+enclosures when `x` overlaps zero.
 """
 function F0(
     u0::BHKdVAnsatz{Arb},
@@ -1960,6 +1925,9 @@ Return a function that computes an upper bound of
 gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)
 ```
 
+The function bounds the expression appearing in
+[`lemma_bhkdv_inv_u0_normalised`](@ref).
+
 It assumes that `x` is non-negative, any negative parts of `x` are
 ignored.
 
@@ -1974,7 +1942,8 @@ gamma(1 + α) * (1 - x^p0) = gamma(2 + α) * (1 - x^p0) / (1 + α)
 using the same method as for enclosing `T112` in [`F0`](@ref).
 
 We now describe how to compute an upper bound when `x` overlaps with
-zero.
+zero. This is similar to what is done in the proof of
+[`lemma_bhkdv_inv_u0_normalised`](@ref).
 
 We start by computing the asymptotic expansion of `u0`. We then split
 the expansion into the leading term and a tail. In practice both the
