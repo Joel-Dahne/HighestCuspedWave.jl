@@ -815,3 +815,36 @@ Corresponds to Lemma F.7 in the paper.
 TODO
 """
 function lemma_bhkdv_U0_G21 end
+
+"""
+    lemma_kdv_U0_hybrid_R
+
+Corresponds to Lemma G.1 in the paper.
+
+# Statement
+
+Let `0 < ϵ < π / 2`, for `-1 < α < 0`, `0 <= x <= ϵ` and `-α < p < 1`
+with `1 + α != p` we have
+```
+U03R(x) / (x^(-α + p) * log(1 / x)) <=
+    2x^(2 + α - p) * π^(p - 1) / log(1 / x) * sum(1:M-1) do m
+        binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^(2(m - 1 - l))
+    end -
+    2x^(2 + α - p) * π^(p - 1) * log(π / x) / log(1 / x) * sum(1:M-1) do m
+        binomial(2m, 2k) / (2k + 1 + p) * (x / π)^(2(m - 1 - l))
+    end +
+    6x^(2 + α - p) * π^(p - 1) / log(1 / x) * sum(M:Inf) do m
+        (-1)^m * zeta(-α - 2m) * (3π / 2)^2m / factorial(2m)
+    end
+```
+
+Here
+```
+U03R(x) = 2x^(1 + p) * sum(1:Inf) do m
+    (-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) *
+        sum(binomial(2m, 2k) * ∫ t^(2k + p) * log(inv(t)) dt for k = 0:m-1)
+end
+```
+where the integration is taken from `0` to `π / x`.
+"""
+function lemma_kdv_U0_hybrid_R end

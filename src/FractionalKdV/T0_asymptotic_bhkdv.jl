@@ -880,69 +880,46 @@ Return a function for computing a bound of
 ```
 where the integration is from `0` to `π / x` for `x < ϵ`.
 
-# Implementation
-We have
+A bound is given in [`lemma_kdv_U0_hybrid_R`](@ref). We can rewrite it
+as
 ```
-∫ t^(2k + p) * log(inv(t)) dt = (1 - (2k + 1 + p) * log(π / x)) / (2k + 1 + p)^2 * (π / x)^(2k + 1 + p)
+2x^(2 + α - p) * π^(p - 1) * (
+    log(1 / x) * S1
+    - log(π / x) / log(1 / x) * S2
+    + 3log(1 / x) * S3
+)
 ```
-Giving us
+where `S1` and `S2` are finite sums given by
 ```
-I3_R(x) = 2x^(1 + α) / log(inv(x)) * sum((-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) * sum(binomial(2m, 2k) (1 - (2k + 1 + p) * log(π / x)) / (2k + 1 + p)^2 * (π / x)^(2k + 1 + p) for k = 0:m-1) for m = 1:Inf)
+S1 = sum(1:M-1) do m
+    binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^(2(m - 1 - l))
+end
+
+S2 = sum(1:M-1) do m
+    binomial(2m, 2k) / (2k + 1 + p) * (x / π)^(2(m - 1 - l))
+end
 ```
-Similar simplifications as for when the weight is `x^p` allows us to
-write it as
+and `S3` is an infinite sum given by
 ```
-I3_R(x) = 2x^(2 + α - p) * π^(p - 1) / log(inv(x)) * sum((-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(binomial(2m, 2k) * (1 - (2k + 1 + p) * log(π / x)) / (2k + 1 + p)^2 * (x / π)^((2(m - 1 - k))) for k = 0:m-1) for m = 1:Inf)
+S3 = sum(M:Inf) do m
+    (-1)^m * zeta(-α - 2m) * (3π / 2)^2m / factorial(2m)
+end
 ```
 
-By splitting the inner sum into
+We can enclose `S1` and `S2` by summing explicitly, for `S3` we note
+that it is exactly equal to `clausenc_expansion_remainder(3Arb(π) / 2,
+-α, M)`. Furthermore we can note that
 ```
-sum(binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^((2(m - 1 - k))) for k = 0:m-1) -
-    -log(π / x) * sum(binomial(2m, 2k) / (2k + 1 + p) * (x / π)^((2(m - 1 - k))) for k = 0:m-1)
+log(π / x) / log(1 / x) = 1 + log(π) / log(inv(x))
 ```
-we can split `I3_R` into
-```
-I3_R1(x) = 2x^(2 + α - p) * π^(p - 1) / log(inv(x)) * sum((-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^((2(m - 1 - k))) for k = 0:m-1) for m = 1:Inf)
-
-I3_R2(x) = - 2x^(2 + α - p) * π^(p - 1) * log(π / x) / log(inv(x)) * sum((-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(binomial(2m, 2k) / (2k + 1 + p) * (x / π)^((2(m - 1 - k))) for k = 0:m-1) for m = 1:Inf)
-```
-For `I3_R2` we can use that `log(π / x) / log(inv(x)) = 1 + log(π) /
-log(inv(x))`. We can sum the first `N` terms explicitly, what remains
-is to handle the tails
-```
-sum((-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^((2(m - 1 - k))) for k = 0:m-1) for m = N:Inf)
-
-sum((-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(binomial(2m, 2k) / (2k + 1 + p) * (x / π)^((2(m - 1 - k))) for k = 0:m-1) for m = N:Inf)
-```
-For the first one we need to compute an upper bound, since the factor
-in front is positive, whereas for the second one we need to compute a
-lower bound since the factor in front is negative.
-
-For the lower bound it is enough to notice that all terms in the sum
-are positive. So we get the trivial lower bound zero. What remains is
-thus to compute an upper bound for the first sum. Looking at the inner
-sum we have
-```
-sum(binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^((2(m - 1 - k))) for k = 0:m-1)
-<= sum(binomial(2m, 2k) / (2k + 1 + p) * (x / π)^((2(m - 1 - k))) for k = 0:m-1)
-<= sum(binomial(2m, 2k) / (2k + 1) * (x / π)^((2(m - 1 - k))) for k = 0:m-1)
-<= sum(binomial(2m, 2k) / (2k + 1) * (ϵ / π)^((2(m - 1 - k))) for k = 0:m-1)
-<= sum(binomial(2m, 2k) / (2k + 1) * (1 / 2)^((2(m - 1 - k))) for k = 0:m-1)
-= (2^(-2m) * (1 + 3^(1 + 2m)) - 4) / (1 + 2m)
-<= 3 * (3 / 2)^2m
-```
-Here we have used that `x < ϵ < π / 2` and explicitly computed the
-last sum. Inserting this back into the outer sum we get
-```
-3 * sum((-1)^m * zeta(-α - 2m) * (3π / 2)^2m / factorial(2m) *  for m = N:Inf)
-```
-This is exactly `3clausenc_expansion_remainder(3Arb(π) / 2, -α, N)`.
 """
 function _T0_bhkdv_I3_R(α, p, ϵ)
-    # This is required for the bound of the tail of I3_R1
+    # This is required for lemma_kdv_U0_hybrid_R
     @assert ϵ <= Arb(π) / 2
 
     return x -> begin
+        @assert x <= ϵ
+
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
         invloginvx = if iszero(x)
             zero(x)
@@ -952,47 +929,28 @@ function _T0_bhkdv_I3_R(α, p, ϵ)
             -inv(log(x))
         end
 
-        N = 20
+        M = 20
 
-        # Sum in I3_R1 for m in 1:N-1
-        I3_R1_sum = sum(1:N-1) do m
-            term =
-                (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
-                sum(0:m-1) do k
-                    binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^(2(m - 1 - k))
-                end
+        # Compute the two finite sums
+        S1 = sum(1:M-1) do m
+            (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
+            sum(0:m-1) do k
+                binomial(2m, 2k) / (2k + 1 + p)^2 * (x / π)^(2(m - 1 - k))
+            end
         end
 
-        # Upper bound of tail for sum in I3_R1.
-        I3_R1_sum_tail_upper = 3clausenc_expansion_remainder(3Arb(π) / 2, -α, N)
-
-        I3_R1 =
-            2abspow(x, 2 + α - p) *
-            Arb(π)^(p - 1) *
-            invloginvx *
-            (I3_R1_sum + I3_R1_sum_tail_upper)
-
-
-        # Sum in I3_R2 for m in 1:N-1
-        I3_R2_sum = sum(1:N-1) do m
-            term =
-                (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
-                sum(0:m-1) do k
-                    binomial(2m, 2k) / (2k + 1 + p) * (x / π)^(2(m - 1 - k))
-                end
+        S2 = sum(1:M-1) do m
+            (-1)^m * zeta(-α - 2m) * Arb(π)^2m / factorial(big(2m)) *
+            sum(0:m-1) do k
+                binomial(2m, 2k) / (2k + 1 + p) * (x / π)^(2(m - 1 - k))
+            end
         end
 
-        # Lower bound of tail for sum in I3_R2. It is positive so a
-        # trivial lower bound is zero
-        I3_R2_sum_tail_lower = zero(α)
+        # Compute the infinite sum
+        S3 = clausenc_expansion_remainder(3Arb(π) / 2, -α, M)
 
-        # Note that log(π / x) / log(inv(x)) = 1 + log(π) / log(inv(x))
-        I3_R2 =
-            -2abspow(x, 2 + α - p) *
-            Arb(π)^(p - 1) *
-            (1 + log(Arb(π)) * invloginvx) *
-            (I3_R2_sum + I3_R2_sum_tail_lower)
-
-        return I3_R1 + I3_R2
+        return 2abspow(x, 2 + α - p) *
+               Arb(π)^(p - 1) *
+               (invloginvx * S1 - (1 + log(Arb(π)) * invloginvx) * S2 + 3S3)
     end
 end
