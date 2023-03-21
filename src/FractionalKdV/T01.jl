@@ -5,7 +5,7 @@ Compute
 ```
 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-which is part of the integrand of `T01`.
+which is part of the integrand of `T01`. See [`equation_I_hat`](@ref).
 
 **IMPROVE:** Optimize this for performance and enclosure in `x` and
   `α`. It seems to be that the integrand is monotone in `x` for `t`
@@ -371,9 +371,9 @@ integrated from `0` to `1`. The factor `inv(u0(x) / x^-α)` is computed
 using [`inv_u0_normalised`](@ref) so the remaining work is in bounding
 the `U01 / x^(-α + p)` factor.
 
-From the lemma in the paper we have
+From [`lemma_kdv_U0_asymptotic`](@ref) we have
 ```
-U01 / x^(-α + p) <= c + d * x^(2 + α - p)
+U01 / x^(-α + p) <= c + d * x^(3 + α)
 ```
 with
 ```
@@ -683,7 +683,6 @@ inv(π * u0(x)) * u0.w(x * Arb((1 - δ1, 1))) / u0.w(x) * (
 
 Since the root is decreasing in `x` it is enough to check that `1 -
 δ1` is larger than the root for `x = 0`.
-
 
 If `weightfactors(u0)` is true then `u0.w(x * t) = u0.w(x) * u0.w(t)`
 and we have

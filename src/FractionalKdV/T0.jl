@@ -93,6 +93,10 @@ end
 Return a function such that `T0_p_one(u0)(x)` computes `T0(u0)(x)` for
 `u0` with the weight `x`.
 
+This is based on [`lemma_U0_primitive_weight_x`](@ref) but we give the
+proof below as well. To make it easier to compute good enclosures the
+terms are split slightly different from in the paper.
+
 In this case the integral is given by
 ```
 inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
@@ -118,9 +122,23 @@ the interval where
 ```
 clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 ```
-is zero. For the other parts of the interval we can remove the
-absolute value (taking the appropriate sign) and integrate explicitly
-using `primitive(t)`.
+is zero. We then split the interval into several parts where the sign
+is constant, so we can remove the absolute value (taking the
+appropriate sign) and integrate explicitly using `primitive(t)`.
+
+To begin with we split it as `I = I1 + I2` where `I1` is the
+integration on `[0, 1]` and `I2` on `[1, π / x]`.
+
+On the interval `[0, 1]` the expression inside the absolute value has,
+by [`lemma_I_hat_root`](@ref), a unique root which we can isolate with
+[`_integrand_compute_root`](@ref), it is negative to the left of the
+root and positive to the right. If we let `r` be the root then the
+integral is given by
+```
+I1 = -I11 + I12
+```
+where `I11 = primitive(r) - primitive(0)` is the integral on `[0, r]`
+and `I12 = primitive(1) - primitive(r)` is the integral on `[r, 1]`.
 
 On the interval `[1, π / x]` the expression inside the absolute value
 is positive, see [lemma_I_positive`](@ref), and we can just remove it.
@@ -129,19 +147,7 @@ This gives us the integral
 I2 = primitive(π / x) - primitive(1)
 ```
 
-On the interval `[0, 1]` the expression inside the absolute value has
-a unique root which we can isolate with
-[`_integrand_compute_root`](@ref), it is negative to the left of the
-root and positive to the right. If we let `r` be the root then the
-integral is given by
-```
-I1 = -I11 + I13
-```
-where `I11 = primitive(root_lower) - primitive(0)` is the integral on
-`[0, r]` and `I12 = primitive(1) - primitive(r)` is the integral on
-`[r, 1]`.
-
-Putting all of this together and simplify we get
+Putting all of this together and simplifying we get
 ```
 I1 + I2 = primitive(0) - 2primitive(r) + primitive(x / π)
 ```
@@ -194,15 +200,14 @@ function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 
             2(clausenc(x + π, 2 - u0.α) + real(eta(Acb(2 - u0.α)))) / x
 
         # Compute a tighter enclosure by expanding in x
-        I_mul_x(x) =
+        I_mul_x = ArbExtras.enclosure_series(x) do x
             primitive_mul_x_zero(x) - 2primitive_mul_x_r(x) + primitive_mul_x_pi_div_x(x)
-
-        res = ArbExtras.enclosure_series(I_mul_x, x)
+        end
 
         if skip_div_u0
-            return res / π
+            return I_mul_x / π
         else
-            return res / (π * u0(x))
+            return I_mul_x / (π * u0(x))
         end
     end
 end

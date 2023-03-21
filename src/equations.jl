@@ -108,6 +108,32 @@ Corresponds to Equation 28 in the paper.
 function equation_bhkdv_F0_factor end
 
 """
+    equation_I
+
+This equation is not numbered in the paper but given shortly after
+Equation 29
+
+# Equation
+```
+I(x, t, α) = clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)
+```
+"""
+function equation_I end
+
+"""
+    equation_I_hat
+
+This equation is not numbered in the paper but given right before
+Lemma 11.1.
+
+# Equation
+```
+I_hat(x, t, α) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
+```
+"""
+function equation_I_hat end
+
+"""
     equation_clausenc_zeta
 
 Corresponds to Equation 43 in the paper.

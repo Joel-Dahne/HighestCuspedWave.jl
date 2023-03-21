@@ -266,7 +266,13 @@ Corresponds to Lemma 11.1 in the paper.
 
 # Statement
 
-TODO
+For all `-1 < α < 0` the function
+```
+(1 - t)^(-α - 1) + (1 - t)^(-α - 1) - 2t^(-α - 1)
+```
+is increasing and continuous in `t` for `0 < t < 1` and has the unique
+root `r0(α)`. For `0 < x < π` and `0 < t < r0(α)` the function
+`I_hat(x, t, α)` (see [`equation_I_hat`](@ref)) is increasing in `x`.
 """
 function lemma_I_hat_root_zero end
 
@@ -277,7 +283,17 @@ Corresponds to Lemma 11.2 in the paper.
 
 # Statement
 
-TODO
+For all `-1 < α < 0` and `0 < x < π` the function `I_hat(x, t, α)`
+(see [`equation_I_hat`](@ref)) is increasing and continuous in `t` for
+`0 < t < 1` and has the limits `-Inf` and `Inf` for `t` going to `0`
+and `1` respectively.
+
+Moreover, the unique root, `r(α, x)`, in `t` is decreasing in `x` and
+satisfies the inequality
+```
+1 / 2 < r(α, x) < r0(α)
+```
+with `r0(α)` as in [lemma_I_hat_root_zero`](@ref).
 """
 function lemma_I_hat_root end
 
@@ -288,7 +304,16 @@ Corresponds to Lemma 11.3 in the paper.
 
 # Statement
 
-TODO
+Let `α_interval = [αₗ, αᵤ] ⊆ (-1, 0)` and `0 < x < π`. Let `I_hat_dα`
+denote the derivative of `I_hat(x, t, α)` (see
+[`equation_I_hat`](@ref)) with respect to `α`. If
+```
+I_hat_dα(x, r(αₗ, x), α) > 0
+```
+, with `r(α, x)` as in [`lemma_I_hat_root`](@ref), for all `α ∈
+α_interval` then `r(α, x) <= r(αₗ, x)` for all `α ∈ α_interval`.
+Similarly, if `I_hat_dα(x, r(αᵤ, x), α) > 0` for all `α ∈ α_interval`,
+then `r(α, x) >= r(αᵤ, x)` for all `α ∈ α_interval`.
 """
 function lemma_I_hat_root_alpha end
 
@@ -299,7 +324,10 @@ Corresponds to Lemma 11.4 in the paper.
 
 # Statement
 
-TODO
+For all `-1 < α < 0` and `0 < x < π` we have `I(x, y, α) > 0` for `x <
+y < π` and `I_hat(x, t, α) > 0` for `1 < t < π / x`. Here `I(x, y, α)`
+and `I_hat(x, t, α)` are as in [`equation_I`](@ref) and
+[`equation_I_hat`](@ref) respectively,
 """
 function lemma_I_positive end
 
@@ -310,7 +338,13 @@ Corresponds to Lemma 11.5 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0`, `0 < x < π` and `w(x) = abs(x)` we have
+```
+U0(x) = 2clausencmzeta(x, 2 - α) + 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) -
+    2(clausenc(x * (1 - r), 2 - α) + clausenc(x * (1 + r), 2 - α) - 2clausenc(x * r, 2 - α)) -
+    2x * r * (-clausens(x * (1 - r), 1 - α) + clausens(x * (1 + r), 1 - α) - 2clausens(x * r, 1 - α))
+```
+Here `r` is the root occurring in [`lemma_I_hat_root`](@ref).
 """
 function lemma_U0_primitive_weight_x end
 
@@ -321,7 +355,52 @@ Corresponds to Lemma 11.6 in the paper.
 
 # Statement
 
-TODO
+Let `0 < ϵ < π / 2`, for `-1 < α < 0`, `0 < x < ϵ` and `u0.w(x) =
+abspow(x, p)` with `-α < p < 1` and `1 + α != p` we have
+```
+U01 / x^(-α + p) <= c1 + d1 * x^(3 + α)
+```
+and
+```
+U02 / x^(-α + p) <= c2 + d2 * x^(2 + α - p)
+```
+where
+```
+c = gamma(1 + α) * sinpi(-α / 2) * (
+    2 / (α - p) +
+    gamma(-α) * gamma(1 + p) / gamma(1 - α + p) +
+    hypgeom_2f1(1 + α, 1 + p, 2 + p, -1) / (1 + p) -
+    2r^p * (
+        2r^-α / (α - p) +
+        r * hypgeom_2f1(1 + α, 1 + p, 2 + p, -r) / (1 + p) +
+        r * hypgeom_2f1(1 + α, 1 + p, 2 + p, r) / (1 + p)
+    )
+)
+
+c2 = gamma(1 + α) * sinpi(-α / 2) * (
+    gamma(-α) * gamma(α - p) / gamma(-p) +
+    (hypgeom_2f1(1 + α, α - p, 1 + α - p, -1) - 2) / (α - p)
+)
+
+d1 = 2sum(1:M-1) do m
+        (-1)^m * zeta(-α - 2m) * ϵ^(2m - 2) / factorial(2m) *
+            sum(binomial(2m, 2k) / (2k + 1 + p) for k = 0:m-1)
+    end +
+    1 / ϵ^2 * sum((-1)^m * zeta(-α - 2m) * (2ϵ)^2m / factorial(2m) for m = M:Inf)
+
+d2 = -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) / π^(2 + α - p) +
+    2π^(p - 1) * sum(1:M-1) do m
+        (-1)^m *
+        zeta(-α - 2m) *
+        Arb(π)^2m /
+        factorial(2m) *
+        sum(binomial(2m, 2k) * (ϵ / π)^(2(m - 1 - k)) / (2k + 1 + p) for k = 0:m-1)
+    end +
+    6π^(p - 1) * sum((-1)^m * zeta(-α - 2m) * (3π / 2)^2m / factorial(2m) for m = M:Inf)
+```
+The tails for `d1` and `d2` are of the same form as in those for the
+Clausen functions and can be bounded using
+[`lemma_clausen_remainder`](@ref).
 """
 function lemma_kdv_U0_asymptotic end
 

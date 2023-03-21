@@ -3,9 +3,12 @@
 
 Return a function such that `T02(u0; δ2)(x)` computes the integral
 ```
-inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
+inv(π * u0(x) * u0.w(x)) * ∫ abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
 ```
 where the integration is taken from `x` to `π`.
+
+By [`lemma_I_positive`](@ref) the integrand is positive on the whole
+interval and the absolute value can hence be removed.
 
 The interval of integration is split into two parts, one from `x` to
 `a` and one from `a` to `π`, for some choice of `a`. The first part is
@@ -33,7 +36,7 @@ function T02(
     g = T022(u0, Ball(), skip_div_u0 = true)
 
     return x -> begin
-        # Compute with a = π, i.e. suing T021 on the whole interval
+        # Compute with a = π, i.e. using T021 on the whole interval
         res = f(x, Arb(π))
 
         a = ubound(Arb, x + δ2)
@@ -82,7 +85,7 @@ integrated from `1` to `π / x`. The factor `inv(u0(x) / x^-α)` is
 computed using [`inv_u0_normalised`](@ref) so the remaining work is in
 bounding the `U02 / x^(-α + p)` factor.
 
-From the lemma in the paper we have
+From [`lemma_kdv_U0_asymptotic`](@ref) we have
 ```
 U02 / x^(-α + p) <= c + d * x^(2 + α - p)
 ```
@@ -96,7 +99,7 @@ c = gamma(1 + α) * sinpi(-α / 2) * (
 and
 ```
 d = -gamma(1 + α) * sinpi(-α / 2) * (1 + α) * (2 + α) / (2 + α - p) / π^(2 + α - p) +
-    2π^(p - 1) * do m
+    2π^(p - 1) * sum(1:N-1) do m
         (-1)^m *
         zeta(-α - 2m) *
         Arb(π)^2m /
