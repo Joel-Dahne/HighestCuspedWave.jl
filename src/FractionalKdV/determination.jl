@@ -6,6 +6,7 @@ Compute `p0` such that
 cospi((2α - p) / 2) * gamma(2α - p) / (cospi((α - p) / 2) * gamma(α - p)) =
     2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
 ```
+See [`equation_p0`](@ref).
 
 The right hand side has a removable singularity at `α = 1 / 2`. To
 avoid this we use that
@@ -31,6 +32,10 @@ This gives us
 In practice the root we compute is the smallest positive root.
 However, we do not make use of the fact that it indeed is the smallest
 positive root and therefore we do not attempt to prove it in any way.
+
+The version with `α::Arb` computes an enclosure of the root, though in
+practice we don't use this fact in the rest of the code. The generic
+version only computes an approximation of the root.
 """
 function findp0(α)
     f(p) = begin
@@ -107,6 +112,7 @@ is zero. That is, compute
 ```
 a0 = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
+See [`equation_a0`](@ref).
 
 We can handle the removable singularity at `α = -1 / 2` using the same
 approach as in [`findp0`](@ref) to write
@@ -187,7 +193,7 @@ end
 """
     findas(u0)
 
-Find values for `u0.a[j]` for `j = 1:u0.N0` that makes the
+Numerically find values for `u0.a[j]` for `j = 1:u0.N0` that makes the
 coefficients of the leading terms in the asymptotic expansion of the
 defect approximately zero.
 
@@ -471,7 +477,7 @@ end
 """
     _findbs(u0::FractionalKdVAnsatz{T}; verbose = true)
 
-Find values of `u0.b[n]` to minimize `defect(u0)`.
+Numerically find values of `u0.b[n]` to minimize `defect(u0)`.
 
 This is done by solving the non-linear system given by requiring that
 `defect(u0)` evaluates to zero on `u0.N1` collocation points.
@@ -505,7 +511,7 @@ end
 """
     findbs(u0::FractionalKdVAnsatz; verbose = false)
 
-Find values of `u0.b[n]` to minimize `defect(u0)`.
+Numerically find values of `u0.b[n]` to minimize `defect(u0)`.
 
 See [`_findbs`](@ref) for the implementation. The underscore method
 doesn't support `Arb` so it converts `u0` to use `Float64` in that

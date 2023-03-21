@@ -20,6 +20,18 @@ b[n] = u0.b[n]
 function equation_kdv_u0 end
 
 """
+    equation_a0
+
+Corresponds to Equation 13 in the paper.
+
+# Equation
+```
+a0 = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
+```
+"""
+function equation_a0 end
+
+"""
     equation_kdv_Hu0
 
 Corresponds to Equation 14 in the paper.
@@ -39,6 +51,19 @@ b[n] = u0.b[n]
 ```
 """
 function equation_kdv_Hu0 end
+
+"""
+    equation_p0
+
+Corresponds to Equation 17 in the paper.
+
+# Equation
+```
+gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
+    2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
+```
+"""
+function equation_p0 end
 
 """
     equation_bhkdv_u0
