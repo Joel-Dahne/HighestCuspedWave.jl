@@ -25,7 +25,8 @@ using that it is decreasing in `x` and `1` for `x = 0`. What remains
 is to bound `U0 / (log(inv(x)) * x^(-α + p))`.
 
 # Bounding `U0 / (log(inv(x)) * x^(-α + p))`
-We denote `U0 / (log(inv(x)) * x^(-α + p))` by `I(x)`.
+See also appendix G in the paper. We denote `U0 / (log(inv(x)) * x^(-α
++ p))` by `I(x)`.
 
 We start by using that
 ```
