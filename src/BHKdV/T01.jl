@@ -12,21 +12,23 @@ As a first step we rewrite it as
 inv(π * u0(x) * u0.wdivx(x)) * x * ∫ abs(_integrand_I_hat(x, t, α)) * t * u0.wdivx(x * t) dt
 ```
 
-The integrand is not differentiable at the endpoint `t = 0`. For
-computing an enclosure the only problematic part of the integrand is
-the term `clausenc(x * t, -α) * u0.w(x * t). This is given by
+The integral is computed directly using [`ArbExtras.integrate`](@ref).
+The only problematic part is the endpoint `t = 0` where the integrand
+is not differentiable. For computing an enclosure the only problematic
+part of the integrand is the term `clausenc(x * t, -α) * u0.w(x * t).
 ```
 clausenc(x * t, -α) * u0.w(x * t) = clausenc(x * t, -α) * abs(x * t)^(1 - u0.γ *
                                         (α + 1)) * log(u0.c + inv(abs(x * t)))
 ```
-For `u0.γ == 1 // 2` and `u0.c = 2ℯ` there is a lemma in the paper
-proving this to be increasing in `t` for `0 < t < t0` with
+For `u0.γ == 1 // 2` and `u0.c = 2ℯ` we get from
+[`lemma_bhkdv_integrand_enclosure_zero`](@ref) that this is increasing
+in `t` for `0 < t < t0` with
 ```
 t0 = (-2gamma(1 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 / 2) / zeta(-α))^inv(α + 1)
 ```
 Furthermore it is zero at `t = 0`.
 
-To evaluate `t0` we use that
+To compute `t0` we use that
 ```
 gamma(1 + α) / zeta(-α) = gamma(2 + α) / ((1 + α) * zeta_deflated(-α, 1) - 1)
 ```
@@ -48,14 +50,20 @@ t0 = exp(
 ```
 The division by `α + 1` has to be done taking into account the
 removable singularity.
+
+Note that compared to the corresponding method for
+[`FractionalKdVAnsatz`](@ref) we do **not** split the integral at the
+root. Instead we let the integrator deal with the absolute value
+directly.
 """
 function T012(u0::BHKdVAnsatz, ::Ball = Ball(); δ::Arb = Arb(1e-5), skip_div_u0 = false)
     # Enclosure of Arb((-1, -1 + u0.ϵ)) computed in a way so that the
     # lower endpoint is exactly -1
     α = -1 + Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
-    @assert u0.γ == 1 // 2
-    @assert Arblib.overlaps(u0.c, 2Arb(ℯ))
+    # Check the requirements for lemma_bhkdv_integrand_enclosure_zero
+    u0.γ == 1 // 2 && Arblib.overlaps(u0.c, 2Arb(ℯ)) ||
+        error("lemma requires γ = 1 / 2 and c = 2ℯ")
 
     return (x::Arb; tol = Arb(1e-5)) -> begin
         # Compute t0

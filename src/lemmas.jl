@@ -717,7 +717,14 @@ Corresponds to Lemma D.1 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < -1 / 2` and `0 < x < π` the function
+```
+clausenc(x * t, -α) * abspow(x * t, (1 - α) / 2) * log(2ℯ + 1 / abs(x * t))
+```
+is increasing for `0 < t < t0` with
+```
+t0 = (-2gamma(1 + α) * sinpi(-α / 2) * x^(-α - 1) * (-α - 1 / 2) / zeta(-α))^inv(1 + α)
+```
 """
 function lemma_bhkdv_integrand_enclosure_zero end
 

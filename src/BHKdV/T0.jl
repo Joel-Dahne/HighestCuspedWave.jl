@@ -1,9 +1,27 @@
+"""
+    T0(u0::BHKdVAnsatz{Arb}, ::Ball, δ, skip_div_u0 = false)
+
+Return a function such that `T0(u0)(x)` computes the integral
+```
+inv(π * u0(x) * u0.w(x)) * ∫ (clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * u0.w(y) dy
+```
+where the integration is taken from `0` to `π`.
+
+The integral is split into three parts and computed using
+[`T012`](@ref), [`T0_primitive`](@ref) and [`T022`](@ref).
+
+Th argument `δ` is given to [`T012`](@ref).
+
+If `skip_div_u0` is true then skip the division by `u0(x)` in the
+result.
+"""
 function T0(u0::BHKdVAnsatz, evaltype::Ball; δ::Arb = Arb(1e-1), skip_div_u0 = false)
-    # Integration on [0, 1 - δ]
+    # Integration on [0, 1 - δ] in the variable t = y / x
     f1 = T012(u0, evaltype, skip_div_u0 = true; δ)
-    # Integration on [1 - δ, b / x] with b picked later
+    # Integration on [1 - δ, b / x] in the variable t = y / x, with b
+    # picked later
     f2 = T0_primitive(u0, evaltype, skip_div_u0 = true)
-    # Integration on [b, π] with b picked later
+    # Integration on [b, π] in the variable y, with b picked later
     f3 = T022(u0, evaltype, skip_div_u0 = true)
 
     return x -> begin
@@ -283,49 +301,26 @@ I = ∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x *
 taken from `a` to `b` (or `π / x` if `to_endpoint` is true).
 
 # Computing `I`
-We can integrate `I` explicitly, see [`T0_p_one`](@ref), giving us
+
+The integral `I` is the same as in
+[`lemma_U0_primitive_weight_x`](@ref) except for the endpoints and can
+be computed following the same approach as in [`T0_p_one`](@ref). In
+this case we are integrating from `a` to `b` with `a` larger than the
+root from [`lemma_I_hat_root`](@ref). We then get
 ```
-∫ (clausenc(x * (t - 1), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt =
-    (clausenc(x * (1 - t), 2 - α) / x^2 - t * clausens(x * (1 - t), 1 - α) / x) +
-    (clausenc(x * (1 + t), 2 - α) / x^2 + t * clausens(x * (1 + t), 1 - α) / x) -
-    2(clausenc(x * t, 2 - α) / x^2 + t * clausens(x * t, 1 - α) / x)
+x * I(x) = primitive_mul_x(b) - primitive_mul_x(a)
 ```
-Call this function `primitive(t)`. We then have
+with
 ```
-I = primitive(b) - primitive(a)
+primitive_mul_x(t) = (clausenc(x * (1 - t), 2 - α) / x - t * clausens(x * (1 - t), 1 - α)) +
+    (clausenc(x * (1 + t), 2 - α) / x + t * clausens(x * (1 + t), 1 - α)) -
+    2(clausenc(x * t, 2 - α) / x + t * clausens(x * t, 1 - α))
 ```
 
-By reorganising the terms we can rewrite `primitive(t)` as
-```
-primitive(t) =
-    (clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) - 2clausenc(x * t, 2 - α)) / x^2 -
-    t * (clausens(x * (1 - t), 1 - α) - clausens(x * (1 + t), 1 - α) + 2clausens(x * t, 1 - α)) / x
-```
-We can also improve the computed enclosures by replacing `clausenc`
-with `clausencmzeta`. The constants always cancel out and
-`clausencmzeta` has better monotonicity properties in the parameter,
-giving tighter enclosures. Giving us
-```
-primitive(t) =
-    (clausencmzeta(x * (1 - t), 2 - α) + clausencmzeta(x * (1 + t), 2 - α) - 2clausencmzeta(x * t, 2 - α)) / x^2 -
-    t * (clausens(x * (1 - t), 1 - α) - clausens(x * (1 + t), 1 - α) + 2clausens(x * t, 1 - α)) / x
-```
-
-We can notice that `primitive(t)` contains a division by `x` for all
-terms and that we in the end want to multiply the whole integral by
-`x`. To cancel these two we therefore let
-```
-primitive_mul_x(t) =
-    (clausencmzeta(x * (1 - t), 2 - α) + clausencmzeta(x * (1 + t), 2 - α) - 2clausencmzeta(x * t, 2 - α)) / x -
-    t * (clausens(x * (1 - t), 1 - α) - clausens(x * (1 + t), 1 - α) + 2clausens(x * t, 1 - α))
-```
-
-Now, we are interested in computing `primitive_mul_x(b) -
-primitive_mul_x(a)`. Since `a` and `b` are expect to be fairly close
-together we can expect cancellations between the two terms. To help in
-handling these cancellations we write up the full expression and
-reorder the terms to put those parts with cancellations together.
-This gives us
+Since `a` and `b` are expect to be fairly close together we can expect
+cancellations between the two terms. To help in handling these
+cancellations we write up the full expression and reorder the terms to
+put those parts with cancellations together.
 ```
 primitive_mul_x(b) - primitive_mul_x(a) =
     (
@@ -349,10 +344,7 @@ primitive_mul_x(π / x) = 2(clausencmzeta(x + π, 2 - α) - clausencmzeta(Arb(π
     = 2(clausenc(x + π, 2 - α) - clausenc(Arb(π), 2 - α)) / x
 ```
 where `clausenc(Arb(π), 2 - α)` can also be given as the negated
-alternating zeta function, `-eta(2 - α)`. Evaluating `clausenc(x + π,
-2 - α)` directly when `x` overlaps `π` gives an indeterminate result.
-Instead we use that it is `2π` periodic and even to get `clausenc(π -
-x, 2 - α)`.
+alternating zeta function, `-eta(2 - α)`.
 
 # Handling wide values of `a` and `b`
 If either `a` or `b` is a wide ball we can compute a tighter enclosure
@@ -361,11 +353,11 @@ increasing is an easy consequence of being the primitive function of a
 positive integrand.
 """
 function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0 = false)
-    #Enclosure of Arb((2 - u0.ϵ, 3)) computed in a way so that the
-    #upper endpoint is exactly 2
+    # Enclosure of 1 - α = Arb((2 - u0.ϵ, 3)) computed in a way so
+    # that the upper endpoint is exactly 2
     s1 = 2 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
-    #Enclosure of Arb((3 - u0.ϵ, 3)) computed in a way so that the
-    #upper endpoint is exactly 3
+    # Enclosure of 2 - α = Arb((3 - u0.ϵ, 3)) computed in a way so
+    # that the upper endpoint is exactly 3
     s2 = 3 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))
 
     return (x::Arb, a::Arb, b::Arb; to_endpoint = false) -> begin
@@ -461,11 +453,12 @@ function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0
                 t^(-u0.γ * (1 + α)) * log(u0.c + inv(x * t))
             end
 
-            # Compute primitive_mul_x(a)
-            primitive_a_mul_x = primitive_mul_x(a)
-
-            # Enclosure of primitive_mul_x(π / x)
+            # Compute primitive_mul_x(π / x)
             primitive_pidivx_mul_x = let
+                # We use that clausenc is 2π-periodic and even to
+                # evaluate with π - x instead of x + π, this gives
+                # better enclosures.
+
                 # Enclosure of π - x using that x <= π
                 pimx = Arblib.nonnegative_part!(zero(x), π - x)
 
