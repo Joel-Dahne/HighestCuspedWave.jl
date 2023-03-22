@@ -140,7 +140,7 @@ Equation 29
 
 # Equation
 ```
-I(x, t, α) = clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)
+I(x, y, α) = clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)
 ```
 """
 function equation_I end

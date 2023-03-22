@@ -103,72 +103,50 @@ bound** of.
 
 # Split into three factors
 Similarly to in the asymptotic version of [`F0`](@ref) we split the
-expression into three factors which we bound separately. We write it
-as
+expression into three factors which we bound separately. Using that
 ```
-inv(π)
-* (gamma(1 + α) * x^(-α) * (1 - x^p0) / (π * u0(x)))
-* (log(inv(x)) / log(u0.c + inv(x)))
-* (
-    x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x))) *
-    ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-)
+u0.w(x) = x^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x))
+```
+we can write it as
+```
+inv(π) *
+    (log(inv(x)) / log(u0.c + inv(x))) *
+    (gamma(1 + α) * x^(-α) * (1 - x^p0) / u0(x)) *
+    U0(x) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0) * x^(1 - u0.γ * (1 + α) - α))
+```
+with
+```
+U0(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * (x * t)^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x)) dt
 ```
 The first two factors, after `inv(π)`, are the same as in [`F0`](@ref)
-and we handle them in the same way. For the third factor we use the
-notation
-```
-W(x) = x^(1 + α) / (gamma(1 + α) * (1 - x^p0) * log(inv(x)))
-I(x) = ∫ abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
+and we handle them in the same way.
 
-# Computing `W(x) * I(x)`
-As a first step we expand the integrand. We have the following
-expansions for the Clausen functions in the integrand
+The bound for the third factor is based on
+[`lemma_bhkdv_T0_asymptotic_split`](@ref). The lemma only handles the
+case `u0.γ = 1 / 2` and `u0.c = 2ℯ`, but it is easily adapted to other
+values. In this case we get
 ```
-clausenc(x * (1 - t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * abs(1 - t)^(-α - 1) + P(x * abs(1 - t))
-clausenc(x * (1 + t), -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * (1 + t)^(-α - 1) + P(x * (1 + t))
-clausenc(x * t, -α) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) * t^(-α - 1) + P(x * t)
-```
-where the remainder term `P` contains one constant term and `P(x *
-abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)` behaves like `O(x^2)`.
-
-Inserting this into the integral allows us to split it into one main
-integral
-```
-I_M(x) = sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1) *
-    ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-        t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-, where we have used that `sinpi(-α / 2) * gamma(1 + α) * x^(-α - 1)`
-is positive to allow us to move it outside of the absolute value, and
-one remainder integral
-```
-I_R(x) = x^(1 + α) * ∫ abs(P(x * abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)) *
-    t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-They satisfy `I(x) <= I_M(x) + I_R(x)`.
-
-Letting
-```
-G1(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫_0^1 abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-
-G2(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫_1^(π / x) abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-
-R(x) = ∫ abs(P(x * abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)) *
-            t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
-We have
-```
-W(x) * I(x) <= sinpi(-α / 2) * (G1(x) + G2(x)) +
+U0(x) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0) * x^(1 - u0.γ * (1 + α) - α)) <=
+    sinpi(-α / 2) * (G1(x) + G2(x)) +
     x^(1 + α) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0)) * R(x)
 ```
+with
+```
+G1(x) = inv(log(inv(x)) * (1 - x^p0)) *
+            ∫_0^1 abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+
+G2(x) = inv(log(inv(x)) * (1 - x^p0)) *
+            ∫_1^(π / x) ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+
+R(x) = 2sum(1:Inf) do m
+    (-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) * sum(0:m-1) do k
+        binomial(2m, 2k) * ∫_0^(π / x) t^(2k + 1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+    end
+end
+```
+
 Bounds of the functions `G1(x), G2(x), R(x)` are implemented in
 [`_T0_asymptotic_main_1`](@ref), [`_T0_asymptotic_main_2`](@ref) and
 [`_T0_asymptotic_remainder`](@ref) respectively. The only non-trivial
@@ -245,13 +223,7 @@ function T0(u0::BHKdVAnsatz{Arb}, ::Asymptotic; ϵ::Arb = Arb(0.5))
     R = _T0_asymptotic_remainder(α, u0.γ, u0.c)
 
     return x::Arb -> begin
-        I_M = G_factor * (G1(x) + G2(x))
-
-        I_R = R_factor(x) * R(x)
-
-        I = I_M + I_R
-
-        f1(x) * f2(x) / π * I
+        inv(Arb(π)) * f1(x) * f2(x) * (G_factor * (G1(x) + G2(x)) + R_factor(x) * R(x))
     end
 end
 

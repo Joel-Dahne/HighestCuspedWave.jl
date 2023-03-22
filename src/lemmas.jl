@@ -411,7 +411,34 @@ Corresponds to Lemma 11.7 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `u0.w(x) = abspow(x, (1 - α) / 2) * log(2ℯ + 1 /
+abs(x)) we have
+```
+U0(x) / (x^((1 - α) / 2 - α) * log(1 / x) * (1 - x^(1 + α + (1 + α)^2 / 2)) * gamma(1 + α)) <=
+    sinpi(-α / 2) * (G1(x) + G2(x)) +
+    x^(1 + α) / (gamma(1 + α) * log(1 / x) * (1 - x^(1 + α + (1 + α)^2 / 2))) * R(x)
+```
+with
+```
+G1(x) = inv(log(1 / x) * (1 - x^p0)) *
+            ∫_0^1 abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+
+G2(x) = inv(log(1 / x) * (1 - x^p0) *
+            ∫_1^(π / x) abs((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+
+R(x) = 2sum(1:Inf) do m
+    (-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) * sum(0:m-1) do k
+        binomial(2m, 2k) * ∫_0^(π / x) t^(2k + (1 - α) / 2) * log(u0.c + inv(x * t)) dt
+    end
+end
+```
+Here
+```
+U0(x) = ∫_^π abs(I(x, y, α)) * u0.w(y) dy
+```
+with `I(x, y, α)` as in [`equation_I`](@ref).
 """
 function lemma_bhkdv_T0_asymptotic_split end
 
