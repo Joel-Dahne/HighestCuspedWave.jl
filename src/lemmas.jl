@@ -509,7 +509,19 @@ Corresponds to Lemma C.4 in the paper.
 
 # Statement
 
-TODO
+Let `m >= 1` and `2m + 1 / 2 < s < 2m + 3 / 2`, then
+```
+gamma(1 - s) * sinpi(s / 2) * abspow(x, s - 1) + (-1)^m * zeta(s - 2m) * x^2m / factorial(2m) =
+    K1 * abspow(x, s - 1) + K2 * x^2m * K3 * x^2m * (abspow(x, s - (2m + 1)) - 1) / (s - (2m + 1))
+```
+with
+```
+K1 = (gamma(2m + 2 - s) / rising(1 - s, 2m) * sinpi(s / 2) - (-1)^m / factorial(2m)) / (2m + 1 - s)
+
+K2 = -(-1)^m * zeta_deflated(s - 2m) / factorial(2m)
+
+K3 = -(-1)^m / factorial(2m)
+```
 """
 function lemma_clausenc_expansion_odd_integer end
 
