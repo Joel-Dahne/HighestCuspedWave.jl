@@ -456,13 +456,13 @@ function lemma_kdvzero_U0_constant_term end
 """
     lemma_kdvzero_U0_primitive_K_expansion
 
-Corresponds to Lemma 8.2 in the paper.
+Corresponds to Lemma 11.9 in the paper.
 
 # Statement
 
 TODO
 """
-function lemma_bhkdv_inve_u0_normalised end
+function lemma_kdvzero_U0_primitive_K_expansion end
 
 """
     lemma_removable_singularities
