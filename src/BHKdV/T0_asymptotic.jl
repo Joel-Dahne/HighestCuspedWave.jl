@@ -4,19 +4,16 @@
 Compute an upper bound of
 ```
 G1(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+            ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
 ```
 where the integration is taken from `0` to `1`, defined in the
 asymptotic version of [`T0`](@ref).
 
-Using that `1 - t >= 0` the problem reduces to computing an upper
-bound of
-```
-G1(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
-```
+This corresponds to `G1` in [`lemma_bhkdv_T0_asymptotic_split`](@ref)
+and a bound is given in [`lemma_bhkdv_U0_G1`](@ref). The lemma only
+handles the case `γ = 1 / 2` and `c = 2ℯ`, but it is easily
+adapted to other values. We give the general proof below.
 
 As `α -> -1` and `x -> 0` we have that `G1(x)` tends to zero and we
 therefore don't need to compute a very accurate upper bound.
@@ -297,24 +294,12 @@ end
 Compute an upper bound of
 ```
 G2(x) = inv((1 - x^p0) * log(inv(x))) *
-            ∫ abs(abs(1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+            ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
                 t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
 ```
 where the integration is taken from `1` to `π / x`, defined in the
-asymptotic version of [`T0`](@ref).
-
-Using that `1 - t <= 0` and that
-```
-(t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)
-```
-is positive on the interval ``[1, ∞]`` (see
-[`lemma_I_positive`](@ref)), the problem reduces to computing an upper
-bound of
-```
-G2(x) = 1 / ((1 - x^p0) * log(inv(x))) *
-            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
-```
+asymptotic version of [`T0`](@ref). This corresponds to `G2` in
+[`lemma_bhkdv_T0_asymptotic_split`](@ref).
 
 If `x` does not overlap zero it uses [`_T0_asymptotic_main_2_1`](@ref)
 and [`_T0_asymptotic_main_2_2`](@ref) to compute the integral. In that
@@ -332,26 +317,61 @@ integration into ``[1, 2]`` and ``[2, π / x]``, which are handled in
 is not too small, in practice it is only used for `x > 1e-10`.
 
 When `x` overlaps zero significantly more work is required to get a
-bound. The details are given in the corresponding section of the
-paper. We here give an overview of the approach used. Note that the
-paper fixes `γ = 1 / 2` and below we also use that assumption. The
-paper also fixes `c = 2ℯ` but it is straight forward to adapt the
-results to a general `c` and that is the version we give below.
+bound. It is split into the lemmas
+- [`lemma_bhkdv_U0_G2_split`](@ref)
+- [`lemma_bhkdv_U0_G2_M`](@ref)
+- [`lemma_bhkdv_U0_G2_R_n1`](@ref)
+- [`lemma_bhkdv_U0_G2_R_1`](@ref)
+- [`lemma_bhkdv_U0_G2_R_2`](@ref)
+We here give an overview of the approach used. Note that the paper
+fixes `γ = 1 / 2` and below we also use that assumption. The paper
+also fixes `c = 2ℯ` but it is straight forward to adapt the results to
+a general `c` and that is the version we give below.
 
 # Split into `G2_M`, `G2_R_1` and `G2_R_2`
-We have
+By [`lemma_bhkdv_U0_G2_split`](@ref) we have
 ```
-G2(x) <= G2_M(x) + G2_R_factor(x) * (G2_R_n1(x) + G2_R_1(x) + G2_R_2(x))
+G2(x) = G2_M(x) + G2_R(x)
 ```
-Here
+with
 ```
-G2_M(x) = inv(1 - x^(1 + α + (1 + α)^2 / 2)) * inv(log(inv(x))) * (4 + 2α) / 3 *
+G2_M(x) = 1 / (1 - x^(1 + α + (1 + α)^2 / 2)) * 1 / (log(1 / x)) * (4 + 2α) / 3 *
     (
-        (D - log(x) - 2 / 3 * inv(1 + α)) * (1 - (x / π)^(3 / 2 * (1 + α)))
+        (D(x) - log(x) - 2 / 3 * inv(1 + α)) * (1 - (x / π)^(3 / 2 * (1 + α)))
         + log(π / x) * (x / π)^(3 / 2 * (1 + α))
     )
 ```
-with `D = Arb((-log(1 + c * π), log(1 + c * π)))`.
+and
+```
+G2_R(x) = 1 / (1 - x^(1 + α + (1 + α)^2 / 2)) * 1 / log(1 / x) * sum(1:Inf) do n
+    (-1)^n * (1 + α)^n / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_1^(π / x) log(t)^k * h(n - k, t) * t * log(c + 1 / (x * t)) dt
+    end
+end
+```
+for some `D(x)` satisfying `-log(1 + c * π) <= D(x) <= log(1 + c * π)`
+and
+```
+h(k, t) = log(t - 1)^k + log(t + 1)^k - 2log(t)^k - k * (k - 1 - log(t)) * log(t)^(k - 2) / t^2
+```
+
+# Bounding `G2_M(x)`
+By [`lemma_bhkdv_U0_G2_M`](@ref) we have the following bound for `G2_M(x)`
+```
+G2_M(x) <= (4 + 2α) / 3 * (2log(1 + c * π) / log(inv(x)) + 1)
+```
+Which holds for `x < inv(π^3)`. The factor `log(1 + c * π)` comes from
+the upper bound of `D(x)`. In the paper we only give the upper bound
+but for the code we instead opt to use the full enclosure of `D(x)`,
+this makes it easier to track how good of an approximation the result
+is.
+
+# Bounding `G2_R(x)`
+The function `G2_R(x)` can be bounded as
+```
+G2_R(x) <= G2_R_factor(x) * (G2_R_n1(x) + G2_R_1(x) + G2_R_2(x))
+```
+with
 ```
 G2_R_factor(x) = (1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2)) * (1 + log(1 + c * x) / log(1 / x))
 ```
@@ -373,37 +393,18 @@ G2_R_2(x) = sum(2:Inf) do n
     end
 end
 ```
-With
-```
-h(k, t) = log(t - 1)^k + log(t + 1)^k - 2log(t)^k - k * (k - 1 - log(t)) * log(t)^(k - 2) / t
-```
 
-Bounds for the functions `G2_M(x)`, `G2_R_factor(x)`, `G2_R_1(x)` and
-`G2_R_2(x)` are computed individually.
-
-# Bounding `G2_M(x)`
-We have the following bound for `G2_M(x)`, from a lemma in the paper.
-```
-G2_M(x) <= (4 + 2α) / 3 * (2log(1 + c * π) / log(inv(x)) + 1)
-```
-Which holds for `x < inv(π^3)`. The factor `log(1 + c * π)` comes from
-the upper bound of `D = Arb((-log(1 + c * π), log(1 + c * π)))`. In
-the paper we only give the upper bound but for the code we instead opt
-to use the full enclosure of `D`, this makes it easier to track how
-good of an approximation the result is.
-
-# Enclosing `G2_R_factor(x)`
+## Enclosing `G2_R_factor(x)`
 We can enclose `(1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2))` using that
 it is increasing in `x`. It is equal to `1 + α` for `x = 0` and for `x
 > 0` we can handle the removable singularity.
 
-# Bounding `G2_R_n1(x)`
-From a lemma in the paper we have that this is bounded by `1 / 2` for
-`x < 1`.
+## Bounding `G2_R_n1(x)`
+From [`lemma_bhkdv_U0_G2_R_n1`](@ref) we get that this term is bounded
+by `1 / 2`.
 
-# Bounding `G2_R_1(x)`
-We have the following bound for `G2_R_1(x)`, from a lemma in the
-paper.
+## Bounding `G2_R_1(x)`
+From [`lemma_bhkdv_U0_G2_R_1`](@ref) we get the following bound
 ```
 G2_R_1(x) <= 2(
     sqrt(ℯ) * (1 + α) / (-α)
@@ -414,8 +415,7 @@ G2_R_1(x) <= 2(
 ```
 
 # Bounding `G2_R_2(x)`
-We have the following bound for `G2_R_2(x)`, from a lemma in the
-paper.
+From [`lemma_bhkdv_U0_G2_R_2`](@ref) we get the following bound
 ```
 G2_R_2(x) <= 192log(2) * (1 + α) / (-α)
 ```
@@ -505,47 +505,40 @@ G21(x) = 1 / log(inv(x)) *
 ```
 where the integration is taken from `1` to `2`.
 
-For ``t ∈ [1, 2]`` we have
-```
-log(c + inv(2x)) <= log(c + inv(x * t)) <= log(c + inv(x))
-```
-allowing us to factor out `log(c + inv(x * t))`, we get
-```
-G21(x) = log(c + inv(x * Arb((1, 2)))) / log(inv(x)) *
-            ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
-                t^(1 - γ * (1 + α)) dt
-```
-The integral no longer depends on `x` and converges to a non-zero
-number in `α`, which we can compute.
 
-# Computing the integral
-Let
+By [`lemma_bhkdv_U0_G21`](@ref) we have for `γ = 1 / 2` and `c = 2ℯ`
 ```
-I = ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
+G2_1(x) = C / log(1 / x) * (1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α * (α + 1))
 ```
-Since `1 + α` is small the factor `t^(-γ * (1 + α))` in the integrand
-will be close to one. If we bound it on the interval and factor it out
-we are left with
+for some `C` satisfying
 ```
-∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t dt
+2^(-(1 + α) / 2) * log(2ℯ + 1 / 2x) < C < log(2ℯ + 1 / x)
 ```
-Which can be explicitly computed to be
+For general `γ` and `c` the only change is the value of `C`, and we
+get
 ```
-(1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α * (α + 1))
+2^(-γ * (1 + α)) * log(c + 1 / 2x) < C < log(c + 1 / x)
+```
+
+To enclose `C / log(1 / x)` we note that
+```
+2^(-γ * (1 + α)) * log(c + 1 / 2x) / log(inv(x)) < C / log(inv(x)) < log(c + 1 / x) / log(inv(x))
+```
+and
+```
+log(c + 1 / 2x) / log(inv(x)) = 1 + log(1 / 2 + c * x) / log(1 / x)
+
+log(c + 1 / x) / log(inv(x)) = 1 + log(1 + c * x) / log(1 / x)
 ```
 """
 function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
     # Enclosure of
-    # ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t dt
+    # (1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α * (α + 1))
     I = fx_div_x(α + 1) do αp1
         let α = αp1 - 1
             (1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α)
         end
     end
-
-    # Enclosure of
-    # ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^(1 - γ * (1 + α)) dt
-    K = Arb((1, 2))^(-γ * (1 + α)) * I
 
     return x::Arb -> begin
         # Enclosure of inv(log(inv(x))) = -inv(log(x))
@@ -557,13 +550,12 @@ function _T0_asymptotic_main_2_1(α::Arb, γ::Arb, c::Arb)
             -inv(log(x))
         end
 
-        # Enclosure of log(c + inv(x * Arb((1, 2)))) / log(inv(x))
-        # = 1 + log(cx + inv(Arb((1, 2)))) / log(inv(x))
-        logfactor_lower = 1 + log(c * x + 1 // 2) * invloginvx
-        logfactor_upper = 1 + log1p(c * x) * invloginvx
-        logfactor = Arb((logfactor_lower, logfactor_upper))
+        # C / log(inv(x))
+        C_div_log_lower = 2^(-γ * (1 + α)) * (1 + log(1 // 2 + c * x) * invloginvx)
+        C_div_log_upper = 1 + log(1 + c * x) * invloginvx
+        C_div_log = Arb((C_div_log_lower, C_div_log_upper))
 
-        return logfactor * K
+        return C_div_log * I
     end
 end
 
@@ -618,7 +610,7 @@ function _T0_asymptotic_main_2_2(α::Arb, γ::Arb, c::Arb)
                 else
                     # Large cancellations so do the computations at a
                     # higher precision
-                    let αp1 = setprecision(α + 1, 2precision(α))
+                    return let αp1 = setprecision(α + 1, 2precision(α))
                         ((t - 1)^-αp1 + (t + 1)^-αp1 - 2t^-αp1) / αp1
                     end
                 end
@@ -665,44 +657,18 @@ end
 
 Compute an upper bound of
 ```
-R(x) = ∫ abs(P(x * abs(1 - t)) + P(x * (1 + t)) - 2P(x * t)) *
-            t^(1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+R(x) = 2sum(1:Inf) do m
+    (-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) * sum(0:m-1) do k
+        binomial(2m, 2k) * ∫_0^(π / x) t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+    end
+end
 ```
-defined in the asymptotic version of [`T0`](@ref).
+defined in the asymptotic version of [`T0`](@ref), see also
+[`lemma_bhkdv_T0_asymptotic_split`](@ref).
 
-From the expansion of the Clausen functions we have
+To compute the integral we first split the log-factor as
 ```
-P(x * (t - 1)) + P(x * (1 + t)) - 2P(x * t) = sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * ((1 - t)^2m + (1 + t)^2m - 2t^2m) for m = 1:Inf
-)
-```
-where we have removed the absolute value around `1 - t` since all
-powers are even. We have that
-```
-(1 - t)^2m + (1 + t)^2m - 2t^2m =
-    sum(binomial(2m, k) * (1 + (-1)^k) * t^k for k = 0:2m) - 2t^2m =
-    2sum(binomial(2m, 2k) * t^2k for k = 0:m-1)
-```
-Giving us
-```
-P(x * (t - 1)) + P(x * (1 + t)) - 2P(x * t) = 2sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m * sum(binomial(2m, 2k) * t^2k for k = 0:m-1) for m = 1:Inf
-)
-```
-The factor `zeta(-α - 2m) * (-1)^m` is positive since `0 < -α < 1` and
-`m >= 1`. All terms are therefore positive and adding the integration
-we can write it as
-```
-R(x) = 2sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * x^2m *
-    sum(binomial(2m, 2k) * ∫ t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt for k = 0:m-1)
-    for m = 1:Inf
-)
-```
-where the integration is taken from `0` to `π / x`. For the integral
-we first split the log-factor as
-```
-log(1 + inv(x * t)) = log(1 + c * x * t) - log(x * t)
+log(c + inv(x * t)) = log(1 + c * x * t) - log(x * t)
 ```
 giving us
 ```
@@ -718,27 +684,31 @@ integrating explicitly gives us
     log(1 + c * π) * (π / x)^(2(k + 1) - γ * (1 + α)) / (2(k + 1) - γ * (1 + α)) <=
     log(1 + c * π) * (π / x)^(2(k + 1)) / (2(k + 1) - γ * (1 + α))
 ```
+and
 ```
 ∫ t^(2k + 1 - γ * (1 + α)) * log(x * t) dt =
     ((2(k + 1) - γ * (1 + α)) * log(π) - 1) * (π / x)^(2(k + 1) - γ * (1 + α)) / (2(k + 1) - γ * (1 + α))^2
     <= log(π) * (π / x)^(2(k + 1)) / (2(k + 1) - γ * (1 + α))
 ```
-And hence
+Hence
 ```
 ∫ t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt <=
     log(c + inv(π)) / (2(k + 1) - γ * (1 + α)) * (π / x)^(2(k + 1))
 ```
 Inserting this back into `R(x)` and factoring out `(π / x)^2m` we get
 ```
-R(x) <= 2log(c + inv(π)) * sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * π^2m *
-        sum(binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α)) for k = 0:m-1) for m = 1:Inf
-)
+R(x) <= 2log(c + inv(π)) * sum(1:Inf) do m
+    (-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(0:m-1) do k
+        binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α))
+    end
+end
 ```
 We split this sum into `m = 1:M-1` and `m = M:Inf`. For the finite
 part we sum directly. For the infinite tail we note that
 ```
-sum(binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α)) for k = 0:m-1) <=
+sum(0:m-1) do k
+    binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α))
+end <=
     sum(binomial(2m, 2k) * (1 / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1) <=
     sum(binomial(2m, 2k) * (1 / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m) =
     π^(2 - 2m) * ((π - 1)^2m + (π + 1)^2m) / 2 <=
@@ -747,11 +717,11 @@ sum(binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α)) for 
 ```
 Giving us
 ```
-sum(
-    zeta(-α - 2m) * (-1)^m / factorial(2m) * π^2m *
-        sum(binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α)) for k = 0:m-1) for m = M:Inf
-) <=
-π^2 * sum(zeta(-α - 2m) * (-1)^m / factorial(2m) * (π * (1 + inv(π)))^2m for m = M:Inf)
+sum(M:Inf) do m
+    (-1)^m * zeta(-α - 2m) * π^2m / factorial(2m) * sum(0:m-1) do k
+        binomial(2m, 2k) * (x / π)^(2(m - 1 - k)) / (2(k + 1) - γ * (1 + α))
+    end
+end <= π^2 * sum((-1)^m * zeta(-α - 2m) * (π * (1 + inv(π)))^2m / factorial(2m) for m = M:Inf)
 ```
 This sum is exactly the same as in the remainder for `clausenc` in
 [`clausenc_expansion_remainder`](@ref), substituting `x` for `π * (1 +

@@ -420,23 +420,23 @@ U0(x) / (x^((1 - α) / 2 - α) * log(1 / x) * (1 - x^(1 + α + (1 + α)^2 / 2)) 
 ```
 with
 ```
-G1(x) = inv(log(1 / x) * (1 - x^p0)) *
+G1(x) = inv(log(1 / x) * (1 - x^(1 + α + (1 + α)^2 / 2))) *
             ∫_0^1 abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+                t^((1 - α) / 2) * log(2ℯ + inv(x * t)) dt
 
-G2(x) = inv(log(1 / x) * (1 - x^p0) *
-            ∫_1^(π / x) abs((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
-                t^(1 - u0.γ * (1 + α)) * log(u0.c + inv(x * t)) dt
+G2(x) = inv(log(1 / x) * (1 - x^(1 + α + (1 + α)^2 / 2)) *
+            ∫_1^(π / x) ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) *
+                t^((1 - α) / 2) * log(2ℯ + inv(x * t)) dt
 
 R(x) = 2sum(1:Inf) do m
     (-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) * sum(0:m-1) do k
-        binomial(2m, 2k) * ∫_0^(π / x) t^(2k + (1 - α) / 2) * log(u0.c + inv(x * t)) dt
+        binomial(2m, 2k) * ∫_0^(π / x) t^(2k + (1 - α) / 2) * log(2ℯ + inv(x * t)) dt
     end
 end
 ```
 Here
 ```
-U0(x) = ∫_^π abs(I(x, y, α)) * u0.w(y) dy
+U0(x) = ∫_0^π abs(I(x, y, α)) * u0.w(y) dy
 ```
 with `I(x, y, α)` as in [`equation_I`](@ref).
 """
@@ -792,7 +792,21 @@ Corresponds to Lemma F.1 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `0 < x < 1`, `G1` from
+[`lemma_bhkdv_T0_asymptotic_split`](@ref) satisfies
+```
+G1(x) <= (1 + α) / (1 - x^(1 + α + (1 + α)^2 / 2)) * (
+    log(2ℯ + 1 / x) / log(1 / x) * J1 -
+    1 / log(1 / x) * J2
+)
+```
+where `J1` and `J2` are independent of `x` and given by
+```
+J1 = ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^((1 - α) / 2) dt
+
+J2 = ∫ abs((1 - t)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) / (1 + α) * t^((1 - α) / 2) * log(t) dt
+```
+with the integration taken from `0` to `1`.
 """
 function lemma_bhkdv_U0_G1 end
 
@@ -803,7 +817,32 @@ Corresponds to Lemma F.2 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `0 < x < 1`, `G2` from
+[`lemma_bhkdv_T0_asymptotic_split`](@ref) satisfies
+```
+G2(x) = G2_M(x) + G2_R(x)
+```
+with
+```
+G2_M(x) = 1 / (1 - x^(1 + α + (1 + α)^2 / 2)) * 1 / (log(1 / x)) * (4 + 2α) / 3 *
+    (
+        (D(x) - log(x) - 2 / 3 * inv(1 + α)) * (1 - (x / π)^(3 / 2 * (1 + α)))
+        + log(π / x) * (x / π)^(3 / 2 * (1 + α))
+    )
+```
+and
+```
+G2_R(x) = 1 / (1 - x^(1 + α + (1 + α)^2 / 2)) * 1 / log(1 / x) * sum(1:Inf) do n
+    (-1)^n * (1 + α)^n / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_1^(π / x) log(t)^k * h(n - k, t) * t * log(2ℯ + 1 / (x * t)) dt
+    end
+end
+```
+for some `D(x)` satisfying `-log(1 + 2ℯ * π) <= D(x) <= log(1 + 2ℯ *
+π)` and
+```
+h(k, t) = log(t - 1)^k + log(t + 1)^k - 2log(t)^k - k * (k - 1 - log(t)) * log(t)^(k - 2) / t^2
+```
 """
 function lemma_bhkdv_U0_G2_split end
 
@@ -814,7 +853,11 @@ Corresponds to Lemma F.3 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `0 < x < 1 / π^3`, `G2_M` from
+[`lemma_bhkdv_U0_G2_split`](@ref) satisfies the following bound.
+```
+G2_M(x) <= (4 + 2α) / 3 * (2 * log(1 + 2ℯ * π) / log(1 / x) + 1)
+```
 """
 function lemma_bhkdv_U0_G2_M end
 
@@ -825,7 +868,19 @@ Corresponds to Lemma F.4 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `0 < x < 1` the first term for the sum
+```
+sum(1:Inf) do n
+    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_1^(π / x) log(t)^k * abs(h(n - k, t)) * t dt
+    end
+end
+```
+is bounded by `1 / 2`. Note that this term is given by
+```
+∫_1^(π / x) abs(h(1, t)) * t dt
+```
+with `h(k, t)` as in [`lemma_bhkdv_U0_G2_split`](@ref).
 """
 function lemma_bhkdv_U0_G2_R_n1 end
 
@@ -836,7 +891,24 @@ Corresponds to Lemma F.5 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `0 < x < 1` the function
+```
+G2_R_1(x) = sum(2:Inf) do n
+    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_1^2 log(t)^k * abs(h(n - k, t)) * t dt
+    end
+end
+```
+with `h(k, t)` as in [`lemma_bhkdv_U0_G2_split`](@ref) satisfies the
+following bound
+```
+G2_R_1(x) <= 2(
+    sqrt(ℯ) * (1 + α) / -α +
+    4 * (exp(3(1 + α)) - 3(1 + α) - 1) / (3(1 + α)) +
+    (2 + α) * exp(3(1 + α) / 2) -
+    1
+)
+```
 """
 function lemma_bhkdv_U0_G2_R_1 end
 
@@ -847,7 +919,19 @@ Corresponds to Lemma F.6 in the paper.
 
 # Statement
 
-TODO
+For `-1 < α < 0` and `0 < x < 1` the function
+```
+G2_R_2(x) = sum(2:Inf) do n
+    (1 + α)^(n - 1) / factorial(n) * sum(0:n-1) do k
+        binomial(n, k) / 2^k * ∫_2^(π / x) log(t)^k * abs(h(n - k, t)) * t dt
+    end
+end
+```
+with `h(k, t)` as in [`lemma_bhkdv_U0_G2_split`](@ref) satisfies the
+following bound
+```
+G2_R_2(x) <= 192log(2) * (1 + α) / -α
+```
 """
 function lemma_bhkdv_U0_G2_R_2 end
 
@@ -858,7 +942,19 @@ Corresponds to Lemma F.7 in the paper.
 
 # Statement
 
-TODO
+For
+```
+G2_1(x) = 1 / log(1 / x) * ∫ ((t - 1)^(-α - 1) + (t + 1)^(-α - 1) - 2t^(-α - 1)) / (1 + α) *
+                t^((1 - α) / 2) * log(2ℯ + inv(x * t)) dt
+```
+where the integration is taken from `1` to `2` we have
+```
+G2_1(x) = C / log(1 / x) * (1 + 2^-α - 3^-α + α * (-4 + 5 * 2^-α - 2 * 3^-α)) / ((α - 1) * α * (α + 1))
+```
+for some `C` satisfying
+```
+2^(-(1 + α) / 2) * log(2ℯ + 1 / 2x) < C < log(2ℯ + 1 / x)
+```
 """
 function lemma_bhkdv_U0_G21 end
 
