@@ -183,24 +183,23 @@ A⁰[j] = gamma(α_hat - 1 - j * p0) * cospi((α_hat - 1 - j * p0) / 2) * a[j]
 function lemma_bhkdv_asymptotic_expansion end
 
 """
-    lemma_kdvzero_as_asymptotics
-
-Corresponds to Lemma 4.7 in the paper.
-
-# Statement
-
-TODO
-"""
-function lemma_kdvzero_as_asymptotics end
-
-"""
     lemma_kdvzero_asymptotic_expansion
 
 Corresponds to Lemma 4.8 in the paper.
 
 # Statement
 
-TODO
+For `0 < x <= π` we have the following expansions at `α = 0`:
+```
+u0(x) = 1 + b(x) * α + O(α^2)
+
+H(u0) = -1 / 2 - b(x) * α + O(α^2)
+```
+with
+```
+b(x) = clausenc(x, 1) - 2γ + clausencmzeta(x, 1 + p0) + clausencmzeta(x, 1 + 2p0)
+```
+Here we use `O(α)` to denote the big-O terms.
 """
 function lemma_kdvzero_asymptotic_expansion end
 
@@ -255,7 +254,8 @@ Corresponds to Lemma 10.1 in the paper.
 
 # Statement
 
-TODO
+For `0 <= x <= π` the constant and linear terms in the expansion at `α
+= 0` of `F0(u0)(x)` are both zero.
 """
 function lemma_kdvzero_F0_expansion end
 

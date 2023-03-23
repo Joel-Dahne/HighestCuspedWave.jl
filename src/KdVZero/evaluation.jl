@@ -75,6 +75,11 @@ end
 
 Return a Taylor model of `u0(x)`
 
+For `u0.α0 = 0` this corresponds to the expansions given in
+[`lemma_kdvzero_as_asymptotics`](@ref). The computation of the
+expansions is however not based on the lemma but is done using Taylor
+models.
+
 The value is given by
 ```
 sum(a[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:2)
@@ -87,6 +92,9 @@ handle. We describe the procedure for handling the removable
 singularity below.
 
 # Handling the removable singularity for `α0 = 0`
+This follows a similar approach as for the proof of
+[`lemma_kdvzero_as_asymptotics`](@ref).
+
 We are interested in computing an expansion around `α = 0` of
 ```
 a[0] * clausencmzeta(x, 1 - α) = a[0] * clausenc(x, 1 - α) - a[0] * zeta(1 - α)
@@ -393,6 +401,11 @@ end
 Return a function such that `H(u0)(x)` computes a Taylor model of
 `H(u0)`.
 
+For `u0.α0 = 0` this corresponds to the expansions given in
+[`lemma_kdvzero_as_asymptotics`](@ref). The computation of the
+expansions is however not based on the lemma but is done using Taylor
+models.
+
 The value is given by
 ```
 -sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
@@ -405,7 +418,10 @@ handle. We describe the procedure for handling the removable
 singularity below.
 
 # Handling the removable singularity for `α0 = 0`
-We are thus interested in computing an expansion around `α = 0` of
+This follows a similar approach as for the proof of
+[`lemma_kdvzero_as_asymptotics`](@ref).
+
+We are interested in computing an expansion around `α = 0` of
 ```
 a[0] * clausencmzeta(x, 1 - 2α) = a[0] * clausenc(x, 1 - 2α) - a[0] * zeta(1 - 2α)
 ```
@@ -776,42 +792,13 @@ Return a function such that `F0(u0)(x)` computes a Taylor model of
 (u0(x)^2 / 2 + H(u0)(x)) / (u0.w(x) * u0(x))
 ```
 
-The computation is straight forward. However, for `u0.α0 = 0` both the
-constant and linear term are supposed to be exactly zero so we have to
-deal with that.
+The computation is straight forward, using `u0(x)` and `H(u0)(x)`.
 
-# Constant and linear term for `u0.α0 = 0`
-That the constant term is zero we get for free in the computations, it
-is `1` for `u0(x)` and `-1 / 2` for `H(u0)(x)` so they cancel exactly.
-For the linear term we need to prove that it is zero.
-
-Let `p` and `q` denote the expansions in `α` from `u0(x)` and
-`H(u0)(x)`. We have `p[0] = 1` and `q[0] = -1 / 2`. This means that the
-linear term in `p^2 / 2 + q` is given by `p[1] + q[1]`, we want to
-show that this term is exactly equal to zero.
-
-We have
-```
-u0(x) = sum(a[j] * clausencmzeta(x, 1 - α + j * p0) for j = 0:2)
-```
-and
-```
-H(u0)(x) = -sum(a[j] * clausencmzeta(x, 1 - 2α + j * p0) for j = 0:2)
-```
-It is enough to show that the linear term of the expansion in `α` of
-```
-a[j] * clausencmzeta(x, 1 - α + j * p0)
-```
-is the same as that for
-```
-a[j] * clausencmzeta(x, 1 - 2α + j * p0)
-```
-for `j = 0, 1, 2`. For `j = 1, 2` the Clausen term is finite and since
-`a[j]` has a zero constant coefficient the linear term of the product
-will be determined by the constant term of the Clausen functions,
-which is trivially the same. For `j = 0` there is a removable
-singularity to treat. The linear terms are the same in this case as
-well, for a proof we refer to the corresponding lemma in the paper.
+For `u0.α0 = 0` we have from [`lemma_kdvzero_F0_expansion`](@ref) that
+the constant and linear term in the Taylor model are supposed to be
+exactly zero. For the constant term we already get from the
+computations that it is exactly, for the linear term we have to
+explicitly set it to zero.
 """
 function F0(u0::KdVZeroAnsatz, evaltype::Ball)
     f = H(u0, evaltype)
@@ -824,10 +811,7 @@ function F0(u0::KdVZeroAnsatz, evaltype::Ball)
 
         if iszero(u0.α0)
             # This ensures that the constant term is zero
-            @assert isone(p.p[0])
-            @assert q.p[0] == Arb(-1 // 2)
             @assert iszero(res.p[0]) || !isfinite(res.p[0])
-
             # The linear term should be zero
             @assert Arblib.contains_zero(res.p[1])
             res.p[1] = 0
