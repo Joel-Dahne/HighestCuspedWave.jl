@@ -9,7 +9,8 @@ to the given degree, which can be at most `2`. The reason to compute
 it to a higher degree is to get a better enclosure of the remainder
 term.
 
-We are interested in finding `p0` solving
+We are interested in finding `p0` satisfying [`equation_p0`](@ref),
+that is
 ```
 gamma(2α - p0) * cospi((2α - p0) / 2) / (gamma(α - p0) * cospi((α - p0) / 2)) =
     2gamma(2α) * cospi(α) / (gamma(α) * cospi(α / 2))
@@ -501,7 +502,7 @@ other. The reason for this is that for `α0 = 0` the constant term in
 want to have sufficiently high degree.
 
 # Computing `a[0]`
-We have
+From [`equation_a0`](@ref) we have
 ```
 a[0] = 2gamma(2α) * cospi(α) / (gamma(α)^2 * cospi(α / 2)^2)
 ```
@@ -519,7 +520,8 @@ singularity by writing it as `(rgamma(α) / α) / (rgamma(2α) / α)`.
 
 # Setting up a linear system for `a[1]` and `a[2]`
 We can get the values for `a[1]` and `a[2]` in terms of a linear
-system depending on `α`, `a[0]` and `p0`.
+system depending on `α`, `a[0]` and `p0`. This is given in
+[`equation_a1a2`](@ref) but we also give the derivation here.
 
 Computing the asymptotic expansion of `H(u0) + u0^2 / 2` we have that
 the four leading terms have the `x`-factors, in order,

@@ -120,6 +120,21 @@ b[n] = u0.v0.b[n]
 function equation_bhkdv_Hu0 end
 
 """
+    equation_a1a2
+
+Corresponds to equation 25 in the paper
+
+# Equation
+```
+a1 = a0 * (zeta(-1 - α) * zeta(-1 - 2α + 2p0) - zeta(-1 - 2α) * zeta(-1 - α + 2p0)) /
+    (zeta(-1 - 2α + p0) * zeta(-1 - α + 2p0) - zeta(-1 - 2α + 2p0) * zeta(-1 - α + p0))
+a2 = a0 * (zeta(-1 - α) * zeta(-1 - 2α + p0) - zeta(-1 - 2α) * zeta(-1 - α + p0)) /
+    (zeta(-1 - 2α + p0) * zeta(-1 - α + 2p0) - zeta(-1 - 2α + 2p0) * zeta(-1 - α + p0))
+```
+"""
+function equation_a1a2 end
+
+"""
     equation_bhkdv_F0_factor
 
 Corresponds to Equation 28 in the paper.
