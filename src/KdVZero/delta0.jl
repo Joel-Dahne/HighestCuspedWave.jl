@@ -17,9 +17,9 @@ In this case we compute a Taylor model in `α` such that it gives an
 upper bound of `δ₀` for all `α ∈ u0.α`.
 
 For a given value of `x` [`F0`](@ref) gives us a Taylor model in `α`.
-We truncate this Taylor model to degree `1`. The first two terms in
-this Taylor model are always zero and we thus get a polynomial of the
-form
+We truncate this Taylor model to degree `1`. By
+[`lemma_kdvzero_F0_expansion`](@ref) the first two terms in this
+Taylor model are always zero and we thus get a polynomial of the form
 ```
 0 + 0 * α + Δδ(x) * α^2
 ```
