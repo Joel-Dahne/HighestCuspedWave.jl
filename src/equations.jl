@@ -174,6 +174,51 @@ I_hat(x, t, α) = clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2cla
 function equation_I_hat end
 
 """
+    equation_kdvzero_K
+
+This equation is not numbered in the paper but given shortly before
+Lemma 11.9.
+
+# Equation
+```
+K(x, α) = (
+    clausenc(x * (1 - r(α, x)), 2 - α) +
+    clausenc(x * (1 + r(α, x)), 2 - α) -
+    2clausenc(x * r(α, x), 2 - α)
+) - x * r(α, x) * (
+    -clausens(x * (1 - r(α, x)), 1 - α) +
+    clausens(x * (1 + r(α, x)), 1 - α) -
+    2clausens(x * r(α, x), 1 - α)
+)
+```
+"""
+function equation_kdvzero_K end
+
+"""
+    equation_kdvzero_K_dα
+
+This equation is not numbered in the paper but given shortly before
+Lemma 11.9.
+
+# Equation
+```
+K_dα(x, α)) = -(
+    clausenc(x * (1 - r(α, x)), 2 - α, 1) +
+    clausenc(x * (1 + r(α, x)), 2 - α, 1) -
+    2clausenc(x * r(α, x), 2 - α, 1)
+) - x * r(α, x) * (
+    -clausens(x * (1 - r(α, x)), 1 - α, 1) +
+    clausens(x * (1 + r(α, x)), 1 - α, 1) -
+    2clausens(x * r(α, x), 1 - α, 1)
+)
+```
+Here `K_dα(x, α)` denotes the derivative w.r.t. `α` of `K(x, α)` given
+in [`equation_kdvzero_K`](@ref) and `r(α, x)` is the root from
+[`lemma_I_hat_root`](@ref).
+"""
+function equation_kdvzero_K_dα end
+
+"""
     equation_clausenc_zeta
 
 Corresponds to Equation 43 in the paper.

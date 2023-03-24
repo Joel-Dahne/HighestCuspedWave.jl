@@ -443,15 +443,16 @@ with `I(x, y, α)` as in [`equation_I`](@ref).
 function lemma_bhkdv_T0_asymptotic_split end
 
 """
-    lemma_kdvzero_U0_constant_term
+    lemma_kdvzero_T0_constant_term
 
 Corresponds to Lemma 11.8 in the paper.
 
 # Statement
 
-TODO
+For `0 <= x <= π` the constant term in the expansion at `α = 0` of
+`T0(u0)(x)` is `1`.
 """
-function lemma_kdvzero_U0_constant_term end
+function lemma_kdvzero_T0_constant_term end
 
 """
     lemma_kdvzero_U0_primitive_K_expansion
@@ -460,7 +461,43 @@ Corresponds to Lemma 11.9 in the paper.
 
 # Statement
 
-TODO
+We have the following expansion for `0 < x < π`
+```
+d(α -> K(x, α) * x^(α - 1))(x, α) =
+    -d(
+        s -> gamma(1 - s) * sinpi(s / 2) *
+        ((1 - r(α, x))^(s - 1) + (1 + r(α, x))^(s - 1) - 2r(α, x)^(s - 1))
+    )(2 - α) -
+    -r * d(
+        s -> gamma(1 - s) * cospi(s / 2) *
+        (-(1 - r(α, x))^(s - 1) + (1 + r(α, x))^(s - 1) - 2r(α, x)^(s - 1))
+    )(1 - α) +
+    log(x) * sum(1:Inf) do m
+        (-1)^m / factorial(2m) * zeta(2 - α - 2m) *
+            ((1 - r(α, x))^2m + (1 + r(α, x))^2m - 2r(α, x)^2m) *
+            x^(2m - 1 + α)
+    end +
+    r(α, x) * log(x) * sum(0:Inf) do m
+        (-1)^m / factorial(2m + 1) * zeta(-α - 2m) *
+            (-(1 - r(α, x))^(2m + 1) + (1 + r(α, x))^(2m + 1) - 2r(α, x)^(2m + 1)) *
+            x^(2m + 1 + α)
+    end -
+    sum(1:Inf) do m
+        (-1)^m / factorial(2m) * dzeta(2 - α - 2m) *
+            ((1 - r(α, x))^2m + (1 + r(α, x))^2m - 2r(α, x)^2m) *
+            x^(2m - 1 + α)
+    end -
+    r(α, x) * sum(0:Inf) do m
+        (-1)^m / factorial(2m + 1) * dzeta(-α - 2m) *
+            (-(1 - r(α, x))^(2m + 1) + (1 + r(α, x))^(2m + 1) - 2r(α, x)^(2m + 1)) *
+            x^(2m + 1 + α)
+    end
+```
+Here `K(x, α)` is as in [`equation_kdvzero_K`](@ref) and we use
+```
+d(s -> f(s))
+```
+to denote the derivative of `f(s)` with respect to `s`.
 """
 function lemma_kdvzero_U0_primitive_K_expansion end
 

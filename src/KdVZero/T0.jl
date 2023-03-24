@@ -8,14 +8,27 @@ clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 in `t` on the interval `[0, 1]`, one enclosure for `α = 0` and one
 valid for `α ∈ [αₗ, 0]`. It assumes that `0 <= x <= π`.
 
+This is the root occurring in [`lemma_I_hat_root`](@ref). However the
+lemma only discusses `α < 0` and to consider the case `α = 0` we have
+to normalise to get a well defined limit, more precisely we consider
+the root of the function
+```
+(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) / α
+```
+See the proof of [`lemma_kdvzero_U0_constant_term`](@ref) where this
+limiting root is discussed. Except for that it has to handle the case
+`α = 0` the implementation is similar to the version for
+[`FractionalKdVAnsatz`](@ref).
+
 To compute the root for `α ∈ [αₗ, 0]` it uses that the root in
 practice is decreasing in `α`. It computes the root at `α = 0` and `α
 = αₗ` and does an a posteriori check for the root being decreasing in
-`α`. The a posteriori check is done in the same was as in the
+`α`. The a posteriori check is based on
+[`lemma_I_hat_root_alpha`](@ref) and done in the same was as in the
 corresponding `FractionalKdVAnstaz` version of this method, by
 checking that the derivative w.r.t. `α` is positive. To be able to
 compute the derivative near `α` we have to normalise the function by
-dividing by `α`.
+dividing by `α` as mentioned above.
 
 To compute the root at `αₗ` it uses
 `_integrand_compute_root(FractionalKdVAnsatz, x, αₗ)`.
@@ -195,74 +208,34 @@ function _integrand_compute_root(::Type{KdVZeroAnsatz}, x::Arb, αₗ::Arb)
 end
 
 """
-    T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
+    T0(u0::KdVZeroAnsatz, ::Ball)
 
 Return a function such that `T0(u0)(x)` computes a Taylor model of
 ```
 inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
 ```
 , where the integration is taken from `0` to `π`, in `α` around `α =
-0` of degree `1`.
+0` of degree `0`. Note that this only handles the case `u0.α0 = 0`.
 
 This method is similar to [`T0_p_one`](@ref) in that it explicitly
 computes the integral. It computes an expansion in `α` around `α = 0`
 and treats the zero of the integrand differently, otherwise they are
 very similar.
 
-# Computing the integral
+# Formula for the integral
 The switch of variables to `t = y / x` gives us
 ```
 x / (π * u0(x)) * ∫abs(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt
 ```
 from `0` to `π / x`. Call the integral, without the factors in front,
-`I` and let `I1` be the integral from `0` to `1` and `I2` the integral
-from `1` to `π / x`.
+`I`.
 
-If we ignore the absolute value the integral can be computed
-explicitly using that
+As in [`T0_p_one`](@ref), see also
+[`lemma_U0_primitive_weight_x`](@ref), we have
 ```
-∫(clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)) * t dt =
-    (clausenc(x * (1 - t), 2 - α) / x^2 - t * clausens(x * (1 - t), 1 - α) / x) +
-    (clausenc(x * (1 + t), 2 - α) / x^2 + t * clausens(x * (1 + t), 1 - α) / x) -
-    2(clausenc(x * t, 2 - α) / x^2 + t * clausens(x * t, 1 - α) / x)
+x * I = primitive_mul_x(0) - 2primitive_mul_x(root) + primitive_mul_x(π / x)
 ```
-Call this function `primitive(t)`. The idea is to isolate the zero of
-```
-clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
-```
-We can then integrate explicitly using `primitive(t)` with this zero
-as one of the endpoints.
-
-On the interval `[1, π / x]` the expression inside the absolute value
-is positive, due to lemma [`lemma_I_positive`](@ref) and we can just
-remove it. This gives us the integral
-```
-I2 = primitive(π / x) - primitive(1)
-```
-
-On the interval `[0, 1]` the expression inside the absolute value has
-a unique root, it is negative to the left of the root and positive to
-the right. If we let `root` correspond to this root then the integral
-on `[0, 1]` is given by
-```(
-I1 = -(primitive(root) - primitive(0)) + (primitive(1) - primitive(root))
-   = primitive(0) - 2primitive(root) + primitive(1)
-```
-Putting this together we get
-```
-I = I1 + I2 = primitive(0) - 2primitive(root) + primitive(π / x)
-```
-Furthermore we get
-```
-primitive(0) = 2clausencmzeta(x, 2 - α) / x^2
-```
-and
-```
-primitive(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x^2
-```
-
-We can notice that all terms in the result contains a division by `x`
-and that we in the end multiply with `x` If we let
+where
 ```
 primitive_mul_x(t) =
             (
@@ -274,132 +247,71 @@ primitive_mul_x(t) =
                 2clausens(x * t, 1 - α)
             )
 ```
-we get
+
+Similarly to in [`T0_p_one`](@ref) we can simplify
+`primitive_mul_x(t)` when `t = 0` and `t = π / x`, we get
 ```
-x * I = primitive_mul_x(0) - 2primitive_mul_x(root) + primitive_mul_x(π / x)
+primitive_mul_x(0) = 2clausencmzeta(x, 2 - α) / x
+```
+and
+```
+primitive_mul_x(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(Arb(π), 2 - α)) / x
 ```
 
-# Expanding in `α`
-We are now interested in computing an expansion, in `α`, of this. Most
-of this can be done with direct evaluation using Taylor models.
-However we need to prove that the constant term in the expansion is
-exactly `π` and this requires some additional work. In addition to
-this we also need to handle that `root` is given as an expansion in
-`α`, so we need to work a bit more to get the expansion of
-`primitive_mul_x(root)`.
+# Computing Taylor model of `x * I`
+For `primitive_mul_x(0)` we can directly compute a Taylor model. This
+is the case also for `primitive_mul_x(π / x)`, as long as `x` doesn't
+overlap `π`. If `x` overlaps with `π` we use that [`clausenc`](@ref)
+is `2π` periodic and even to instead evaluate
+```
+primitive_mul_x(π / x) = 2(clausenc(π - x, 2 - α) - clausenc(Arb(π), 2 - α)) / x
+```
+We then handle `clausenc(π - x, 2 - α)` by expanding at zero and using
+the approach from the asymptotic version of this method.
 
-## Computing the constant term
-To get the constant term we let `α = 0` in the above formulas. This
-means that we are computing with the parameters `s = 1` and `s = 2` in
-the Clausen functions, for which we have the explicit expressions
-```
-clausenc(x, 2) = π^2 / 6 - π * x / 2 + x^2 / 4
-clausens(x, 1) = π / 2 - x / 2
-```
-when `0 <= x <= 2π`. We can use this to get the value of
-`primitive_mul_x(t)` for `α = 0`. For the case when `0 <= t <= 1` (so
-that the argument is always on the interval `[0, 2π]`) we get for the
-`clausenc` terms in `primitive_mul_x(t)`
-```
-(clausenc(x * (1 - t), 2) + clausenc(x * (1 + t), 2) - 2clausenc(x * t, 2)) / x =
+Handling `primitive_mul_x(root)` requires slightly more work. The main
+reason is that the root also depends on `α`. In this case we compute
+the constant term and the remainder term in the Taylor model
+separately.
 
-(
- + π^2 / 6 - π * x * (1 - t) / 2 + x^2 * (1 - t)^2 / 4
- + π^2 / 6 - π * x * (1 + t) / 2 + x^2 * (1 + t)^2 / 4
- - 2(π^2 / 6 - π * x * t / 2 + x^2 * t^2 / 4)
-) / x =
-
-(
- - π * (1 - t) / 2 + x * (1 - t)^2 / 4
- - π * (1 + t) / 2 + x * (1 + t)^2 / 4
- + π * t - x * t^2 / 2
-) =
-
-π / 2 * (-(1 - t) - (1 + t) + 2t) +
-x / 4 * ((1 - t)^2 + (1 + t^2) - 2t^2) =
-
-π * (t - 1) + x / 2
-```
-and for the `clausens` terms
-```
-t * (-clausens(x * (1 - t), 1) + clausens(x * (1 + t), 1) - 2clausens(x * t, 1)) =
-
-t * (
-    - (π / 2 - x * (1 - t) / 2)
-    + (π / 2 - x * (1 + t) / 2)
-    - 2(π / 2 - x * t / 2)
-) =
-
-t * (
-    + x * (1 - t) / 2
-    - x * (1 + t) / 2
-    - π + x * t
-) =
-
-t * (x * ((1 - t) / 2 - (1 + t) / 2 + t) -2π) =
-
--π * t
-```
-Putting these two terms together we get
-```
-primitive_mul_x(t) -> π * (t - 1) + x / 2 - π * t = x / 2 - π
-```
-This means that
-```
-primitive_mul_x(0) - 2primitive_mul_x(root) =
-    (x / 2 - π) - 2(x / 2 - π) =
-    π - x / 2
-```
-
-For the case when `t = π / x` the above calculations do not apply
-since the argument of the first `clausenc` and `clausens` functions
-are negative and hence not on the interval `[0, 2π]. However we have
-already established that we can write the primitive function as
-```
-primitive_mul_x(π / x) = 2(clausenc(x + π, 2 - α) - clausenc(π, 2 - α)) / x
-```
-Letting `α = 0` gives us
-```
-2(clausenc(x + π, 2) - clausenc(π, 2)) / x =
-2(
-    + (π^2 / 6 - π * (x + π) / 2 + (x + π)^2 / 4)
-    - (π^2 / 6 - π * π / 2 + π^2 / 4)
-) / x =
-2(
-    - π * (x + π) / 2 + (x + π)^2 / 4
-    + π^2 / 2 - π^2 / 4
-) / x =
-2(
-    - π * (x + π) / 2 + (x + π)^2 / 4
-    + π^2 / 2 - π^2 / 4
-) / x =
-2(x^2 / 4) / x =
-x / 2
-```
-Combining this with the above gives us that the constant function of
-the integral is given by
-```
-primitive(0) - 2primitive(root) + primitive(π / x) =
-    (π - x / 2) + (x / 2) = π
-```
-Which is exactly what we wanted to show. This means that after the
-division by `π` the constant function should be exactly `1`.
-
-## Computing Taylor model of `primitive_mul_x(root)`
-We want to compute a Taylor model of degree `0`, we do it by manually
-computing the expansion and the remainder. The constant term in the
-expansion can be computed directly, to get a remainder term we bound
-the derivative in `α`. Differentiating `primitive_mul_x(t)` with
-respect to `α` while treating `t` as a function of `α` gives us
+For the constant term of `primitive_mul_x(root)` we simply compute it
+for `α = 0`, giving us
 ```
 (
-    - x * dt(α) * (-clausens(x * (1 - t(α)), 1 - α) + clausens(x * (1 + t(α)), 1 - α) - 2clausens(x * t(α), 1 - α))
-    - (-clausenc(x * (1 - t(α)), 2 - α, 1) + clausenc(x * (1 + t(α)), 2 - α, 1) - 2clausenc(x * t(α), 2 - α, 1))
+    clausenc(x * (1 - r0), 2) + clausenc(x * (1 + r0), 2) - 2clausenc(x * r0, 2)
+) / x + r0 * (
+    -clausens(x * (1 - r0), 1) + clausens(x * (1 + r0), 1) - 2clausens(x * r0, 1)
+)
+```
+where `r0` is the root for `α = 0`.
+
+For the remainder term we want to enclose the derivative w.r.t. `α` on
+the interval `u0.α`. This is similar to
+[`equation_kdvzero_K_dα`](@ref), except that we here have an extra
+division by `x`. We also explain the procedure below.
+
+Differentiating `primitive_mul_x(t)` with respect
+to `α` while treating `t` as a function of `α` gives us
+```
+(
+    - x * dt(α) * (
+        -clausens(x * (1 - t(α)), 1 - α) +
+        clausens(x * (1 + t(α)), 1 - α) -
+        2clausens(x * t(α), 1 - α))
+    - (
+        -clausenc(x * (1 - t(α)), 2 - α, 1) +
+        clausenc(x * (1 + t(α)), 2 - α, 1) -
+        2clausenc(x * t(α), 2 - α, 1)
+    )
 ) / x + dt(α) * (
     -clausens(x * (1 - t(α)), 1 - α) + clausens(x * (1 + t(α)), 1 - α) - 2clausens(x * t(α), 1 - α)
 ) + t(α) * (
     x * dt(α) * (clausenc(x * (1 - t(α)), -α) + clausenc(x * (1 + t(α)), -α) - 2clausenc(x * t(α), -α))
-    - (-clausens(x * (1 - t(α)), 1 - α, 1) + clausens(x * (1 + t(α)), 1 - α, 1) - 2clausens(x * t(α), 1 - α, 1))
+    - (
+        -clausens(x * (1 - t(α)), 1 - α, 1) +
+        clausens(x * (1 + t(α)), 1 - α, 1) -
+        2clausens(x * t(α), 1 - α, 1)
+    )
 )
 ```
 Where `dt(α)` is the derivative of `t(α)` with respect to `α`. From
@@ -416,9 +328,13 @@ which is the function that we found the root of, so this will be zero
 for that root. If we let `t(α) = root` what remains is therefore
 ```
 - (
-    clausenc(x * (1 - root), 2 - α, 1) + clausenc(x * (1 + root), 2 - α, 1) - 2clausenc(x * root, 2 - α, 1)
+    clausenc(x * (1 - root), 2 - α, 1) +
+    clausenc(x * (1 + root), 2 - α, 1) -
+    2clausenc(x * root, 2 - α, 1)
 ) / x -  t(α) * (
-    -clausens(x * (1 - root), 1 - α, 1) + clausens(x * (1 + root), 1 - α, 1) - 2clausens(x * root, 1 - α, 1)
+    -clausens(x * (1 - root), 1 - α, 1) +
+    clausens(x * (1 + root), 1 - α, 1) -
+    2clausens(x * root, 1 - α, 1)
 )
 ```
 We get an enclosure of the derivative by enclosing this in `α`. An
@@ -426,8 +342,17 @@ important observation is that the derivative of the root with respect
 to `α` **does not** affect the derivative of the result. It is
 therefore enough to compute only an enclosure of the root and we do
 not need to compute its derivative in `α`.
+
+# Constant term of Taylor model
+From [`lemma_kdvzero_T0_constant_term`](@ref) we have that the
+constant term in the final Taylor model should be exactly `1`, we
+hence explicitly set it to this in the end.
+
+In principle we could avoid computing the constant term since we know
+that it should be exactly `1`. However we choose to compute it anyway
+and verify that it encloses `1`.
 """
-function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
+function T0(u0::KdVZeroAnsatz, ::Ball)
     iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
 
     Mα = TaylorModel(identity, u0.α, u0.α0, degree = 0)
@@ -472,12 +397,12 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
             # If x overlaps with π this gives an indeterminate result
             # which we handle specially
             if Arblib.overlaps(x, Arb(π))
-                # Use periodicity of 2π to evaluate at x - π which is
-                # close to zero. Use the asymptotic expansion at x = 0 to
-                # evaluate it.
-                # To compute the expansion around x = 0 it uses the same
+                # Use periodicity and evenness of 2π to instead
+                # evaluate at π - x which is close to zero. Use the
+                # asymptotic expansion at x = 0 to evaluate it. To
+                # compute the expansion around x = 0 it uses the same
                 # approach as the asymptotic version of T0 does.
-                clausenc_x_plus_pi = let y = abs(x - π), Ms = 2 - Mα, M = 2
+                clausenc_x_plus_pi = let y = π - x, Ms = 2 - Mα, M = 2
                     # Expansion of gamma(α - 1) * sinpi(α / 2) = (sinpi(α
                     # / 2) / α) / (rgamma(α - 1) / α).
                     gamma_sin = truncate(
@@ -512,17 +437,13 @@ function T0(u0::KdVZeroAnsatz, ::Ball; skip_div_u0 = false)
         I_mul_x =
             primitive_mul_x_zero - 2primitive_mul_x_root + primitive_mul_x_pi_div_x
 
-        I_mul_x_div_pi = I_mul_x / Arb(π)
+        res = I_mul_x / (Arb(π) * truncate(u0(x), degree = 0))
 
         # The constant term should be exactly 1
-        @assert Arblib.contains(I_mul_x_div_pi.p[0], 1) || !isfinite(I_mul_x_div_pi.p[0])
-        I_mul_x_div_pi.p[0] = 1
+        @assert Arblib.contains(res.p[0], 1) || !isfinite(res.p[0])
+        res.p[0] = 1
 
-        if skip_div_u0
-            return I_mul_x_div_pi
-        else
-            return I_mul_x_div_pi / truncate(u0(x), degree = 0)
-        end
+        return res
     end
 end
 
@@ -534,7 +455,8 @@ Return a function such that `T0(u0)(x)` computes a Taylor model of
 inv(π * x * u0(x)) * ∫abs(clausenc(x - y, -α) + clausenc(x + y, -α) - 2clausenc(y, -α)) * y dy
 ```
 , where the integration is taken from `0` to `π`, in `α` around `α =
-0` of degree `1`. Computed in a way that works for `x` close to zero.
+0` of degree `0`. It is computed in a way that works for `x` close to
+zero.
 
 The method is similar to the non-asymptotic version but it evaluates
 the terms that depend on `x` in an asymptotic way. From the
@@ -547,6 +469,9 @@ explicitly cancel this term. We therefore rewrite the above as
 ```
 (primitive_mul_x(0) * x^α - 2primitive_mul_x(root) * x^α + primitive_mul_x(π / x) * x^α) / (π * u0(x) * x^α)
 ```
+
+The division by `π * u0(x) * x^α` is straight forward to handle. We
+now describe how to compute the numerator.
 
 For
 ```
@@ -570,128 +495,51 @@ We expand `clausenc(x + π, 2 - α)` at `x = π` and cancel `clausenc(π,
 can compute the expansion by differentiating by hand and evaluating
 with a series in `α`.
 
+What remains is computing a Taylor model of `primitive_mul_x(root) *
+x^α`, this requires slightly more work.
+
 # Computing Taylor model of `primitive_mul_x(root) * x^α`
 Similarly to the non-asymptotic version we manually compute the
-expansion and the remainder. We have
+constant term and the remainder. To begin with we note that
 ```
-primitive_mul_x(t) * x^α =
+primitive_mul_x(root) * x^α =
             (
-                clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) -
-                2clausenc(x * t, 2 - α)
+                clausenc(x * (1 - root), 2 - α) + clausenc(x * (1 + root), 2 - α) -
+                2clausenc(x * root, 2 - α)
             ) / x^(1 - α) +
-            t * (
-                -clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) -
-                2clausens(x * t, 1 - α)
+            root * (
+                -clausens(x * (1 - root), 1 - α) + clausens(x * (1 + root), 1 - α) -
+                2clausens(x * root, 1 - α)
             ) * x^α
 ```
-The derivative with respect to `α` at `t = root` is
-```
-primitive_mul_x'(t) * x^α + primitive_mul_x(t) * log(x) * x^α
-```
-With `primitive_mul_x'(t)` given by
-```
-- (
-    clausenc(x * (1 - t), 2 - α, 1) + clausenc(x * (1 + t), 2 - α, 1) - 2clausenc(x * t, 2 - α, 1)
-) / x -  t(α) * (
-    -clausens(x * (1 - t), 1 - α, 1) + clausens(x * (1 + t), 1 - α, 1) - 2clausens(x * t, 1 - α, 1)
-)
-```
-We can split the derivative into four parts
-```
-primitive_mul_x'(t) * x^α + primitive_mul_x(t) * log(x) * x^α =
-    -(clausenc(x * (1 - t), 2 - α, 1) + clausenc(x * (1 + t), 2 - α, 1) - 2clausenc(x * t, 2 - α, 1)) * x^(α - 1) +
+is exactly equal to `K(x, α) * x^(α - 1)` with `K(x, α)` as in
+[`equation_kdvzero_K`](@ref).
 
-    -t * (-clausens(x * (1 - t), 1 - α, 1) + clausens(x * (1 + t), 1 - α, 1) - 2clausens(x * t, 1 - α, 1)) * x^α +
+For the constant term in the Taylor model `primitive_mul_x(root) *
+x^α` we simply expand the Clausen functions and evaluate.
 
-    (clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) - 2clausenc(x * t, 2 - α)) * log(x) * x^(α - 1) +
+For the remainder term we need to enclose the derivative w.r.t. `α`.
+An expansion of the derivative is given in
+[`lemma_kdvzero_U0_primitive_K_expansion`](@ref). It consists of six
+terms. The first two are from the leading terms of the `clausenc` and
+`clausens` terms respectively, the removable singularities of `gamma(s
+- 1) * sinpi(s / 2)` and `gamma(s - 1) * cospi(s / 2)` are handled as
+described above. The remaining four terms are all infinite sums, where
+we explicitly sum the first `M - 1` terms. To enclose the remainder we
+use [`clausenc_expansion_remainder`](@ref) and
+[`clausens_expansion_remainder`](@ref).
 
-    t * (-clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α)) * log(x) * x^α
-```
-Expanding the Clausen functions we get for each part
-```
-(clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) - 2clausenc(x * t, 2 - α)) * log(x) * x^(α - 1) =
-    gamma(α - 1) * sinpi((2 - α) / 2) * log(x) * ((1 - t)^(1 - α) + (1 + t)^(1 - α) - 2t^(1 - α)) +
-    sum((-1)^m * zeta(2 - α - 2m) * log(x) * x^(2m - 1 + α) * ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m) for m = 1:Inf)
 
-t * (-clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α)) * log(x) * x^α =
-    t * (
-        gamma(α) * cospi((1 - α) / 2) * log(x) * ((1 - t)^(-α) + (1 + t)^(-α) - 2t^(-α)) +
-        sum((-1)^m * zeta(-α - 2m) * log(x) * x^(2m + 1 + α) * ((1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1) for m = 0:Inf)
-    )
+# Constant term of Taylor model
+Similar to in the non-asymptotic version the constant term in the
+final Taylor model should be exactly `1`, we hence explicitly set it
+to this in the end.
 
--(clausenc(x * (1 - t), 2 - α, 1) + clausenc(x * (1 + t), 2 - α, 1) - 2clausenc(x * t, 2 - α, 1)) * x^(α - 1) =
-    -ds₁(gamma(α - 1) * sinpi((2 - α) / 2) * x^-α * ((1 - t)^(1 - α) + (1 + t)^(1 - α) - 2t^(1 - α))) * x^α +
-    -sum((-1)^m * dzeta(2 - α - 2m) * x^(2m - 1 + α) * ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m) for m = 1:Inf)
-
--t * (-clausens(x * (1 - t), 1 - α, 1) + clausens(x * (1 + t), 1 - α, 1) - 2clausens(x * t, 1 - α, 1)) * x^α =
-    -t * (
-        ds₂(gamma(α) * cospi((1 - α) / 2) * x^-α * ((1 - t)^(-α) + (1 + t)^(-α) - 2t^(-α))) * x^α +
-        sum((-1)^m * zeta(-α - 2m) * x^(2m + 1 + α) * ((1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1) for m = 0:Inf)
-    )
-```
-Here we use `ds₁` and `ds₂` to represent differentiation with respect
-to `2 - α` and `1 - α` respectively. To evaluate this close to `x = 0`
-we need to handle the cancellations between the first and third term
-as well as between the second and fourth term. We can write the
-singular term in the third term as
-```
-ds₁(gamma(α - 1) * sinpi((2 - α) / 2) * ((1 - t)^(1 - α) + (1 + t)^(1 - α) - 2t^(1 - α))) +
-    gamma(α - 1) * sinpi((2 - α) / 2) * log(x) * ((1 - t)^(1 - α) + (1 + t)^(1 - α) - 2t^(1 - α))
-```
-and note that the term containing `log(x)` exactly cancels the
-corresponding term in the expansion of
-```
-(clausenc(x * (1 - t), 2 - α) + clausenc(x * (1 + t), 2 - α) - 2clausenc(x * t, 2 - α)) * log(x) * x^(α - 1)
-```
-Similarly we get for the singular part of the fourth term
-```
-ds₂(gamma(α) * cospi((1 - α) / 2) * ((1 - t)^(-α) + (1 + t)^(-α) - 2t^(-α))) +
-    gamma(α) * cospi((1 - α) / 2) * log(x) * ((1 - t)^(-α) + (1 + t)^(-α) - 2t^(-α))
-```
-which cancels the singular term in the expansion of
-```
-(clausens(x * (1 - t), 1 - α) + clausens(x * (1 + t), 1 - α) - 2clausens(x * t, 1 - α)) * log(x) * x^α
-```
-
-We hence get the expansion
-```
-primitive_mul_x'(t) * x^α + primitive_mul_x(t) * log(x) * x^α =
-
--(
-    ds₁(gamma(α - 1) * sinpi((2 - α) / 2) * ((1 - t)^(1 - α) + (1 + t)^(1 - α) - 2t^(1 - α))) -
-    sum(
-        (-1)^m * zeta(2 - α - 2m) * log(x) * x^(2m - 1 + α) *
-            ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m)
-        for m = 1:Inf
-    ) +
-    sum(
-        (-1)^m * dzeta(2 - α - 2m) * x^(2m - 1 + α) *
-            ((1 - t)^2m + (1 + t)^2m - 2t^2m) / factorial(2m)
-        for m = 1:Inf
-) -
-
-t * (
-    ds₂(gamma(α) * cospi((1 - α) / 2) * (-(1 - t)^(-α) + (1 + t)^(-α) - 2t^(-α))) -
-    sum(
-        (-1)^m * zeta(-α - 2m) * log(x) * x^(2m + 1 + α) *
-            (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1)
-        for m = 0:Inf
-    ) +
-    sum(
-        (-1)^m * zeta(-α - 2m) * x^(2m + 1 + α) *
-            (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1)
-         for m = 0:Inf
-    )
-)
-```
+In principle we could avoid computing the constant term since we know
+that it should be exactly `1`. However we choose to compute it anyway
+and verify that it encloses `1`.
 """
-function T0(
-    u0::KdVZeroAnsatz,
-    ::Asymptotic;
-    ϵ::Arb = one(Arb),
-    M::Integer = 10,
-    skip_div_u0 = false,
-)
+function T0(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = one(Arb), M::Integer = 10)
     iszero(u0.α0) || throw(ArgumentError("only works for u0.α0 = 0, got u0.α0 = $(u0.α0)"))
 
     Mα = TaylorModel(identity, u0.α, u0.α0, degree = 0)
@@ -739,204 +587,158 @@ function T0(
             r0, r = _integrand_compute_root(typeof(u0), x, lbound(Arb, u0.α))
 
             # Constant term at α = 0
-            c = let t = r0
+            c = let
                 # Enclosure of
                 # (
-                #   clausenc(x * (1 - t), 2) +
-                #   clausenc(x * (1 + t), 2) -
-                #   2clausenc(x * t, 2)
+                #   clausenc(x * (1 - r0), 2) +
+                #   clausenc(x * (1 + r0), 2) -
+                #   2clausenc(x * r0, 2)
                 # ) / x
                 part1 = let s = Arb(2)
                     # Singular term
                     res =
                         gamma_sin.p[0] * (
-                            abspow(1 - t, s - 1) + abspow(1 + t, s - 1) - 2abspow(t, s - 1)
+                            abspow(1 - r0, s - 1) + abspow(1 + r0, s - 1) -
+                            2abspow(r0, s - 1)
                         )
                     # Analytic terms
                     res += sum(
                         (-1)^m *
                         zeta(s - 2m) *
                         abspow(x, 2m - 1) *
-                        ((1 - t)^2m + (1 + t)^2m - 2t^2m) /
+                        ((1 - r0)^2m + (1 + r0)^2m - 2r0^2m) /
                         factorial(2m) for m = 1:M-1
                     )
                     # Remainder term
                     # Here we use that max(1 - r0, 1 + r0, r0) = 1 + r0 so
                     # it is enough to compute the remainder term at x * (1 + r0)
                     res +=
-                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) *
+                        ((1 - r0)^2M + (1 + r0)^2M - 2r0^2M) *
                         abspow(x, 2M - 1) *
-                        clausenc_expansion_remainder(x * (1 + t), s, M)
+                        clausenc_expansion_remainder(x * (1 + r0), s, M)
 
                     res
                 end
 
                 # Enclosure of
-                # t * (
-                #   -clausens(x * (1 - t), 1) +
-                #   clausens(x * (1 + t), 1) -
-                #   2clausenc(x * t, 1)
+                # r0 * (
+                #   -clausens(x * (1 - r0), 1) +
+                #   clausens(x * (1 + r0), 1) -
+                #   2clausenc(x * r0, 1)
                 # )
                 part2 = let s = Arb(1)
                     # Singular term
                     res =
                         -gamma_sin.p[0] * (
-                            -abspow(1 - t, s - 1) + abspow(1 + t, s - 1) -
-                            2abspow(t, s - 1)
+                            -abspow(1 - r0, s - 1) + abspow(1 + r0, s - 1) -
+                            2abspow(r0, s - 1)
                         )
                     # Analytic terms
                     res += sum(
                         (-1)^m *
                         zeta(s - 2m - 1) *
                         abspow(x, 2m + 1) *
-                        (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1) for m = 0:M-1
+                        (-(1 - r0)^(2m + 1) + (1 + r0)^(2m + 1) - 2r0^(2m + 1)) / factorial(2m + 1) for m = 0:M-1
                     )
                     # Remainder term
                     res +=
-                        ((1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
+                        ((1 - r0)^(2M + 1) + (1 + r0)^(2M + 1) - 2r0^(2M + 1)) *
                         abspow(x, 2M + 1) *
-                        clausens_expansion_remainder(x * (1 + t), s, M)
+                        clausens_expansion_remainder(x * (1 + r0), s, M)
 
-                    t * res
+                    r0 * res
                 end
 
                 part1 + part2
             end
 
             # Enclosure of derivative over interval
-            Δ = let t = r
-                # Enclosure of
-                # (
-                #   clausenc(x * (1 - t), 2 - α) +
-                #   clausenc(x * (1 + t), 2 - α) -
-                #   2clausenc(x * t, 2 - α)
-                # ) * log(x) * x^(α - 1) -
-                # (
-                #    clausenc(x * (1 - t), 2 - α, 1) +
-                #    clausenc(x * (1 + t), 2 - α, 1) -
-                #    2clausenc(x * t, 2 - α, 1)
-                #  ) * x^(α - 1)
-                part1 = let s = 2 - u0.α
-                    # Singular term
-                    # Derivative of
-                    # gamma(1 - s) * sinpi(s / 2) * (
-                    #   abspow(1 - t, s - 1) + abspow(1 + t, s - 1) - 2abspow(t, s - 1)
-                    # )
-                    # with respect to s
-                    res = let s = ArbSeries((s, 1))
-                        gamma_sin_tmp =
-                            fx_div_x(y -> sinpi((y + 2) / 2), s - 2) /
-                            fx_div_x(y -> rgamma(1 - (y + 2)), s - 2)
+            Δ = let
+                # Enclosure of leading terms from clausenc functions
+                leading_1 = let s = ArbSeries((2 - u0.α, 1))
+                    gamma_sin_tmp =
+                        fx_div_x(sm2 -> sinpi((sm2 + 2) / 2), s - 2) /
+                        fx_div_x(sm2 -> rgamma(1 - (sm2 + 2)), s - 2)
 
-                        expansion =
-                            gamma_sin_tmp * (
-                                abspow(1 - t, s - 1) + abspow(1 + t, s - 1) -
-                                2abspow(t, s - 1)
-                            )
+                    expansion =
+                        gamma_sin_tmp * (
+                            abspow(1 - r, s - 1) + abspow(1 + r, s - 1) - 2abspow(r, s - 1)
+                        )
 
-                        expansion[1]
-                    end
-
-                    # Analytic terms
-                    # First sum
-                    res -= sum(1:M-1) do m
-                        (-1)^m *
-                        zeta(s - 2m) *
-                        logabspow(x, 1, 2m - 1 + u0.α) *
-                        ((1 - t)^2m + (1 + t)^2m - 2t^2m) /
-                        factorial(2m)
-                    end
-                    # Second sum
-                    res += sum(1:M-1) do m
-                        (-1)^m *
-                        dzeta(s - 2m) *
-                        abspow(x, 2m - 1 + u0.α) *
-                        ((1 - t)^2m + (1 + t)^2m - 2t^2m) /
-                        factorial(2m)
-                    end
-
-                    # Remainder term
-                    # Here we use that max(1 - t, 1 + t, t) = 1 + t so
-                    # it is enough to compute the remainder term at x * (1 + t)
-                    res -=
-                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) *
-                        logabspow(x, 1, 2M - 1 + u0.α) *
-                        clausenc_expansion_remainder(x * (1 + t), s, M)
-                    res +=
-                        ((1 - t)^2M + (1 + t)^2M - 2t^2M) *
-                        abspow(x, 2M - 1 + u0.α) *
-                        clausenc_expansion_remainder(x * (1 + t), s, 1, M)
-
-                    res
+                    expansion[1]
                 end
 
-                # Enclosure of
-                # t * (
-                #   (
-                #     -clausens(x * (1 - t), 1 - α) +
-                #     clausens(x * (1 + t), 1 - α) -
-                #     2clausens(x * t, 1 - α)
-                #   ) * log(x) * x^α -
-                #   (
-                #     -clausens(x * (1 - t), 1 - α, 1) +
-                #     clausens(x * (1 + t), 1 - α, 1) -
-                #     2clausens(x * t, 1 - α, 1)
-                #   ) * x^α
-                # )
-                part2 = let s = 1 - u0.α
-                    # Singular term
-                    # Derivative of
-                    # gamma(1 - s) * cospi(s / 2) * (
-                    #   -abspow(1 - t, s - 1) + abspow(1 + t, s - 1) - 2abspow(t, s - 1)
-                    # )
-                    # with respect to s
-                    res = let s = ArbSeries((s, 1))
-                        gamma_sin_tmp =
-                            fx_div_x(y -> cospi((y + 1) / 2), s - 1) /
-                            fx_div_x(y -> rgamma(1 - (y + 1)), s - 1)
+                # Enclosure of leading terms from clausens functions
+                leading_2 = let s = ArbSeries((1 - u0.α, 1))
+                    gamma_sin_tmp =
+                        fx_div_x(sm1 -> cospi((sm1 + 1) / 2), s - 1) /
+                        fx_div_x(sm1 -> rgamma(1 - (sm1 + 1)), s - 1)
 
-                        expansion =
-                            gamma_sin_tmp * (
-                                -abspow(1 - t, s - 1) + abspow(1 + t, s - 1) -
-                                2abspow(t, s - 1)
-                            )
+                    expansion =
+                        gamma_sin_tmp * (
+                            -abspow(1 - r, s - 1) + abspow(1 + r, s - 1) -
+                            2abspow(r, s - 1)
+                        )
 
-                        expansion[1]
-                    end
-
-                    # Analytic terms
-                    # First sum
-                    res -= sum(
-                        (-1)^m *
-                        zeta(s - 2m - 1) *
-                        logabspow(x, 1, 2m + 1 + u0.α) *
-                        (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1) for m = 0:M-1
-                    )
-                    # Second sum
-                    res += sum(
-                        (-1)^m *
-                        dzeta(s - 2m - 1) *
-                        abspow(x, 2m + 1 + u0.α) *
-                        (-(1 - t)^(2m + 1) + (1 + t)^(2m + 1) - 2t^(2m + 1)) / factorial(2m + 1) for m = 0:M-1
-                    )
-
-                    # Remainder term
-                    # Here we use that max(1 - t, 1 + t, t) = 1 + t so
-                    # it is enough to compute the remainder term at x * (1 + t)
-                    res -=
-                        (-(1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
-                        logabspow(x, 1, 2M + 1 + u0.α) *
-                        clausens_expansion_remainder(x * (1 + t), s, M)
-
-                    res +=
-                        (-(1 - t)^(2M + 1) + (1 + t)^(2M + 1) - 2t^(2M + 1)) *
-                        abspow(x, 2M + 1 + u0.α) *
-                        clausens_expansion_remainder(x * (1 + t), s, 1, M)
-
-                    t * res
+                    expansion[1]
                 end
 
-                -part1 - part2
+                # For the remainder terms we use that max(1 - t, 1 +
+                # t, t) = 1 + t so it is enough to compute the
+                # remainder term at x * (1 + t)
+
+                # Enclosure of first sum times log(x)
+                S1_log = sum(1:M-1) do m
+                    (-1)^m *
+                    zeta(2 - u0.α - 2m) *
+                    logabspow(x, 1, 2m - 1 + u0.α) *
+                    ((1 - r)^2m + (1 + r)^2m - 2r^2m) / factorial(2m)
+                end
+                S1_log +=
+                    ((1 - r)^2M + (1 + r)^2M - 2r^2M) *
+                    logabspow(x, 1, 2M - 1 + u0.α) *
+                    clausenc_expansion_remainder(x * (1 + r), 2 - u0.α, M)
+
+                # Enclosure of second sum times log(x)
+                S2_log = sum(0:M-1) do m
+                    (-1)^m *
+                    zeta(1 - u0.α - 2m - 1) *
+                    logabspow(x, 1, 2m + 1 + u0.α) *
+                    (-(1 - r)^(2m + 1) + (1 + r)^(2m + 1) - 2r^(2m + 1)) /
+                    factorial(2m + 1)
+                end
+                S2_log +=
+                    (-(1 - r)^(2M + 1) + (1 + r)^(2M + 1) - 2r^(2M + 1)) *
+                    logabspow(x, 1, 2M + 1 + u0.α) *
+                    clausens_expansion_remainder(x * (1 + r), 1 - u0.α, M)
+
+                # Third sum
+                S3 = sum(1:M-1) do m
+                    (-1)^m *
+                    dzeta(2 - u0.α - 2m) *
+                    abspow(x, 2m - 1 + u0.α) *
+                    ((1 - r)^2m + (1 + r)^2m - 2r^2m) / factorial(2m)
+                end
+                S3 +=
+                    ((1 - r)^2M + (1 + r)^2M - 2r^2M) *
+                    abspow(x, 2M - 1 + u0.α) *
+                    clausenc_expansion_remainder(x * (1 + r), 2 - u0.α, 1, M)
+
+                # Fourth sum
+                S4 = sum(0:M-1) do m
+                    (-1)^m *
+                    dzeta(1 - u0.α - 2m - 1) *
+                    abspow(x, 2m + 1 + u0.α) *
+                    (-(1 - r)^(2m + 1) + (1 + r)^(2m + 1) - 2r^(2m + 1)) /
+                    factorial(2m + 1)
+                end
+                S4 +=
+                    (-(1 - r)^(2M + 1) + (1 + r)^(2M + 1) - 2r^(2M + 1)) *
+                    abspow(x, 2M + 1 + u0.α) *
+                    clausens_expansion_remainder(x * (1 + r), 1 - u0.α, 1, M)
+
+                # Combine the terms
+                -leading_1 - r * leading_2 + S1_log + r * S2_log - S3 - r * S4
             end
 
             TaylorModel(ArbSeries((c, Δ), degree = 1), u0.α, u0.α0)
@@ -978,21 +780,19 @@ function T0(
             primitive_mul_x_onepα_zero - 2primitive_mul_x_onepα_root +
             primitive_mul_x_onepα_pi_div_x
 
-        I_mul_x_onepα_div_pi = I_mul_x_onepα / Arb(π)
-
-        if skip_div_u0
-            res = I_mul_x_onepα_div_pi * abspow(x, -Mα)
-        else
-            res =
-                I_mul_x_onepα_div_pi /
-                truncate(eval_expansion(u0, u0_expansion, x, offset_i = -1), degree = 0)
-        end
+        # res = I_mul_x_onepα / (π * u0(x) * x^α)
+        res =
+            I_mul_x_onepα / (
+                Arb(π) * truncate(
+                    eval_expansion(u0, u0_expansion, x, offset_i = -1),
+                    degree = 0,
+                )
+            )
 
         # The constant term should be exactly 1. This holds no matter
         # if we divide by u0 or not since the constant term of u0 is
         # exactly 1.
-        @assert Arblib.contains(I_mul_x_onepα_div_pi.p[0], 1) ||
-                !isfinite(I_mul_x_onepα_div_pi.p[0])
+        @assert Arblib.contains(res.p[0], 1) || !isfinite(res.p[0])
         res.p[0] = 1
 
         return res
