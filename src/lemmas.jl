@@ -183,27 +183,6 @@ A⁰[j] = gamma(α_hat - 1 - j * p0) * cospi((α_hat - 1 - j * p0) / 2) * a[j]
 function lemma_bhkdv_asymptotic_expansion end
 
 """
-    lemma_kdvzero_asymptotic_expansion
-
-Corresponds to Lemma 4.8 in the paper.
-
-# Statement
-
-For `0 < x <= π` we have the following expansions at `α = 0`:
-```
-u0(x) = 1 + b(x) * α + O(α^2)
-
-H(u0) = -1 / 2 - b(x) * α + O(α^2)
-```
-with
-```
-b(x) = clausenc(x, 1) - 2γ + clausencmzeta(x, 1 + p0) + clausencmzeta(x, 1 + 2p0)
-```
-Here we use `O(α)` to denote the big-O terms.
-"""
-function lemma_kdvzero_asymptotic_expansion end
-
-"""
     lemma_inv_u0_normalised
 
 Corresponds to Lemma 8.1 in the paper.
@@ -258,23 +237,6 @@ For `0 <= x <= π` the constant and linear terms in the expansion at `α
 = 0` of `F0(u0)(x)` are both zero.
 """
 function lemma_kdvzero_F0_expansion end
-
-"""
-    lemma_I_hat_root_zero
-
-Corresponds to Lemma 11.1 in the paper.
-
-# Statement
-
-For all `-1 < α < 0` the function
-```
-(1 - t)^(-α - 1) + (1 - t)^(-α - 1) - 2t^(-α - 1)
-```
-is increasing and continuous in `t` for `0 < t < 1` and has the unique
-root `r0(α)`. For `0 < x < π` and `0 < t < r0(α)` the function
-`I_hat(x, t, α)` (see [`equation_I_hat`](@ref)) is increasing in `x`.
-"""
-function lemma_I_hat_root_zero end
 
 """
     lemma_I_hat_root

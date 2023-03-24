@@ -739,7 +739,7 @@ S2 = sum((-1)^m * dzeta(s2[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
 with `1 - α <= s1[m] <= 2` and `2 <= s2[m] <= 2 + (1 + α)^2 / 2`.
 
-From [`lemma_clausen_derivative_remainder_bhkdv`](@ref) we get that
+From [`lemma_clausen_derivative_remainder_interval`](@ref) we get that
 `S1` and `S2` can be bounded in the same way as the sums bounded by
 [`clausenc_expansion_remainder`](@ref). The only difference being that
 we have to give interval arguments for `s` that enclose `s1[m]` and
@@ -1023,7 +1023,7 @@ S2 = sum((-1)^m * dzeta(s4[m] - 2m) * x^2m / factorial(2m) for m = M:Inf)
 ```
 with `1 - 2α <= s1[m] <= 3` and `2 - α + (1 + α)^2 / 2 <= s2[m] <= 3`.
 
-From [`lemma_clausen_derivative_remainder_bhkdv`](@ref) we get that
+From [`lemma_clausen_derivative_remainder_interval`](@ref) we get that
 `S1` and `S2` can be bounded in the same way as the sums bounded by
 [`clausenc_expansion_remainder`](@ref). The only difference being that
 we have to give interval arguments for `s` that enclose `s3[m]` and
@@ -1278,8 +1278,8 @@ taking `γ = 0`, giving us
 ```
 F = (u0(x)^2 / 2 + H(u0)(x)) / (gamma(1 + α) * log(inv(x)) * (1 - x^p0) * x^(1 - α))
 ```
-See [`equation_bhkdv_defect`](@ref) where the factor is introduced in
-the paper. We now explain how to bound `F`.
+See [`equation_bhkdv_F0_factor`](@ref) where the factor is introduced
+in the paper. We now explain how to bound `F`.
 
 # Bounding `F`
 Getting an accurate bound for `F` requires more work.
