@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.11
+# v0.19.22
 
 using Markdown
 using InteractiveUtils
@@ -7,10 +7,12 @@ using InteractiveUtils
 # ╔═╡ 52d3f93a-701a-11ec-1841-c365d4d26244
 begin
     using Pkg, Revise
-    Pkg.activate("../")
-    using Arblib, ArbExtras, Folds, HighestCuspedWave, LaTeXStrings, Plots, PlutoUI
+    Pkg.activate("../", io = devnull)
+    using Arblib, Folds, HighestCuspedWave, LaTeXStrings, Plots
 
-    setprecision(Arb, 128)
+    pgfplotsx()
+
+    setprecision(Arb, 100)
 
     nothing
 end
@@ -20,9 +22,6 @@ md"""
 # Figures
 This notebook is responsible for generating the figures in the paper not directly related to the computer assisted proof.
 """
-
-# ╔═╡ d6d3f594-09ac-40c3-b068-8341a5b1519e
-pgfplotsx()
 
 # ╔═╡ 98bed951-46c9-43cf-bcb0-cc88276ae22e
 md"""
@@ -54,7 +53,7 @@ let
         legend = :none,
     )
 
-    savefig(pl, "../figures/publication/a_0.pdf")
+    savefig(pl, "../figures/a_0.pdf")
 
     pl
 end
@@ -69,7 +68,7 @@ let
     pushfirst!(p0s, 0)
     # Compute the limit at α = 0
     push!(αs, 0)
-    push!(p0s, HighestCuspedWave.expansion_p0(KdVZeroAnsatz, Arb(0), Arb(0))[0])
+    push!(p0s, HighestCuspedWave.expansion_p0(KdVZeroAnsatz, Arb(0), Arb(0)).p[0])
 
     # Sanity checks
     @assert all(isfinite, p0s)
@@ -86,7 +85,7 @@ let
         legend = :none,
     )
 
-    savefig(pl, "../figures/publication/p_alpha.pdf")
+    savefig(pl, "../figures/p_alpha.pdf")
 
     pl
 end
@@ -101,7 +100,7 @@ let
     # Compute data
     αs = collect(range(-1, 0, length = 100)[2:end-1])
     T0s = Folds.map(αs, basesize = 1) do α
-        u0 = FractionalKdVAnsatz(Arb(α), pp = Arb(1))
+        u0 = FractionalKdVAnsatz(Arb(α), p = Arb(1), use_bhkdv = false)
         Float64(T0(u0, Asymptotic(), M = 5)(Arb(0)))
     end
 
@@ -121,15 +120,14 @@ let
         legend = :none,
     )
 
-    savefig(pl, "../figures/publication/T_alpha_0.pdf")
+    savefig(pl, "../figures/T_alpha_0.pdf")
 
     pl
 end
 
 # ╔═╡ Cell order:
-# ╠═52d3f93a-701a-11ec-1841-c365d4d26244
 # ╟─8af96418-5c46-44bc-8cd6-37c052d1cc0c
-# ╠═d6d3f594-09ac-40c3-b068-8341a5b1519e
+# ╠═52d3f93a-701a-11ec-1841-c365d4d26244
 # ╟─98bed951-46c9-43cf-bcb0-cc88276ae22e
 # ╠═dc7a7f9b-d050-45c8-a1eb-193198e416ee
 # ╠═ccd152d4-074d-462e-bd69-50b98ed9256c
