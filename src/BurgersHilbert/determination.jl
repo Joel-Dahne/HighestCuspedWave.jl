@@ -1,6 +1,6 @@
 """
     findbs(u0::BHAnsatz)
-Find values of `b[n]` to minimize `defect(u0)`.
+Find values of `b[n]` to minimize the defect `defect(u0)`.
 
 This is done by solving the non-linear system given by requiring that
 `defect(u0)` evaluates to zero on `N` collocation points.

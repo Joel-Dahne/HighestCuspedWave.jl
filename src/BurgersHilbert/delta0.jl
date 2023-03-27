@@ -65,15 +65,15 @@ function delta0_bound(
 
     verbose &&
         @info "Terms in expansion on [0, ϵ2]" length(f1.u0_expansion_div_xlogx) length(
-            f1.Du0_expansion_div_x2logx,
+            f1.defect_u0_expansion_div_x2logx,
         )
     verbose &&
         @info "Terms in expansion on [ϵ2, ϵ3]" length(f2.u0_expansion_div_xlogx) length(
-            f2.Du0_expansion_div_x2logx,
+            f2.defect_u0_expansion_div_x2logx,
         )
     verbose &&
         @info "Terms in expansion on [ϵ3, ϵ]" length(f3.u0_expansion_div_xlogx) length(
-            f3.Du0_expansion_div_x2logx,
+            f3.defect_u0_expansion_div_x2logx,
         )
 
     m11 = f1(Arb((0, ϵ1)))

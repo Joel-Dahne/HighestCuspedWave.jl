@@ -7,6 +7,9 @@ log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2) / sin(x * t / 2)^2)
 ```
 in `t` on the interval `[0, 1]`. It assumes that `0 <= x <= π`.
 
+The existence and uniqueness of the root is based on
+[`lemma_bh_I_hat`](@ref).
+
 For wide values of `x` it uses that the root is decreasing in `x` to
 only have to evaluate at the endpoints.
 
@@ -129,6 +132,9 @@ where `W(x) = 1 / (x^2 * log(inv(x)) * sqrt(log(1 + inv(x))))`
 U1(x) = x^2 * ∫abs(log(sin(x * (1 - t) / 2) + sin(x * (1 + t) / 2) - 2log(sin(x * t / 2)))) * t * sqrt(log(1 + inv(x * t))) dt
 ```
 from `0` to `1`.
+
+The bound for this is based on [`lemma_bh_U1_asymptotic`](@ref),
+though we also include most of the details below.
 
 Using that
 ```
@@ -479,6 +485,9 @@ and `U11(x)` is integrated on ``[0, r_x]`` and `U121(x)` on ``[r_x, 1
 - δ1]``. Here `r_x` is the unique root of the integrand on the
 interval ``[0, 1]``, as computed by [`_integrand_compute_root`](@ref).
 
+The existence and uniqueness of the root as well as the sign of the
+integrand is based on [`lemma_bh_I_hat`](@ref).
+
 # Arguments
 - `δ1::Arb = 1e-5`: Determines the interval of integration for `U121(x)`
 - `skip_div_u0::Bool = false`: If true it skips the factor
@@ -495,9 +504,14 @@ integrand. We split it as
 log(sin(x * (1 - t) / 2) * sin(x * (1 + t) / 2)) * t * sqrt(log(1 + inv(x * t)))
 - 2log(sin(x * t / 2)) * t * sqrt(log(1 + inv(x * t)))
 ```
+
 For the first term we use that `t * sqrt(log(1 + inv(x * t)))` is
-increasing for `t < inv(x * (exp(1 / 2) - 1))`. For the second term we
-use that the whole term is decreasing for `t < inv(10x)`.
+increasing for `t < inv(x * (exp(1 / 2) - 1))`. This can be seen by
+differentiating with respect to `t` and is the easily reduced to the
+above inequality.
+
+For the second term we use [`lemma_bh_U11_bound_zero`](@ref), which
+says that the whole term is decreasing for `t < inv(10x)`.
 """
 function T011(u0::BHAnsatz{Arb}, ::Ball = Ball(); δ1::Arb = Arb(1e-5), skip_div_u0 = false)
     return x::Arb -> begin
@@ -653,6 +667,10 @@ on the interval ``[1 - δ1, 1]``.
   `inv(u0(x))`.
 
 # Implementation
+The evaluation of `U122` is based on
+[`lemma_bh_U_singular_integrals`](@ref), though we also include most
+of the details below.
+
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
 interval.

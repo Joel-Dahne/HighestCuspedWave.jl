@@ -216,11 +216,22 @@ end
 """
     (u0::AbstractAnsatz)(x, ::AsymptoticExpansion; M = 3)
 
-Return a dictionary containing the terms in the asymptotic expansion
-of `u0` which can then be evaluated with [`eval_expansion`](@ref).
+Compute an expansion of `u0` around zero with a remainder term valid
+on the interval `[-abs(x), abs(x)]`.
 
-The highest term, `x^2M`, is a remainder term is which makes sure that
-evaluation of the expansion gives an enclosure of the result.
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is based on [`lemma_bh_asymptotic_expansion`](@ref). In
+the lemma expansions from all different parts of `u0` are combined.
+For the computation we compute the expansions for the different terms
+separately and then combine them. First compute the expansion of the
+leading Clausen function. Then the expansions for the remaining
+Clausen functions are computed using [`clausenc_expansion`](@ref) and
+finally the expansions for the Fourier terms are added.
+
+The infinite sum in the Lemma is truncated and the tail is combined
+into one remainder term with the coefficient `x^2M`.
 """
 function (u0::BHAnsatz{Arb})(x, ::AsymptoticExpansion; M::Integer = 3)
     res = OrderedDict{NTuple{4,Int},Arb}()
@@ -291,11 +302,23 @@ end
 """
     H(u0::BHAnsatz, ::AsymptoticExpansion; M = 3)
 
-Return a dictionary containing the terms in the asymptotic expansion
-of `H(u0)` which can then be evaluated with [`eval_expansion`](@ref).
+Return a function such that `H(u0, AsymptoticExpansion())(x)` computes
+an expansion of `H(u0)` around zero with a remainder term valid on the
+interval `[-abs(x), abs(x)]`.
 
-The highest term, `x^2M`, is a remainder term is which makes sure that
-evaluation of the expansion gives an enclosure of the result.
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is based on [`lemma_bh_asymptotic_expansion`](@ref). In
+the lemma expansions from all different parts of `u0` are combined.
+For the computation we compute the expansions for the different terms
+separately and then combine them. First compute the expansion of the
+leading Clausen function. Then the expansions for the remaining
+Clausen functions are computed using [`clausenc_expansion`](@ref) and
+finally the expansions for the Fourier terms are added.
+
+The infinite sum in the Lemma is truncated and the tail is combined
+into one remainder term with the coefficient `x^2M`.
 """
 function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     γ = Arb(Irrational{:γ}())
@@ -348,12 +371,30 @@ function H(u0::BHAnsatz{Arb}, ::AsymptoticExpansion; M::Integer = 3)
     end
 end
 
-function defect(u0::BHAnsatz, ::Asymptotic; M::Integer = 3)
-    f = defect(u0, AsymptoticExpansion(); M)
+"""
+    defect(u0::BHAnsatz, ::AsymptoticExpansion; M::Integer = 3)
 
-    return x -> eval_expansion(u0, f(x), x)
-end
+Return a function such that `defect(u0, AsymptoticExpansion())(x)`
+compute an expansion of
+```
+H(u0)(x) + u0(x)^2 / 2
+```
+around zero with a remainder term valid on the interval `[-abs(x),
+abs(x)]`.
 
+The expansion is returned as a dictionary, which can then be evaluated
+with [`eval_expansion`](@ref).
+
+The expansion is similar to that in
+[`lemma_bh_defect_normalised`](@ref) except for the division by `x^2 *
+log(x)`, it is however computed in a different way.
+
+The expansion is computed by first computing the expansions of `u0(x)`
+and `H(u0)(x)`. The expansion for `u0(x)^2 / 2` is then computed from
+the expansion of `u0(x)` by computing the products between all terms.
+Finally the expansion of `H(u0)(x) + u0(x)^2 / 2` is given by simply
+adding the two expansions together.
+"""
 function defect(u0::BHAnsatz, evaltype::AsymptoticExpansion; M::Integer = 3)
     f = x -> u0(x, evaltype; M)
     g = H(u0, evaltype; M)
@@ -391,8 +432,29 @@ end
 """
     F0(u0::BHAnsatz{Arb}, ::Asymptotic)
 
-Returns a function such that `F0(u0, Asymptotic())(x)` is computed
-accurately for small values of `x`.
+Returns a function such that `F0(u0, Asymptotic())(x)` computes
+`F0(u0)(x)` accurately for small values of `x`.
+
+It splits `F0(u0)` as
+```
+-inv(sqrt(log(1 + inv(x)))) * (-x * log(x) / u0(x)) * ((H(u0)(x) + u0(x)^2 / 2) / (x^2 * log(x)))
+```
+
+It computes `inv(sqrt(log(1 + inv(x))))` using that it is increasing
+in `x`. For `-x * log(x) / u0(x)` is uses the same approach as in
+[`inv_u0_normalised`](@ref).
+
+The bound for
+```
+((H(u0)(x) + u0(x)^2 / 2) / (x^2 * log(x)))
+```
+is based on [`lemma_bh_defect_normalised`](@ref). The expansion is
+however not computed as in the lemma. Instead it uses [`defect`](@ref)
+to compute an expansion of
+```
+H(u0)(x) + u0(x)^2 / 2
+```
+and this expansion is then explicitly divided that by `x^2 * log(x)`.
 
 This method is one of the bottlenecks of [`delta0_bound`](@ref) and
 for this reasons it is heavily optimized. The method assumes that `x
@@ -404,8 +466,9 @@ valid for all `x < ϵ`. The value of `ϵ` has to be less than `1`.
 
 If `exponent_limit` is set to some number then all terms in the
 expansions with an exponent equal to or greater than this limit will
-be collapsed into term which is treated as an error. More precisely
-any term of the form
+be collapsed into term which is treated as an error. This is discussed
+in the proof of [`lemma_bh_bound_delta0`](@ref). More precisely any
+term of the form
 ```
 y * log(abs(x))^i * abs(x)^e
 ```
@@ -529,11 +592,13 @@ function F0(
                 Arblib.inv!(res, res)
             end
 
+            # res /= u0(x) / (x * log(x))
             Arblib.div!(
                 res,
                 res,
                 _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx, buffer),
             )
+            # res *= (H(u0)(x) + u0(x)^2 / 2) / (x^2 * log(x))
             Arblib.mul!(
                 res,
                 res,
@@ -556,12 +621,14 @@ function F0(
             # res = sqrt(log(1 + inv(x)))
             res = w!(zero(x), x)
 
+            # res *= u0(x) / (x * log(x))
             Arblib.mullow!(
                 res,
                 res,
                 _eval_expansion!(tmp, u0, u0_expansion_div_xlogx, x, invlogx, buffer),
                 len,
             )
+            # res = (H(u0)(x) + u0(x)^2 / 2) / (x^2 * log(x)) / res
             Arblib.div_series!(
                 res,
                 _eval_expansion!(
@@ -584,18 +651,21 @@ end
 """
     inv_u0_normalised(u0::BHAnsatz{Arb}; M = 3, ϵ = 1 / 2)
 
-Return a function for evaluation `-abs(x) * log(abs(x)) / u0(x)` for
-`x` close to zero.
+Return a function for evaluating
+```
+-abs(x) * log(abs(x)) / u0(x)
+```
+for `x` close to zero.
+
+It is based on [`lemma_bh_inv_u0_normalised`](@ref). For computing the
+expansion in the lemma it computes computes an expansion of `u0` and
+explicitly divides that by `abs(x) * log(abs(x))`.
 
 # Arguments
 - `M::Integer = 3` determines the number of terms in the asymptotic
   expansions.
 - `ϵ::Arb = 1 / 2` determines the interval ``[-ϵ, ϵ]`` on which the
   expansion is valid. Must be less than `1`.
-
-# Implementation
-It computes an expansion of `u0` at `x = 0` and explicitly handles the
-cancellation with `-abs(x) * log(abs(x))`.
 """
 function inv_u0_normalised(u0::BHAnsatz{Arb}; M::Integer = 3, ϵ::Arb = Arb(1 // 2))
     0 < ϵ < 1 || throw(DomainError(ϵ, "must have 0 < ϵ < 1"))
@@ -617,12 +687,14 @@ end
 
 """
     defect(u0::BHAnsatz, xs::AbstractVector)
+
 Returns a function such that `defect(u0, xs)(b)` computes
 `defect(u0)(x)` on the points `x ∈ xs` with `u0.b` set to the given
 values. Does this in an efficient way by precomputing as much as
 possible.
 
-NOTE: This is **not** rigorous!
+Note that this is **not** rigorous! It is only used when numerically
+solving for the coefficients of `u0.b`.
 """
 function defect(u0::BHAnsatz, xs::AbstractVector)
     b = copy(u0.b)

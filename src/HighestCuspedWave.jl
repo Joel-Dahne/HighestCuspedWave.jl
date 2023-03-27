@@ -71,4 +71,5 @@ include("KdVZero/proof.jl")
 
 include("equations.jl")
 include("lemmas.jl")
+include("lemmas_bh.jl") # Lemmas from the Burgers-Hilbert paper
 end # module

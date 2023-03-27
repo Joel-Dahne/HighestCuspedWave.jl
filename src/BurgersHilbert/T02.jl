@@ -68,7 +68,12 @@ where `W(x) = 1 / (x^2 * log(inv(x)) * sqrt(log(1 + inv(x))))`
 ```
 U2(x) = ∫-(log(sin((y - x) / 2)) + log(sin((y + x) / 2)) - 2log(sin(y / 2))) * y * sqrt(log(1 + inv(y))) dy
 ```
-for `x` to `π`. Using that
+for `x` to `π`.
+
+The bound for this is based on [`lemma_bh_U2_asymptotic`](@ref),
+though we also include most of the details below.
+
+Using that
 ```
 log(sin((y - x) / 2)) = log((y - x) / 2) + log(sinc((y - x) / 2π))
 log(sin((y + x) / 2)) = log((y + x) / 2) + log(sinc((y + x) / 2π))
@@ -213,8 +218,11 @@ coming from `U2_m2`.
 2. For the term `2 / 3 * log(inv(2x))^(3 // 2)` we use that it is
   decreasing in `x` after division by `log(inv(x)) * sqrt(log(1 +
   inv(x)))` and tends to `2 / 3` at `x = 0`.
-3. For the term `- R2 * sqrt(log(inv(2x))) / 8` we use that
+3. For the term `R2 * sqrt(log(inv(2x))) / 8` we use that
   `sqrt(log(inv(2x))) / sqrt(log(1 + inv(x)))` is monotone in `x`.
+
+For 2 this is the result of [`lemma_bh_U2_term_bound`](@ref). For the
+other two the result can be proved in a similar way.
 
 # Handling `U2_r`
 Recall that
@@ -421,6 +429,10 @@ on the interval ``[x, a]``.
   `inv(u0(x))`.
 
 # Implementation
+The evaluation of `U21` is based on
+[`lemma_bh_U_singular_integrals`](@ref), though we also include most of
+the details below.
+
 To begin with we notice that the weight part of the integrand is well
 behaved and we can just factor it out by evaluating it on the whole
 interval.
@@ -476,6 +488,9 @@ where
 U22(x) = ∫ -log(sin((y - x) / 2) * sin((y + x) / 2) / sin(y / 2)^2) * y * sqrt(log(1 + inv(y))) dy
 ```
 on the interval ``[a, π]``.
+
+Note that there is no absolute value in the integral, this is due to
+[`lemma_bh_I`](@ref).
 
 This is done by numerically integrating with
 [`Arblib.integrate`](@ref). To not give problems with integration `a`
