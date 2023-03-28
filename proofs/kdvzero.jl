@@ -1,13 +1,30 @@
 ### A Pluto.jl notebook ###
-# v0.19.19
+# v0.19.22
 
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try
+            Base.loaded_modules[Base.PkgId(
+                Base.UUID("6e696c72-6542-2067-7265-42206c756150"),
+                "AbstractPlutoDingetjes",
+            )].Bonds.initial_value
+        catch
+            b -> missing
+        end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ 28ec11ff-acb6-4be8-9cdd-45c42cfb839d
 begin
-    using Pkg, Revise
-    Pkg.activate("../")
+    using Pkg
+    Pkg.activate("../", io = devnull)
     using Arblib, ArbExtras, Folds, HighestCuspedWave, LaTeXStrings, Plots, PlutoUI
 
     setprecision(Arb, 100)
@@ -19,67 +36,7 @@ end
 md"""
 # Fractional KdV Equation for $\alpha$ close to zero
 
-This notebook contains the computer assisted part of the proof of existence of a $2\pi$-periodic highest cusped wave for the fractional KdV equations for $\alpha$ in the interval $(\epsilon, 0)$. The fractional KdV equation is given by
-
-$f_t + f f_x = |D|^\alpha f_x$
-
-For traveling waves the ansatz $f(x, t) = \varphi(x - ct)$ reduces the equation to
-
-$-c\varphi' + \varphi \varphi' = |D|^\alpha \varphi'$
-
-where $c$ is the wave speed.
-"""
-
-# ╔═╡ c7f82e62-33c7-4214-813d-1e63d7fb1abc
-md"""
-For details about the proof see the paper, we here give a very short overview of the reduction to a fixed point problem.
-
-With the ansatz $\varphi(x) = c - u(x)$ and integrating we can further reduce it to the equation
-
-$\frac{1}{2}u^2 = -\mathcal{H}^\alpha[u]$
-
-where $\mathcal{H}^\alpha[u](x)$ is the operator
-
-$\mathcal{H}^\alpha[u](x) = |D|^\alpha u(x) - |D|^\alpha u(0).$
-
-If we now make the ansatz
-
-$u(x) = u_\alpha(x) + w_\alpha(x)v(x)$
-
-with $u_\alpha$ an approximate solution and $w_\alpha$ a fixed weight function we can, with some work, reduce the problem of proving the existence of a solution to the equation to proving existence of a fixed point of the operator
-
-$G_\alpha[v] = (I - T_\alpha)^{-1}(-F_\alpha - N_\alpha v^2)$
-
-Here
-
-$N_\alpha(x) = \frac{w_\alpha(x)}{2u_\alpha(x)}$
-
-$F_\alpha(x) = \frac{1}{w_\alpha(x)u_\alpha(x)}\left(\mathcal{H}^\alpha[u_\alpha](x) + \frac{1}{2}u_\alpha(x)^2\right)$
-
-$T_\alpha[v](x) = -\frac{1}{w_\alpha(x) u_\alpha(x)}\mathcal{H}^\alpha[wv](x)$
-
-Let $n_\alpha = \|N_\alpha\|_{L^\infty}$, $\delta_\alpha = \|F_\alpha\|_{L^\infty}$ and $D_\alpha = \|T_\alpha\|$. Proving the existence of a fixed point for $G_\alpha$ reduces to checking the inequality
-
-$\delta_\alpha < \frac{(1 - D_\alpha)^2}{4n_\alpha}.$
-"""
-
-# ╔═╡ 6055dad1-da62-4048-a6fb-e8da26b5ef9a
-md"""
-To be able to handle all $\alpha \in (\epsilon, 0)$ we have to understand the behaviour of $n_\alpha$, $\delta_\alpha$ and $D_\alpha$ as $\alpha$ converges to $0$.
-
-The value $n_0$ converges to a finite non-zero value as $\alpha \to 0$ and it is enough to compute an enclosure of $n_\alpha$ valid on the full interval $(\epsilon, 0)$.
-
-As $\alpha \to 0$ we have that $\delta_\alpha$ converges to zero, which is good in terms of satisfying the inequality. However $D_\alpha \to 1$ from below, which is bad in terms of satisfying the inequality. It is therefore not possible to compute any uniform enclosure of $\delta_\alpha$ or $D_\alpha$ such that the inequality holds on the whole interval.
-
-Since a uniform enclosure is not enough we will instead compute an enclosure depending on $\alpha$. More preciely we will find compute intervals $\Delta_F$ and $\Delta_B$ such that
-
-$\delta_\alpha \in \Delta_\delta \alpha^2 \text{ and } D_\alpha \in 1 - \Delta_D \alpha$
-
-for every $\alpha \in (\epsilon, 0)$. The inequality then reduces to checking
-
-$\Delta_\delta \alpha^2 < \frac{\Delta_D \alpha^2}{4n_\alpha} \iff \Delta_\delta < \frac{\Delta_D^2}{4n_\alpha}.$
-
-In what follows we compute enclosures of $n_\alpha$, $\Delta_\delta$ and $\Delta_D$.
+This notebook contains the computer assisted part of the proof of existence of a $2\pi$-periodic highest cusped wave for the fractional KdV equations for $\alpha$ in the interval $(\epsilon, 0)$. More precisely it contains the proof of Lemma 12.9, 12.10 and 12.11.
 """
 
 # ╔═╡ d1c5d171-c504-4c49-a6cb-7a707f3c7cc3
@@ -90,14 +47,9 @@ This is the $\epsilon$ we use for the computations.
 # ╔═╡ f27e0113-5e77-44af-958a-4b9e4a13a40b
 ϵ = Arb(-1.2e-3)
 
-# ╔═╡ e2f6fded-8452-4e17-a969-a040a362a26f
-md"""
-**NOTE:** in the code we don't use the subscript $\alpha$ but in most cases use `0`, for example $u_\alpha$ becomes `u0`.
-"""
-
 # ╔═╡ 27785eb7-54c7-47f7-8029-d37887bcdf1e
 md"""
-## Compute approximation
+## Compute the approximation $u_\alpha$
 """
 
 # ╔═╡ 34009ff0-dadd-4464-9187-890723d94a3e
@@ -105,28 +57,34 @@ u0 = KdVZeroAnsatz(Arb((ϵ, 0)))
 
 # ╔═╡ c5e2a657-dae0-4243-951c-a90df8bf1aaf
 md"""
-We will work on the interval $[0, \pi]$ where $u_\alpha$ looks like this.
+We work on the interval $[0, \pi]$ where $u_\alpha$ looks like this.
 """
 
 # ╔═╡ 4fee88af-73dd-4b47-86b9-501c0eb0f0e3
 let xs = range(Arb(0), π, length = 100)
     ys = Folds.map(x -> u0(x)(u0.α), xs)
-    plot(xs, ys, ribbon = radius.(Arb, ys), label = "", m = :circle, ms = 1)
+    plot(
+        xs,
+        ys,
+        ribbon = radius.(Arb, ys),
+        xlabel = L"x",
+        ylabel = L"u_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
 end
 
 # ╔═╡ 5a06011d-4fd2-47fd-adc0-e8828c0696eb
 md"""
-## Computing constants
+## Compute constants
+We are now ready to compute upper bounds of $n_\alpha$, $\Delta_\delta$ and $\Delta_D$. The precise upper bounds given in the paper are produced in the next part.
 """
 
 # ╔═╡ b85e1c39-99b2-4bc7-af04-854abf3de52b
 md"""
 ### Bound $n_\alpha$
-"""
-
-# ╔═╡ d465c80c-9e34-4198-93b2-854243aea6d4
-md"""
-We start by computing an enclosure of $n_\alpha$ and plot it together with $N_\alpha(x)$ for $x \in [0, \pi]$.
+This corresponds to Lemma 12.9. We compute an enclosure of $n_\alpha$ and plot it together with $N_\alpha(x)$ for $x \in [0, \pi]$.
 """
 
 # ╔═╡ 13373308-42e3-44ac-bf99-2a5145e6a5df
@@ -149,12 +107,8 @@ end
 
 # ╔═╡ d977785c-751a-4e2a-8634-9ecd1039e3f8
 md"""
-## Bound $\Delta_\delta$
-"""
-
-# ╔═╡ 073a34c8-a2e9-434c-b047-d1f1fffd590b
-md"""
-Next we compute an enclosure of $Δ_\delta$. For a fixed $x$ we can compute a Taylor model around $\alpha = 0$ of $F_\alpha$ corresonding to the defect for the given $x$.
+### Bound $\Delta_\delta$
+This corresonds to Lemma 12.10. For a fixed $x$ we can compute a Taylor model around $\alpha = 0$ of $F_\alpha(x)$ corresonding to the defect for the given $x$.
 """
 
 # ╔═╡ 054103ee-ac90-4310-afa3-55291712829d
@@ -162,8 +116,11 @@ F0(u0)(Arb(2.5)) # Note that the Taylor model is printed with the variable x and
 
 # ╔═╡ 38e338b0-f7e7-45e6-b84d-45c6946736b3
 md"""
-Note that the polynomial for the Taylor model is zero, we can plot the remainder term as a function of $x$.
+Note that the polynomial for the Taylor model is zero. We bound the remainder term and also plot it as a function of $x$.
 """
+
+# ╔═╡ 581ee14a-acac-4a3e-b854-f46a6f26dcc3
+@time Δδ_time = @elapsed Δδ = delta0_bound(u0, verbose = true).p[2]
 
 # ╔═╡ 51603714-bb7e-4691-b80d-7b18cf159b94
 Δδ_xs, Δδ_ys = let xs = range(Arb(0), π, length = 200)
@@ -179,9 +136,6 @@ Note that the polynomial for the Taylor model is zero, we can plot the remainder
     xs, ys
 end
 
-# ╔═╡ 581ee14a-acac-4a3e-b854-f46a6f26dcc3
-@time Δδ_time = @elapsed Δδ = delta0_bound(u0, verbose = true).p[2]
-
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
 let pl = plot(legend = :bottomright)
     plot!(pl, Δδ_xs, Δδ_ys, ribbon = radius.(Arb, Δδ_ys), label = "", m = :circle, ms = 1)
@@ -192,12 +146,8 @@ end
 
 # ╔═╡ ce0c9835-7448-4344-86d8-83e89181208b
 md"""
-## Bound $Δ_D$
-"""
-
-# ╔═╡ e12220bf-4434-424d-afcc-bf204fd81411
-md"""
-Finally we compute an enclosure of $Δ_D$. Similar to for $Δ_F$ we can compute a Taylor model around $\alpha = 0$ of $T_\alpha$ for a fixed $x$.
+### Bound $Δ_D$
+This corresonds to Lemma 12.11. Similar to for $Δ_F$ we can compute a Taylor model around $\alpha = 0$ of $T_\alpha$ for a fixed $x$.
 """
 
 # ╔═╡ 353a6fb2-054c-4398-9c6f-2eafda12e4fa
@@ -205,8 +155,11 @@ T0(u0)(Arb(2.5)) # Note that the expansion is printed with the variable x and no
 
 # ╔═╡ ce8d3cb4-ee97-4f9a-8466-e1709b478bd5
 md"""
-Note that the first coefficient in the expansion is $1$. We can plot the remainder term as a function of $x$.
+Note that the first coefficient in the expansion is $1$. We can bound the remainder term and also plot it as a function of $x$.
 """
+
+# ╔═╡ 39ce2082-2b36-4ce5-bcda-809c9c5214ec
+@time ΔD_time = @elapsed ΔD = D0_bound(u0, verbose = true).p[1]
 
 # ╔═╡ 9a568a65-91d0-4758-9cbb-15cc088f9aef
 ΔD_xs, ΔD_ys = let xs = range(Arb(0), π, length = 200)[2:end]
@@ -225,9 +178,6 @@ Note that the first coefficient in the expansion is $1$. We can plot the remaind
     xs, ys
 end
 
-# ╔═╡ 39ce2082-2b36-4ce5-bcda-809c9c5214ec
-@time ΔD_time = @elapsed ΔD = D0_bound(u0, verbose = true).p[1]
-
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
 let pl = plot(legend = :bottomright)
     plot!(pl, ΔD_xs, ΔD_ys, ribbon = radius.(Arb, ΔD_ys), label = "", m = :circle, ms = 1)
@@ -235,24 +185,27 @@ let pl = plot(legend = :bottomright)
     pl
 end
 
-# ╔═╡ 11e831ac-4e18-4822-bc53-ee99394ab64f
+# ╔═╡ 65291862-b961-4410-a020-23f7abe358a2
 md"""
-The inequality we want to check is $\Delta_\delta < \frac{\Delta_D^2}{4n_\alpha}$
+## Check inequality
+In the end the inequality we want to be satisfied is
+
+$$\delta_\alpha < \frac{(1 - D_\alpha)^2}{4n_\alpha}$$
+
+This is equivalent to
+
+$$\Delta_\delta < \frac{\Delta_D^2}{4n_\alpha}$$
+
+which we can check
 """
 
-# ╔═╡ e21e7ba1-7bd9-47c6-aa75-cebc4e413c4d
-Δδ
-
-# ╔═╡ b142ad21-e34e-42b5-b73f-8a32e71feb26
-ΔD^2 / 4n0
-
-# ╔═╡ 04ea9588-f613-4715-9f82-d23b786cc0ce
+# ╔═╡ 4abcc0c4-0c90-4e6f-9fdb-9416eb166a8a
 Δδ < ΔD^2 / 4n0
 
 # ╔═╡ 93ae49fd-f041-4475-9dc0-823b0aa01178
 md"""
-# Prepare for publishing
-We compute rounded values of the upper bounds that are given in the paper, as well as produce figures for the paper.
+## Prepare for publishing
+We compute rounded values of the upper bounds that are given in the paper and check that they satisfy the required inequality. We also produce figures for the paper.
 """
 
 # ╔═╡ dc035349-06ff-42c9-8956-932144c703c0
@@ -267,7 +220,7 @@ proved, n0_rounded, Δδ_rounded, ΔD_rounded = HighestCuspedWave.round_for_publ
 
 # ╔═╡ c9a21c38-e27c-47b7-b95b-8ab737408f6f
 if proved
-    @info "Inequality holds!" n0_rounded Δδ_rounded ΔD_rounded
+    @info "Inequality holds! 🥳" n0_rounded Δδ_rounded ΔD_rounded
 else
     @error "Inequality doesn't hold!" n0_rounded Δδ_rounded ΔD_rounded
 end
@@ -302,11 +255,17 @@ Arb(ΔD_printed) > ΔD_rounded
 
 # ╔═╡ 14a37967-e894-4571-8aa6-8733c544dee2
 md"""
-The plots in the paper were produced with `pgfplotsx`, this is not a dependency so is not enabled by default. The plots look a bit weird with the default backend.
+The plots in the paper were produced with `pgfplotsx`. However the plots look nicer in the notebook with `gr` so this is not the default.
 """
 
 # ╔═╡ c25e8495-28fe-4454-a9c4-10b5ed43b917
 #pgfplotsx()
+
+# ╔═╡ 3994a705-3b25-45be-b67a-92f835ace2b8
+md"""
+Check this box to set the code to save the figures.
+- Save figures $(@bind save CheckBox(default = false))
+"""
 
 # ╔═╡ 534cf54b-9044-43ca-8d47-d8917e2856cb
 let pl = plot(
@@ -325,7 +284,7 @@ let pl = plot(
         ms = 1,
     )
     hline!(pl, Float64[n0_rounded], color = :green, linestyle = :dash)
-    savefig(pl, "../figures/publication/KdVZero-N.pdf")
+    save && savefig(pl, "../figures/KdVZero-N.pdf")
     pl
 end
 
@@ -346,7 +305,7 @@ let pl = plot(
         ms = 1,
     )
     hline!(pl, Float64[ΔD_rounded], color = :green, linestyle = :dash)
-    savefig(pl, "../figures/publication/KdVZero-Delta-D.pdf")
+    save && savefig(pl, "../figures/KdVZero-Delta-D.pdf")
     pl
 end
 
@@ -371,46 +330,38 @@ let pl = plot(
     )
     hline!(Float64[-Δδ_rounded, Δδ_rounded], color = :green, linestyle = :dash)
     hline!(Float64[-Δδ_rounded_goal, Δδ_rounded_goal], color = :red, linestyle = :dot)
-    savefig(pl, "../figures/publication/KdVZero-Delta-delta.pdf")
+    save && savefig(pl, "../figures/KdVZero-Delta-delta.pdf")
     pl
 end
 
 # ╔═╡ Cell order:
 # ╠═28ec11ff-acb6-4be8-9cdd-45c42cfb839d
 # ╟─4e3eaa14-583c-11ec-0fa5-e12df02e492f
-# ╟─c7f82e62-33c7-4214-813d-1e63d7fb1abc
-# ╟─6055dad1-da62-4048-a6fb-e8da26b5ef9a
 # ╟─d1c5d171-c504-4c49-a6cb-7a707f3c7cc3
 # ╠═f27e0113-5e77-44af-958a-4b9e4a13a40b
-# ╟─e2f6fded-8452-4e17-a969-a040a362a26f
 # ╟─27785eb7-54c7-47f7-8029-d37887bcdf1e
 # ╠═34009ff0-dadd-4464-9187-890723d94a3e
 # ╟─c5e2a657-dae0-4243-951c-a90df8bf1aaf
-# ╠═4fee88af-73dd-4b47-86b9-501c0eb0f0e3
+# ╟─4fee88af-73dd-4b47-86b9-501c0eb0f0e3
 # ╟─5a06011d-4fd2-47fd-adc0-e8828c0696eb
 # ╟─b85e1c39-99b2-4bc7-af04-854abf3de52b
-# ╟─d465c80c-9e34-4198-93b2-854243aea6d4
 # ╠═13373308-42e3-44ac-bf99-2a5145e6a5df
 # ╟─fa901388-6f0a-4de5-8323-d9b4832062f6
 # ╟─af90b425-59cb-4229-873a-bb7448713dbe
 # ╟─d977785c-751a-4e2a-8634-9ecd1039e3f8
-# ╟─073a34c8-a2e9-434c-b047-d1f1fffd590b
 # ╠═054103ee-ac90-4310-afa3-55291712829d
 # ╟─38e338b0-f7e7-45e6-b84d-45c6946736b3
-# ╟─51603714-bb7e-4691-b80d-7b18cf159b94
 # ╠═581ee14a-acac-4a3e-b854-f46a6f26dcc3
+# ╟─51603714-bb7e-4691-b80d-7b18cf159b94
 # ╟─03cf0016-f828-4049-90ae-5ce560ab644b
 # ╟─ce0c9835-7448-4344-86d8-83e89181208b
-# ╟─e12220bf-4434-424d-afcc-bf204fd81411
 # ╠═353a6fb2-054c-4398-9c6f-2eafda12e4fa
 # ╟─ce8d3cb4-ee97-4f9a-8466-e1709b478bd5
-# ╟─9a568a65-91d0-4758-9cbb-15cc088f9aef
 # ╠═39ce2082-2b36-4ce5-bcda-809c9c5214ec
+# ╟─9a568a65-91d0-4758-9cbb-15cc088f9aef
 # ╟─feb38bc2-3963-4143-8e1c-9077a967fba4
-# ╟─11e831ac-4e18-4822-bc53-ee99394ab64f
-# ╠═e21e7ba1-7bd9-47c6-aa75-cebc4e413c4d
-# ╠═b142ad21-e34e-42b5-b73f-8a32e71feb26
-# ╠═04ea9588-f613-4715-9f82-d23b786cc0ce
+# ╟─65291862-b961-4410-a020-23f7abe358a2
+# ╠═4abcc0c4-0c90-4e6f-9fdb-9416eb166a8a
 # ╟─93ae49fd-f041-4475-9dc0-823b0aa01178
 # ╠═dc035349-06ff-42c9-8956-932144c703c0
 # ╟─c9a21c38-e27c-47b7-b95b-8ab737408f6f
@@ -424,6 +375,7 @@ end
 # ╠═4f1d46e1-2301-43a3-a2ad-897aaf16b2b1
 # ╟─14a37967-e894-4571-8aa6-8733c544dee2
 # ╠═c25e8495-28fe-4454-a9c4-10b5ed43b917
+# ╟─3994a705-3b25-45be-b67a-92f835ace2b8
 # ╟─534cf54b-9044-43ca-8d47-d8917e2856cb
 # ╟─750101e6-7433-406a-8776-5914f81d0634
 # ╠═939b4965-b0bb-45ef-966b-aa8ecd3e3f3a
