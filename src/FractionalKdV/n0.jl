@@ -34,7 +34,7 @@ information about the process.
 """
 function n0_bound(
     u0::FractionalKdVAnsatz{Arb};
-    M::Integer = 3,
+    M::Integer = 5,
     degree::Integer = 0,
     rtol = 1e-5,
     threaded = true,

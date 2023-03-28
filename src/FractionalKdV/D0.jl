@@ -34,7 +34,7 @@ only evaluate it on the endpoints if `x` lies in this interval.
 function D0_bounded_by(
     u0::FractionalKdVAnsatz{Arb},
     C::Arf;
-    M::Integer = 3,
+    M::Integer = 5,
     ϵ::Arf = zero(Arf),
     maxevals = 4000,
     threaded = true,
