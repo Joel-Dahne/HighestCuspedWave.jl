@@ -1,3 +1,3 @@
 #!/bin/bash
 
-julia --project=. PDC/scripts/compile.jl
+julia --project=. Dardel/scripts/compile.jl
