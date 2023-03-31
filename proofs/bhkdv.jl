@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.19
+# v0.19.22
 
 using Markdown
 using InteractiveUtils
@@ -23,8 +23,8 @@ end
 
 # ╔═╡ a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 begin
-    using Pkg, Revise
-    Pkg.activate("../")
+    using Pkg
+    Pkg.activate("../", io = devnull)
     using Arblib, ArbExtras, Folds, HighestCuspedWave, LaTeXStrings, Plots, PlutoUI
 
     setprecision(Arb, 100)
@@ -36,48 +36,7 @@ end
 md"""
 # Fractional KdV Equation for $\alpha$ close to one
 
-This notebook contains the computer assisted part of the proof of existence of a $2\pi$-periodic highest cusped wave for the fractional KdV equations for $\alpha$ in the interval $(-1, -1 + \epsilon)$. The fractional KdV equation is given by
-
-$f_t + f f_x = |D|^\alpha f_x$
-
-For traveling waves the ansatz $f(x, t) = \varphi(x - ct)$ reduces the equation to
-
-$-c\varphi' + \varphi \varphi' = |D|^\alpha \varphi'$
-
-where $c$ is the wave speed.
-"""
-
-# ╔═╡ d9575be4-0776-46d2-ad22-9fc8bc614a49
-md"""
-For details about the proof see the paper, we here give a very short overview of the reduction to a fixed point problem.
-
-With the ansatz $\varphi(x) = c - u(x)$ and integrating we can further reduce it to the equation
-
-$\frac{1}{2}u^2 = -\mathcal{H}^\alpha[u]$
-
-where $\mathcal{H}^\alpha[u](x)$ is the operator
-
-$\mathcal{H}^\alpha[u](x) = |D|^\alpha u(x) - |D|^\alpha u(0).$
-
-If we now make the ansatz
-
-$u(x) = u_\alpha(x) + w_\alpha(x)v(x)$
-
-with $u_\alpha$ an approximate solution and $w_\alpha$ a fixed weight function we can, with some work, reduce the problem of proving the existence of a solution to the equation to proving existence of a fixed point of the operator
-
-$G_\alpha[v] = (I - T_\alpha)^{-1}(-F_\alpha - N_\alpha v^2)$
-
-Here
-
-$N_\alpha(x) = \frac{w_\alpha(x)}{2u_\alpha(x)}$
-
-$F_\alpha(x) = \frac{1}{w_\alpha(x)u_\alpha(x)}\left(\mathcal{H}^\alpha[u_\alpha](x) + \frac{1}{2}u_\alpha(x)^2\right)$
-
-$T_\alpha[v](x) = -\frac{1}{w_\alpha(x) u_\alpha(x)}\mathcal{H}^\alpha[wv](x)$
-
-Let $n_\alpha = \|N_\alpha\|_{L^\infty}$, $\delta_\alpha = \|F_\alpha\|_{L^\infty}$ and $D_\alpha = \|T_\alpha\|$. Proving the existence of a fixed point for $G_\alpha$ reduces to checking the inequality
-
-$\delta_\alpha < \frac{(1 - D_\alpha)^2}{4n_\alpha}.$
+This notebook contains the computer assisted part of the proof of existence of a $2\pi$-periodic highest cusped wave for the fractional KdV equations for $\alpha$ in the interval $(-1, -1 - ϵ)$. More precisely it contains the proof of Lemma 12.1, 12.2 and 12.3.
 """
 
 # ╔═╡ 5119010f-c9b1-41f5-9dac-cbb6f2b3a24d
@@ -86,16 +45,11 @@ This is the $\epsilon$ we use for the computations.
 """
 
 # ╔═╡ 8747f80d-82f6-4e2f-bfba-d87280649950
-ϵ = Arb(1e-4)
-
-# ╔═╡ 52ef575d-cb95-45f9-8eb3-d0d97b625e77
-md"""
-**NOTE:** in the code we don't use the subscript $\alpha$ but in most cases use `0`, for example $u_\alpha$ becomes `u0`.
-"""
+ϵ = Arb(0.0001)
 
 # ╔═╡ 4767de5e-bbfb-4e3a-9f83-8036de0916cc
 md"""
-## Compute approximation
+## Compute the approximation $u_\alpha$
 """
 
 # ╔═╡ 69dde124-8988-4f70-837d-01e940d199e4
@@ -103,26 +57,37 @@ u0 = BHKdVAnsatz(ϵ, BHAnsatz{Arb}())
 
 # ╔═╡ 0a7c70da-f6d6-4484-baf5-0ae51ef3e349
 md"""
-We will work on the interval $[0, \pi]$ where $u_\alpha$ looks like this.
+We work on the interval $[0, \pi]$ where $u_\alpha$ looks like this.
 """
 
 # ╔═╡ 1b9e2283-03f9-4f5a-9143-85984586d77c
 let xs = range(Arb(0), π, length = 100)
     ys = Folds.map(x -> u0(x), xs)
     ys[1] = 0
-    plot(xs, ys, ribbon = radius.(Arb, ys), label = "", m = :circle, ms = 1)
+    plot(
+        xs,
+        ys,
+        ribbon = radius.(Arb, ys),
+        xlabel = L"x",
+        ylabel = L"u_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
 end
 
 # ╔═╡ 43ff127c-f7fa-4ff0-9827-36fc9507fb0b
-md"## Computing constants
+md"
+## Computing constants
+We are now ready to compute upper bounds of $n_\alpha$, $\delta_\alpha$ and $D_\alpha$. The precise upper bounds given in the paper are produced in the next part.
 "
 
 # ╔═╡ f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 md"""
-Computing rigorous bounds for $\delta_0$ and $D_0$ is fairly time consuming. For that reason the code can either compute rigorous error bounds or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect $\delta_0$ we also make sure to use points asymptically close to $0$ since that's where the largest defect is found. Check the constants to use rigorous error bounds for
+Computing rigorous bounds for $\delta_\alpha$ and $D_\alpha$ is fairly time consuming. For that reason the code can either compute rigorous error bounds or use estimates. The estimates are given by simply evaluating the corresponding functions on a number of points and taking the maximum. For the defect $\delta_\alpha$ we also make sure to use points asymptically close to $0$ since that's where the largest defect is found. Check the constants to use rigorous error bounds for
 -  $δ_\alpha$ $(@bind use_rigorous_bounds_δ0 CheckBox(default = !isdefined(Main, :PlutoRunner)))
 -  $D_\alpha$ $(@bind use_rigorous_bounds_D0 CheckBox(default = !isdefined(Main, :PlutoRunner)))
-Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X the computation of $\delta_0$ and $D_0$ takes around 10 minutes each when using 12 threads. Note that for $n_\alpha$ we always compute rigorous bounds since it doesn't take much time.
+Notice that the rigorous error bounds take longer time to compute with. On an AMD Ryzen 9 5900X the computation of $\delta_\alpha$ and $D_\alpha$ takes around 10 minutes each when using 12 threads. Note that for $n_\alpha$ we always compute rigorous bounds since it doesn't take much time.
 """
 
 # ╔═╡ 3e6b7582-bb9f-46be-84de-f568dec6780e
@@ -135,11 +100,7 @@ The code uses
 # ╔═╡ d6c88a1f-94e2-4e01-bc6a-6f201f93c379
 md"""
 ### Bound $n_\alpha$
-"""
-
-# ╔═╡ 1ee80528-225a-4c29-b4b0-ea1ab9876aef
-md"""
-We start by computing a bound of $n_\alpha$ and plot it together with $N_\alpha(x)$ for $x \in [0, \pi]$.
+This corresponds to Lemma 12.1. We compute an enclosure of $n_\alpha$ and plot it together with $N_\alpha(x)$ for $x \in [0, \pi]$.
 """
 
 # ╔═╡ b24c29d2-1933-49c1-94e4-7a765acf355e
@@ -162,8 +123,24 @@ n0_asym_xs, n0_asym_ys =
 
 # ╔═╡ ab9d59df-3488-4f8a-a321-d23aab7e01d4
 let pl = plot(legend = :bottomright)
-    plot!(pl, n0_xs, n0_ys, ribbon = radius.(Arb, n0_ys), label = "", m = :circle, ms = 1)
-    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n0 bound")
+    plot!(
+        pl,
+        n0_xs,
+        n0_ys,
+        ribbon = radius.(Arb, n0_ys),
+        xlabel = L"x",
+        ylabel = L"N_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!(
+        pl,
+        [n0],
+        ribbon = [radius(Arb, n0)],
+        color = :green,
+        label = L"n_\alpha" * " bound",
+    )
     pl
 end
 
@@ -174,35 +151,31 @@ let pl = plot(legend = :bottomleft, xaxis = :log10)
         n0_asym_xs,
         n0_asym_ys,
         ribbon = radius.(Arb, n0_asym_ys),
+        xlabel = L"x",
+        ylabel = L"N_\alpha(x)",
         label = "",
         m = :circle,
         ms = 1,
     )
-    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n0 bound")
+    hline!(
+        pl,
+        [n0],
+        ribbon = [radius(Arb, n0)],
+        color = :green,
+        label = L"n_\alpha" * " bound",
+    )
     pl
 end
 
 # ╔═╡ af8899b0-eac1-442d-90ef-9d399aeb170c
 md"""
 ### Bound $\delta_\alpha$
+This corresponds to Lemma 12.2. We compute an upper bound of $\delta_\alpha$ and plot it together with $F_\alpha(x)$ for $x \in [0, \pi]$.
 """
 
 # ╔═╡ cf99b665-f81a-4e17-8b9f-9357904cf676
 md"""
-Next we compute bounds of $\delta_\alpha$. The code is set to use **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_\alpha$.
-"""
-
-# ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
-δ0_bound, δ0_time = if use_rigorous_bounds_δ0
-    @time δ0_time = @elapsed δ0_bound = delta0_bound(u0, verbose = true)
-    δ0_bound, δ0_time
-else
-    missing, missing
-end
-
-# ╔═╡ 3d72c6ae-5b44-491f-bfee-c8ea23224ea9
-md"""
-For the defect we do three different plots. One non-asymptotic plot on $[0.1, \pi]$, one asymptotic plot on $[10^{-5}, 0.1]$ and when even more asymptotic plot on $[10^{-100}, 10^{-5}]$.
+The code is set to use **$(ifelse(use_rigorous_bounds_δ0, "rigorous bounds", "estimates"))** for $\delta_\alpha$.
 """
 
 # ╔═╡ b8c5ba34-748e-4c4b-be9c-135240287351
@@ -225,35 +198,30 @@ end
         xs, ys
     end
 
+# ╔═╡ 150a963b-03e2-404e-98e4-0fa2cd516dd3
+δ0, δ0_time = if use_rigorous_bounds_δ0
+    @time δ0_time = @elapsed δ0 = delta0_bound(u0, verbose = true)
+    δ0, δ0_time
+else
+    δ0 = maximum(abs, [δ0_ys; δ0_asym_ys; δ0_very_asym_ys])
+    δ0, missing
+end
+
 # ╔═╡ 481c9ae0-ae19-42cb-a781-4ad0c26fca1c
 md"""
-We want to have the inequality $\delta_\alpha \leq \frac{(1 - D_\alpha)^2}{4n_\alpha}$. We therefore include the value of the right hand side in this inequality in the plots, this is the goal that we want the defect to be smaller than.
+In the end we want to have the inequality $\delta_\alpha \leq \frac{(1 - D_\alpha)^2}{4n_\alpha}$. We therefore include the value of the right hand side in this inequality in the plots, this is the goal that we want the defect to be smaller than.
 """
-
-# ╔═╡ fa5c8c0b-a5b4-4438-a219-1604c065897e
-δ0 = if use_rigorous_bounds_δ0
-    δ0_bound
-else
-    max(maximum(abs.(δ0_ys)), maximum(abs.(δ0_asym_ys)), maximum(abs.(δ0_very_asym_ys)))
-end
 
 # ╔═╡ 6dfdb4b5-fbd1-4b0d-96d9-8d4985c7b0dd
 md"""
 ### Bound $D_\alpha$
+This corresponds to Lemma 12.3. We compute an upper bound of $D_\alpha$ and plot it together with $\mathcal{T}_\alpha(x)$ for $x \in [0, \pi]$.
 """
 
 # ╔═╡ cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
 md"""
-Next we compute bounds of $D_\alpha$. The code is set to use **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_\alpha$.
+The code is set to use **$(ifelse(use_rigorous_bounds_D0, "rigorous bounds", "estimates"))** for $D_\alpha$.
 """
-
-# ╔═╡ 26345012-4f0c-454c-b3f4-ee9dbffb53d3
-D₀_bound, D0_time = if use_rigorous_bounds_D0
-    @time D0_time = @elapsed D₀_bound = D0_bound(u0, verbose = true)
-    D₀_bound, D0_time
-else
-    missing, missing
-end
 
 # ╔═╡ baae040c-58f6-4657-b92f-6ca96740cbc8
 D0_xs, D0_ys = let xs = range(Arb(0.1), π, length = 100)
@@ -261,11 +229,12 @@ D0_xs, D0_ys = let xs = range(Arb(0.1), π, length = 100)
     xs, ys
 end
 
-# ╔═╡ b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
-D0 = if use_rigorous_bounds_D0
-    D₀_bound
+# ╔═╡ 26345012-4f0c-454c-b3f4-ee9dbffb53d3
+D0, D0_time = if use_rigorous_bounds_D0
+    @time D0_time = @elapsed D₀_bound = D0_bound(u0, verbose = true)
+    D₀_bound, D0_time
 else
-    maximum(D0_ys)
+    maximum(D0_ys), missing
 end
 
 # ╔═╡ 28011fc3-11ae-4c9b-af14-3a9acc43b4cf
@@ -277,14 +246,26 @@ let pl = plot()
         pl,
         δ0_xs,
         δ0_ys,
-        ribbon = Arblib.radius.(Arb, δ0_ys),
+        ribbon = radius.(Arb, δ0_ys),
+        xlabel = L"x",
+        ylabel = L"F_\alpha(x)",
+        label = "",
         m = :circle,
         ms = 1,
-        label = "",
     )
-    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ0 bound")
+    hline!(
+        [δ0],
+        ribbon = [radius(Arb, δ0)],
+        color = :green,
+        label = L"\delta_\alpha" * " bound",
+    )
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
-    hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ0 goal")
+    hline!(
+        [δ0_goal],
+        ribbon = [radius(Arb, δ0_goal)],
+        color = :red,
+        label = L"\delta_\alpha" * " goal",
+    )
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
     pl
 end
@@ -295,15 +276,27 @@ let pl = plot()
         pl,
         δ0_asym_xs,
         δ0_asym_ys,
-        ribbon = Arblib.radius.(Arb, δ0_asym_ys),
+        ribbon = radius.(Arb, δ0_asym_ys),
+        xlabel = L"x",
+        ylabel = L"F_\alpha(x)",
+        label = "",
         m = :circle,
         ms = 1,
-        label = "",
         xaxis = :log10,
     )
-    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ0 bound")
+    hline!(
+        [δ0],
+        ribbon = [radius(Arb, δ0)],
+        color = :green,
+        label = L"\delta_\alpha" * " bound",
+    )
     hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
-    hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ0 goal")
+    hline!(
+        [δ0_goal],
+        ribbon = [radius(Arb, δ0_goal)],
+        color = :red,
+        label = L"\delta_\alpha" * " goal",
+    )
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
     pl
 end
@@ -314,15 +307,26 @@ let pl = plot(legend = :bottomright)
         pl,
         δ0_very_asym_xs,
         δ0_very_asym_ys,
-        ribbon = Arblib.radius.(Arb, δ0_very_asym_ys),
+        ribbon = radius.(Arb, δ0_very_asym_ys),
+        xlabel = L"x",
+        ylabel = L"F_\alpha(x)",
+        label = "",
         m = :circle,
         ms = 1,
-        label = "",
         xaxis = :log10,
     )
-    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ0 bound")
-    hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
-    hline!([δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "δ0 goal")
+    hline!(
+        [δ0],
+        ribbon = [radius(Arb, δ0)],
+        color = :green,
+        label = L"\delta_\alpha" * " bound",
+    )
+    hline!(
+        [-δ0],
+        ribbon = [radius(Arb, δ0)],
+        color = :green,
+        label = L"\delta_\alpha" * " goal",
+    )
     hline!([-δ0_goal], ribbon = [radius(Arb, δ0_goal)], color = :red, label = "")
 end
 
@@ -332,19 +336,40 @@ let pl = plot(legend = :bottomright, xlims = (0, NaN))
         pl,
         D0_xs,
         D0_ys,
-        ribbon = Arblib.radius.(Arb, D0_ys),
+        ribbon = radius.(Arb, D0_ys),
+        xlabel = L"x",
+        ylabel = L"\mathcal{T}_\alpha(x)",
         label = "",
         m = :circle,
         ms = 1,
     )
-    hline!(pl, [D0], ribbon = [Arblib.radius(Arb, D0)], color = :green, label = "D0 bound")
+    hline!(
+        pl,
+        [D0],
+        ribbon = [radius(Arb, D0)],
+        color = :green,
+        label = L"D_\alpha" * " bound",
+    )
     pl
 end
 
+# ╔═╡ b04f41e2-186d-4a6f-89e0-42cab2b83980
+md"""
+## Check inequality
+In the end the inequality we want to be satisfied is
+
+$$\delta_\alpha < \frac{(1 - D_\alpha)^2}{4n_\alpha}$$
+
+which we can check
+"""
+
+# ╔═╡ 9f91a629-5f24-4782-996f-8e7e6f2ead1c
+δ0 < (1 - D0^2) / 4n0
+
 # ╔═╡ fe5b35d4-e831-4d18-a73a-b6faac1d51a2
 md"""
-# Prepare for publishing
-We compute rounded values of the upper bounds that are given in the paper, as well as produce figures for the paper.
+## Prepare for publishing
+We compute rounded values of the upper bounds that are given in the paper and check that they satisfy the required inequality. We also produce figures for the paper.
 """
 
 # ╔═╡ 0588c4ad-ab18-4abc-8b74-cbce6883593c
@@ -393,6 +418,12 @@ The plots in the paper were produced with `pgfplotsx`, this is not a dependency 
 # ╔═╡ bedfbb2f-c4bd-4d0c-9d32-0c893902286d
 #pgfplotsx()
 
+# ╔═╡ 5185bdd7-32dd-459e-a22f-38d53d5ebc6c
+md"""
+Check this box to set the code to save the figures.
+- Save figures $(@bind save CheckBox(default = false))
+"""
+
 # ╔═╡ 1a469179-78d9-4a23-a67c-2e66e14f2791
 let pl = plot(
         legend = :none,
@@ -410,7 +441,7 @@ let pl = plot(
         ms = 1,
     )
     hline!(pl, Float64[n0_rounded], color = :green, linestyle = :dash)
-    savefig(pl, "../figures/publication/BHKdV-N.pdf")
+    save && savefig(pl, "../figures/BHKdV-N.pdf")
     pl
 end
 
@@ -432,7 +463,7 @@ let pl = plot(
         ms = 1,
     )
     hline!(pl, Float64[n0_rounded], color = :green, linestyle = :dash)
-    savefig(pl, "../figures/publication/BHKdV-N-asymptotic.pdf")
+    save && savefig(pl, "../figures/BHKdV-N-asymptotic.pdf")
     pl
 end
 
@@ -453,7 +484,7 @@ let pl = plot(
         ms = 1,
     )
     hline!(pl, Float64[D0_rounded], color = :green, linestyle = :dash)
-    savefig(pl, "../figures/publication/BHKdV-T.pdf")
+    save && savefig(pl, "../figures/BHKdV-T.pdf")
     pl
 end
 
@@ -479,7 +510,7 @@ let pl = plot(
     )
     hline!(Float64[-δ0_rounded, δ0_rounded], color = :green, linestyle = :dash)
     hline!(Float64[-δ0_rounded_goal, δ0_rounded_goal], color = :red, linestyle = :dot)
-    savefig(pl, "../figures/publication/BHKdV-F.pdf")
+    save && savefig(pl, "../figures/BHKdV-F.pdf")
     pl
 end
 
@@ -502,17 +533,15 @@ let pl = plot(
     )
     hline!(Float64[-δ0_rounded, δ0_rounded], color = :green, linestyle = :dash)
     hline!(Float64[-δ0_rounded_goal, δ0_rounded_goal], color = :red, linestyle = :dot)
-    savefig(pl, "../figures/publication/BHKdV-F-asymptotic.pdf")
+    save && savefig(pl, "../figures/BHKdV-F-asymptotic.pdf")
     pl
 end
 
 # ╔═╡ Cell order:
-# ╟─a0ab3d57-b420-43c2-b69b-c403dde1f3ad
+# ╠═a0ab3d57-b420-43c2-b69b-c403dde1f3ad
 # ╟─3426f2ac-f96f-11eb-22b0-2b3f9ccb38b9
-# ╟─d9575be4-0776-46d2-ad22-9fc8bc614a49
 # ╟─5119010f-c9b1-41f5-9dac-cbb6f2b3a24d
 # ╠═8747f80d-82f6-4e2f-bfba-d87280649950
-# ╟─52ef575d-cb95-45f9-8eb3-d0d97b625e77
 # ╟─4767de5e-bbfb-4e3a-9f83-8036de0916cc
 # ╠═69dde124-8988-4f70-837d-01e940d199e4
 # ╟─0a7c70da-f6d6-4484-baf5-0ae51ef3e349
@@ -521,7 +550,6 @@ end
 # ╟─f0baf2ec-3f73-4d55-9ce4-754d94d7f3ce
 # ╟─3e6b7582-bb9f-46be-84de-f568dec6780e
 # ╟─d6c88a1f-94e2-4e01-bc6a-6f201f93c379
-# ╟─1ee80528-225a-4c29-b4b0-ea1ab9876aef
 # ╠═b24c29d2-1933-49c1-94e4-7a765acf355e
 # ╟─f1dce520-a035-43e6-9e08-4696a14c5a54
 # ╟─22573416-3918-4bb9-9ec2-06b87d923c1d
@@ -530,13 +558,11 @@ end
 # ╟─af8899b0-eac1-442d-90ef-9d399aeb170c
 # ╟─cf99b665-f81a-4e17-8b9f-9357904cf676
 # ╠═150a963b-03e2-404e-98e4-0fa2cd516dd3
-# ╟─3d72c6ae-5b44-491f-bfee-c8ea23224ea9
 # ╟─b8c5ba34-748e-4c4b-be9c-135240287351
 # ╟─f88046ed-d4c4-4ce4-a424-96c87dc87711
 # ╟─1bb84607-4f0f-4e7b-a24f-258b4e581c2c
 # ╟─481c9ae0-ae19-42cb-a781-4ad0c26fca1c
 # ╠═28011fc3-11ae-4c9b-af14-3a9acc43b4cf
-# ╠═fa5c8c0b-a5b4-4438-a219-1604c065897e
 # ╟─ac03e920-25ad-4127-ad87-00e907701da3
 # ╟─9e18768c-40d0-45a8-b1fe-01d092b50f52
 # ╟─15e21dde-fb44-47d8-83d8-9f5ffffab74d
@@ -544,8 +570,9 @@ end
 # ╟─cd53f6b7-6a4c-478e-9cd6-c140b7e56d92
 # ╠═26345012-4f0c-454c-b3f4-ee9dbffb53d3
 # ╟─baae040c-58f6-4657-b92f-6ca96740cbc8
-# ╠═b0577d0f-77ba-4035-9d3b-ae4d6e5c624f
 # ╟─89d54f92-8b3a-4913-875d-31068856fb62
+# ╟─b04f41e2-186d-4a6f-89e0-42cab2b83980
+# ╠═9f91a629-5f24-4782-996f-8e7e6f2ead1c
 # ╟─fe5b35d4-e831-4d18-a73a-b6faac1d51a2
 # ╠═0588c4ad-ab18-4abc-8b74-cbce6883593c
 # ╟─d6a23d80-81fe-478e-8bbc-fbba582f3a23
@@ -558,6 +585,7 @@ end
 # ╠═3c2078dd-6ab0-442d-a2b2-eaa12e21bf7f
 # ╟─d47bef6f-f292-463a-bb88-34e3e062d59d
 # ╠═bedfbb2f-c4bd-4d0c-9d32-0c893902286d
+# ╟─5185bdd7-32dd-459e-a22f-38d53d5ebc6c
 # ╟─1a469179-78d9-4a23-a67c-2e66e14f2791
 # ╟─85272438-efd7-43aa-9e7a-017623c93f50
 # ╟─d3d93fd5-13b6-42b6-9275-4dec2e893910

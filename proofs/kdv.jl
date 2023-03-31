@@ -4,6 +4,23 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try
+            Base.loaded_modules[Base.PkgId(
+                Base.UUID("6e696c72-6542-2067-7265-42206c756150"),
+                "AbstractPlutoDingetjes",
+            )].Bonds.initial_value
+        catch
+            b -> missing
+        end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ 906f72a8-f912-11eb-15d0-ef321ee21aa5
 begin
     using Pkg
@@ -32,7 +49,7 @@ This is the $\alpha$ we use for the computations.
 
 # ╔═╡ 3e54d065-f8d7-4660-b2c2-4b53e5ade4f5
 md"""
-# Compute the approximation $u_\alpha$
+## Compute the approximation $u_\alpha$
 """
 
 # ╔═╡ e5b763ed-ab57-4324-848a-cbfb84000ecb
@@ -47,13 +64,22 @@ We work on the interval $[0, \pi]$ where $u_\alpha$ looks like this.
 let xs = range(0, π, length = 200)
     ys = u0.(xs)
     ys[1] = 0
-    plot(xs, ys, ribbon = Arblib.radius.(Arb, ys), label = "")
+    plot(
+        xs,
+        ys,
+        ribbon = radius.(Arb, ys),
+        xlabel = L"x",
+        ylabel = L"u_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
 end
 
 # ╔═╡ cef61488-2c3c-43a5-bcc3-c33fee24419c
 md"""
 ## Computing constants
-We are now ready to compute upper bounds of $n_\alpha$, $\Delta_\delta$ and $\Delta_D$.
+We are now ready to compute upper bounds of $n_\alpha$, $\delta_\alpha$ and $D_\alpha$.
 """
 
 # ╔═╡ ab97adab-dd1d-4826-82a7-227bec87b2ed
@@ -75,8 +101,18 @@ end
 
 # ╔═╡ 35cc4d3c-2ec8-4e08-b721-cca697141276
 let pl = plot(legend = :bottomright)
-    plot!(pl, n0_xs, n0_ys, ribbon = radius.(Arb, n0_ys), label = "", m = :circle, ms = 2)
-    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n0 bound")
+    plot!(
+        pl,
+        n0_xs,
+        n0_ys,
+        ribbon = radius.(Arb, n0_ys),
+        xlabel = L"x",
+        ylabel = L"N_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = L"n_0" * " bound")
     pl
 end
 
@@ -102,41 +138,11 @@ end
         xs, ys
     end
 
-# ╔═╡ 60f43fcb-c8fb-4bbc-a6ac-50658d8947a3
-let pl = plot()
-    plot!(
-        pl,
-        δ0_xs,
-        δ0_ys,
-        ribbon = Arblib.radius.(Arb, δ0_ys),
-        m = :circle,
-        ms = 1,
-        label = "",
-    )
-    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ0 bound")
-    hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
-    #hline!([δ0_goal_estimate], ribbon = [radius(Arb, δ0_goal_estimate)], color = :red, label = "δ0 goal")
-    #hline!([-δ0_goal_estimate], ribbon = [radius(Arb, δ0_goal_estimate)], color = :red, label = "")
-    pl
-end
-
-# ╔═╡ 84eb673b-5d56-4d53-971d-60d385b45894
-let pl = plot(xaxis = :log10, legend = :bottomleft)
-    plot!(
-        pl,
-        δ0_asym_xs,
-        δ0_asym_ys,
-        ribbon = radius.(Arb, δ0_asym_ys),
-        m = :circle,
-        ms = 1,
-        label = "",
-    )
-    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "δ0 bound")
-    hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
-    #hline!([δ0_goal_estimate], ribbon = [radius(Arb, δ0_goal_estimate)], color = :red, label = "δ0 goal")
-    #hline!([-δ0_goal_estimate], ribbon = [radius(Arb, δ0_goal_estimate)], color = :red, label = "")
-    pl
-end
+# ╔═╡ efd0a5b9-c585-4fda-94e1-00247ea9b97a
+md"""
+In the end we want to have the inequality $\delta_\alpha \leq \frac{(1 - D_\alpha)^2}{4n_\alpha}$. In the next section we compute estimates of $D_\alpha$ and we can from that get an estimate for the right hand side this is the goal that we want the defect to be smaller than. In general the bound is much smaller than the goal, making it hard to distinguish the different scales. By default we therefore don't include the goal.
+- Include goal $(@bind include_δ0_goal CheckBox(default = false))
+"""
 
 # ╔═╡ 48586f5e-77df-4a10-8610-dd24a986eca4
 md"""
@@ -178,20 +184,30 @@ end
 
 # ╔═╡ 58f1233b-30d1-4f8c-abf4-078df6ccbee4
 let pl = plot(legend = :bottomright)
-    plot!(pl, D0_xs, D0_ys, ribbon = radius.(Arb, D0_ys), label = "", m = :circle, ms = 1)
+    plot!(
+        pl,
+        D0_xs,
+        D0_ys,
+        ribbon = radius.(Arb, D0_ys),
+        xlabel = L"x",
+        ylabel = L"\mathcal{T}_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
     hline!(
         pl,
         [D0_bound],
         ribbon = [radius(Arb, D0_bound)],
         color = :green,
-        label = "D0 bound",
+        label = L"D_\alpha" * " bound",
     )
     pl
 end
 
 # ╔═╡ 16c74532-55ab-4c2f-af5a-2bab8b5f9668
 md"""
-From the values used in the plot we can compute an estimate of $D_\alpha$. This estimate together with the enclosure of $n_\alpha$ allows us to compute an estimated goal for $\delta_\alpha$. This estimated goal we can compare with the actual enclosure of $\delta_\alpha$.
+From the values used in the plot we can compute an estimate of $D_\alpha$. This estimate allows us to compute an estimated goal for $\delta_\alpha$. This estimated goal is used in the figures for $F_\alpha(x)$ above.
 """
 
 # ╔═╡ 8af1970a-c99c-44d0-b09d-3031cd520ca5
@@ -200,8 +216,69 @@ D0_estimate = maximum(D0_ys)
 # ╔═╡ 123a5e6f-cbc4-46f8-958a-1b4ae9989186
 δ0_goal_estimate = (1 - D0_estimate)^2 / 4n0
 
-# ╔═╡ c5eaf8bc-2335-4312-ae3e-99969214650e
-δ0
+# ╔═╡ 60f43fcb-c8fb-4bbc-a6ac-50658d8947a3
+let pl = plot()
+    plot!(
+        pl,
+        δ0_xs,
+        δ0_ys,
+        ribbon = Arblib.radius.(Arb, δ0_ys),
+        xlabel = L"x",
+        ylabel = L"F_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = L"\delta_0" * " bound")
+    hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
+    if include_δ0_goal
+        hline!(
+            [δ0_goal_estimate],
+            ribbon = [radius(Arb, δ0_goal_estimate)],
+            color = :red,
+            label = L"\delta_0" * " goal",
+        )
+        hline!(
+            [-δ0_goal_estimate],
+            ribbon = [radius(Arb, δ0_goal_estimate)],
+            color = :red,
+            label = "",
+        )
+    end
+    pl
+end
+
+# ╔═╡ 84eb673b-5d56-4d53-971d-60d385b45894
+let pl = plot(xaxis = :log10, legend = :bottomleft)
+    plot!(
+        pl,
+        δ0_asym_xs,
+        δ0_asym_ys,
+        ribbon = radius.(Arb, δ0_asym_ys),
+        xlabel = L"x",
+        ylabel = L"F_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!([δ0], ribbon = [radius(Arb, δ0)], color = :green, label = L"\delta_0" * " bound")
+    hline!([-δ0], ribbon = [radius(Arb, δ0)], color = :green, label = "")
+    if include_δ0_goal
+        hline!(
+            [δ0_goal_estimate],
+            ribbon = [radius(Arb, δ0_goal_estimate)],
+            color = :red,
+            label = L"\delta_0" * " goal",
+        )
+        hline!(
+            [-δ0_goal_estimate],
+            ribbon = [radius(Arb, δ0_goal_estimate)],
+            color = :red,
+            label = "",
+        )
+    end
+    pl
+end
 
 # ╔═╡ Cell order:
 # ╠═906f72a8-f912-11eb-15d0-ef321ee21aa5
@@ -219,8 +296,9 @@ D0_estimate = maximum(D0_ys)
 # ╟─35cc4d3c-2ec8-4e08-b721-cca697141276
 # ╟─179dee23-66a9-4cd6-a08a-c4400bd15440
 # ╠═141836ea-b6cd-4696-a86d-7dc7d1964131
-# ╠═e2afde10-d8d6-4bcf-9478-e9d6c6d07150
-# ╠═c6133c35-b4fe-49f3-b226-2d49d092484d
+# ╟─e2afde10-d8d6-4bcf-9478-e9d6c6d07150
+# ╟─c6133c35-b4fe-49f3-b226-2d49d092484d
+# ╟─efd0a5b9-c585-4fda-94e1-00247ea9b97a
 # ╟─60f43fcb-c8fb-4bbc-a6ac-50658d8947a3
 # ╟─84eb673b-5d56-4d53-971d-60d385b45894
 # ╟─48586f5e-77df-4a10-8610-dd24a986eca4
@@ -232,4 +310,3 @@ D0_estimate = maximum(D0_ys)
 # ╟─16c74532-55ab-4c2f-af5a-2bab8b5f9668
 # ╠═8af1970a-c99c-44d0-b09d-3031cd520ca5
 # ╠═123a5e6f-cbc4-46f8-958a-1b4ae9989186
-# ╠═c5eaf8bc-2335-4312-ae3e-99969214650e

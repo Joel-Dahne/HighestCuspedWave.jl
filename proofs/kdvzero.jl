@@ -45,7 +45,7 @@ This is the $\epsilon$ we use for the computations.
 """
 
 # ╔═╡ f27e0113-5e77-44af-958a-4b9e4a13a40b
-ϵ = Arb(-1.2e-3)
+ϵ = Arb(-0.0012)
 
 # ╔═╡ 27785eb7-54c7-47f7-8029-d37887bcdf1e
 md"""
@@ -100,8 +100,24 @@ end
 
 # ╔═╡ af90b425-59cb-4229-873a-bb7448713dbe
 let pl = plot(legend = :bottomright)
-    plot!(pl, n0_xs, n0_ys, ribbon = radius.(Arb, n0_ys), label = "", m = :circle, ms = 2)
-    hline!(pl, [n0], ribbon = [radius(Arb, n0)], color = :green, label = "n0 bound")
+    plot!(
+        pl,
+        n0_xs,
+        n0_ys,
+        ribbon = radius.(Arb, n0_ys),
+        xlabel = L"x",
+        ylabel = L"N_\alpha(x)",
+        label = "",
+        m = :circle,
+        ms = 2,
+    )
+    hline!(
+        pl,
+        [n0],
+        ribbon = [radius(Arb, n0)],
+        color = :green,
+        label = L"n_\alpha" * " bound",
+    )
     pl
 end
 
@@ -138,8 +154,22 @@ end
 
 # ╔═╡ 03cf0016-f828-4049-90ae-5ce560ab644b
 let pl = plot(legend = :bottomright)
-    plot!(pl, Δδ_xs, Δδ_ys, ribbon = radius.(Arb, Δδ_ys), label = "", m = :circle, ms = 1)
-    hline!([Δδ], ribbon = [radius(Arb, Δδ)], color = :green, label = "Δδ bound")
+    plot!(
+        pl,
+        Δδ_xs,
+        Δδ_ys,
+        ribbon = radius.(Arb, Δδ_ys),
+        xlabel = "x",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!(
+        [Δδ],
+        ribbon = [radius(Arb, Δδ)],
+        color = :green,
+        label = L"\Delta_\delta" * " bound",
+    )
     hline!([-Δδ], ribbon = [radius(Arb, Δδ)], color = :green, label = "")
     pl
 end
@@ -180,8 +210,17 @@ end
 
 # ╔═╡ feb38bc2-3963-4143-8e1c-9077a967fba4
 let pl = plot(legend = :bottomright)
-    plot!(pl, ΔD_xs, ΔD_ys, ribbon = radius.(Arb, ΔD_ys), label = "", m = :circle, ms = 1)
-    hline!([ΔD], ribbon = [radius(Arb, ΔD)], color = :green, label = "ΔD bound")
+    plot!(
+        pl,
+        ΔD_xs,
+        ΔD_ys,
+        ribbon = radius.(Arb, ΔD_ys),
+        xlabel = L"x",
+        label = "",
+        m = :circle,
+        ms = 1,
+    )
+    hline!([ΔD], ribbon = [radius(Arb, ΔD)], color = :green, label = L"\Delta_D" * " bound")
     pl
 end
 
@@ -347,7 +386,7 @@ end
 # ╟─b85e1c39-99b2-4bc7-af04-854abf3de52b
 # ╠═13373308-42e3-44ac-bf99-2a5145e6a5df
 # ╟─fa901388-6f0a-4de5-8323-d9b4832062f6
-# ╟─af90b425-59cb-4229-873a-bb7448713dbe
+# ╠═af90b425-59cb-4229-873a-bb7448713dbe
 # ╟─d977785c-751a-4e2a-8634-9ecd1039e3f8
 # ╠═054103ee-ac90-4310-afa3-55291712829d
 # ╟─38e338b0-f7e7-45e6-b84d-45c6946736b3
