@@ -56,7 +56,7 @@ the 31 subintervals. These jobs can be started with the following
 commands, executed from the root of this repository. The data is
 written to a timestamped subdirectory of `Dardel/data/proof/`. Note
 that the data that the proof in the paper is based on is available at
-`proofs/data/`.
+`proofs/data/Dardel/`.
 
 ``` shell
 # The first three intervals have a higher memory usage and for that
