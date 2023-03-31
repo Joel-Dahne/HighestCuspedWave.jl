@@ -5,7 +5,8 @@ the proofs for the paper [Highest Cusped Waves for the fractional KdV
 equations](). It also contains code related to the paper [Highest
 Cusped Waves for the Burgers-Hilbert
 equation](https://arxiv.org/abs/2205.00802), though the code is
-updated compared to that paper.
+updated compared to that paper (for the original version see
+[BurgersHilbertWave.jl](https://github.com/Joel-Dahne/BurgersHilbertWave.jl)).
 
 The proof handles the half-open interval [-1, 0) and is split into
 four parts
@@ -19,18 +20,20 @@ without running anything yourself you can look at the html-file in the
 `proofs` directory. You will likely have to download the files and
 open them locally in your browser. It contains the following files
 1. `bh.jl.html` - contains the proof for -1.
-2. `bhkdv.jl.html` - contains the proof for (-1, -0.9997).
-3. `data-analysis.jl.html` - contains an analysis of the data
-   generated for the proof for [-0.9997, -0.0012]. See further down
+2. `bhkdv.jl.html` - contains the proof for (-1, -0.9999).
+3. `kdv.jl.html` - illustrates the idea of the proof for [-0.9999,
+   -0.0012].
+4. `kdv-data-analysis.jl.html` - contains an analysis of the data
+   generated for the proof for [-0.9999, -0.0012]. See further down
    for how the data is generated.
-4. `kdvzero.jl.html` - contains the proof for (-0.0012, 0).
+5. `kdvzero.jl.html` - contains the proof for (-0.0012, 0).
 
 ## Reproducing the proof
 
 The html-files mentioned above are generated from
 [Pluto](https://github.com/fonsp/Pluto.jl) notebooks. You can
 reproduce the proof by running the notebooks yourself as described
-below. The exception is the interval [-0.9997, -0.0012], for which the
+below. The exception is the interval [-0.9999, -0.0012], for which the
 data needs to be computed separately, see the next section for more
 details.
 
@@ -101,9 +104,9 @@ Depending on the interval the approximation u₀ is represented by
 different type.
 1. For -1 it is represented by the type `BHAnsatz`, for which the
    corresponding methods are found in `src/BurgersHilbert/`.
-2. For (-1, -0.9997) it is represented by the type `BHKdVAnsatz`, for
+2. For (-1, -0.9999) it is represented by the type `BHKdVAnsatz`, for
    which the corresponding methods are found in `src/BHKdV/`.
-3. For [-0.9997, -0.0012] it is either represented by the type
+3. For [-0.9999, -0.0012] it is either represented by the type
    `FractionalKdVAnsatz` or the type `KdVZero`. The methods
    corresponding to `FractionalKdV` are found in `src/FractionalKdV/`
    and the ones corresponding to `KdVZero` in `src/KdVZero/`
@@ -113,17 +116,17 @@ different type.
 Some other notable files are
 - `src/TaylorModel.jl` - contains code for computing with Taylor
   models
-- `src/proof.jl` - contains code for bisecting the interval [-0.9997,
+- `src/proof.jl` - contains code for bisecting the interval [-0.9999,
   -0.0012] into smaller subintervals and the starting point for
   proving the inequality on for each subinterval.
 - `src/data-handling.jl` - contains code for handling the data
-  produced for the interval [-0.9997, -0.0012].
+  produced for the interval [-0.9999, -0.0012].
 
 ## Naming conventions
 Many of the variables in the paper have an index $\alpha$, in the code
-this is most of the time replaced with a `0`. For some of the most
-common variables We have the following correspondence between the name
-in the paper and in the code.
+this is most of the time replaced with a `0`. We have the following
+correspondence between the name in the paper and in the code.
+
 | Paper                          | Code             |
 |--------------------------------|------------------|
 | $n_\alpha$                     | `n0` or `n₀`     |
@@ -141,7 +144,7 @@ expansions at `x = 0`. In general the method of evaluation is set by
 giving either `Ball()` or `Asymptotic()` as an argument to the
 function, with `Ball()` being the default.
 
-``` julia
+```
 julia> using HighestCuspedWave, Arblib
 
 julia> setprecision(Arb, 100)
@@ -160,7 +163,7 @@ julia> u0(x, Ball()) # Direct evaluation with ball arithmetic
 julia> u0(x) # The defaults is ball arithmetic
 [0.318537784850320154969 +/- 1.08e-22]
 
-julia> u0(x, Asymptotic())
+julia> u0(x, Asymptotic()) # Evaluation using the asymptotic expansion
 [0.31853778485 +/- 6.48e-12]
 
 julia> F0(u0)(x)
