@@ -10,8 +10,8 @@ updated compared to that paper.
 The proof handles the half-open interval [-1, 0) and is split into
 four parts
 1. -1
-2. (-1, -0.9997)
-3. [-0.9997, -0.0012]
+2. (-1, -0.9999)
+3. [-0.9999, -0.0012]
 4. (-0.0012, 0)
 
 If you are interested in seeing the results of the computations
@@ -67,59 +67,20 @@ which should open a Pluto window in your browser. Now you can open the
 notebooks inside the `proofs` directory through this and it should run
 the proof.
 
-### Reproducing the proof for [-0.9997, -0.0012]
-The proof for [-0.9997, -0.0012] takes significantly longer time than
+### Reproducing the proof for [-0.9999, -0.0012]
+The proof for [-0.9999, -0.0012] takes significantly longer time than
 the other parts. For that reason the necessary data is computed
-separately and then analysed in the notebook `proof/data-analysis.jl`.
+separately and then analysed in the notebook
+`proof/kdv-data-analysis.jl`.
+
+The computations for generating the data used for the proof were done
+on the computer cluster
+[Dardel](https://www.pdc.kth.se/hpc-services/computing-systems/about-the-dardel-hpc-system-1.1053338).
+See `Dardel/README.md` for more details about how the computations
+were run.
 
 The data used for the proof can be found in the directory
-`proof/data/`. The computations were done on the [Dardel]() for which
-access was granted through [SNIC](). The full computations took around
-13 000 core hours.
-
-Dardel uses SLURM and the full computations can be run with the script
-`PDC/scripts/run_proof_all.sh`. This makes use of the scripts
-`PDC/scripts/run_proof.sh` and `PDC/scripts/run_proof.jl`. The number
-of tasks and threads to use is set in `PDC/scripts/run_proof.sh`, it
-is tuned for Dardel (which has 256 threads per node) and uses 64 tasks
-and 4 cpus per task. When running on a different configuration these
-numbers would need to be updated.
-
-To run the computations on a non-SLURM system (running Linux) it
-should be possible to run the part argument to all the cases in
-`PDC/scripts/run_proof_all` by themselves, the number of workers and
-threads to use can be set with the environmental variables
-`HCW_WORKERS` and `HCW_THREADS` respectively. For example the
-following code could be used on a system with 256 threads, in which
-case the computations should take roughly 50 hours. **TODO:** Consider
-having a script handling this.
-
-``` sh
-# The first three intervals have a higher memory usage and for that
-# reason we use fewer threads to avoid using too much memory. This is
-# slower than if we would have used all threads. However it is not
-# that much slower due to SMT, only about 20-30% slower it seems.
-
-# 1:1
-HCW_WORKERS=64 HCW_THREADS=2 sh PDC/scripts/run_proof.sh 1 1
-
-# 2:2
-HCW_WORKERS=64 HCW_THREADS=2 sh PDC/scripts/run_proof.sh 2 2
-
-# 3:3
-HCW_WORKERS=64 HCW_THREADS=2 sh PDC/scripts/run_proof.sh 3 3
-
-# 4:10
-HCW_WORKERS=64 HCW_THREADS=4 sh PDC/scripts/run_proof.sh 4 10
-
-# 11:14
-HCW_WORKERS=64 HCW_THREADS=4 sh PDC/scripts/run_proof.sh 11 14
-
-# 14:end
-HCW_WORKERS=64 HCW_THREADS=4 sh PDC/scripts/run_proof.sh 15
-```
-
-The data is written to a timestamped subdirectory of `PDC/data/proof/`.
+`proof/data/`. The full computations took around 13 000 core hours.
 
 # Notes about the implementation
 The code uses [Arblib.jl](https://github.com/kalmarek/Arblib.jl),
@@ -157,3 +118,61 @@ Some other notable files are
   proving the inequality on for each subinterval.
 - `src/data-handling.jl` - contains code for handling the data
   produced for the interval [-0.9997, -0.0012].
+
+## Naming conventions
+Many of the variables in the paper have an index $\alpha$, in the code
+this is most of the time replaced with a `0`. For some of the most
+common variables We have the following correspondence between the name
+in the paper and in the code.
+| Paper                          | Code             |
+|--------------------------------|------------------|
+| $n_\alpha$                     | `n0` or `n₀`     |
+| $\delta_\alpha$                | `delta0` or `δ₀` |
+| $D_\alpha$                     | `D0` or `D₀`     |
+| $u_\alpha$                     | `u0`             |
+| $F_\alpha$                     | `F0`             |
+| $\mathcal{T}_\alpha$           | `T0`             |
+| $\mathcal{H}^\alpha[u_\alpha]$ | `H(u0)`          |
+
+## Asymptotic and non-asymptotic evaluation
+Most functions can be evaluated in two ways. One using direct ball
+arithmetic and one optimized for `x` close to zero that uses
+expansions at `x = 0`. In general the method of evaluation is set by
+giving either `Ball()` or `Asymptotic()` as an argument to the
+function, with `Ball()` being the default.
+
+``` julia
+julia> using HighestCuspedWave, Arblib
+
+julia> setprecision(Arb, 100)
+100
+
+julia> u0 = FractionalKdVAnsatz(Arb(-0.6))
+FractionalKdVAnsatz{Arb} N₀ = 8, N₁ = 16
+α = [-0.599999999999999977795539507497 +/- 1.31e-31], p = [0.799999999999999988897769753748 +/- 4.35e-31]
+
+julia> x = Arb(0.1)
+[0.100000000000000005551115123126 +/- 2.18e-31]
+
+julia> u0(x, Ball()) # Direct evaluation with ball arithmetic
+[0.318537784850320154969 +/- 1.08e-22]
+
+julia> u0(x) # The defaults is ball arithmetic
+[0.318537784850320154969 +/- 1.08e-22]
+
+julia> u0(x, Asymptotic())
+[0.31853778485 +/- 6.48e-12]
+
+julia> F0(u0)(x)
+[-1.99183775964e-8 +/- 5.40e-20]
+
+julia> F0(u0, Asymptotic())(x)
+[-1.99e-8 +/- 4.54e-11]
+
+julia> T0(u0)(x)
+[0.87 +/- 6.64e-3]
+
+julia> T0(u0, Asymptotic())(x)
+[0.8675738 +/- 5.30e-8]
+
+```
