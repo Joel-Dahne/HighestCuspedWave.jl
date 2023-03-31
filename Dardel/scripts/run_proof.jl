@@ -11,7 +11,7 @@ function run_proof(
     verbose = false,
     extra_verbose = false,
     save = true,
-    dirname = "PDC/data/proof",
+    dirname = "Dardel/data/proof",
 )
     αs = HighestCuspedWave.proof_interval_subdivisions_mince(i, m)
 
@@ -51,7 +51,7 @@ end
 
 start, stop, m = read_args()
 
-dirname = "PDC/data/proof/proof-$(round(Dates.now(), Second))"
+dirname = "Dardel/data/proof/proof-$(round(Dates.now(), Second))"
 logfile = joinpath(dirname, "log_$(start)_$(stop)_$(m)")
 
 @info "Determined arguments" start stop m dirname logfile
