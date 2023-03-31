@@ -13,7 +13,7 @@ The Dardel cluster makes use of Slurm for job scheduling. The scripts
 for running the computations are written in terms of Slurm scripts.
 The scripts assumes that Julia is available and that the directory
 where Julia stores configurations is the default `$HOME/.julia/`. From
-a fresh clone of this repository the initial setup is done with the
+a fresh clone of this repository an initial setup is done with the
 following commands, executed from the root of this repository.
 
 ``` shell
@@ -22,7 +22,8 @@ julia --project=. --eval 'using Pkg; Pkg.instantiate()'
 
 # Optionally precompile the code using PackageCompiler.jl. This
 # reduces the total runtime since things only have to be compiled
-# once.
+# once. Note that if you later change the code you then need to
+# compile it again.
 julia --eval 'using Pkg; Pkg.add("PackageCompiler")' # Install PackageCompiler.jl
 bash Dardel/scripts/compile.sh
 ```
@@ -53,7 +54,9 @@ performance due to simultaneous multithreading.
 We split the full computation into 6 jobs, each handling a subset of
 the 31 subintervals. These jobs can be started with the following
 commands, executed from the root of this repository. The data is
-written to a timestamped subdirectory of `Dardel/data/proof/`.
+written to a timestamped subdirectory of `Dardel/data/proof/`. Note
+that the data that the proof in the paper is based on is available at
+`proofs/data/`.
 
 ``` shell
 # The first three intervals have a higher memory usage and for that
