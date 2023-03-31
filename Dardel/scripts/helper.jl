@@ -6,47 +6,46 @@ using TerminalLoggers: TerminalLogger
 # Set always_flush to true to get a smooth progress bar
 global_logger(TerminalLogger(always_flush = true))
 
+"""
+    create_workers(num_workers, num_threads; use_slurm, verbose = false)
+
+Create `num_workers` workers, each using `num_threads` threads.
+"""
 function create_workers(
-    nw = parse(Int, get(ENV, "HCW_WORKERS", get(ENV, "SLURM_NTASKS", "1"))),
-    nt = parse(Int, get(ENV, "HCW_THREADS", get(ENV, "SLURM_CPUS_PER_TASK", "1")));
+    num_workers = parse(Int, get(ENV, "HCW_WORKERS", get(ENV, "SLURM_NTASKS", "1"))),
+    num_threads = parse(Int, get(ENV, "HCW_THREADS", get(ENV, "SLURM_CPUS_PER_TASK", "1")));
     use_slurm = haskey(ENV, "SLURM_JOB_ID"),
     verbose = false,
 )
-
     if verbose
-        println("nw = $nw")
-        println("nt = $nt")
-        flush(stdout)
+        @info "Preparing to set up workers" num_workers num_threads
     end
 
     # Launch worker processes
     ENV["JULIA_PROJECT"] = Base.active_project()
-    ENV["JULIA_NUM_THREADS"] = nt
+    ENV["JULIA_NUM_THREADS"] = num_threads
     ENV["JULIA_WORKER_TIMEOUT"] = 300
 
     if use_slurm
         # Give the current sysimage explicitly. The SlurmManager
         # doesn't handle it by itself.
         sysimage = unsafe_string(Base.JLOptions().image_file)
-        addprocs(SlurmManager(nw), exeflags = "--sysimage=$sysimage")
+        addprocs(SlurmManager(num_workers), exeflags = "--sysimage=$sysimage")
     else
-        addprocs(nw)
+        addprocs(num_workers)
     end
 
     if verbose
-        println("Number of processes: ", nprocs())
-        println("Number of workers: ", nworkers())
-        flush(stdout)
+        @info "Finished setting up workers" nworkers()
 
         # For each worker gets its id, process id, hostname and number of threads
         calls = Dict(
             i => @spawnat(i, (myid(), getpid(), gethostname(), Threads.nthreads())) for
             i in procs()
         )
-        for i in procs()
+        for (i, w) in enumerate(workers())
             id, pid, host, threads = fetch(calls[i])
-            println(id, " ", pid, " ", host, " ", threads)
-            flush(stdout)
+            @info "Worker $i" id pid host threads
         end
     end
 
