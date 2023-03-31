@@ -45,6 +45,11 @@ Note that this takes a dictionary where the values are of type `Arb`
 and not `TaylorModel`. This methods doesn't compute a Taylor model in
 `α` like most methods for `KdVZeroansatz`. The benefit is that it
 allows evaluation with `x::ArbSeries`.
+
+Note that evaluation for `x::ArbSeries` doesn't give an enclosure of
+the corresponding series for the function that `expansion` is an
+expansion of. See the version of this function for
+[`FractionalKdVAnsatz`](@ref) for more information about this.
 """
 function eval_expansion(
     u0::KdVZeroAnsatz,

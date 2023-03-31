@@ -16,12 +16,16 @@ easily computed. The critical points are given by `x = 1` (if `i > 1`)
 and `x = exp(-i / exponent)`. For `x = 1` the value is zero and hence
 not important, the other critical point we have to take into account.
 
+Note that evaluation for `x::ArbSeries` doesn't give an enclosure of
+the corresponding series for the function that `expansion` is an
+expansion of. See the version of this function for
+[`FractionalKdVAnsatz`](@ref) for more information about this.
 """
 function eval_expansion(
-    u0::BHAnsatz{T},
-    expansion::AbstractDict{NTuple{4,S},T},
-    x,
-) where {T,S}
+    u0::BHAnsatz{Arb},
+    expansion::AbstractDict{NTuple{4,Int},Arb},
+    x::Union{Arb,ArbSeries};
+)
     res = zero(x)
 
     logabsx = log(abs(x))

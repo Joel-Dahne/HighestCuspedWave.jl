@@ -20,6 +20,19 @@ exponent, in that case the exponent will be given by
 For `α` close to `-1` there's a lot of terms in the expansion and for
 performance reasons we therefore make use of inplace calculations to
 reduce the number of allocations.
+
+Note that evaluation for `x::ArbSeries` doesn't give an enclosure of
+the corresponding series for the function that `expansion` is an
+expansion of. The reason is that the remainder term in the expansion
+depends on `x` and this is not taken into account in this case.
+Evaluation on `x::ArbSeries` is still useful when computing
+enclosures. In particular we have that
+```
+ArbExtras.enclosure_series(x -> eval_expansion(u0, expansion, x), Arb((xₗ, xᵤ)))
+```
+gives an enclosure of `eval_expansion(u0, expansion, Arb((xₗ, xᵤ)))`.
+See the Proof strategy section in the paper for more discussions about
+this.
 """
 function eval_expansion(
     u0::FractionalKdVAnsatz{Arb},
