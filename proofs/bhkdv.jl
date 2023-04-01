@@ -412,7 +412,7 @@ Arb(D0_printed) < D0_rounded
 
 # ╔═╡ d47bef6f-f292-463a-bb88-34e3e062d59d
 md"""
-The plots in the paper were produced with `pgfplotsx`, this is not a dependency so is not enabled by default. The plots look a bit weird with the default backend.
+The plots in the paper were produced with `pgfplotsx`. However, the above plots look better with `gr`, so this is not the default.
 """
 
 # ╔═╡ bedfbb2f-c4bd-4d0c-9d32-0c893902286d

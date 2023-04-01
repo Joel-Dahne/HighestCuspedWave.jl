@@ -294,7 +294,7 @@ Arb(ΔD_printed) > ΔD_rounded
 
 # ╔═╡ 14a37967-e894-4571-8aa6-8733c544dee2
 md"""
-The plots in the paper were produced with `pgfplotsx`. However the plots look nicer in the notebook with `gr` so this is not the default.
+The plots in the paper were produced with `pgfplotsx`. However, the above plots look better with `gr`, so this is not the default.
 """
 
 # ╔═╡ c25e8495-28fe-4454-a9c4-10b5ed43b917

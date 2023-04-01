@@ -351,7 +351,7 @@ D0_printed = ArbExtras.format_interval(getinterval(D0)...)
 
 # ╔═╡ 2494dd2b-088d-402f-8c28-29b3614a5fc6
 md"""
-The plots in the paper were produced with `pgfplotsx`, this is not a dependency so is not enabled by default. The plots look a bit weird with the default backend.
+The plots in the paper were produced with `pgfplotsx`. However, the above plots look better with `gr`, so this is not the default.
 """
 
 # ╔═╡ 34858269-7714-4210-a678-2b91357c3eb7
