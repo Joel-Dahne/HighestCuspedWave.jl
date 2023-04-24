@@ -162,7 +162,7 @@ function _zeta_deflated(s::ArbSeries, a::Arb)
         prec::Clong,
     )
         ccall(
-            (:_acb_poly_acb_invpow_cpx, Arblib.libarb),
+            Arblib.@libarb(_acb_poly_acb_invpow_cpx),
             Cvoid,
             (
                 Ptr{Arblib.acb_struct},

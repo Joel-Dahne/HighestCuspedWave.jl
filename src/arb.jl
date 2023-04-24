@@ -84,7 +84,7 @@ function stieltjes(::Type{Arb}, n::Integer)
     a = one(Acb)
 
     ccall(
-        (:acb_dirichlet_stieltjes, Arblib.libarb),
+        Arblib.@libarb(acb_dirichlet_stieltjes),
         Cvoid,
         (Ref{Arblib.acb_struct}, Ref{fmpz_struct}, Ref{Arblib.acb_struct}, Clong),
         res,
