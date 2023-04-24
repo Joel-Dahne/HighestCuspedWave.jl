@@ -97,6 +97,9 @@ end
 # ╔═╡ 4390863a-9692-4983-8e3f-a9638340c6ea
 data_rerun = HighestCuspedWave.read_proof_data("data/proof-rerun.csv")
 
+# ╔═╡ 376f8999-6033-46f6-9b6b-e1eeb139a1ec
+@assert all(data_rerun.proved)
+
 # ╔═╡ 5d937e1e-c4a5-4c9a-b602-ad8a767ed1e2
 md"""
 Finally we take the data to be the one from Dardel that succeeded plus the bisected ones.
@@ -104,9 +107,6 @@ Finally we take the data to be the one from Dardel that succeeded plus the bisec
 
 # ╔═╡ 525e5539-82f1-4d37-809f-338bf32e8a5a
 data = sort!(vcat(filter(:proved => identity, data_dardel), data_rerun), :α, by = midpoint)
-
-# ╔═╡ 376f8999-6033-46f6-9b6b-e1eeb139a1ec
-@assert all(data.proved)
 
 # ╔═╡ 1dc6509c-2217-43b6-a467-ccbf9fade853
 @assert all(data.proved)
@@ -137,6 +137,11 @@ md"""
 ### Plots
 """
 
+# ╔═╡ a9de0b46-2dff-45df-9018-cff83ecea1c0
+md"""
+For the other notebooks the exported figures are done using the `pgfplotx` backend and saved as pdf-files. Here the number of points is extremely high and this leads to issues both for `pgfplotsx` and for an exported pdf-file. Instead we use the `gr` backend and export as png-files, making sure to use a sufficiently high resolution.
+"""
+
 # ╔═╡ 237ed8a1-c221-41de-bd33-3bdc53aa80fa
 md"""
 Check this box to set the code to save the figures.
@@ -147,21 +152,28 @@ Check this box to set the code to save the figures.
 save_dir = "../figures/"
 
 # ╔═╡ a42d3a45-551b-4fff-a934-8be95e60672d
-let pl = plot(xlabel = L"\alpha", ylabel = L"p", legend = :none)
-    scatter!(pl, data.α, data.p, msw = 0, ms = 1)
+let pl = plot(xlabel = L"\alpha", ylabel = L"p", legend = :none, dpi = 400)
+    scatter!(pl, Float64.(data.α), Float64.(data.p), msw = 0, ms = 1)
     save && savefig(pl, joinpath(save_dir, "interval-p.png"))
     pl
 end
 
 # ╔═╡ f68bebf9-bc64-4f2a-ad23-6795054cecbd
-let pl = plot(xlabel = L"\alpha", ylabel = L"n_\alpha", ylims = (0, NaN))
-    scatter!(pl, data.α, data.n₀_rounded, msw = 0, ms = 1, label = "Bound")
+let pl = plot(xlabel = L"\alpha", ylabel = L"n_\alpha", ylims = (0, NaN), dpi = 400)
+    scatter!(
+        pl,
+        Float64.(data.α),
+        Float64.(data.n₀_rounded),
+        msw = 0,
+        ms = 1,
+        label = "Bound",
+    )
     save && savefig(pl, joinpath(save_dir, "interval-n.png"))
     pl
 end
 
 # ╔═╡ e7a9ab6b-a529-4327-bf40-165aaf52854b
-let pl = plot(xlabel = L"\alpha", ylabel = L"\delta_\alpha")
+let pl = plot(xlabel = L"\alpha", ylabel = L"\delta_\alpha", dpi = 400)
     scatter!(pl, data.α, data.δ₀_rounded, msw = 0, ms = 1, label = "Bound")
     goal_estimate = @. (1 - data.D₀_estimate)^2 / 4data.n₀_rounded
     scatter!(pl, data.α, goal_estimate, msw = 0, ms = 1, label = "Estimated goal")
@@ -170,7 +182,7 @@ let pl = plot(xlabel = L"\alpha", ylabel = L"\delta_\alpha")
 end
 
 # ╔═╡ e089b20a-03b2-442b-9806-ad53f277c8aa
-let pl = plot(xlabel = L"\alpha", ylabel = L"D_\alpha")
+let pl = plot(xlabel = L"\alpha", ylabel = L"D_\alpha", dpi = 400)
     scatter!(pl, data.α, data.D₀_rounded, msw = 0, ms = 1, label = "Bound")
     scatter!(pl, data.α, data.D₀_estimate, msw = 0, ms = 1, label = "Estimate")
     save && savefig(pl, joinpath(save_dir, "interval-D.png"))
@@ -178,7 +190,7 @@ let pl = plot(xlabel = L"\alpha", ylabel = L"D_\alpha")
 end
 
 # ╔═╡ be553dc7-1ddc-4239-8dea-0f857ffa5e28
-let pl = plot(xlabel = L"\alpha", ylims = (NaN, 100))
+let pl = plot(xlabel = L"\alpha", ylims = (NaN, 100), dpi = 400)
     scatter!(pl, data.α, data.u0_N0, msw = 0, ms = 1, label = L"N_{\alpha,0}")
     scatter!(pl, data.α, data.u0_N1, msw = 0, ms = 1, label = L"N_{\alpha,1}")
     save && savefig(pl, joinpath(save_dir, "interval-N0-N1.png"))
@@ -200,6 +212,7 @@ let pl = plot(
         legend = :none,
         ylims = (0, NaN),
         xaxis = :log10,
+        dpi = 400,
     )
     scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.n₀_rounded, msw = 0, ms = 1)
     pl
@@ -212,6 +225,7 @@ let pl = plot(
         legend = :none,
         xaxis = :log10,
         ylims = (0, NaN),
+        dpi = 400,
     )
     scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.δ₀_rounded, msw = 0, ms = 1)
     goal_estimate = @. (1 - data_near_m1.D₀_estimate)^2 / 4data_near_m1.n₀_rounded
@@ -226,6 +240,7 @@ let pl = plot(
         legend = :none,
         xaxis = :log10,
         ylims = (NaN, 1),
+        dpi = 400,
     )
     scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.D₀_rounded, msw = 0, ms = 1)
     scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.D₀_estimate, msw = 0, ms = 1)
@@ -238,7 +253,7 @@ md"""
 """
 
 # ╔═╡ e89cc470-90da-4576-b2ef-39e2c2f36249
-let pl = plot(xlabel = L"1 + \alpha", ylabel = "seconds")
+let pl = plot(xlabel = L"1 + \alpha", ylabel = "seconds", dpi = 400)
     scatter!(
         pl,
         1 .+ data.α,
@@ -311,6 +326,7 @@ D₀_core_hours_dardel = sum(filter(isfinite, data_dardel.D₀_time)) / 3600 * 4
 # ╠═097efc47-79f9-4412-a059-9f7bd6be967b
 # ╟─4a36cbeb-12af-47c2-b9af-b1300b06d8a6
 # ╟─9c0b90d8-e6d8-4374-bf89-de304b344205
+# ╟─a9de0b46-2dff-45df-9018-cff83ecea1c0
 # ╟─237ed8a1-c221-41de-bd33-3bdc53aa80fa
 # ╠═0dd1a8fe-34ac-416d-b2e4-3d1eaf801318
 # ╟─a42d3a45-551b-4fff-a934-8be95e60672d
