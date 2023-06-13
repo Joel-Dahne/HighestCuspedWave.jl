@@ -1,7 +1,7 @@
 #!/bin/bash -l
 # See https://www.kth.se/blogs/pdc/2018/08/getting-started-with-slurm/
 #SBATCH --job-name run_proof
-#SBATCH --account snic2022-22-821
+#SBATCH --account naiss2023-22-649
 #SBATCH --mail-type=ALL
 #SBATCH --time 04:00:00
 
