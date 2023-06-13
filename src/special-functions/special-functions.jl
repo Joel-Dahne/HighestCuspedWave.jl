@@ -217,7 +217,6 @@ function _zeta_deflated(s::ArbSeries, a::Arb)
         t = AcbRefVector(d + 1; prec)
         u = AcbRefVector(d; prec)
         v = AcbRefVector(d; prec)
-        term = AcbRefVector(d; prec)
         sum = AcbRefVector(d; prec)
         Na = Acb(a + N; prec)
 

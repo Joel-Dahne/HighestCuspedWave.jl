@@ -1,5 +1,5 @@
 """
-    _integrand_compute_root(u0::BHAnsatz{Arb}, x::Arb)
+    _integrand_compute_root(::BHAnsatz{Arb}, x::Arb)
 
 Compute the unique root of
 ```
@@ -25,7 +25,7 @@ If the upper bound of `x` is close to zero, smaller than `eps(x)`, we
 compute the root at `eps(x)` and use that as a lower bound. This
 avoids computing with very small values of `x`.
 """
-function _integrand_compute_root(u0::BHAnsatz{Arb}, x::Arb)
+function _integrand_compute_root(::BHAnsatz{Arb}, x::Arb)
     # Root for x = 0
     root_zero = inv(sqrt(Arb(2)))
 

@@ -83,7 +83,7 @@ function eval_expansion(
 end
 
 """
-    _eval_expansion!(u0::BHAnsatz, expansion, x, invlogx = inv(log(x)))
+    _eval_expansion!(res, ::BHAnsatz, expansion, x, invlogx = inv(log(x)))
 
 Fast, inplace version of [`eval_expansion`](@ref).
 
@@ -106,7 +106,7 @@ type `Arb` and not for `ArbSeries`, for `ArbSeries` is just returns
 """
 function _eval_expansion!(
     res::T,
-    u0::BHAnsatz{Arb},
+    ::BHAnsatz{Arb},
     expansion::Vector{Tuple{Int,Arb,Arb}},
     x::T,
     invlogx::T = inv(log(x)),

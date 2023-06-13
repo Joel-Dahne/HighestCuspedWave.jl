@@ -537,7 +537,7 @@ which simplifies to
 (beta_inc(1 + p, -α, a) - inv(α - p) * inv(a)^(α - p) * (hypgeom_2f1(1 + α, α - p, 1 + α - p, -inv(a)) - 2))
 ```
 """
-function _T0_bhkdv_I3_M1(α, p, ϵ)
+function _T0_bhkdv_I3_M1(α, p, _)
     C = gamma(1 + α) * sinpi(-α / 2)
 
     J = begin
@@ -752,7 +752,7 @@ J4 <= -log(c) * ∫ ((t - 1)^(-α - 1) + (1 + t)^(-α - 1) - 2t^(-α - 1)) * t^p
 ```
 integrated from `c` to `π / x`, which we integrate explicitly.
 """
-function _T0_bhkdv_I3_M2(α, p, ϵ)
+function _T0_bhkdv_I3_M2(α, p, _)
     C = gamma(1 + α) * sinpi(-α / 2)
 
     s = -α - 1

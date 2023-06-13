@@ -174,7 +174,7 @@ we get
 x * (I1 + I2) = primitive_mul_x(0) - 2primitive_mul_x(r) + primitive_mul_x(x / π)
 ```
 """
-function T0_p_one(u0::FractionalKdVAnsatz, evaltype::Ball = Ball(); skip_div_u0 = false)
+function T0_p_one(u0::FractionalKdVAnsatz, ::Ball = Ball(); skip_div_u0 = false)
     weightisx(u0) || error("only supports u0 with weight x")
 
     return x::Arb -> begin

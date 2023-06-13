@@ -324,7 +324,7 @@ by using that `primitive_mul_x(t)` is increasing in `t`. That it is
 increasing is an easy consequence of being the primitive function of a
 positive integrand.
 """
-function T0_primitive(u0::BHKdVAnsatz{Arb}, evaltype::Ball = Ball(); skip_div_u0 = false)
+function T0_primitive(u0::BHKdVAnsatz{Arb}, ::Ball = Ball(); skip_div_u0 = false)
     # Enclosure of 1 - α = Arb((2 - u0.ϵ, 3)) computed in a way so
     # that the upper endpoint is exactly 2
     s1 = 2 - Arblib.nonnegative_part!(zero(Arb), Arb((0, u0.ϵ)))

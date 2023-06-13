@@ -234,7 +234,6 @@ function eval_expansion(
     α = Arb((-1, -1 + u0.ϵ))
     αp1 = Arblib.nonnegative_part!(zero(u0.ϵ), union(zero(u0.ϵ), u0.ϵ))
     p0 = Arblib.nonnegative_part!(zero(α), αp1 + αp1^2 / 2)
-    a0αp1 = finda0αp1(α)
 
     # Precomputed values used in _exponents!, upper bounds of α and p0
     α_upper = -1 + u0.ϵ
@@ -501,12 +500,12 @@ function expansion_ispositive(
     @assert 0 < -u0.v0.α + u0.v0.p0 < 2
 
     # Isolate all keys of the from (0, 0, 0, 0, 1, l, 0)
-    expansion_1 = filter(expansion) do ((p, q, i, j, k, l, m), a)
+    expansion_1 = filter(expansion) do ((p, q, i, j, k, l, m), _)
         p == q == i == j == m == 0 && k == 1 && l >= 1
     end
 
     # Isolate all keys of the from (0, 0, 0, 0, 0, 0, m)
-    expansion_2 = filter(expansion) do ((p, q, i, j, k, l, m), b)
+    expansion_2 = filter(expansion) do ((p, q, i, j, k, l, m), _)
         p == q == i == j == k == l == 0 && m >= 2
     end
 
@@ -1059,7 +1058,9 @@ function H(
     @assert M >= 3
 
     skip_singular_j_until > u0.v0.N0 && throw(
-        ArgumentError("can't skip more j-terms than there are, j = $j, N0 = $(u0.v0.N0)"),
+        ArgumentError(
+            "can't skip more j-terms than there are, skip_singular_j_until = $skip_singular_j_until, N0 = $(u0.v0.N0)",
+        ),
     )
 
     # Enclosure of α, α + 1 and a0 * (α + 1)

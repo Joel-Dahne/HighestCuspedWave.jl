@@ -122,7 +122,7 @@ function Arblib.overlaps(M1::TaylorModel, M2::TaylorModel; require_compatible::B
         checkcompatible(M1, M2)
     else
         Arblib.degree(M1) == Arblib.degree(M2) || error(
-            "Taylor models with non-compatible degrees, degree(M1) = $d1, degree(M2) = $d2",
+            "Taylor models with non-compatible degrees, degree(M1) = $(Arblib.degree(M1)), degree(M2) = $(Arblib.degree(M2))",
         )
         M1.x0 == M2.x0 || error("Taylor models with different midpoints")
     end

@@ -473,7 +473,6 @@ function H(
             # expansion and it turns out to be beneficial to use the same
             # method as when s contains an odd integer to compute an
             # enclosure.
-            tol = s < 4 ? 0.01 : 0.001 # For large s it is worse to be close to integer
             if is_approx_integer(s) && isodd(round(Float64(s)))
                 s = union(s, Arb(round(Float64(s))))
             end
@@ -1161,8 +1160,8 @@ function defect(u0::FractionalKdVAnsatz{T}, ::Symbolic; M::Integer = 5) where {T
     end
     # Find the keys we care about
     returned_keys = collect(sort(all_keys, by = Float64 ∘ key_exponent))[3:u0.N0+2]
-    # Find the largest key/exponent we care about
-    maxkey, maxexponent = returned_keys[end]
+    # Find the largest exponent we care about
+    maxexponent = returned_keys[end][2]
 
     # Check that M is large enough
     @assert maxexponent < 2M
