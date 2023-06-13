@@ -4,10 +4,11 @@ were done on the computer cluster [Dardel
 cluser](https://www.pdc.kth.se/hpc-services/computing-systems/about-the-dardel-hpc-system-1.1053338),
 This directory contains the scripts used for those computations.
 
-Access to Dardel was provided by the Swedish National Infrastructure
-for Computing (SNIC) at the PDC Center for High Performance Computing,
-KTH Royal Institute of Technology, partially funded by the Swedish
-Research Council through grant agreement no. 2018-05973.
+Access to Dardel was provided by the National Academic Infrastructure
+for Supercomputing in Sweden (NAISS) and the Swedish National
+Infrastructure for Computing (SNIC) at PDC partially funded by the
+Swedish Research Council through grant agreements no. 2022-06725 and
+no. 2018-05973.
 
 The Dardel cluster makes use of Slurm for job scheduling. The scripts
 for running the computations are written in terms of Slurm scripts.
