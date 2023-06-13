@@ -49,7 +49,7 @@ first coefficient.
 """
 iswide(x::Union{Arblib.ArbOrRef,Arblib.AcbOrRef}; cutoff = 10) =
     Arblib.rel_accuracy_bits(x) < precision(x) - cutoff
-iswide(x::Union{ArbSeries,AcbSeries}; cutoff = 10) = iswide(Arblib.ref(x, 0))
+iswide(x::Union{ArbSeries,AcbSeries}; cutoff = 10) = iswide(Arblib.ref(x, 0); cutoff)
 iswide(::Number; cutoff = 10) = false
 
 """
