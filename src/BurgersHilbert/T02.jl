@@ -259,7 +259,7 @@ To compute `D1` we use that the function is increasing in `y` on ``[x,
 This expression has a removable singularities that we handle using
 [`fx_div_x`](@ref).
 """
-function T02(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Arb(2e-1))
+function T02(u0::BHAnsatz, ::Asymptotic; ϵ::Arb = Arb(2e-1))
     0 < ϵ < 1 // 2 || throw(DomainError(ϵ, "must have 0 < ϵ < 1 / 2"))
 
     inv_u0 = inv_u0_normalised(u0; ϵ)

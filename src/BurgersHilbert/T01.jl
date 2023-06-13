@@ -307,7 +307,7 @@ W(x) * U1(x) <= inv(sqrt(log(1 + inv(x)))) * (
 )
 ```
 """
-function T01(u0::BHAnsatz, ::Asymptotic; non_asymptotic_u0 = false, ϵ::Arb = Arb(2e-1))
+function T01(u0::BHAnsatz, ::Asymptotic; ϵ::Arb = Arb(2e-1))
     # This also checks that ϵ < 1
     inv_u0 = inv_u0_normalised(u0; ϵ)
 
