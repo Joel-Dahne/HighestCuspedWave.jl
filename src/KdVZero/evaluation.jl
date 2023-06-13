@@ -393,7 +393,7 @@ function (u0::KdVZeroAnsatz)(x::Arb, ::AsymptoticExpansion; M::Integer = 10)
         end
 
         # Add remainder term
-        Mremainder_term = compose(s -> clausenc_expansion_remainder(x, s, M), s)
+        remainder_term = compose(s -> clausenc_expansion_remainder(x, s, M), s)
         expansion[(0, 0, 2M)] += u0.a[j] * remainder_term
     end
 
