@@ -393,8 +393,8 @@ _xpinvw_bhkdv(x::Arb) =
 _xpinvw_bhkdv(x::ArbSeries) =
     if Arblib.contains_zero(x[0])
         res = indeterminate(x)
-        x[0] = _xpinvw_bhkdv(x[0])
-        return x
+        res[0] = _xpinvw_bhkdv(x[0])
+        return res
     else
         return inv(log(2Arb(ℯ) + inv(abs(x))))
     end
