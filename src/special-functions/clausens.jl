@@ -540,11 +540,7 @@ function clausens(x::Arb, s::ArbSeries)
     x, haszero, _, _ = _reduce_argument_clausen(x)
 
     if haszero
-        res = zero(s)
-        for i = 0:Arblib.degree(res)
-            res[0] = indeterminate(x)
-        end
-        return res
+        return indeterminate(s)
     else
         return _clausens_zeta(x, s)
     end
