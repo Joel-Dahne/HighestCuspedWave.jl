@@ -72,4 +72,20 @@ include("KdVZero/proof.jl")
 include("equations.jl")
 include("lemmas.jl")
 include("lemmas_bh.jl") # Lemmas from the Burgers-Hilbert paper
+
+using PrecompileTools
+
+@compile_workload begin
+    setprecision(Arb, 100) do
+        αs = [
+            HighestCuspedWave.proof_interval_subdivisions_mince(15, thin = true)[1]
+            HighestCuspedWave.proof_interval_subdivisions_mince(25, thin = true)[1]
+        ]
+
+        HighestCuspedWave.prove(αs, only_estimate_D0 = true)
+
+        # This avoid compilation during construction for α close to -1
+        FractionalKdVAnsatz(HighestCuspedWave.proof_interval_subdivisions_mince(10)[end])
+    end
+end
 end # module

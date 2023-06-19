@@ -12,9 +12,4 @@
 #SBATCH -o Dardel/logs/run_proof.o
 #SBATCH -e Dardel/logs/run_proof.e
 
-# Use precompiled sysimage if it exists
-if test -f $HOME/.julia/sysimages/HighestCuspedWave.so ; then
-    time julia --sysimage=$HOME/.julia/sysimages/HighestCuspedWave.so --project=. Dardel/scripts/run_proof.jl "$@"
-else
-    time julia --project=. Dardel/scripts/run_proof.jl "$@"
-fi
+time julia --project=. Dardel/scripts/run_proof.jl "$@"

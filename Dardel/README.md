@@ -18,15 +18,8 @@ a fresh clone of this repository an initial setup is done with the
 following commands, executed from the root of this repository.
 
 ``` shell
-# Install all required packages for Julia
+# Install all required packages for Julia - this takes some time
 julia --project=. --eval 'using Pkg; Pkg.instantiate()'
-
-# Optionally precompile the code using PackageCompiler.jl. This
-# reduces the total runtime since things only have to be compiled
-# once. Note that if you later change the code you then need to
-# compile it again.
-julia --eval 'using Pkg; Pkg.add("PackageCompiler")' # Install PackageCompiler.jl
-bash Dardel/scripts/compile.sh
 ```
 
 The computations are run using the script `Dardel/scripts/run_proof.sh
