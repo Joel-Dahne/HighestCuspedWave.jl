@@ -26,6 +26,7 @@ setprecision(Arb, 100) do
                 include("KdVZero/expansion.jl")
                 include("KdVZero/evaluation.jl")
                 include("KdVZero/T0.jl")
+                include("KdVZero/proof.jl")
             end
         end
 

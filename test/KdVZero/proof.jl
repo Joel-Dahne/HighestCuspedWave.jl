@@ -1,23 +1,25 @@
 @testset "proof" begin
-    verbose = true
-    @testset "α0 = 0" begin
-        setprecision(Arb, 100) do
-            ϵ = Arb(-1.2e-3)
-            u0 = KdVZeroAnsatz(Arb((ϵ, 0)))
+    verbose = false
+    if false # This takes a bit too long to run each time
+        @testset "α0 = 0" begin
+            setprecision(Arb, 100) do
+                ϵ = Arb(-1.2e-3)
+                u0 = KdVZeroAnsatz(Arb((ϵ, 0)))
 
-            n₀ = n0_bound(u0; verbose)
+                n₀ = n0_bound(u0; verbose)
 
-            @test 1.56 < n₀ < 1.58
+                @test 1.56 < n₀ < 1.58
 
-            A = delta0_bound(u0, maxevals = 10000, atol = Arb(0.0025); verbose).p[2]
+                A = delta0_bound(u0, maxevals = 10000, atol = Arb(0.0025); verbose).p[2]
 
-            @test -9e-3 < abs_ubound(A) < 9e-3
+                @test -9e-3 < abs_ubound(A) < 9e-3
 
-            B = D0_bound(u0; verbose).p[1]
+                B = D0_bound(u0; verbose).p[1]
 
-            @test 0.23 < B < 0.25
+                @test 0.23 < B < 0.25
 
-            @test A < B^2 / 4n₀
+                @test A < B^2 / 4n₀
+            end
         end
     end
 
