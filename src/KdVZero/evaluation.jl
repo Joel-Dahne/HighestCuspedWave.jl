@@ -890,14 +890,16 @@ function F0_direct(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer
     iszero(u0.α0) && error("F0_direct doesn't make sense for u0.α0 = 0")
 
     # Compute the expansions and evaluate their terms in α
-    defect_u0_expansion = let expansion = defect(u0, AsymptoticExpansion(); M)(ϵ)
+    defect_u0_expansion = defect(u0, AsymptoticExpansion(); M)(ϵ)
+    defect_u0_expansion_evaluated = let expansion = defect_u0_expansion
         res = empty(expansion, Arb)
         for (key, value) in expansion
             res[key] = value(u0.α)
         end
         res
     end
-    u0_expansion = let expansion = u0(ϵ, AsymptoticExpansion(); M)
+    u0_expansion = u0(ϵ, AsymptoticExpansion(); M)
+    u0_expansion_evaluated = let expansion = u0_expansion
         res = empty(expansion, Arb)
         for (key, value) in expansion
             res[key] = value(u0.α)
@@ -908,13 +910,27 @@ function F0_direct(u0::KdVZeroAnsatz, ::Asymptotic; ϵ::Arb = Arb(1), M::Integer
     return x::Union{Arb,ArbSeries} -> begin
         if x isa Arb
             x <= ϵ || throw(ArgumentError("need x <= ϵ, got x = $x with ϵ = $ϵ"))
+
+            num =
+                eval_expansion(u0, defect_u0_expansion, x, offset_i = -1, offset_m = -1)
+            den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
+
+            return (num / den)(u0.α)
         elseif x isa ArbSeries
             x[0] <= ϵ || throw(ArgumentError("need x[0] <= ϵ, got x = $x with ϵ = $ϵ"))
+
+            # eval_expansion only supports ArbSeries for the evaluated
+            # expansions
+            num = eval_expansion(
+                u0,
+                defect_u0_expansion_evaluated,
+                x,
+                offset_i = -1,
+                offset_m = -1,
+            )
+            den = eval_expansion(u0, u0_expansion_evaluated, x, offset_i = -1)
+
+            return num / den
         end
-
-        num = eval_expansion(u0, defect_u0_expansion, x, offset_i = -1, offset_m = -1)
-        den = eval_expansion(u0, u0_expansion, x, offset_i = -1)
-
-        return num / den
     end
 end
