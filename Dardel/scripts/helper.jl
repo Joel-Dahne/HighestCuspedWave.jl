@@ -40,12 +40,12 @@ function create_workers(
 
         # For each worker gets its id, process id, hostname and number of threads
         calls = Dict(
-            i => @spawnat(i, (myid(), getpid(), gethostname(), Threads.nthreads())) for
-            i in procs()
+            w => @spawnat(w, (myid(), getpid(), gethostname(), Threads.nthreads())) for
+            w in workers()
         )
-        for (i, w) in enumerate(workers())
-            id, pid, host, threads = fetch(calls[i])
-            @info "Worker $i" id pid host threads
+        for w in workers()
+            id, pid, host, threads = fetch(calls[w])
+            @info "Worker $w" id pid host threads
         end
     end
 
