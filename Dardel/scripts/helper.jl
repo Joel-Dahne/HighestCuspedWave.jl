@@ -25,14 +25,16 @@ function create_workers(
     ENV["JULIA_PROJECT"] = Base.active_project()
     ENV["JULIA_NUM_THREADS"] = num_threads
     ENV["JULIA_WORKER_TIMEOUT"] = 300
+    exeflags = "--heap-size-hint=3G"
 
     if use_slurm
         # Give the current sysimage explicitly. The SlurmManager
         # doesn't handle it by itself.
         sysimage = unsafe_string(Base.JLOptions().image_file)
-        addprocs(SlurmManager(num_workers), exeflags = "--sysimage=$sysimage")
+        exeflags *= " --sysimage=$sysimage"
+        addprocs(SlurmManager(num_workers); exeflags)
     else
-        addprocs(num_workers)
+        addprocs(num_workers; exeflags)
     end
 
     if verbose
