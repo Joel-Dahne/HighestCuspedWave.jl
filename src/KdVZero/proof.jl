@@ -19,7 +19,7 @@ function prove(
         map(a -> a(u0.α), u0.a),
         Arb[],
         one(Arb),
-        Set{NTuple{3,Int}}([(2, 0, 0)]),
+        false,
     )
 
     n₀_time = @elapsed n₀ = n0_bound(u0, verbose = extra_verbose)
