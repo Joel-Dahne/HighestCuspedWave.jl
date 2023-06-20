@@ -14,6 +14,24 @@ which is part of the integrand of `T01`. See [`equation_I_hat`](@ref).
 _integrand_I_hat(x, t, α) =
     clausenc(x * (1 - t), -α) + clausenc(x * (1 + t), -α) - 2clausenc(x * t, -α)
 
+function _integrand_I_hat(x::Arb, t::Arb, α::Arb)
+    s = -α
+
+    arg = -t
+    Arblib.add!(arg, arg, 1)
+    Arblib.mul!(arg, arg, x)
+    res = clausenc(arg, s)
+
+    Arblib.add!(arg, t, 1)
+    Arblib.mul!(arg, arg, x)
+    Arblib.add!(res, res, clausenc(arg, s))
+
+    Arblib.mul!(arg, x, t)
+    Arblib.addmul!(res, clausenc(arg, s), -2)
+
+    return res
+end
+
 """
     _integrand_I_hat_series(x::Arb, t::Arb, α::Arb; M = 5)
     _integrand_I_hat_series(x::Arb, t::Arb, α::Arb, C::Arb, P::ArbSeries, E::Arb)
