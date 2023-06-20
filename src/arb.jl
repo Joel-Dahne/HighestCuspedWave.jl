@@ -104,6 +104,9 @@ If `x` contains a unique integer return `true, n` where `n` is the
 integer. Otherwise return `false, 0`
 """
 function unique_integer(x::Arblib.ArbOrRef)
+    # Avoid allocating a fmpz in this case.
+    Arblib.contains_int(x) || return false, 0
+
     res = fmpz_struct()
     unique = ccall(
         Arblib.@libarb(arb_get_unique_fmpz),
