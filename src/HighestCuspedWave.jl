@@ -84,8 +84,15 @@ using PrecompileTools
 
         HighestCuspedWave.prove(αs, only_estimate_D0 = true)
 
-        # This avoid compilation during construction for α close to -1
-        FractionalKdVAnsatz(HighestCuspedWave.proof_interval_subdivisions_mince(10)[end])
+        # Close to α = -1 it takes to long to run the full computations
+        u0 = FractionalKdVAnsatz(
+            HighestCuspedWave.proof_interval_subdivisions_mince(10)[end],
+        )
+        F0(u0)(Arb(1))
+        F0(u0)(ArbSeries((1, 1)))
+        F0(u0, Asymptotic())(Arb(0.1))
+        T0(u0)(Arb(1))
+        T0(u0, Asymptotic())(Arb(0.1))
     end
 end
 end # module
