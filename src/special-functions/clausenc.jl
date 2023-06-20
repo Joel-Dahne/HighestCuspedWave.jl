@@ -623,7 +623,10 @@ attained at `lbound(x)`, `ubound(x)` or `π`.
 function clausenc(x::Arb, s::Arb)
     # The function is even and this avoids issues with very small
     # negative x
-    x = abs(x)
+    if !Arblib.ispositive(x)
+        x = abs(x)
+    end
+    #x = abs(x)
 
     x, haszero, haspi, has2pi = _reduce_argument_clausen(x)
 
