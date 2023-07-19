@@ -969,25 +969,50 @@ function _F0_bhkdv(
             eval_expansion(u0, Hu0_expansion, x, offset = -u0.p, offset_i = -1)
 
         # Hu0_part3 / x^(p - α)
-        Hu0_part3_divpα = let v1 = 2 + u0.α - u0.p, v2 = -2 - 2u0.α, tmp = zero(v2)
-            -clausenc_expansion_odd_s_singular_K3(1) *
-            ArbExtras.enclosure_series(x) do x
-                S = zero(x)
-                for j = 1:min(skip_singular_j_until_int, u0.N0)
-                    # Compute
-                    # S += u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * p0)
-                    Arblib.fma!(tmp, u0.p0, j, v2)
-                    term = x_pow_s_x_pow_t_m1_div_t(x, v1, tmp)
-                    if x isa Arb
-                        Arblib.addmul!(S, term, u0.a[j])
-                    else
-                        Arblib.mul!(term, term, u0.a[j])
-                        Arblib.add!(S, S, term)
+        Hu0_part3_divpα =
+            let v1 = 2 + u0.α - u0.p,
+                v2 = -2 - 2u0.α,
+                t = zero(v2),
+                tm1 = zero(v2),
+                buffer1 = zero(v2),
+                buffer2 = zero(v2)
+
+                -clausenc_expansion_odd_s_singular_K3(1) *
+                ArbExtras.enclosure_series(x) do x
+                    S = zero(x)
+                    term = zero(x)
+                    if x isa ArbSeries
+                        x_pow_s = abspow(x, v1)
+                        dx = Arblib.derivative(x)
                     end
+                    for j = 1:min(skip_singular_j_until_int, u0.N0)
+                        # Compute
+                        # S += u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * p0)
+                        Arblib.fma!(t, u0.p0, j, v2)
+                        if x isa Arb
+                            Arblib.set!(term, x_pow_s_x_pow_t_m1_div_t(x, v1, t))
+                            Arblib.addmul!(S, term, u0.a[j])
+                        else
+                            Arblib.sub!(tm1, t, 1)
+                            x_pow_s_x_pow_t_m1_div_t!(
+                                term,
+                                x,
+                                dx,
+                                x_pow_s,
+                                v1,
+                                t,
+                                tm1,
+                                buffer1,
+                                buffer2,
+                            )
+                            Arblib.mul!(term, term, u0.a[j])
+                            Arblib.add!(S, S, term)
+                        end
+
+                    end
+                    S
                 end
-                S
             end
-        end
 
         # part2 / x^(u0.p - u0.α)
         part2_divpα =

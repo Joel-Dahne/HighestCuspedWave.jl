@@ -107,5 +107,30 @@
                 )
             end
         end
+
+        # Test inplace version
+        for x in (ArbSeries((0.2, 0.5, 0.7)), ArbSeries((0.1, 0.5, 0.7)))
+            for (s, t) in (
+                (Arb(0.2), Arb(0.1)),
+                (Arb(0.2), Arb(0)),
+                (Arb(0.2), Arb((0.1, 0.2))),
+                (Arb(0.2), Arb((-0.1, 0.02))),
+            )
+                @test Arblib.overlaps(
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t(x, s, t),
+                    HighestCuspedWave.x_pow_s_x_pow_t_m1_div_t!(
+                        zero(x),
+                        x,
+                        Arblib.derivative(x),
+                        x^s,
+                        s,
+                        t,
+                        t - 1,
+                        Arb(π), # Buffers
+                        Arb(π), # Buffers
+                    ),
+                )
+            end
+        end
     end
 end

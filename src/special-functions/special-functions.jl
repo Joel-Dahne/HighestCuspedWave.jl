@@ -734,3 +734,89 @@ function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
     # Multiply with series for abs(x)^s
     return Arblib.mullow!(res, res, abspow(x, s), length(res))
 end
+
+"""
+    x_pow_s_x_pow_t_m1_div_t!(res::ArbSeries, x::ArbSeries, dx::ArbSeries, x_pow_s::ArbSeries, s::Arb, t::Arb, tm1::Arb, buffer1::Arb, buffer2::Arb)
+
+Inplace version of [`x_pow_s_x_pow_t_m1_div_t`](@ref). It is used in
+[`_F0_bhkdv`](@ref) to minimize the number of allocations. As the
+allocating version it takes the `x`, `s` and `t` arguments. In
+addition to that it takes `res` which holds the results as well as
+`dx` and `x_pow_s` which should be precomputed as
+```
+dx = Arblib.derivative(x)
+x_pow_s = x^s
+```
+It also takes to buffers `buffer1` and `buffer2` which are used as
+scratch space during the calculations.
+"""
+function x_pow_s_x_pow_t_m1_div_t!(
+    res::ArbSeries,
+    x::ArbSeries,
+    dx::ArbSeries,
+    x_pow_s::ArbSeries,
+    s::Arb,
+    t::Arb,
+    tm1::Arb,
+    buffer1::Arb,
+    buffer2::Arb,
+)
+    Arblib.degree(res) == Arblib.degree(x) ||
+        throw(ArgumentError("res and x must have same degree"))
+
+    if !Arblib.is_positive(Arblib.ref(x, 0))
+        # No need to optimize this case
+        return Arblib.set!(res, x_pow_s_x_pow_t_m1_div_t(x, s, t))
+    end
+
+    # Compute the non-constant terms of (abs(x)^t - 1) / t
+    if Arblib.degree(res) > 0
+        # Compute dx * x^tm1 with one degree lower
+        Arblib.pow_arb_series!(res, x, tm1, length(res) - 1)
+        Arblib.mullow!(res, res, dx, length(res) - 1)
+
+        # Integrate
+        Arblib.integral!(res, res)
+    end
+
+    # Compute the constant term of (abs(x)^t - 1) / t
+    if Arblib.contains_zero(t)
+        # No need to optimize this case
+        res[0] = x_pow_s_x_pow_t_m1_div_t(Arblib.ref(x, 0), zero(s), t)
+    elseif iswide(t)
+        # Use that it is non-decreasing in t
+
+        res[0] = 1 # Hack to ensures that the coefficient is allocated
+        res0 = Arblib.ref(res, 0)
+
+        Arblib.log!(res0, Arblib.ref(x, 0))
+        resᵤ = Arblib.set!(buffer1, res0) # Use buffer1 for the upper bound
+
+        # res0 = (exp(log(abs(x)) * lbound(Arb, t)) - 1) / lbound(Arb, t)
+        tₗ = Arblib.get_lbound!(Arblib.midref(buffer2), t) # Use buffer2 for tₗ
+        Arblib.zero!(Arblib.radref(buffer2))
+        Arblib.mul!(res0, res0, tₗ)
+        Arblib.expm1!(res0, res0)
+        Arblib.div!(res0, res0, tₗ)
+
+        # resᵤ = (exp(log(abs(x)) * ubound(Arb, t)) - 1) / ubound(Arb, t)
+        tᵤ = Arblib.get_ubound!(Arblib.midref(buffer2), t) # Use buffer2 for tᵤ
+        Arblib.zero!(Arblib.radref(buffer2))
+        Arblib.mul!(resᵤ, resᵤ, tᵤ)
+        Arblib.expm1!(resᵤ, resᵤ)
+        Arblib.div!(resᵤ, resᵤ, tᵤ)
+
+        Arblib.union!(res0, res0, resᵤ)
+    else
+        res[0] = 1 # Hack to ensures that the coefficient is allocated
+        res0 = Arblib.ref(res, 0)
+
+        Arblib.log!(res0, Arblib.ref(x, 0))
+        Arblib.mul!(res0, res0, t)
+        Arblib.expm1!(res0, res0)
+        Arblib.div!(res0, res0, t)
+    end
+
+    # Multiply with series for x^s
+    return Arblib.mullow!(res, res, x_pow_s, length(res))
+end
