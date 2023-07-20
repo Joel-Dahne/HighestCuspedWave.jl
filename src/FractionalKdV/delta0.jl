@@ -106,6 +106,23 @@ function delta0_bound(
 
     verbose && @info "Determined ϵ1" ϵ1
 
+    depth_start = if u0.use_bhkdv
+        # For u0.use_bhkdv = true evaluation of f on intervals
+        # containing zero is very costly. For that reason we make sure
+        # to start the iterations at a depth so that the ball
+        # enclosures don't overlap zero.
+        depth_start = 0
+        m = ϵ2
+        while Arblib.contains_zero(Arb((ϵ1, m)))
+            depth_start += 1
+            m = ArbExtras.bisect_interval(ϵ1, m, log_midpoint = true)[1][2]
+        end
+        verbose && @info "Starting at depth" depth_start
+        depth_start
+    else
+        2
+    end
+
     # Bound the value on [0, ϵ]
     max_asymptotic = ArbExtras.maximum_enclosure(
         f,
@@ -116,6 +133,7 @@ function delta0_bound(
         log_bisection = true,
         depth = ifelse(u0.use_bhkdv, 40, 20),
         maxevals = ifelse(u0.use_bhkdv, 50000, 5000);
+        depth_start,
         rtol,
         atol,
         ubound_tol,
