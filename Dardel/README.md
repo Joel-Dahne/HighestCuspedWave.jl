@@ -56,35 +56,31 @@ that the data that the proof in the paper is based on is available at
 # The first three intervals have a higher memory usage and for that
 # reason we use fewer threads to avoid using too much memory. This is
 # slower than if we would have used all threads. However it is not
-# that much slower due to SMT, only about 20-30% slower it seems. The
-# first interval has even higher memory usage. It is helped by running
-# only one thread per task, though in that case we can apparently also
-# increase the number of tasks (it is a bit surprising that this
-# works...).
+# that much slower due to SMT, only about 20-30% slower it seems.
 
 # Intervals 1:1
-# Takes around 13 hours in total.
-HCW_THREADS=1 sbatch --ntasks=128 --cpus-per-task=2 --time=15:00:00 -p main -o Dardel/logs/run_proof_1.o -e Dardel/logs/run_proof_1.e Dardel/scripts/run_proof.sh 1 1
+# Takes around 12 hours in total.
+HCW_THREADS=2 sbatch --time=14:00:00 -p main --job-name=run_proof_1 -o Dardel/logs/run_proof_1.o -e Dardel/logs/run_proof_1.e Dardel/scripts/run_proof.sh 1 1
 
 # Intervals 2:2
 # Takes around 9 hours in total.
-HCW_THREADS=2 sbatch --time=11:00:00 -p main -o Dardel/logs/run_proof_2.o -e Dardel/logs/run_proof_2.e Dardel/scripts/run_proof.sh 2 2
+HCW_THREADS=2 sbatch --time=11:00:00 -p main --job-name=run_proof_2 -o Dardel/logs/run_proof_2.o -e Dardel/logs/run_proof_2.e Dardel/scripts/run_proof.sh 2 2
 
 # Intervals 3:3
 # Takes around 6 hours in total.
-HCW_THREADS=2 sbatch --time=8:00:00 -p main -o Dardel/logs/run_proof_3.o -e Dardel/logs/run_proof_3.e Dardel/scripts/run_proof.sh 3 3
+HCW_THREADS=2 sbatch --time=8:00:00 -p main --job-name=run_proof_3 -o Dardel/logs/run_proof_3.o -e Dardel/logs/run_proof_3.e Dardel/scripts/run_proof.sh 3 3
 
 # Intervals 4:10
 # Takes around 11 hours in total.
-HCW_THREADS=2 sbatch --time=13:00:00 -p main -o Dardel/logs/run_proof_4.o -e Dardel/logs/run_proof_4.e Dardel/scripts/run_proof.sh 4 10
+sbatch --time=13:00:00 -p main --job-name=run_proof_4 -o Dardel/logs/run_proof_4.o -e Dardel/logs/run_proof_4.e Dardel/scripts/run_proof.sh 4 10
 
 # Intervals 11:14
 # Takes around 8 hours in total.
-sbatch --time=10:00:00 -p main -o Dardel/logs/run_proof_5.o -e Dardel/logs/run_proof_5.e Dardel/scripts/run_proof.sh 11 14
+sbatch --time=10:00:00 -p main --job-name=run_proof_5 -o Dardel/logs/run_proof_5.o -e Dardel/logs/run_proof_5.e Dardel/scripts/run_proof.sh 11 14
 
 # Intervals 15:end
 # Takes around 7 hours in total.
-sbatch --time=9:00:00 -p main -o Dardel/logs/run_proof_6.o -e Dardel/logs/run_proof_6.e Dardel/scripts/run_proof.sh 15
+sbatch --time=9:00:00 -p main --job-name=run_proof_6 -o Dardel/logs/run_proof_6.o -e Dardel/logs/run_proof_6.e Dardel/scripts/run_proof.sh 15
 ```
 
 It is also possible to run the computations on a non-SLURM system
@@ -95,7 +91,7 @@ with 256 threads.
 
 ``` shell
 # 1:1
-HCW_WORKERS=128 HCW_THREADS=1 sh Dardel/scripts/run_proof.sh 1 1
+HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 1 1
 
 # 2:2
 HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 2 2
@@ -104,7 +100,7 @@ HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 2 2
 HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 3 3
 
 # 4:10
-HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 4 10
+HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 4 10
 
 # 11:14
 HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 11 14
