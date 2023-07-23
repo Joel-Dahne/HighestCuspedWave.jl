@@ -56,6 +56,7 @@ function T0_bhkdv(
     ϵ::Arb = Arb(1),
 )
     # Function for enclosing inv(u0(x) / x^-α)
+    M = min(M, 3) # No need to use a very high M, it will not be the dominating error anyway
     inv_u0 = inv_u0_normalised(u0; M, ϵ)
 
     # Function for enclosing
