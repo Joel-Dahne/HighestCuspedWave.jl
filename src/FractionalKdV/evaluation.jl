@@ -141,7 +141,7 @@ function clausencmzeta_diff(x::ArbSeries, s::Arb, ϵ::Arb)
 end
 
 """
-    (u0::FractionalKdVAnsatz{Arb})(x::Arb, ::Ball)
+    (u0::FractionalKdVAnsatz)(x, ::Ball)
 
 Compute `u0(x)` as given in [`equation_kdv_u0`](@ref).
 """
@@ -173,6 +173,45 @@ function (u0::FractionalKdVAnsatz)(x, ::Ball)
 
     for n = 1:u0.N1
         res += u0.b[n] * (cos(n * x) - 1)
+    end
+
+    return res
+end
+
+"""
+    u0_derivative(u0::FractionalKdVAnsatz{Arb}, x::Union{Arb,ArbSeries})
+
+Compute the derivative of `u0(x)` as given in [`equation_kdv_u0`](@ref).
+"""
+function u0_derivative(u0::FractionalKdVAnsatz{Arb}, x::Union{Arb,ArbSeries})
+    s = 1 - u0.α
+    if u0.use_bhkdv
+        res =
+            u0.a[0] * ArbExtras.derivative_function(x -> clausencmzeta_diff(x, s, u0.p0))(x)
+    else
+        res = -u0.a[0] * clausens(x, s - 1)
+    end
+
+    onemα = copy(s)
+    for j = 1:u0.N0
+        if s isa Arb
+            Arblib.fma!(s, u0.p0, j, onemα)
+        else
+            s = onemα + j * u0.p0
+        end
+        term = -clausens(x, s - 1)
+        if res isa Arb
+            Arblib.addmul!(res, u0.a[j], term)
+        elseif res isa ArbSeries
+            Arblib.mul!(term, term, u0.a[j])
+            Arblib.add!(res, res, term)
+        else
+            res += u0.a[j] * term
+        end
+    end
+
+    for n = 1:u0.N1
+        res -= n * u0.b[n] * sin(n * x)
     end
 
     return res

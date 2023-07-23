@@ -39,6 +39,18 @@
         end
     end
 
+    @testset "u0_derivative" begin
+        for u0 in u0s
+            for x in xs
+                y1 = HighestCuspedWave.u0_derivative(u0, x)
+                y2 = ArbExtras.derivative_function(x -> u0(x))(x)
+                @test isfinite(y1)
+                @test isfinite(y2)
+                @test Arblib.overlaps(y1, y2)
+            end
+        end
+    end
+
     @testset "H(u0)" begin
         for u0 in u0s
             f = H(u0)

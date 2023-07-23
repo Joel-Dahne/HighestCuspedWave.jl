@@ -91,7 +91,7 @@ function D0_bounded_by(
     # Try to prove that minus the derivative of u0 is non-positive,
     # meaning the derivative is non-negative, on [ϵ, b].
     is_increasing = ArbExtras.bounded_by(
-        ArbExtras.derivative_function(x -> -u0(x)),
+        x -> -u0_derivative(u0, x),
         ϵ,
         b,
         Arf(0),
