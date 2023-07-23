@@ -1355,17 +1355,35 @@ together and expanding in `s`. However this is not relevant for our
 use case.
 """
 function clausencmzeta(x::Arb, s::Arb)
-    if s > 1 && iswide(s)
+    if iswide(s)
         prec, original_prec = _choose_precision_clausen(x, s)
         if prec != original_prec
             x = setprecision(x, prec)
-            s = setprecision(s, prec)
         end
 
-        sₗ, sᵤ = getinterval(Arb, s)
-        sₗ > 1 || return indeterminate(setprecision(x, original_prec))
-        res_lower = clausenc(x, sₗ) - zeta(sₗ)
-        res_upper = clausenc(x, sᵤ) - zeta(sᵤ)
+        sₗ, sᵤ = zero(x), zero(x)
+        Arblib.get_interval!(Arblib.midref(sₗ), Arblib.midref(sᵤ), s)
+
+        if Arblib.cmp(Arblib.midref(sₗ), 1) <= 0
+            # sₗ <= 1 so not monotone in s
+
+            # Non-finite result
+            Arblib.cmp(Arblib.midref(sᵤ), 1) > 0 &&
+                return indeterminate!(Arb(prec = original_prec))
+
+            s = setprecision(s, prec)
+            return setprecision(clausenc(x, s) - zeta(s), original_prec)
+        end
+
+        # res_lower = clausenc(x, sₗ) - zeta(sₗ)
+        # res_upper = clausenc(x, sᵤ) - zeta(sᵤ)
+        res_lower = clausenc(x, sₗ)
+        res_upper = clausenc(x, sᵤ)
+        Arblib.zeta!(sₗ, sₗ)
+        Arblib.sub!(res_lower, res_lower, sₗ)
+        Arblib.zeta!(sᵤ, sᵤ)
+        Arblib.sub!(res_upper, res_upper, sᵤ)
+
         return Arb((res_lower, res_upper), prec = original_prec)
     else
         return clausenc(x, s) - zeta(s)
