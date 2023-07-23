@@ -854,7 +854,7 @@ function _F0_bhkdv(
         ϵ,
     )
 
-    inv_u0 = inv_u0_normalised(u0; M, ϵ)
+    inv_u0 = inv_u0_normalised(u0; M, ϵ, expansion = u0_expansion)
 
     # c(s) = gamma(s) * cospi(s / 2)
     c(s) = begin
@@ -1028,7 +1028,7 @@ function _F0_bhkdv(
 end
 
 """
-    inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M = 5, ϵ = one(Arb))
+    inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M = 5, ϵ = one(Arb), expansion)
 
 Return a function for evaluation `abs(x)^-u0.α / u0(x)` for `x` close to
 zero.
@@ -1040,6 +1040,9 @@ It is based on [`lemma_inv_u0_normalised`](@ref).
   expansions.
 - `ϵ::Arb` determines the interval ``[-ϵ, ϵ]`` on which the expansion
   is valid.
+- The `expansion` argument is optionally given. If given it should be
+  equal to `u0(ϵ, AsymptoticExpansion(), skip_main = u0.use_bhkdv;
+  M)`. The only reason to give it is if it is already computed.
 
 # Implementation
 It computes an expansion of `u0` at `x = 0` and explicitly handles the
@@ -1055,9 +1058,12 @@ of `clausencmzeta(x, 1 - u0.α)` and `clausencmzeta(x, 1 - u0.α +
 u0.p0)` respectively, in the expansion. This term is instead added
 separately. This gives better enclosures for `α` close to `-1`.
 """
-function inv_u0_normalised(u0::FractionalKdVAnsatz{Arb}; M::Integer = 5, ϵ::Arb = one(Arb))
-    expansion = u0(ϵ, AsymptoticExpansion(), skip_main = u0.use_bhkdv; M)
-
+function inv_u0_normalised(
+    u0::FractionalKdVAnsatz{Arb};
+    M::Integer = 5,
+    ϵ::Arb = one(Arb),
+    expansion = u0(ϵ, AsymptoticExpansion(), skip_main = u0.use_bhkdv; M),
+)
     C1::Arb, C2::Arb = if u0.use_bhkdv
         let s = 1 - u0.α
             C1 = clausenc_expansion_main(s)
