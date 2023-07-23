@@ -990,7 +990,7 @@ function clausenc_expansion(x::Arb, s::Arb, M::Integer; skip_constant = false)
         if iswide(s)
             term = ArbExtras.enclosure_series(s, degree = 2) do s
                 z = zeta(s - 2m)
-                if s isa ArbSeries && abs(Float64(s[0] - 2m)) <= 0.1 && iswide(s)
+                if s isa ArbSeries && iswide(s) && abs(Float64(Arblib.ref(s, 0)) - 2m) < 0.1
                     # zeta doesn't handle wide arguments that are
                     # close to zero but not centered around zero very
                     # well. In this case it can be better to force the
