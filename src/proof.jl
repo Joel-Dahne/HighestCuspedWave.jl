@@ -280,7 +280,8 @@ subinterval and splitting it into balls directly.
 """
 function proof_interval_subdivisions()
     return [
-        ((-0.9999, -0.99985), 1000),
+        ((-0.9999, -0.999875), 500),
+        ((-0.999875, -0.99985), 500),
         ((-0.99985, -0.9998), 1000),
         ((-0.9998, -0.9996), 1000),
         ((-0.9996, -0.9993), 1000),

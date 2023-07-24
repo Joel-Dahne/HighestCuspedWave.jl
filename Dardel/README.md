@@ -25,9 +25,9 @@ julia --project=. --eval 'using Pkg; Pkg.instantiate()'
 The computations are run using the script `Dardel/scripts/run_proof.sh
 start stop m`. Here `start`, `stop` and `m` are argument that indicate
 which part of the interval to handle. The interval `[-0.9999,
--0.0012]` is split into 31 subintervals according to
+-0.0012]` is split into 32 subintervals according to
 `HighestCupsedWave.proof_interval_subdivisions`. The argument `start`
-determines which of these 31 subintervals to start at and `stop`
+determines which of these 32 subintervals to start at and `stop`
 determines which to stop at, if `stop` is not given then it computes
 up to the last one. The optional argument `m` is given to
 `HighestCuspedWave.proof_interval_subdivisions_mince` and allows for
@@ -46,7 +46,7 @@ reduces the peak memory usage but only has a minor impact on
 performance due to simultaneous multithreading.
 
 We split the full computation into 6 jobs, each handling a subset of
-the 31 subintervals. These jobs can be started with the following
+the 32 subintervals. These jobs can be started with the following
 commands, executed from the root of this repository. The data is
 written to a timestamped subdirectory of `Dardel/data/proof/`. Note
 that the data that the proof in the paper is based on is available at
@@ -63,24 +63,27 @@ that the data that the proof in the paper is based on is available at
 HCW_THREADS=2 sbatch --time=14:00:00 -p main --job-name=run_proof_1 -o Dardel/logs/run_proof_1.o -e Dardel/logs/run_proof_1.e Dardel/scripts/run_proof.sh 1 1
 
 # Intervals 2:2
-# Takes around 9 hours in total.
-HCW_THREADS=2 sbatch --time=11:00:00 -p main --job-name=run_proof_2 -o Dardel/logs/run_proof_2.o -e Dardel/logs/run_proof_2.e Dardel/scripts/run_proof.sh 2 2
+HCW_THREADS=2 sbatch --time=14:00:00 -p main --job-name=run_proof_2 -o Dardel/logs/run_proof_2.o -e Dardel/logs/run_proof_2.e Dardel/scripts/run_proof.sh 2 2
 
 # Intervals 3:3
-# Takes around 6 hours in total.
-HCW_THREADS=2 sbatch --time=8:00:00 -p main --job-name=run_proof_3 -o Dardel/logs/run_proof_3.o -e Dardel/logs/run_proof_3.e Dardel/scripts/run_proof.sh 3 3
-
-# Intervals 4:10
-# Takes around 11 hours in total.
-sbatch --time=13:00:00 -p main --job-name=run_proof_4 -o Dardel/logs/run_proof_4.o -e Dardel/logs/run_proof_4.e Dardel/scripts/run_proof.sh 4 10
-
-# Intervals 11:14
 # Takes around 8 hours in total.
-sbatch --time=10:00:00 -p main --job-name=run_proof_5 -o Dardel/logs/run_proof_5.o -e Dardel/logs/run_proof_5.e Dardel/scripts/run_proof.sh 11 14
+HCW_THREADS=2 sbatch --time=10:00:00 --mem=400G -p main --job-name=run_proof_3 -o Dardel/logs/run_proof_3.o -e Dardel/logs/run_proof_3.e Dardel/scripts/run_proof.sh 3 3
 
-# Intervals 15:end
+# Intervals 4:4
+# Takes around 6 hours in total.
+HCW_THREADS=2 sbatch --time=8:00:00 -p main --job-name=run_proof_4 -o Dardel/logs/run_proof_4.o -e Dardel/logs/run_proof_4.e Dardel/scripts/run_proof.sh 4 4
+
+# Intervals 5:11
+# Takes around 10 hours in total.
+sbatch --time=12:00:00 -p main --job-name=run_proof_5 -o Dardel/logs/run_proof_5.o -e Dardel/logs/run_proof_5.e Dardel/scripts/run_proof.sh 5 11
+
+# Intervals 12:15
+# Takes around 8 hours in total.
+sbatch --time=10:00:00 -p main --job-name=run_proof_6 -o Dardel/logs/run_proof_6.o -e Dardel/logs/run_proof_6.e Dardel/scripts/run_proof.sh 12 15
+
+# Intervals 16:end
 # Takes around 7 hours in total.
-sbatch --time=9:00:00 -p main --job-name=run_proof_6 -o Dardel/logs/run_proof_6.o -e Dardel/logs/run_proof_6.e Dardel/scripts/run_proof.sh 15
+sbatch --time=9:00:00 -p main --job-name=run_proof_6 -o Dardel/logs/run_proof_7.o -e Dardel/logs/run_proof_7.e Dardel/scripts/run_proof.sh 16
 ```
 
 It is also possible to run the computations on a non-SLURM system
@@ -99,12 +102,15 @@ HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 2 2
 # 3:3
 HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 3 3
 
-# 4:10
-HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 4 10
+# 4:4
+HCW_WORKERS=64 HCW_THREADS=2 sh Dardel/scripts/run_proof.sh 4 4
 
-# 11:14
-HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 11 14
+# 5:11
+HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 5 11
 
-# 15:end
-HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 15
+# 12:15
+HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 12 15
+
+# 16:end
+HCW_WORKERS=64 HCW_THREADS=4 sh Dardel/scripts/run_proof.sh 16
 ```
