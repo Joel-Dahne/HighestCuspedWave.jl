@@ -736,6 +736,71 @@ function x_pow_s_x_pow_t_m1_div_t(x::ArbSeries, s::Arb, t::Arb)
 end
 
 """
+    x_pow_s_x_pow_t_m1_div_t!(res::Arb, x::Arb, x_pow_s::Arb, s::Arb, t::Arb, buffer1::Arb, buffer2::Arb)
+
+Inplace version of [`x_pow_s_x_pow_t_m1_div_t`](@ref). It is used in
+[`_F0_bhkdv`](@ref) to minimize the number of allocations. As the
+allocating version it takes the `x`, `s` and `t` arguments. In
+addition to that it takes `res` which holds the results as well as
+`x_pow_s` which should be precomputed as `x_pow_s = x^s`. It also
+takes to buffers `buffer1` and `buffer2` which are used as scratch
+space during the calculations.
+"""
+function x_pow_s_x_pow_t_m1_div_t!(
+    res::Arb,
+    x::Arb,
+    x_pow_s::Arb,
+    s::Arb,
+    t::Arb,
+    buffer1::Arb,
+    buffer2::Arb,
+)
+    if !Arblib.is_positive(x)
+        # No need to optimize this case
+        return Arblib.set!(res, x_pow_s_x_pow_t_m1_div_t(x, s, t))
+    end
+
+    if Arblib.contains_zero(t)
+        # No need to optimize this case
+        return Arblib.set!(res, x_pow_s_x_pow_t_m1_div_t(x, s, t))
+    end
+
+    if iswide(t)
+        # Use that it is non-decreasing in t
+
+        Arblib.log!(res, x) # Use res for the lower bound
+        resᵤ = Arblib.set!(buffer1, res) # Use buffer1 for the upper bound
+
+
+        # res0 = (exp(log(abs(x)) * lbound(Arb, t)) - 1) / lbound(Arb, t)
+        tₗ = buffer2 # Use buffer2 for tₗ
+        Arblib.get_lbound!(Arblib.midref(tₗ), t)
+        Arblib.zero!(Arblib.radref(tₗ))
+        Arblib.mul!(res, res, tₗ)
+        Arblib.expm1!(res, res)
+        Arblib.div!(res, res, tₗ)
+
+        # resᵤ = (exp(log(abs(x)) * ubound(Arb, t)) - 1) / ubound(Arb, t)
+        tᵤ = buffer2 # Use buffer2 for tᵤ
+        Arblib.get_ubound!(Arblib.midref(tᵤ), t)
+        Arblib.zero!(Arblib.radref(tᵤ))
+        Arblib.mul!(resᵤ, resᵤ, tᵤ)
+        Arblib.expm1!(resᵤ, resᵤ)
+        Arblib.div!(resᵤ, resᵤ, tᵤ)
+
+        Arblib.union!(res, res, resᵤ)
+    else
+        Arblib.log!(res, x)
+        Arblib.mul!(res, res, t)
+        Arblib.expm1!(res, res)
+        Arblib.div!(res, res, t)
+    end
+
+    return Arblib.mul!(res, res, x_pow_s)
+end
+
+
+"""
     x_pow_s_x_pow_t_m1_div_t!(res::ArbSeries, x::ArbSeries, dx::ArbSeries, x_pow_s::ArbSeries, s::Arb, t::Arb, tm1::Arb, buffer1::Arb, buffer2::Arb)
 
 Inplace version of [`x_pow_s_x_pow_t_m1_div_t`](@ref). It is used in
@@ -789,19 +854,21 @@ function x_pow_s_x_pow_t_m1_div_t!(
         res[0] = 1 # Hack to ensures that the coefficient is allocated
         res0 = Arblib.ref(res, 0)
 
-        Arblib.log!(res0, Arblib.ref(x, 0))
+        Arblib.log!(res0, Arblib.ref(x, 0)) # Use res0 for the lower bound
         resᵤ = Arblib.set!(buffer1, res0) # Use buffer1 for the upper bound
 
         # res0 = (exp(log(abs(x)) * lbound(Arb, t)) - 1) / lbound(Arb, t)
-        tₗ = Arblib.get_lbound!(Arblib.midref(buffer2), t) # Use buffer2 for tₗ
-        Arblib.zero!(Arblib.radref(buffer2))
+        tₗ = buffer2 # Use buffer2 for tₗ
+        Arblib.get_lbound!(Arblib.midref(tₗ), t)
+        Arblib.zero!(Arblib.radref(tₗ))
         Arblib.mul!(res0, res0, tₗ)
         Arblib.expm1!(res0, res0)
         Arblib.div!(res0, res0, tₗ)
 
         # resᵤ = (exp(log(abs(x)) * ubound(Arb, t)) - 1) / ubound(Arb, t)
-        tᵤ = Arblib.get_ubound!(Arblib.midref(buffer2), t) # Use buffer2 for tᵤ
-        Arblib.zero!(Arblib.radref(buffer2))
+        tᵤ = buffer2 # Use buffer2 for tᵤ
+        Arblib.get_ubound!(Arblib.midref(tᵤ), t)
+        Arblib.zero!(Arblib.radref(tᵤ))
         Arblib.mul!(resᵤ, resᵤ, tᵤ)
         Arblib.expm1!(resᵤ, resᵤ)
         Arblib.div!(resᵤ, resᵤ, tᵤ)

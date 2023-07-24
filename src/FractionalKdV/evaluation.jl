@@ -1020,8 +1020,8 @@ function _F0_bhkdv(
                 ArbExtras.enclosure_series(x) do x
                     S = zero(x)
                     term = zero(x)
+                    x_pow_s = abspow(x, v1)
                     if x isa ArbSeries
-                        x_pow_s = abspow(x, v1)
                         dx = Arblib.derivative(x)
                     end
                     for j = 1:min(skip_singular_j_until_int, u0.N0)
@@ -1029,7 +1029,7 @@ function _F0_bhkdv(
                         # S += u0.a[j] * x_pow_s_x_pow_t_m1_div_t(x, v1, v2 + j * p0)
                         Arblib.fma!(t, u0.p0, j, v2)
                         if x isa Arb
-                            Arblib.set!(term, x_pow_s_x_pow_t_m1_div_t(x, v1, t))
+                            x_pow_s_x_pow_t_m1_div_t!(term, x, x_pow_s, v1, t, buffer1, buffer2)
                             Arblib.addmul!(S, term, u0.a[j])
                         else
                             Arblib.sub!(tm1, t, 1)
