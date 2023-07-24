@@ -759,14 +759,48 @@ function _T0_bhkdv_I3_M2(α, p, _)
     s = -α - 1
 
     integrand(t) =
-        if isreal(t) && !iswide(t)
-            rt = real(t)
+        let
+            # r = ((t - 1)^s + (1 + t)^s - 2t^s)
+            r = if isreal(t) && !iswide(t)
+                rt = Arblib.realref(t)
+                rt_m_1 = rt - 1
+                rt_p_1 = rt + 1
 
-            -t^p * log(t) * ArbExtras.enclosure_series(s, degree = 4) do s
-                (rt - 1)^s + (1 + rt)^s - 2rt^s
+                ArbExtras.enclosure_series(s, degree = 4) do s
+                    r1 = rt_m_1^s
+                    r2 = rt_p_1^s
+
+                    if s isa ArbSeries
+                        r3 = rt^s
+                        Arblib.add_series!(r1, r1, r2, length(r1))
+                        Arblib.mul_2exp!(r3, r3, 1)
+                        Arblib.sub_series!(r1, r1, r3, length(r1))
+                    else
+                        Arblib.add!(r1, r1, r2)
+                        Arblib.pow!(r2, rt, s)
+                        Arblib.submul!(r1, r2, 2)
+                    end
+                end |> Acb
+            else
+                r1 = t - 1
+                Arblib.pow!(r1, r1, s)
+
+                r2 = t + 1
+                Arblib.pow!(r2, r2, s)
+                Arblib.add!(r1, r1, r2)
+
+                Arblib.pow!(r2, t, s)
+                Arblib.submul!(r1, r2, 2)
+
+                r1
             end
-        else
-            -((t - 1)^s + (1 + t)^s - 2t^s) * t^p * log(t)
+
+            # rr = -r * t^p * log(t)
+            rr = t^p
+            Arblib.mul!(rr, rr, r)
+            Arblib.mul!(rr, rr, Arblib.log!(r, t)) # Reuse r for computing log
+            Arblib.neg!(rr, rr)
+            return rr
         end
 
     # Compute
