@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.22
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -108,6 +108,9 @@ Finally we take the data to be the one from Dardel that succeeded plus the bisec
 # ╔═╡ 525e5539-82f1-4d37-809f-338bf32e8a5a
 data = sort!(vcat(filter(:proved => identity, data_dardel), data_rerun), :α, by = midpoint)
 
+# ╔═╡ 7108acfd-30cb-44c4-a598-01f215914259
+HighestCuspedWave.check_proof_data(data) # Run some sanity checks on the data
+
 # ╔═╡ 1dc6509c-2217-43b6-a467-ccbf9fade853
 @assert all(data.proved)
 
@@ -189,6 +192,12 @@ let pl = plot(xlabel = L"\alpha", ylabel = L"D_\alpha", dpi = 400)
     pl
 end
 
+# ╔═╡ f17495f7-4fef-493e-a334-562c48b47341
+extrema(data.u0_N0)
+
+# ╔═╡ 54d12209-5e95-4eb6-ae3c-0e13710b6d6e
+extrema(data.u0_N1)
+
 # ╔═╡ be553dc7-1ddc-4239-8dea-0f857ffa5e28
 let pl = plot(xlabel = L"\alpha", ylims = (NaN, 100), dpi = 400)
     scatter!(pl, data.α, data.u0_N0, msw = 0, ms = 1, label = L"N_{\alpha,0}")
@@ -209,12 +218,18 @@ data_near_m1 = filter(:α => <(-0.9), data)
 let pl = plot(
         xlabel = L"1 + \alpha",
         ylabel = L"n_\alpha",
-        legend = :none,
         ylims = (0, NaN),
         xaxis = :log10,
         dpi = 400,
     )
-    scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.n₀_rounded, msw = 0, ms = 1)
+    scatter!(
+        pl,
+        1 .+ data_near_m1.α,
+        data_near_m1.n₀_rounded,
+        msw = 0,
+        ms = 1,
+        label = "Bound",
+    )
     pl
 end
 
@@ -222,14 +237,27 @@ end
 let pl = plot(
         xlabel = L"1 + \alpha",
         ylabel = L"\delta_\alpha",
-        legend = :none,
         xaxis = :log10,
         ylims = (0, NaN),
         dpi = 400,
     )
-    scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.δ₀_rounded, msw = 0, ms = 1)
+    scatter!(
+        pl,
+        1 .+ data_near_m1.α,
+        data_near_m1.δ₀_rounded,
+        msw = 0,
+        ms = 1,
+        label = "Bound",
+    )
     goal_estimate = @. (1 - data_near_m1.D₀_estimate)^2 / 4data_near_m1.n₀_rounded
-    scatter!(pl, 1 .+ data_near_m1.α, goal_estimate, msw = 0, ms = 1)
+    scatter!(
+        pl,
+        1 .+ data_near_m1.α,
+        goal_estimate,
+        msw = 0,
+        ms = 1,
+        label = "Estiamted goal",
+    )
     pl
 end
 
@@ -237,13 +265,26 @@ end
 let pl = plot(
         xlabel = L"1 + \alpha",
         ylabel = L"D_\alpha",
-        legend = :none,
         xaxis = :log10,
         ylims = (NaN, 1),
         dpi = 400,
     )
-    scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.D₀_rounded, msw = 0, ms = 1)
-    scatter!(pl, 1 .+ data_near_m1.α, data_near_m1.D₀_estimate, msw = 0, ms = 1)
+    scatter!(
+        pl,
+        1 .+ data_near_m1.α,
+        data_near_m1.D₀_rounded,
+        msw = 0,
+        ms = 1,
+        label = "Bound",
+    )
+    scatter!(
+        pl,
+        1 .+ data_near_m1.α,
+        data_near_m1.D₀_estimate,
+        msw = 0,
+        ms = 1,
+        label = "Estimate",
+    )
     pl
 end
 
@@ -275,35 +316,51 @@ extrema(data.δ₀_time), mean(data.δ₀_time)
 # ╔═╡ cd119999-843c-4a06-b7ee-2efe080339c1
 extrema(data.D₀_time), (mean(data.D₀_time))
 
+# ╔═╡ b6323cd6-259d-4ce4-a367-27874a441682
+total_time_dardel =
+    data_dardel.u0_time +
+    data_dardel.n₀_time +
+    data_dardel.δ₀_time +
+    data_dardel.D₀_estimate_time +
+    map(x -> isfinite(x) ? x : zero(x), data_dardel.D₀_time)
+
 # ╔═╡ ec55a995-a331-4ec4-aa2f-5ecd3839a877
 md"""
-Core hours used for different parts of the computations. Based on the assumption that all computations were run with 4 threads.
+To compute the core hours used we need to know the number of cores used for the computations. For indices `1:2000` 8 cores were used and for the rest 4 cores were used.
 """
 
-# ╔═╡ 123fa81c-f257-4bfb-9434-e8f8c2f4c3aa
+# ╔═╡ 9ae7a946-b082-44a4-9219-a055e3404b3b
+indices_8, indices_4 = 1:2000, 2001:lastindex(total_time_dardel)
+
+# ╔═╡ 7a037438-e027-45a7-9a5d-ce418472a29b
 total_core_hours_dardel =
-    sum(
-        data_dardel.u0_time +
-        data_dardel.n₀_time +
-        data_dardel.δ₀_time +
-        data_dardel.D₀_estimate_time +
-        map(x -> isfinite(x) ? x : zero(x), data_dardel.D₀_time),
-    ) / 3600 * 4
+    (8sum(total_time_dardel[indices_8]) + 4sum(total_time_dardel[indices_4])) / 3600
 
 # ╔═╡ ca68456d-8aab-4fb0-acb8-6363456ada1c
-u0_core_hours_dardel = sum(data_dardel.u0_time) / 3600 * 4
+u0_core_hours_dardel =
+    (8sum(data_dardel.u0_time[indices_8]) + 4sum(data_dardel.u0_time[indices_4])) / 3600
 
 # ╔═╡ aa8a7689-89e4-4dc3-af81-d8a60dfe630b
-n₀_core_hours_dardel = sum(data_dardel.n₀_time) / 3600 * 4
+n₀_core_hours_dardel =
+    (8sum(data_dardel.n₀_time[indices_8]) + 4sum(data_dardel.n₀_time[indices_4])) / 3600
 
 # ╔═╡ 5faca96a-6094-4911-99bb-08efc6563b05
-δ₀_core_hours_dardel = sum(data_dardel.δ₀_time) / 3600 * 4
+δ₀_core_hours_dardel =
+    (8sum(data_dardel.δ₀_time[indices_8]) + 4sum(data_dardel.δ₀_time[indices_4])) / 3600
 
 # ╔═╡ 33121b6b-c9a6-4902-bdd1-970b42c89968
-D₀_estimate_core_hours_dardel = sum(data_dardel.D₀_estimate_time) / 3600 * 4
+D₀_estimate_core_hours_dardel =
+    (
+        8sum(data_dardel.D₀_estimate_time[indices_8]) +
+        4sum(data_dardel.D₀_estimate_time[indices_4])
+    ) / 3600
 
 # ╔═╡ f187c0dd-19e9-435e-acb5-05cc23956412
-D₀_core_hours_dardel = sum(filter(isfinite, data_dardel.D₀_time)) / 3600 * 4
+D₀_core_hours_dardel =
+    (
+        8sum(filter(isfinite, data_dardel.D₀_time[indices_8])) +
+        4sum(filter(isfinite, data_dardel.D₀_time[indices_4]))
+    ) / 3600
 
 # ╔═╡ Cell order:
 # ╠═c5afc656-9737-11ed-2d9d-95fffa9fe4ef
@@ -321,6 +378,7 @@ D₀_core_hours_dardel = sum(filter(isfinite, data_dardel.D₀_time)) / 3600 * 4
 # ╠═376f8999-6033-46f6-9b6b-e1eeb139a1ec
 # ╟─5d937e1e-c4a5-4c9a-b602-ad8a767ed1e2
 # ╠═525e5539-82f1-4d37-809f-338bf32e8a5a
+# ╠═7108acfd-30cb-44c4-a598-01f215914259
 # ╠═1dc6509c-2217-43b6-a467-ccbf9fade853
 # ╟─ff4b9389-8fa3-4bc9-b6fb-23504a58a576
 # ╠═097efc47-79f9-4412-a059-9f7bd6be967b
@@ -333,6 +391,8 @@ D₀_core_hours_dardel = sum(filter(isfinite, data_dardel.D₀_time)) / 3600 * 4
 # ╟─f68bebf9-bc64-4f2a-ad23-6795054cecbd
 # ╟─e7a9ab6b-a529-4327-bf40-165aaf52854b
 # ╟─e089b20a-03b2-442b-9806-ad53f277c8aa
+# ╠═f17495f7-4fef-493e-a334-562c48b47341
+# ╠═54d12209-5e95-4eb6-ae3c-0e13710b6d6e
 # ╟─be553dc7-1ddc-4239-8dea-0f857ffa5e28
 # ╟─8e6f4347-e7ad-448e-8109-4eb7a29ee434
 # ╠═00feca50-1d56-48ba-8104-fd477f5a5464
@@ -344,8 +404,10 @@ D₀_core_hours_dardel = sum(filter(isfinite, data_dardel.D₀_time)) / 3600 * 4
 # ╠═829e9bf7-0455-4325-a1fc-1d0e1f41ef33
 # ╠═efe8fff0-be11-4259-aace-fe75c4940df9
 # ╠═cd119999-843c-4a06-b7ee-2efe080339c1
+# ╠═b6323cd6-259d-4ce4-a367-27874a441682
 # ╟─ec55a995-a331-4ec4-aa2f-5ecd3839a877
-# ╠═123fa81c-f257-4bfb-9434-e8f8c2f4c3aa
+# ╠═9ae7a946-b082-44a4-9219-a055e3404b3b
+# ╠═7a037438-e027-45a7-9a5d-ce418472a29b
 # ╠═ca68456d-8aab-4fb0-acb8-6363456ada1c
 # ╠═aa8a7689-89e4-4dc3-af81-d8a60dfe630b
 # ╠═5faca96a-6094-4911-99bb-08efc6563b05
