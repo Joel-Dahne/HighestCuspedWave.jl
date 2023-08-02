@@ -1,8 +1,9 @@
 # Computations on Dardel
 Some of the computations for the computer assisted part of the proof
-were done on the computer cluster [Dardel
-cluser](https://www.pdc.kth.se/hpc-services/computing-systems/about-the-dardel-hpc-system-1.1053338),
-This directory contains the scripts used for those computations.
+were done on the
+[Dardel<](https://www.pdc.kth.se/hpc-services/computing-systems/about-the-dardel-hpc-system-1.1053338)
+computer cluster, This directory contains the scripts used for those
+computations.
 
 Access to Dardel was provided by the National Academic Infrastructure
 for Supercomputing in Sweden (NAISS) and the Swedish National
@@ -36,16 +37,18 @@ proof it should be omitted to cover the whole subintervals.
 
 The number of nodes, tasks and CPUs per task to use is set in
 `Dardel/scripts/run_proof.sh`. It is tuned for Dardel, which has 256
-threads per node, and uses 64 tasks and 4 CPUs per task. By default
-Julia makes use of all available tasks and CPUs, it can be manually
-set using the environmental variables `HCW_WORKERS` and `HCW_THREADS`
-respectively, see the function `create_workers` in
-`Dardel/scripts/helper.jl`. In some cases it is beneficial to use a
-`HCW_THREADS` value that is half of the number of CPUs per task, this
-reduces the peak memory usage but only has a minor impact on
-performance due to simultaneous multithreading.
+threads per node, and uses 64 tasks and 4 CPUs per task in most cases.
+By default Julia makes use of all available tasks and CPUs, it can be
+manually set using the environmental variables `HCW_WORKERS` and
+`HCW_THREADS` respectively, see the function `create_workers` in
+`Dardel/scripts/helper.jl`. Near -1 the computations use a lot of
+memory and to reduce the peak memory usage some parameters are
+modified. In this case it uses a `HCW_THREADS` value that is half of
+the number of CPUs per task, this only has a minor impact on
+performance due to simultaneous multithreading. Very close to -1 it
+also uses 32 tasks with 8 CPUs per task instead.
 
-We split the full computation into 6 jobs, each handling a subset of
+We split the full computation into 7 jobs, each handling a subset of
 the 32 subintervals. These jobs can be started with the following
 commands, executed from the root of this repository. The data is
 written to a timestamped subdirectory of `Dardel/data/proof/`. Note
@@ -53,11 +56,6 @@ that the data that the proof in the paper is based on is available at
 `proofs/data/Dardel/`.
 
 ``` shell
-# The first three intervals have a higher memory usage and for that
-# reason we use fewer threads to avoid using too much memory. This is
-# slower than if we would have used all threads. However it is not
-# that much slower due to SMT, only about 20-30% slower it seems.
-
 # Intervals 1:1
 # Takes around 7 hours in total.
 HCW_THREADS=4 sbatch --ntasks=32 --cpus-per-task=8 --time=9:00:00 -p main --job-name=run_proof_1 -o Dardel/logs/run_proof_1.o -e Dardel/logs/run_proof_1.e Dardel/scripts/run_proof.sh 1 1
