@@ -287,7 +287,7 @@ For $\Delta_D$ we need to print a few more digits to get the enclosures correct.
 """
 
 # ╔═╡ ca217129-82ba-4062-a387-67f4f78b87c1
-ΔD_printed = Arblib.string_nice(ΔD, 2, UInt(1))
+ΔD_printed = Arblib.string_nice(ΔD, 4, UInt(1))
 
 # ╔═╡ 4f1d46e1-2301-43a3-a2ad-897aaf16b2b1
 Arb(ΔD_printed) > ΔD_rounded
@@ -386,7 +386,7 @@ end
 # ╟─b85e1c39-99b2-4bc7-af04-854abf3de52b
 # ╠═13373308-42e3-44ac-bf99-2a5145e6a5df
 # ╟─fa901388-6f0a-4de5-8323-d9b4832062f6
-# ╠═af90b425-59cb-4229-873a-bb7448713dbe
+# ╟─af90b425-59cb-4229-873a-bb7448713dbe
 # ╟─d977785c-751a-4e2a-8634-9ecd1039e3f8
 # ╠═054103ee-ac90-4310-afa3-55291712829d
 # ╟─38e338b0-f7e7-45e6-b84d-45c6946736b3
