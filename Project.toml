@@ -1,7 +1,7 @@
 name = "HighestCuspedWave"
 uuid = "0db62118-0b9a-4e24-89e2-3423f08d1d25"
 authors = ["Joel Dahne <joel@dahne.eu>"]
-version = "0.1.0"
+version = "1.0.0"
 
 [deps]
 ArbExtras = "c87f5d39-a852-4149-8a88-e3a13a25afc6"
