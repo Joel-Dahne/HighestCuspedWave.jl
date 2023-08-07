@@ -183,6 +183,31 @@ A⁰[j] = gamma(α_hat - 1 - j * p0) * cospi((α_hat - 1 - j * p0) / 2) * a[j]
 function lemma_bhkdv_asymptotic_expansion end
 
 """
+    lemma_kdvzero_as_asymptotics
+
+Corresponds to Lemma 4.8 in the paper.
+
+# Statement
+
+For `0 < x <= π we have the following expansions at `α = 0`:
+```
+u0(x) = 1 + b(x) * α + O(α^2)
+H(u0)(x) = -1 / 2 - b(x) * α + O(α^2)
+```
+with
+```
+b(x) = clausenc(x, 1) - γ + a[1][1] * clausenc(x, 1 + p0) + a[2][1] * clausenc(x, 1 + 2p0).
+```
+
+The following notation is used
+```
+a[1][1] = u0.a[1].p[1]
+a[2][1] = u0.a[2].p[1]
+```
+"""
+function lemma_kdvzero_as_asymptotic end
+
+"""
     lemma_inv_u0_normalised
 
 Corresponds to Lemma 8.1 in the paper.
