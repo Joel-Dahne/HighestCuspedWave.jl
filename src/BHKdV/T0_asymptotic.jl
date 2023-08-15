@@ -472,7 +472,7 @@ function _T0_asymptotic_main_2(α::Arb, γ::Arb, c::Arb)
                     exp(t) - t - 1
                 end
 
-                2(sqrt(Arb(ℯ)) * (1 + α) / (-α) + 4s + (2 + α) * exp(3(1 + α) / 2) - 1)
+                2(sqrt(Arb(ℯ)) * (1 + α) / (-α) + 9s + (2 + α) * exp(3(1 + α) / 2) - 1)
             end
 
             # Remaining terms in second factor of remainder terms
