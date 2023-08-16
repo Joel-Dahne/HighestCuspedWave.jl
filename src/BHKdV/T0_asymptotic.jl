@@ -664,7 +664,8 @@ R(x) = 2sum(1:Inf) do m
 end
 ```
 defined in the asymptotic version of [`T0`](@ref), see also
-[`lemma_bhkdv_T0_asymptotic_split`](@ref).
+[`lemma_bhkdv_T0_asymptotic_split`](@ref) and
+[`lemma_bhkdv_U0_R`](@ref).
 
 To compute the integral we first split the log-factor as
 ```
@@ -684,13 +685,13 @@ integrating explicitly gives us
     log(1 + c * π) * (π / x)^(2(k + 1) - γ * (1 + α)) / (2(k + 1) - γ * (1 + α)) <=
     log(1 + c * π) * (π / x)^(2(k + 1)) / (2(k + 1) - γ * (1 + α))
 ```
-and
+Furthermore
 ```
 ∫ t^(2k + 1 - γ * (1 + α)) * log(x * t) dt =
     ((2(k + 1) - γ * (1 + α)) * log(π) - 1) * (π / x)^(2(k + 1) - γ * (1 + α)) / (2(k + 1) - γ * (1 + α))^2
-    <= log(π) * (π / x)^(2(k + 1)) / (2(k + 1) - γ * (1 + α))
 ```
-Hence
+which for `k >= 0` is positive. Hence an upper bound for the full
+integral is given by
 ```
 ∫ t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt <=
     log(c + inv(π)) / (2(k + 1) - γ * (1 + α)) * (π / x)^(2(k + 1))
@@ -711,8 +712,8 @@ sum(0:m-1) do k
 end <=
     sum(binomial(2m, 2k) * (1 / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m-1) <=
     sum(binomial(2m, 2k) * (1 / π)^(2(m - 1 - k)) / (2k + 1) for k = 0:m) =
-    π^(2 - 2m) * ((π - 1)^2m + (π + 1)^2m) / 2 <=
-    π^(2 - 2m) * (π + 1)^2m <=
+    π^(1 - 2m) * ((π + 1)^2m - (π - 1)^2m + π * (π - 1)^2m + π * (π + 1)^2m) / 2(1 + 2m) <=
+    π^(1 - 2m) * (π + 1)^2m * (1 + 2π) / 6 <=
     = π^2 * (1 + inv(π))^2m
 ```
 Giving us

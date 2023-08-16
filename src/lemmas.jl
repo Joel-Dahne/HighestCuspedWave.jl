@@ -983,6 +983,36 @@ for some `C` satisfying
 function lemma_bhkdv_U0_G21 end
 
 """
+    lemma_bhkdv_U0_R
+
+Corresponds to Lemma F.8 in the paper.
+
+# Statement
+
+For
+```
+R(x) = 2sum(1:Inf) do m
+    (-1)^m * zeta(-α - 2m) * x^2m / factorial(2m) * sum(0:m-1) do k
+        binomial(2m, 2k) * ∫_0^(π / x) t^(2k + 1 - γ * (1 + α)) * log(c + inv(x * t)) dt
+    end
+end
+```
+we have
+```
+R(x) <= 2log(2ℯ + 1 / π) * (
+    sum(1:M-1) do m
+        (-1)^m * zeta(-1 - 2m) * π^2m / factorial(2m) * sum(0:m-1) do k
+            binomial(2m, 2k) * inv(2k + 1 + (1 - α) / 2) * (x / π)^(2(m - 1 - k))
+        end
+    end
+    + π^2 * 2(2π)^(1 - α - 2M) * abs(sinpi(α / 2)) * zeta(2M + 1 + α)
+    * (π(1 + 1 / π))^2M / (4π^2 - (π * (1 + 1 / π))^2)
+)
+```
+"""
+function lemma_bhkdv_U0_R end
+
+"""
     lemma_kdv_U0_hybrid_R
 
 Corresponds to Lemma G.1 in the paper.
