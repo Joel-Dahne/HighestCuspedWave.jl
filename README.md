@@ -2,8 +2,8 @@
 
 This repository contains the code for the computer assisted parts of
 the proofs for the paper [Highest Cusped Waves for the Fractional KdV
-Equations](). It also contains code related to the paper [Highest
-Cusped Waves for the Burgers-Hilbert
+Equations](https://arxiv.org/abs/2308.16579). It also contains code
+related to the paper [Highest Cusped Waves for the Burgers-Hilbert
 Equation](https://doi.org/10.1007/s00205-023-01904-6), though the code
 is updated compared to that paper (for the original version see
 [BurgersHilbertWave.jl](https://github.com/Joel-Dahne/BurgersHilbertWave.jl)).
